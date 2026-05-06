@@ -10,6 +10,8 @@ type Params = {
   }>;
 };
 
+type ProductRow = Record<string, unknown>;
+
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
@@ -54,10 +56,29 @@ function toNumber(value: unknown, fallback = 0) {
 function splitAliases(value: unknown) {
   const text = String(value ?? "");
 
-  return text
-    .split(/[\n;,]+/g)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+  return Array.from(
+    new Set(
+      text
+        .split(/[\n;,]+/g)
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
+    )
+  );
+}
+
+function hasColumn(product: ProductRow, columnName: string) {
+  return Object.prototype.hasOwnProperty.call(product, columnName);
+}
+
+function setIfColumnExists(
+  updatePayload: Record<string, unknown>,
+  product: ProductRow,
+  columnName: string,
+  value: unknown
+) {
+  if (hasColumn(product, columnName)) {
+    updatePayload[columnName] = value;
+  }
 }
 
 async function replaceProductAliases(
@@ -71,34 +92,47 @@ async function replaceProductAliases(
     .eq("product_id", productId);
 
   if (deleteError) {
-    throw new Error(`Alte Suchbegriffe konnten nicht gelöscht werden: ${deleteError.message}`);
+    throw new Error(
+      `Alte Suchbegriffe konnten nicht gelöscht werden: ${deleteError.message}`
+    );
   }
 
   if (aliases.length === 0) return;
 
-  const rows = aliases.map((alias) => ({
+  const aliasTextRows = aliases.map((aliasText) => ({
     product_id: productId,
-    alias_text: alias,
+    alias_text: aliasText,
   }));
 
-  const { error: insertError } = await supabase
+  const { error: aliasTextInsertError } = await supabase
     .from("school_product_aliases")
-    .insert(rows);
+    .insert(aliasTextRows);
 
-  if (!insertError) return;
+  if (!aliasTextInsertError) return;
 
-  const fallbackRows = aliases.map((alias) => ({
+  const aliasRows = aliases.map((alias) => ({
     product_id: productId,
     alias,
   }));
 
-  const { error: fallbackError } = await supabase
+  const { error: aliasInsertError } = await supabase
     .from("school_product_aliases")
-    .insert(fallbackRows);
+    .insert(aliasRows);
 
-  if (fallbackError) {
+  if (!aliasInsertError) return;
+
+  const nameRows = aliases.map((name) => ({
+    product_id: productId,
+    name,
+  }));
+
+  const { error: nameInsertError } = await supabase
+    .from("school_product_aliases")
+    .insert(nameRows);
+
+  if (nameInsertError) {
     throw new Error(
-      `Suchbegriffe konnten nicht gespeichert werden: ${fallbackError.message}`
+      `Suchbegriffe konnten nicht gespeichert werden: ${nameInsertError.message}`
     );
   }
 }
@@ -142,25 +176,72 @@ export async function PATCH(request: NextRequest, context: Params) {
       );
     }
 
-    const updatePayload = {
-      name: productName,
-      product_name: productName,
-      title: productName,
-      sku: productSku,
-      product_sku: productSku,
-      price,
-      product_price: price,
-      sale_price_gross: price,
-      sale_price: price,
-      category,
-      product_type: productType,
-      format,
-      color,
-      lineature,
-      image_url: imageUrl,
-      active,
-      updated_at: new Date().toISOString(),
-    };
+    const { data: existingProduct, error: existingProductError } =
+      await supabase
+        .from("school_products")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+    if (existingProductError) {
+      return jsonResponse(
+        {
+          ok: false,
+          message: `Produkt konnte nicht geladen werden: ${existingProductError.message}`,
+        },
+        500
+      );
+    }
+
+    if (!existingProduct) {
+      return jsonResponse(
+        {
+          ok: false,
+          message: "Produkt wurde nicht gefunden.",
+        },
+        404
+      );
+    }
+
+    const product = existingProduct as ProductRow;
+    const updatePayload: Record<string, unknown> = {};
+
+    setIfColumnExists(updatePayload, product, "name", productName);
+    setIfColumnExists(updatePayload, product, "product_name", productName);
+    setIfColumnExists(updatePayload, product, "title", productName);
+
+    setIfColumnExists(updatePayload, product, "sku", productSku);
+    setIfColumnExists(updatePayload, product, "product_sku", productSku);
+
+    setIfColumnExists(updatePayload, product, "price", price);
+    setIfColumnExists(updatePayload, product, "product_price", price);
+    setIfColumnExists(updatePayload, product, "sale_price", price);
+    setIfColumnExists(updatePayload, product, "sale_price_gross", price);
+
+    setIfColumnExists(updatePayload, product, "category", category);
+    setIfColumnExists(updatePayload, product, "product_type", productType);
+    setIfColumnExists(updatePayload, product, "format", format);
+    setIfColumnExists(updatePayload, product, "color", color);
+    setIfColumnExists(updatePayload, product, "lineature", lineature);
+    setIfColumnExists(updatePayload, product, "image_url", imageUrl);
+    setIfColumnExists(updatePayload, product, "active", active);
+    setIfColumnExists(
+      updatePayload,
+      product,
+      "updated_at",
+      new Date().toISOString()
+    );
+
+    if (Object.keys(updatePayload).length === 0) {
+      return jsonResponse(
+        {
+          ok: false,
+          message:
+            "Es konnten keine passenden Produktspalten zum Aktualisieren gefunden werden.",
+        },
+        500
+      );
+    }
 
     const { error: updateError } = await supabase
       .from("school_products")
