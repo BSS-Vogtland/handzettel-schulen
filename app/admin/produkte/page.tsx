@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import AdminQuickProductForm from "@/components/AdminQuickProductForm";
+import AdminEditProductForm from "@/components/AdminEditProductForm";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +123,7 @@ export default async function AdminProductsPage() {
   const { data: productsData, error: productsError } = await supabase
     .from("school_products")
     .select("*")
-    .limit(100);
+    .limit(500);
 
   if (productsError) {
     throw new Error(
@@ -133,7 +134,7 @@ export default async function AdminProductsPage() {
   const { data: aliasesData } = await supabase
     .from("school_product_aliases")
     .select("*")
-    .limit(1000);
+    .limit(5000);
 
   const products = ((productsData || []) as ProductRow[]).sort((a, b) => {
     const aDate = String(a.created_at || "");
@@ -183,13 +184,13 @@ export default async function AdminProductsPage() {
               </div>
 
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-                Produkte schnell erfassen
+                Produkte erfassen & bearbeiten
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Lege Produkte zentral an — jetzt auch mit Produktbild. Diese
-                Produkte stehen danach direkt in der manuellen Produktsuche, im
-                Matching und später auf der Kundenseite zur Verfügung.
+                Lege Produkte zentral an und bearbeite bestehende Produkte
+                direkt im Bestand. Änderungen wirken sich auf Produktsuche,
+                Matching und Kundenseite aus.
               </p>
             </div>
 
@@ -218,12 +219,12 @@ export default async function AdminProductsPage() {
               </div>
 
               <h2 className="text-2xl font-black text-[#102A43]">
-                Zuletzt erfasste Produkte
+                Bestehende Produkte
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-                Hier siehst Du die aktuell geladenen Produkte, Bilder und
-                gespeicherten Suchbegriffe.
+                Öffne bei einem Produkt den Bearbeiten-Bereich, um Stammdaten,
+                Preis, Aliase oder den Aktivstatus zu ändern.
               </p>
             </div>
 
@@ -239,13 +240,16 @@ export default async function AdminProductsPage() {
             <div className="grid gap-3">
               {products.map((product) => {
                 const productAliases = aliasesByProduct.get(product.id) || [];
+                const aliasTexts = productAliases
+                  .map((alias) => getAliasText(alias))
+                  .filter(Boolean);
 
                 return (
                   <article
                     key={product.id}
                     className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
                   >
-                    <div className="grid gap-4 lg:grid-cols-[120px_1fr_160px] lg:items-start">
+                    <div className="grid gap-4 lg:grid-cols-[120px_1fr_170px] lg:items-start">
                       <div className="overflow-hidden rounded-2xl border border-[#E8DED2] bg-white">
                         {product.image_url ? (
                           <img
@@ -306,22 +310,43 @@ export default async function AdminProductsPage() {
                             : "Ohne Art.-Nr."}
                         </p>
 
-                        {productAliases.length > 0 ? (
+                        {aliasTexts.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {productAliases.slice(0, 8).map((alias, index) => (
+                            {aliasTexts.slice(0, 8).map((alias, index) => (
                               <span
                                 key={`${product.id}-alias-${index}`}
                                 className="rounded-full border border-[#E8DED2] bg-white px-3 py-1 text-xs font-bold text-[#52616F]"
                               >
-                                {getAliasText(alias)}
+                                {alias}
                               </span>
                             ))}
+
+                            {aliasTexts.length > 8 ? (
+                              <span className="rounded-full border border-[#E8DED2] bg-white px-3 py-1 text-xs font-bold text-[#A75B28]">
+                                +{aliasTexts.length - 8} weitere
+                              </span>
+                            ) : null}
                           </div>
                         ) : (
                           <p className="mt-3 text-sm font-semibold text-[#9AA7B2]">
                             Noch keine Aliase gespeichert.
                           </p>
                         )}
+
+                        <AdminEditProductForm
+                          productId={product.id}
+                          productName={getProductName(product)}
+                          productSku={getProductSku(product)}
+                          productPrice={getProductPrice(product)}
+                          category={product.category || null}
+                          productType={product.product_type || null}
+                          format={product.format || null}
+                          color={product.color || null}
+                          lineature={product.lineature || null}
+                          imageUrl={product.image_url || null}
+                          active={product.active !== false}
+                          aliases={aliasTexts}
+                        />
                       </div>
 
                       <div className="rounded-2xl bg-white p-4 lg:text-right">
@@ -333,6 +358,9 @@ export default async function AdminProductsPage() {
                         </p>
                         <p className="mt-2 text-xs font-semibold text-[#52616F]">
                           Erstellt: {formatDate(product.created_at)}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                          Geändert: {formatDate(product.updated_at)}
                         </p>
 
                         {product.active === false ? (
