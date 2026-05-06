@@ -1,0 +1,487 @@
+"use client";
+
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Pencil,
+  Ruler,
+  Sparkles,
+} from "lucide-react";
+
+type CustomerPreparePackageButtonProps = {
+  token: string;
+};
+
+type PrepareResponse = {
+  ok?: boolean;
+  itemCount?: number;
+  matchCount?: number;
+  message?: string;
+};
+
+const TIMELINE_STEPS = [
+  { min: 0, label: "Liste wird geprüft" },
+  { min: 22, label: "Schulmaterialien werden erkannt" },
+  { min: 48, label: "Produkte werden zugeordnet" },
+  { min: 72, label: "Schultasche wird gepackt" },
+  { min: 96, label: "Paketvorschlag wird finalisiert" },
+];
+
+function getCurrentStep(progress: number) {
+  let current = TIMELINE_STEPS[0].label;
+
+  for (const step of TIMELINE_STEPS) {
+    if (progress >= step.min) {
+      current = step.label;
+    }
+  }
+
+  return current;
+}
+
+function getStepState(progress: number, min: number, nextMin?: number) {
+  if (progress >= min && (!nextMin || progress < nextMin)) return "active";
+  if (progress >= min) return "done";
+  return "pending";
+}
+
+export default function CustomerPreparePackageButton({
+  token,
+}: CustomerPreparePackageButtonProps) {
+  const router = useRouter();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const interval = window.setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 94) return prev;
+
+        let next = prev;
+
+        if (prev < 18) next += 4;
+        else if (prev < 40) next += 3;
+        else if (prev < 65) next += 2;
+        else if (prev < 84) next += 1;
+        else next += 0.5;
+
+        return Math.min(94, Math.round(next));
+      });
+    }, 260);
+
+    return () => window.clearInterval(interval);
+  }, [isLoading]);
+
+  const displayProgress = Math.max(0, Math.min(100, Math.round(progress)));
+  const currentStepLabel = useMemo(
+    () => getCurrentStep(displayProgress),
+    [displayProgress]
+  );
+
+  async function handlePrepare() {
+    if (isLoading) return;
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsLoading(true);
+    setProgress(4);
+
+    try {
+      const response = await fetch(`/api/offer/${token}/prepare`, {
+        method: "POST",
+      });
+
+      const rawText = await response.text();
+
+      let payload: PrepareResponse | null = null;
+
+      try {
+        payload = rawText ? (JSON.parse(rawText) as PrepareResponse) : null;
+      } catch {
+        throw new Error(
+          "Die Auswertungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+        );
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.message || "Die Liste konnte nicht ausgewertet werden."
+        );
+      }
+
+      setProgress(100);
+      setFeedbackMessage(
+        payload.message ||
+          "Deine Liste wurde ausgewertet. Du kannst jetzt passende Produkte auswählen."
+      );
+
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      router.refresh();
+    } catch (error) {
+      setIsLoading(false);
+      setProgress(0);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Die Liste konnte nicht ausgewertet werden."
+      );
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Automatischer Paketvorschlag
+            </div>
+
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
+              Deine Liste wird gerade ausgewertet.
+            </h2>
+
+            <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
+              Währenddessen packen wir sinnbildlich die Schultasche aus Deinem
+              Logo und ordnen passende Produkte zu. Gleich siehst Du die
+              erkannten Positionen und passende Vorschläge.
+            </p>
+
+            <div className="mt-6 rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#102A43]">
+                    {currentStepLabel}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                    Fortschritt der Analyse
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-3xl font-black leading-none text-[#B5282D]">
+                    {displayProgress} %
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-4 overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full bg-[#B5282D] transition-all duration-300"
+                  style={{ width: `${displayProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {TIMELINE_STEPS.map((step, index) => {
+                const nextMin = TIMELINE_STEPS[index + 1]?.min;
+                const state = getStepState(displayProgress, step.min, nextMin);
+
+                return (
+                  <div
+                    key={step.label}
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                      state === "done"
+                        ? "border-[#BFE3CD] bg-[#F0FFF6]"
+                        : state === "active"
+                        ? "border-[#F4D0D2] bg-[#FFF5F5]"
+                        : "border-[#E8DED2] bg-white"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        state === "done"
+                          ? "bg-[#2F7D50] text-white"
+                          : state === "active"
+                          ? "bg-[#B5282D] text-white"
+                          : "bg-[#FBF7F0] text-[#A75B28]"
+                      }`}
+                    >
+                      {state === "done" ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <span className="text-xs font-black">
+                          {index + 1}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-black text-[#102A43]">
+                        {step.label}
+                      </p>
+                      <p className="text-xs font-semibold text-[#52616F]">
+                        {state === "done"
+                          ? "Abgeschlossen"
+                          : state === "active"
+                          ? "Wird gerade ausgeführt"
+                          : "Als Nächstes"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
+            <div className="relative mx-auto h-[320px] w-full max-w-[420px] overflow-hidden rounded-[28px] bg-white">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(181,40,45,0.08),_transparent_60%)]" />
+
+              <div className="absolute left-1/2 top-1/2 z-20 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[32px] border border-[#E8DED2] bg-white shadow-[0_20px_60px_rgba(16,42,67,0.12)]">
+                <div className="relative h-full w-full overflow-hidden rounded-[32px]">
+                  <Image
+                    src="/handzettel-logo.png"
+                    alt="Handzettel-Schulen.de"
+                    fill
+                    className="object-contain p-5"
+                    priority
+                  />
+                </div>
+              </div>
+
+              <div className="absolute left-1/2 top-1/2 z-30 flex h-14 w-14 -translate-x-1/2 translate-y-14 items-center justify-center rounded-full border-4 border-white bg-[#B5282D] text-lg font-black text-white shadow-lg">
+                {displayProgress}%
+              </div>
+
+              <div className="packing-item packing-item-1">
+                <BookOpen className="h-6 w-6" />
+              </div>
+
+              <div className="packing-item packing-item-2">
+                <Pencil className="h-6 w-6" />
+              </div>
+
+              <div className="packing-item packing-item-3">
+                <Ruler className="h-6 w-6" />
+              </div>
+
+              <div className="packing-item packing-item-4">
+                <BookOpen className="h-6 w-6" />
+              </div>
+
+              <div className="absolute bottom-5 left-1/2 z-10 w-[80%] -translate-x-1/2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-center">
+                <p className="text-sm font-black text-[#102A43]">
+                  Schultasche wird gepackt
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                  Hefte, Stifte und Zubehör werden zugeordnet
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <style jsx>{`
+          .packing-item {
+            position: absolute;
+            z-index: 10;
+            display: flex;
+            height: 52px;
+            width: 52px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            border: 1px solid #e8ded2;
+            background: #ffffff;
+            color: #12395f;
+            box-shadow: 0 10px 30px rgba(16, 42, 67, 0.1);
+            opacity: 0;
+          }
+
+          .packing-item-1 {
+            animation: packItem1 2.9s ease-in-out infinite;
+          }
+
+          .packing-item-2 {
+            animation: packItem2 3.1s ease-in-out infinite 0.3s;
+          }
+
+          .packing-item-3 {
+            animation: packItem3 2.8s ease-in-out infinite 0.6s;
+          }
+
+          .packing-item-4 {
+            animation: packItem4 3s ease-in-out infinite 0.9s;
+          }
+
+          @keyframes packItem1 {
+            0% {
+              left: 18px;
+              top: 26px;
+              opacity: 0;
+              transform: translate(0, 0) scale(0.9) rotate(-8deg);
+            }
+            12% {
+              opacity: 1;
+            }
+            62% {
+              left: 50%;
+              top: 50%;
+              opacity: 1;
+              transform: translate(-50%, -50%) scale(0.8) rotate(0deg);
+            }
+            78% {
+              opacity: 0;
+              transform: translate(-50%, -50%) scale(0.35);
+            }
+            100% {
+              left: 50%;
+              top: 50%;
+              opacity: 0;
+              transform: translate(-50%, -50%) scale(0.35);
+            }
+          }
+
+          @keyframes packItem2 {
+            0% {
+              right: 20px;
+              top: 38px;
+              opacity: 0;
+              transform: translate(0, 0) scale(0.9) rotate(10deg);
+            }
+            12% {
+              opacity: 1;
+            }
+            62% {
+              right: 50%;
+              top: 50%;
+              opacity: 1;
+              transform: translate(50%, -50%) scale(0.78) rotate(0deg);
+            }
+            78% {
+              opacity: 0;
+              transform: translate(50%, -50%) scale(0.35);
+            }
+            100% {
+              right: 50%;
+              top: 50%;
+              opacity: 0;
+              transform: translate(50%, -50%) scale(0.35);
+            }
+          }
+
+          @keyframes packItem3 {
+            0% {
+              left: 30px;
+              bottom: 72px;
+              opacity: 0;
+              transform: translate(0, 0) scale(0.9) rotate(-6deg);
+            }
+            12% {
+              opacity: 1;
+            }
+            62% {
+              left: 50%;
+              bottom: 50%;
+              opacity: 1;
+              transform: translate(-50%, 50%) scale(0.78) rotate(0deg);
+            }
+            78% {
+              opacity: 0;
+              transform: translate(-50%, 50%) scale(0.35);
+            }
+            100% {
+              left: 50%;
+              bottom: 50%;
+              opacity: 0;
+              transform: translate(-50%, 50%) scale(0.35);
+            }
+          }
+
+          @keyframes packItem4 {
+            0% {
+              right: 24px;
+              bottom: 88px;
+              opacity: 0;
+              transform: translate(0, 0) scale(0.9) rotate(7deg);
+            }
+            12% {
+              opacity: 1;
+            }
+            62% {
+              right: 50%;
+              bottom: 50%;
+              opacity: 1;
+              transform: translate(50%, 50%) scale(0.8) rotate(0deg);
+            }
+            78% {
+              opacity: 0;
+              transform: translate(50%, 50%) scale(0.35);
+            }
+            100% {
+              right: 50%;
+              bottom: 50%;
+              opacity: 0;
+              transform: translate(50%, 50%) scale(0.35);
+            }
+          }
+        `}</style>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+            <Sparkles className="h-3.5 w-3.5" />
+            Automatischer Paketvorschlag
+          </div>
+
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
+            Deine Liste ist angekommen.
+          </h2>
+
+          <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
+            Starte jetzt die Auswertung. Das System erkennt Deine
+            Schulmaterialien und erstellt daraus passende Produktvorschläge.
+            Danach kannst Du selbst auswählen, was in Deinen Paketwunsch
+            übernommen werden soll.
+          </p>
+        </div>
+
+        <div className="flex flex-col items-stretch gap-3 lg:items-end">
+          <button
+            type="button"
+            onClick={handlePrepare}
+            className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] bg-[#C6282D] px-8 py-5 text-center text-2xl font-black text-white shadow-[0_18px_50px_rgba(198,40,45,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 lg:max-w-[420px]"
+          >
+            <span>Liste jetzt auswerten</span>
+            <ArrowRight className="h-7 w-7" />
+          </button>
+
+          <p className="max-w-[420px] text-center text-sm font-semibold leading-6 text-[#52616F]">
+            Danach siehst Du direkt die erkannten Positionen und passende
+            Produktvorschläge.
+          </p>
+        </div>
+      </div>
+
+      {feedbackMessage ? (
+        <div className="mt-5 flex items-start gap-3 rounded-[24px] border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-4 text-sm font-semibold text-[#2F7D50]">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>{feedbackMessage}</span>
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div className="mt-5 rounded-[24px] border border-[#F2C6C8] bg-[#FFF5F5] px-4 py-4 text-sm font-semibold text-[#B5282D]">
+          {errorMessage}
+        </div>
+      ) : null}
+    </section>
+  );
+}

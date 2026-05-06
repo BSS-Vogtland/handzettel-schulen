@@ -1,0 +1,1073 @@
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import { supabaseServer } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+type RequestFile = {
+  id: string;
+  storage_path: string | null;
+  file_type: string | null;
+  original_filename: string | null;
+};
+
+type ExtractedItem = {
+  rawText: string;
+  normalizedName: string | null;
+  quantity: number;
+  category: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  notes: string | null;
+  confidence: number;
+};
+
+type CleanedItem = ExtractedItem & {
+  productType: string | null;
+};
+
+type ExtractionResult = {
+  items: ExtractedItem[];
+};
+
+type OpenAiContentPart = {
+  type?: string;
+  text?: string;
+};
+
+type OpenAiOutputItem = {
+  type?: string;
+  content?: OpenAiContentPart[];
+};
+
+type OpenAiResponseLike = {
+  output?: OpenAiOutputItem[];
+};
+
+const ANALYZE_VERSION = "school-material-analyze-v3-lineature-0-8f";
+
+const materialSchema: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          rawText: {
+            type: "string",
+            description:
+              "Die vollständige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), Buchmaß, Farbe und Format unbedingt übernehmen.",
+          },
+          normalizedName: {
+            type: ["string", "null"],
+            description:
+              "Normalisierte Artikelbezeichnung ohne Menge, aber mit wichtigem Artikelnamen, z. B. Schreibheft A5, Umschlag A5 blau, Schnellhefter rot A4.",
+          },
+          quantity: {
+            type: "number",
+            description: "Erkannte Menge. Falls unklar: 1.",
+          },
+          category: {
+            type: ["string", "null"],
+            description:
+              "Kategorie wie Heft, Hausaufgabenheft, Umschlag, Schnellhefter, Schreibblock, Zeichenblock, Zeichenkarton, Stift, Papier, Basteln.",
+          },
+          format: {
+            type: ["string", "null"],
+            description:
+              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus Buchmaß ableitbar.",
+          },
+          color: {
+            type: ["string", "null"],
+            description:
+              "Farbe exakt, z. B. blau, rot, grün, gelb, orange, braun, transparent.",
+          },
+          lineature: {
+            type: ["string", "null"],
+            description:
+              "Lineatur exakt. Erlaubte wichtige Werte: 0, 1, 2, 3, 4, 5, 6, 7, 8f, 9, 10, 25, 26, 27, 28, kariert, liniert. Wichtig: Lineatur 0 ist eine echte Lineatur und darf niemals als unklar ausgegeben werden. Lineatur 8, Lin. 8, L8, 8 F und 8f immer als 8f ausgeben.",
+          },
+          notes: {
+            type: ["string", "null"],
+            description:
+              "Zusätzliche Hinweise, z. B. Buchmaß, Pappe, ROTH, Klipp & Klar.",
+          },
+          confidence: {
+            type: "number",
+            description: "Sicherheit zwischen 0 und 1.",
+          },
+        },
+        required: [
+          "rawText",
+          "normalizedName",
+          "quantity",
+          "category",
+          "format",
+          "color",
+          "lineature",
+          "notes",
+          "confidence",
+        ],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+function getOpenAiClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (
+    !apiKey ||
+    apiKey.trim().length < 20 ||
+    apiKey.includes("DEIN") ||
+    apiKey.includes("HIER_") ||
+    apiKey === "DEIN_OPENAI_API_KEY"
+  ) {
+    throw new Error(
+      "OPENAI_API_KEY fehlt oder ist noch ein Platzhalter. Bitte trage in .env.local einen echten OpenAI API-Key ein und starte npm run dev neu."
+    );
+  }
+
+  return new OpenAI({
+    apiKey,
+  });
+}
+
+function isSupportedImage(file: RequestFile) {
+  return (
+    file.file_type === "image/jpeg" ||
+    file.file_type === "image/png" ||
+    file.file_type === "image/webp" ||
+    file.file_type === "image/heic" ||
+    file.file_type === "image/heif"
+  );
+}
+
+function isSupportedPdf(file: RequestFile) {
+  return file.file_type === "application/pdf";
+}
+
+function extractOutputText(response: unknown) {
+  const typedResponse = response as OpenAiResponseLike;
+
+  const texts =
+    typedResponse.output
+      ?.flatMap((item) => item.content || [])
+      .filter((content) => content.type === "output_text" && content.text)
+      .map((content) => content.text || "") || [];
+
+  return texts.join("\n").trim();
+}
+
+async function createSignedUrl(storagePath: string) {
+  const { data, error } = await supabaseServer.storage
+    .from("school-request-files")
+    .createSignedUrl(storagePath, 60 * 10);
+
+  if (error || !data?.signedUrl) {
+    throw new Error("Die Datei konnte nicht für die Analyse geöffnet werden.");
+  }
+
+  return data.signedUrl;
+}
+
+async function createPdfBase64FileData(storagePath: string) {
+  const { data, error } = await supabaseServer.storage
+    .from("school-request-files")
+    .download(storagePath);
+
+  if (error || !data) {
+    throw new Error(
+      "Die PDF-Datei konnte nicht aus dem Speicher geladen werden."
+    );
+  }
+
+  const arrayBuffer = await data.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const base64String = buffer.toString("base64");
+
+  return `data:application/pdf;base64,${base64String}`;
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9,.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanNullableString(value: unknown) {
+  const text = String(value ?? "").trim();
+
+  if (!text) return null;
+
+  const lowered = normalizeText(text);
+
+  if (
+    lowered === "null" ||
+    lowered === "undefined" ||
+    lowered === "keine" ||
+    lowered === "kein" ||
+    lowered === "nicht vorhanden" ||
+    lowered === "n/a"
+  ) {
+    return null;
+  }
+
+  return text;
+}
+
+function normalizeFormat(value: unknown) {
+  const text = normalizeText(value);
+
+  if (!text) return null;
+  if (text.includes("a3")) return "A3";
+  if (text.includes("a4")) return "A4";
+  if (text.includes("a5")) return "A5";
+
+  return null;
+}
+
+function extractDimensions(value: unknown) {
+  const text = normalizeText(value).replace(/,/g, ".");
+
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*cm\s+hoch\s+und\s+(\d+(?:\.\d+)?)\s*cm\s+breit/g,
+    /(\d+(?:\.\d+)?)\s*cm\s+breit\s+und\s+(\d+(?:\.\d+)?)\s*cm\s+hoch/g,
+    /(\d+(?:\.\d+)?)\s*(?:cm)?\s*(?:x|und)\s*(\d+(?:\.\d+)?)/g,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    return {
+      longSide: Math.max(first, second),
+      shortSide: Math.min(first, second),
+    };
+  }
+
+  return null;
+}
+
+function inferFormatFromDimensions(value: unknown) {
+  const dimensions = extractDimensions(value);
+
+  if (!dimensions) return null;
+
+  const { longSide, shortSide } = dimensions;
+
+  if (longSide >= 29 && longSide <= 33.5 && shortSide >= 20 && shortSide <= 24) {
+    return "A4";
+  }
+
+  if (longSide >= 20 && longSide <= 27.5 && shortSide >= 14 && shortSide <= 20) {
+    return "A5";
+  }
+
+  return null;
+}
+
+function getEffectiveFormat(...values: unknown[]) {
+  for (const value of values) {
+    const format = normalizeFormat(value) || inferFormatFromDimensions(value);
+    if (format) return format;
+  }
+
+  return null;
+}
+
+function normalizeColor(value: unknown) {
+  const text = normalizeText(value);
+
+  if (!text) return null;
+
+  if (text.includes("transparent") || text.includes("klar")) {
+    return "transparent";
+  }
+
+  const colors: Array<{ key: string; label: string }> = [
+    { key: "rot", label: "rot" },
+    { key: "blau", label: "blau" },
+    { key: "gruen", label: "grün" },
+    { key: "gelb", label: "gelb" },
+    { key: "orange", label: "orange" },
+    { key: "lila", label: "lila" },
+    { key: "violett", label: "violett" },
+    { key: "pink", label: "pink" },
+    { key: "rosa", label: "rosa" },
+    { key: "schwarz", label: "schwarz" },
+    { key: "weiss", label: "weiß" },
+    { key: "braun", label: "braun" },
+  ];
+
+  for (const color of colors) {
+    if (text.includes(color.key)) return color.label;
+  }
+
+  return null;
+}
+
+function getEffectiveColor(...values: unknown[]) {
+  for (const value of values) {
+    const color = normalizeColor(value);
+    if (color) return color;
+  }
+
+  return null;
+}
+
+function normalizeLineature(value: unknown) {
+  const text = normalizeText(value);
+
+  if (!text) return null;
+
+  const compact = text.replace(/\s+/g, "");
+
+  const clearlyUnknown =
+    text.includes("nicht lesbar") ||
+    text.includes("nicht erkennbar") ||
+    text.includes("keine lineatur erkennbar");
+
+  if (clearlyUnknown) {
+    return "unknown";
+  }
+
+  if (
+    text === "0" ||
+    compact === "0" ||
+    text.includes("lineatur 0") ||
+    compact.includes("lineatur0") ||
+    text.includes("lin 0") ||
+    text.includes("lin. 0") ||
+    compact.includes("lin0") ||
+    text.includes(" l 0") ||
+    text.includes(" l0") ||
+    text.includes("l0 ") ||
+    text.endsWith(" l0") ||
+    text.includes("heft 0") ||
+    text.includes("schreibheft 0") ||
+    text.includes("schulheft 0")
+  ) {
+    return "0";
+  }
+
+  if (
+    text === "8" ||
+    text === "8f" ||
+    compact === "8" ||
+    compact === "8f" ||
+    text.includes("lineatur 8") ||
+    text.includes("lineatur 8f") ||
+    compact.includes("lineatur8") ||
+    compact.includes("lineatur8f") ||
+    text.includes("lin 8") ||
+    text.includes("lin. 8") ||
+    text.includes("lin 8f") ||
+    text.includes("lin. 8f") ||
+    compact.includes("lin8") ||
+    compact.includes("lin8f") ||
+    text.includes(" l 8") ||
+    text.includes(" l8") ||
+    text.includes("l8 ") ||
+    text.endsWith(" l8") ||
+    text.includes(" l 8f") ||
+    text.includes(" l8f") ||
+    text.includes("l8f ") ||
+    text.endsWith(" l8f") ||
+    text.includes("8 f")
+  ) {
+    return "8f";
+  }
+
+  if (text.includes("kariert") || text.includes("karriert")) return "28";
+  if (text.includes("liniert")) return "liniert";
+
+  const known = [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "9",
+    "10",
+    "25",
+    "26",
+    "27",
+    "28",
+  ];
+
+  for (const entry of known) {
+    if (
+      text === entry ||
+      compact === entry ||
+      text.includes(`lineatur ${entry}`) ||
+      compact.includes(`lineatur${entry}`) ||
+      text.includes(`lin ${entry}`) ||
+      text.includes(`lin. ${entry}`) ||
+      compact.includes(`lin${entry}`) ||
+      text.includes(` l ${entry}`) ||
+      text.includes(` l${entry} `) ||
+      text.endsWith(` l${entry}`) ||
+      text.includes(`l${entry} `) ||
+      text.endsWith(`l${entry}`)
+    ) {
+      return entry;
+    }
+  }
+
+  if (text.includes("unklar")) {
+    return "unknown";
+  }
+
+  return null;
+}
+
+function getEffectiveLineature(...values: unknown[]) {
+  for (const value of values) {
+    const lineature = normalizeLineature(value);
+
+    if (lineature && lineature !== "unknown") {
+      return lineature;
+    }
+  }
+
+  for (const value of values) {
+    const lineature = normalizeLineature(value);
+
+    if (lineature === "unknown") {
+      return "unknown";
+    }
+  }
+
+  return null;
+}
+
+function classifyType(value: unknown) {
+  const text = normalizeText(value);
+
+  if (
+    text.includes("umschlag") ||
+    text.includes("umschlaege") ||
+    text.includes("hefthuelle") ||
+    text.includes("hefthuellen") ||
+    text.includes("huelle") ||
+    text.includes("huellen")
+  ) {
+    return "Umschlag";
+  }
+
+  if (
+    text.includes("hausaufgabenheft") ||
+    text.includes("hausaufgaben") ||
+    text.includes("aufgabenheft")
+  ) {
+    return "Hausaufgabenheft";
+  }
+
+  if (
+    text.includes("schreibblock") ||
+    text.includes("collegeblock") ||
+    text.includes("notizblock")
+  ) {
+    return "Schreibblock";
+  }
+
+  if (
+    text.includes("zeichenblock") ||
+    text.includes("malblock") ||
+    text.includes("skizzenblock")
+  ) {
+    return "Zeichenblock";
+  }
+
+  if (
+    text.includes("zeichenkarton") ||
+    text.includes("tonkarton") ||
+    text.includes("fotokarton")
+  ) {
+    return "Zeichenkarton";
+  }
+
+  if (
+    text.includes("farbkasten") ||
+    text.includes("deckfarbkasten") ||
+    text.includes("malkasten") ||
+    text.includes("wasserfarben")
+  ) {
+    return "Farbkasten";
+  }
+
+  if (text.includes("bleistift") || text.includes(" hb ")) {
+    return "Bleistift";
+  }
+
+  if (text.includes("radiergummi") || text.includes("radierer")) {
+    return "Radiergummi";
+  }
+
+  if (text.includes("lineal")) {
+    return "Lineal";
+  }
+
+  if (text.includes("schnellhefter") || text.includes("hefter")) {
+    return "Schnellhefter";
+  }
+
+  if (
+    text.includes("schreibheft") ||
+    text.includes("schulheft") ||
+    text.includes("heft")
+  ) {
+    return "Heft";
+  }
+
+  return null;
+}
+
+function getEffectiveCategory(...values: unknown[]) {
+  for (const value of values) {
+    const type = classifyType(value);
+
+    if (type) return type;
+  }
+
+  const fallback = cleanNullableString(values.find(Boolean));
+
+  return fallback;
+}
+
+function cleanConfidence(value: unknown) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : Number(String(value ?? "").replace(",", "."));
+
+  if (!Number.isFinite(numberValue)) return 0.75;
+
+  if (numberValue > 1) {
+    return Math.max(0, Math.min(1, numberValue / 100));
+  }
+
+  return Math.max(0, Math.min(1, numberValue));
+}
+
+function cleanQuantity(value: unknown) {
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : Number(String(value ?? "").replace(",", "."));
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return 1;
+
+  return Math.round(numberValue);
+}
+
+function cleanNormalizedName(item: ExtractedItem, productType: string | null) {
+  const rawText = cleanNullableString(item.rawText);
+  const aiName = cleanNullableString(item.normalizedName);
+
+  const base = aiName || rawText || "Unbekannter Artikel";
+
+  const format = getEffectiveFormat(
+    item.rawText,
+    item.normalizedName,
+    item.format
+  );
+
+  const color = getEffectiveColor(item.rawText, item.normalizedName, item.color);
+
+  const normalizedBase = normalizeText(base);
+
+  let name = base;
+
+  if (productType === "Heft") {
+    name = "Schreibheft";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  } else if (productType === "Hausaufgabenheft") {
+    name = "Hausaufgabenheft";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  } else if (productType === "Umschlag") {
+    name = "Umschlag";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+
+    if (color) {
+      name += ` ${color}`;
+    }
+  } else if (productType === "Schnellhefter") {
+    name = normalizedBase.includes("schnellhefter") ? "Schnellhefter" : "Hefter";
+
+    if (color) {
+      name += ` ${color}`;
+    }
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  } else if (productType === "Schreibblock") {
+    name = "Schreibblock";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  } else if (productType === "Zeichenblock") {
+    name = "Zeichenblock";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  } else if (productType === "Zeichenkarton") {
+    name = "Zeichenkarton";
+
+    if (format) {
+      name += ` ${format}`;
+    }
+  }
+
+  return name;
+}
+
+function forceLineatureForKnownPatterns(item: ExtractedItem, detectedLineature: string | null) {
+  const combined = normalizeText(
+    [
+      item.rawText,
+      item.normalizedName,
+      item.category,
+      item.format,
+      item.color,
+      item.lineature,
+      item.notes,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  const compact = combined.replace(/\s+/g, "");
+
+  if (
+    compact.includes("schreibhefta5lineatur0") ||
+    compact.includes("schulhefta5lineatur0") ||
+    compact.includes("hefta5lineatur0") ||
+    compact.includes("schreibhefta5lin0") ||
+    compact.includes("schulhefta5lin0") ||
+    compact.includes("hefta5lin0") ||
+    compact.includes("schreibhefta5l0") ||
+    compact.includes("schulhefta5l0") ||
+    compact.includes("hefta5l0")
+  ) {
+    return "0";
+  }
+
+  if (
+    compact.includes("schreibhefta5lineatur8") ||
+    compact.includes("schreibhefta5lineatur8f") ||
+    compact.includes("schulhefta5lineatur8") ||
+    compact.includes("schulhefta5lineatur8f") ||
+    compact.includes("hefta5lineatur8") ||
+    compact.includes("hefta5lineatur8f") ||
+    compact.includes("schreibhefta5lin8") ||
+    compact.includes("schreibhefta5lin8f") ||
+    compact.includes("schulhefta5lin8") ||
+    compact.includes("schulhefta5lin8f") ||
+    compact.includes("hefta5lin8") ||
+    compact.includes("hefta5lin8f") ||
+    compact.includes("schreibhefta5l8") ||
+    compact.includes("schreibhefta5l8f") ||
+    compact.includes("schulhefta5l8") ||
+    compact.includes("schulhefta5l8f") ||
+    compact.includes("hefta5l8") ||
+    compact.includes("hefta5l8f")
+  ) {
+    return "8f";
+  }
+
+  return detectedLineature;
+}
+
+function cleanExtractedItem(item: ExtractedItem): CleanedItem {
+  const rawText = cleanNullableString(item.rawText) || "";
+  const aiName = cleanNullableString(item.normalizedName);
+
+  const productType = classifyType(
+    `${rawText} ${aiName || ""} ${item.category || ""}`
+  );
+
+  const format = getEffectiveFormat(rawText, aiName, item.format);
+  const color = getEffectiveColor(rawText, aiName, item.color);
+
+  const detectedLineature = getEffectiveLineature(
+    rawText,
+    aiName,
+    item.notes,
+    item.lineature
+  );
+
+  const lineature = forceLineatureForKnownPatterns(item, detectedLineature);
+
+  const normalizedName = cleanNormalizedName(item, productType);
+
+  const notesParts = [
+    cleanNullableString(item.notes),
+    productType ? `Produkttyp: ${productType}` : null,
+    lineature === "0"
+      ? "Lineatur 0 wurde als eigenständige Lineatur erkannt."
+      : null,
+    lineature === "8f" ? "Lineatur 8 wurde als 8f normalisiert." : null,
+    `Analyse-Version: ${ANALYZE_VERSION}`,
+  ].filter(Boolean);
+
+  return {
+    rawText,
+    normalizedName,
+    quantity: cleanQuantity(item.quantity),
+    category: getEffectiveCategory(rawText, aiName, item.category),
+    format,
+    color,
+    lineature,
+    notes: notesParts.length > 0 ? notesParts.join(" | ") : null,
+    confidence: cleanConfidence(item.confidence),
+    productType,
+  };
+}
+
+function getFriendlyOpenAiError(error: unknown) {
+  if (error instanceof Error) {
+    const message = error.message;
+
+    if (
+      message.includes("401") ||
+      message.toLowerCase().includes("incorrect api key") ||
+      message.toLowerCase().includes("invalid api key")
+    ) {
+      return "Der OpenAI API-Key ist falsch oder noch ein Platzhalter. Bitte OPENAI_API_KEY in .env.local prüfen und den Server neu starten.";
+    }
+
+    if (
+      message.toLowerCase().includes("quota") ||
+      message.toLowerCase().includes("billing") ||
+      message.toLowerCase().includes("insufficient_quota")
+    ) {
+      return "OpenAI konnte nicht genutzt werden, vermutlich wegen Guthaben, Billing oder Limit. Bitte OpenAI Platform Billing prüfen.";
+    }
+
+    if (
+      message.toLowerCase().includes("file") ||
+      message.toLowerCase().includes("pdf")
+    ) {
+      return `Die Datei konnte von OpenAI nicht verarbeitet werden: ${message}`;
+    }
+
+    return message;
+  }
+
+  return "Bei der Analyse ist ein unerwarteter Fehler aufgetreten.";
+}
+
+export async function POST(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+
+  try {
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { status: 400 }
+      );
+    }
+
+    const openai = getOpenAiClient();
+
+    const { data: requestData, error: requestError } = await supabaseServer
+      .from("school_requests")
+      .select(
+        `
+        id,
+        request_number,
+        status,
+        school_request_files (
+          id,
+          storage_path,
+          file_type,
+          original_filename
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (requestError || !requestData) {
+      return NextResponse.json(
+        { ok: false, message: "Anfrage wurde nicht gefunden." },
+        { status: 404 }
+      );
+    }
+
+    const files = (requestData.school_request_files || []) as RequestFile[];
+
+    const usableFile = files.find(
+      (file) => isSupportedImage(file) || isSupportedPdf(file)
+    );
+
+    if (!usableFile || !usableFile.storage_path) {
+      await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "manual_review",
+          ai_status: "unsupported_file_type",
+        })
+        .eq("id", id);
+
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Diese Datei kann aktuell nicht analysiert werden. Bitte nutze JPG, PNG, WEBP, Handyfoto oder PDF.",
+        },
+        { status: 400 }
+      );
+    }
+
+    await supabaseServer
+      .from("school_requests")
+      .update({
+        status: "analysis_running",
+        ai_status: "running",
+      })
+      .eq("id", id);
+
+    const { data: oldItems } = await supabaseServer
+      .from("school_request_items")
+      .select("id")
+      .eq("request_id", id);
+
+    const oldItemIds = (oldItems || []).map((item) => item.id);
+
+    if (oldItemIds.length > 0) {
+      await supabaseServer
+        .from("school_request_matches")
+        .delete()
+        .in("request_item_id", oldItemIds);
+    }
+
+    await supabaseServer
+      .from("school_request_items")
+      .delete()
+      .eq("request_id", id);
+
+    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+
+    const fileContentPart = isSupportedPdf(usableFile)
+      ? {
+          type: "input_file",
+          filename: usableFile.original_filename || "materialliste.pdf",
+          file_data: await createPdfBase64FileData(usableFile.storage_path),
+        }
+      : {
+          type: "input_image",
+          image_url: await createSignedUrl(usableFile.storage_path),
+          detail: "high",
+        };
+
+    const aiRequest = {
+      model,
+      temperature: 0,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "Du bist ein extrem genauer Assistent für deutsche Schulmateriallisten. " +
+                "Du extrahierst nur echte Materialpositionen, keine Überschriften, keine Schule, keine Datenschutztexte, keine Preise. " +
+                "Du musst jede Materialposition vollständig als eigene Position erfassen. " +
+                "Die vollständige Originalzeile muss in rawText erhalten bleiben. " +
+                "Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
+                "Beispiele: " +
+                "'40x Schreibheft A5 (Lineatur 0)' bedeutet lineature exakt '0'. Lineatur 0 ist NICHT unklar. " +
+                "'40x Schreibheft A5 (Lineatur 1)' bedeutet lineature exakt '1'. " +
+                "'80x Schreibheft A5 (Lineatur 8f)' bedeutet lineature exakt '8f'. " +
+                "'80x Schreibheft A5 (Lineatur 8)' bedeutet lineature exakt '8f'. " +
+                "'Lin. 8', 'L8', '8 F' und '8f' bedeuten immer lineature exakt '8f'. " +
+                "Wenn irgendwo Lineatur 0, Lin. 0, L0 oder L 0 steht, ist lineature exakt '0'. Niemals 'unklar'. " +
+                "Wenn eine Lineatur wirklich nicht vorhanden oder nicht lesbar ist, nutze null oder 'unknown'. " +
+                "Bei Umschlägen achte besonders auf Farbe und Buchmaß. Buchmaß 30 x 21 cm entspricht ungefähr A4. Buchmaß um 26,5 x 19,5 cm entspricht ungefähr A5. " +
+                `Interne Analyse-Version: ${ANALYZE_VERSION}.`,
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "Analysiere diese Schulmaterialliste. " +
+                "Extrahiere alle Materialpositionen strukturiert. " +
+                "Achte besonders auf Menge, Format, Lineatur, Farbe und Artikelart. " +
+                "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern. " +
+                "Lineatur 0 muss als lineature '0' gespeichert werden. " +
+                "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden.",
+            },
+            fileContentPart,
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "school_material_extraction",
+          strict: true,
+          schema: materialSchema,
+        },
+      },
+    } as Parameters<typeof openai.responses.create>[0];
+
+    const response = await openai.responses.create(aiRequest);
+    const outputText = extractOutputText(response);
+
+    if (!outputText) {
+      throw new Error("Die KI hat keine verwertbare Antwort geliefert.");
+    }
+
+    const parsed = JSON.parse(outputText) as ExtractionResult;
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+
+    if (items.length === 0) {
+      await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "manual_review",
+          ai_status: "no_items_detected",
+        })
+        .eq("id", id);
+
+      await supabaseServer.from("school_request_events").insert({
+        request_id: id,
+        event_type: "analysis_no_items",
+        title: "Keine Artikel erkannt",
+        description:
+          "Die Analyse wurde ausgeführt, es konnten aber keine Materialpositionen sicher erkannt werden.",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        message: "Analyse abgeschlossen, aber keine Artikel erkannt.",
+        itemCount: 0,
+        analyzeVersion: ANALYZE_VERSION,
+      });
+    }
+
+    const cleanedItems = items.map(cleanExtractedItem);
+
+    const rows = cleanedItems.map((item) => ({
+      request_id: id,
+      raw_text: item.rawText,
+      normalized_name: item.normalizedName,
+      quantity: item.quantity || 1,
+      category: item.category,
+      format: item.format,
+      color: item.color,
+      lineature: item.lineature,
+      notes: item.notes,
+      confidence: item.confidence,
+      status: item.confidence >= 0.85 ? "detected" : "needs_review",
+    }));
+
+    const { error: insertError } = await supabaseServer
+      .from("school_request_items")
+      .insert(rows);
+
+    if (insertError) {
+      console.error("Fehler beim Speichern der erkannten Artikel:", insertError);
+      throw new Error("Die erkannten Artikel konnten nicht gespeichert werden.");
+    }
+
+    await supabaseServer
+      .from("school_requests")
+      .update({
+        status: "analysis_done",
+        ai_status: "done",
+      })
+      .eq("id", id);
+
+    await supabaseServer.from("school_request_events").insert({
+      request_id: id,
+      event_type: "analysis_done",
+      title: "Materialliste analysiert",
+      description: `${cleanedItems.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Materialliste wurde analysiert.",
+      itemCount: cleanedItems.length,
+      analyzeVersion: ANALYZE_VERSION,
+      items: cleanedItems.map((item) => ({
+        rawText: item.rawText,
+        normalizedName: item.normalizedName,
+        quantity: item.quantity,
+        category: item.category,
+        format: item.format,
+        color: item.color,
+        lineature: item.lineature,
+        confidence: item.confidence,
+      })),
+    });
+  } catch (error) {
+    console.error("Analyse-Fehler:", error);
+
+    if (id) {
+      await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "manual_review",
+          ai_status: "error",
+        })
+        .eq("id", id);
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        message: getFriendlyOpenAiError(error),
+        analyzeVersion: ANALYZE_VERSION,
+      },
+      { status: 500 }
+    );
+  }
+}
