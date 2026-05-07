@@ -21,16 +21,38 @@ type FeedbackState =
   | {
       type: "success" | "error";
       message: string;
+      mode?: string | null;
     }
   | null;
 
-async function readJsonSafely(response: Response) {
+type ConfirmResponse = {
+  ok?: boolean;
+  mode?: string;
+  message?: string;
+};
+
+async function readJsonSafely(response: Response): Promise<ConfirmResponse | null> {
   const rawText = await response.text();
 
   try {
     return rawText ? JSON.parse(rawText) : null;
   } catch {
     return null;
+  }
+}
+
+function getButtonLabelByMode(mode?: string | null) {
+  switch (mode) {
+    case "updated_offer_confirmed":
+      return "Aktualisiertes Angebot bestätigt";
+    case "manual_review_required":
+      return "Paketwunsch abgesendet";
+    case "offer_confirmed":
+      return "Angebot bestätigt";
+    case "already_confirmed":
+      return "Bereits bestätigt";
+    default:
+      return "Erfolgreich abgesendet";
   }
 }
 
@@ -62,6 +84,7 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store",
       });
 
       const payload = await readJsonSafely(response);
@@ -72,21 +95,30 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
           message:
             payload?.message ||
             "Der Paketwunsch konnte nicht verbindlich abgesendet werden.",
+          mode: payload?.mode || null,
         });
         setIsSubmitting(false);
         return;
       }
 
+      const successMessage =
+        payload?.message ||
+        "Dein Paketwunsch wurde erfolgreich verbindlich abgesendet.";
+
       setFeedback({
         type: "success",
-        message:
-          payload?.message ||
-          "Dein Paketwunsch wurde erfolgreich verbindlich abgesendet.",
+        message: successMessage,
+        mode: payload?.mode || null,
       });
 
       setIsModalOpen(false);
       setIsSubmitting(false);
+
       router.refresh();
+
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 450);
     } catch (error) {
       setFeedback({
         type: "error",
@@ -94,6 +126,7 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
           error instanceof Error
             ? error.message
             : "Beim Absenden ist ein unerwarteter Fehler aufgetreten.",
+        mode: null,
       });
       setIsSubmitting(false);
     }
@@ -120,7 +153,7 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
               <div>
                 <p className="font-black">
                   {feedback.type === "success"
-                    ? "Erfolgreich abgesendet"
+                    ? getButtonLabelByMode(feedback.mode)
                     : "Absenden nicht möglich"}
                 </p>
                 <p className="mt-1 text-sm leading-6">{feedback.message}</p>
@@ -143,14 +176,14 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
           ) : (
             <>
               <Send className="h-4 w-4" />
-              Paketwunsch verbindlich absenden
+              Angebot offiziell annehmen
             </>
           )}
         </button>
 
         <p className="text-center text-xs font-semibold leading-5 text-[#52616F]">
-          Mit dem Absenden wird Dein aktueller Paketwunsch verbindlich an
-          Handzettel-Schulen.de übermittelt.
+          Erst mit diesem Klick wird Dein aktuelles Angebot offiziell an
+          Handzettel-Schulen.de bestätigt.
         </p>
       </div>
 
@@ -191,18 +224,18 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
 
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#A75B28] sm:px-4 sm:text-xs">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    Verbindliche Bestätigung
+                    Offizielle Annahme
                   </div>
 
                   <h3 className="max-w-xl text-xl font-black leading-tight tracking-tight text-[#102A43] sm:text-3xl">
-                    Möchtest Du Deinen Paketwunsch jetzt verbindlich absenden?
+                    Möchtest Du dieses Angebot jetzt offiziell annehmen?
                   </h3>
 
                   <p className="mt-3 max-w-xl text-sm leading-6 text-[#52616F] sm:mt-4 sm:text-base sm:leading-7">
-                    Dein aktueller Schulmaterial-Paketwunsch wird an
-                    Handzettel-Schulen.de übermittelt. Danach prüft
-                    Handzettel-Schulen.de Deine Auswahl final und kann bei
-                    Bedarf noch sauber ergänzen oder korrigieren.
+                    Mit diesem Schritt bestätigst Du den aktuell sichtbaren
+                    Schulmaterial-Paketwunsch offiziell. Falls das Angebot von
+                    Handzettel-Schulen.de manuell angepasst wurde, bestätigst Du
+                    hier die aktualisierte Fassung.
                   </p>
 
                   <div className="mt-5 grid w-full gap-3 sm:mt-6 sm:grid-cols-3">
@@ -212,12 +245,11 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
                       </div>
 
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                        1. Absenden
+                        1. Annehmen
                       </p>
 
                       <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-                        Dein Paketwunsch wird verbindlich an
-                        Handzettel-Schulen.de übermittelt.
+                        Du bestätigst das aktuell sichtbare Angebot offiziell.
                       </p>
                     </div>
 
@@ -227,12 +259,11 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
                       </div>
 
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                        2. Persönlich geprüft
+                        2. Übermittlung
                       </p>
 
                       <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-                        Handzettel-Schulen.de prüft Deine Auswahl final und
-                        ergänzt sie bei Bedarf.
+                        Handzettel-Schulen.de erhält die Annahme automatisch.
                       </p>
                     </div>
 
@@ -242,12 +273,11 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
                       </div>
 
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                        3. Erledigt
+                        3. Bestätigt
                       </p>
 
                       <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-                        Danach siehst Du den abgesendeten Stand auf Deiner
-                        Seite.
+                        Danach ist das Angebot offiziell angenommen.
                       </p>
                     </div>
                   </div>
@@ -290,7 +320,7 @@ export default function ConfirmOfferButton({ token }: ConfirmOfferButtonProps) {
                       ) : (
                         <>
                           <CheckCircle2 className="h-4 w-4" />
-                          Jetzt verbindlich absenden
+                          Angebot offiziell annehmen
                         </>
                       )}
                     </button>
