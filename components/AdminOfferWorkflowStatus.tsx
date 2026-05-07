@@ -395,12 +395,12 @@ export default function AdminOfferWorkflowStatus(
     })(),
 
     confirmed: (() => {
-      if (plainConfirmed || confirmedAfterUpdate) {
-        return "aktuell" as TileStatus;
-      }
+  if (plainConfirmed || confirmedAfterUpdate) {
+    return "erledigt" as TileStatus;
+  }
 
-      return "offen" as TileStatus;
-    })(),
+  return "offen" as TileStatus;
+})(),
   };
 
   const tiles = [

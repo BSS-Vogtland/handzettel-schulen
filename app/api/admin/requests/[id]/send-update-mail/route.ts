@@ -677,7 +677,7 @@ async function createOfferPdfBuffer(params: {
 
   drawText({
     page,
-    text: "Angebot offiziell annehmen",
+    text: "Angebot direkt offiziell annehmen",
     x: 48,
     y,
     size: 12,
@@ -690,7 +690,7 @@ async function createOfferPdfBuffer(params: {
   y = drawWrappedText({
     page,
     text:
-      "Wenn alles passt, kannst Du Dein Angebot online offiziell annehmen. Nutze dafür bitte den Button in der E-Mail oder öffne folgenden Link:",
+      "Wenn alles passt, kannst Du Dein Angebot direkt über den Button in der E-Mail offiziell annehmen. Danach wirst Du automatisch zur Angebotsübersicht weitergeleitet.",
     x: 48,
     y,
     maxWidth: 500,
@@ -787,7 +787,7 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
                 </p>
 
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.55;">
-                  Im Anhang findest Du das aktuelle Angebot noch einmal als PDF. Wenn alles passt, kannst Du es über den folgenden Button offiziell annehmen.
+                  Im Anhang findest Du das aktuelle Angebot noch einmal als PDF. Wenn alles passt, kannst Du es über den folgenden Button direkt offiziell annehmen.
                 </p>
 
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0;">
@@ -799,6 +799,10 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
                     </td>
                   </tr>
                 </table>
+
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#5C6B73;">
+                  Mit Klick auf den Button wird Dein aktualisiertes Angebot offiziell bestätigt. Danach wirst Du automatisch zur Angebotsübersicht weitergeleitet.
+                </p>
 
                 <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#5C6B73;">
                   Falls der Button nicht funktioniert, kopiere diesen Link in Deinen Browser:<br />
@@ -829,18 +833,34 @@ async function insertEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   message: string;
+  acceptUrl: string;
 }) {
-  const { supabase, requestId, message } = params;
+  const { supabase, requestId, message, acceptUrl } = params;
 
   try {
     await supabase.from("school_request_events").insert({
       request_id: requestId,
       event_type: "offer_update_mail_sent",
+      title: "Aktualisiertes Angebot versandt",
       message,
+      description: message,
+      metadata: {
+        accept_url_type: "direct_confirm_link",
+        accept_url: acceptUrl,
+      },
       created_at: new Date().toISOString(),
     });
   } catch {
-    // Der Verlauf darf den Mailversand nicht blockieren.
+    try {
+      await supabase.from("school_request_events").insert({
+        request_id: requestId,
+        event_type: "offer_update_mail_sent",
+        message,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      // Der Verlauf darf den Mailversand nicht blockieren.
+    }
   }
 }
 
@@ -929,7 +949,11 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
-    const acceptUrl = `${getSiteUrl()}/angebot/${encodeURIComponent(token)}`;
+    const encodedToken = encodeURIComponent(token);
+
+    const acceptUrl = `${getSiteUrl()}/api/offer/${encodedToken}/confirm?via=update-mail`;
+
+    const overviewUrl = `${getSiteUrl()}/angebot/${encodedToken}`;
 
     const pdfBuffer = await createOfferPdfBuffer({
       request: schoolRequest,
@@ -958,9 +982,15 @@ wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot für Dich ak
 
 Im Anhang findest Du das aktuelle Angebot noch einmal als PDF.
 
-Wenn alles passt, kannst Du das Angebot über diesen Link offiziell annehmen:
+Wenn alles passt, kannst Du das Angebot über diesen Link direkt offiziell annehmen:
 
 ${acceptUrl}
+
+Nach der Bestätigung wirst Du automatisch zur Angebotsübersicht weitergeleitet.
+
+Falls Du das Angebot nur ansehen möchtest, nutze diese Übersicht:
+
+${overviewUrl}
 
 Viele Grüße
 Dein Team von Handzettel-Schulen.de`,
@@ -980,7 +1010,8 @@ Dein Team von Handzettel-Schulen.de`,
     await insertEvent({
       supabase,
       requestId,
-      message: `Aktualisierungsmail mit PDF-Angebot wurde an ${customerEmail} gesendet.`,
+      acceptUrl,
+      message: `Aktualisierungsmail mit PDF-Angebot und direktem Bestätigungslink wurde an ${customerEmail} gesendet.`,
     });
 
     await supabase
@@ -996,6 +1027,7 @@ Dein Team von Handzettel-Schulen.de`,
       message: "Aktualisierungsmail wurde erfolgreich gesendet.",
       sentTo: customerEmail,
       acceptUrl,
+      overviewUrl,
     });
   } catch (error) {
     const message =
