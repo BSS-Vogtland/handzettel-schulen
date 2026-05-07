@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
-  FileText,
   MailCheck,
   PackageCheck,
   Sparkles,
@@ -28,6 +27,8 @@ type AdminOfferWorkflowStatusProps = {
   events: EventRow[];
   updatedAt: string | null;
 };
+
+type TileStatus = "offen" | "aktuell" | "erledigt";
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
@@ -71,7 +72,74 @@ function isAfterOrSame(a: string | null, b: string | null) {
   return aTime >= bTime;
 }
 
-function getWorkflowState(params: AdminOfferWorkflowStatusProps) {
+function getHeaderToneClasses(tone: "neutral" | "blue" | "amber" | "green") {
+  switch (tone) {
+    case "green":
+      return {
+        iconWrap: "bg-[#F0FFF6] text-[#2F7D50]",
+        badge: "bg-[#F0FFF6] text-[#2F7D50]",
+      };
+    case "amber":
+      return {
+        iconWrap: "bg-[#FFF8EC] text-[#A75B28]",
+        badge: "bg-[#FFF8EC] text-[#A75B28]",
+      };
+    case "blue":
+      return {
+        iconWrap: "bg-[#EEF4FB] text-[#12395F]",
+        badge: "bg-[#EEF4FB] text-[#12395F]",
+      };
+    default:
+      return {
+        iconWrap: "bg-[#FBF7F0] text-[#102A43]",
+        badge: "bg-[#FBF7F0] text-[#102A43]",
+      };
+  }
+}
+
+function getTileClasses(status: TileStatus) {
+  switch (status) {
+    case "erledigt":
+      return {
+        card: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+        iconWrap: "bg-white text-[#2F7D50]",
+        badge: "bg-white text-[#2F7D50]",
+        title: "text-[#1F5D3A]",
+        text: "text-[#3E6A52]",
+      };
+    case "aktuell":
+      return {
+        card: "border-[#F0D2A8] bg-[#FFF8EC] text-[#A75B28]",
+        iconWrap: "bg-white text-[#A75B28]",
+        badge: "bg-white text-[#A75B28]",
+        title: "text-[#8A4A1F]",
+        text: "text-[#8F6A46]",
+      };
+    default:
+      return {
+        card: "border-[#E8DED2] bg-white text-[#52616F]",
+        iconWrap: "bg-[#FBF7F0] text-[#6A7783]",
+        badge: "bg-[#FBF7F0] text-[#52616F]",
+        title: "text-[#3E5266]",
+        text: "text-[#6B7A88]",
+      };
+  }
+}
+
+function getTileBadgeLabel(status: TileStatus) {
+  switch (status) {
+    case "erledigt":
+      return "Erledigt";
+    case "aktuell":
+      return "Aktuell";
+    default:
+      return "Offen";
+  }
+}
+
+export default function AdminOfferWorkflowStatus(
+  props: AdminOfferWorkflowStatusProps
+) {
   const {
     requestStatus,
     offerStatus,
@@ -81,7 +149,7 @@ function getWorkflowState(params: AdminOfferWorkflowStatusProps) {
     manualReviewItemsCount,
     events,
     updatedAt,
-  } = params;
+  } = props;
 
   const latestUpdateMailEvent = findLatestEvent(events, (event) => {
     const type = getEventType(event);
@@ -91,7 +159,8 @@ function getWorkflowState(params: AdminOfferWorkflowStatusProps) {
       type.includes("offer_update_mail_sent") ||
       type.includes("update_mail") ||
       message.includes("aktualisierungsmail") ||
-      message.includes("pdf-angebot")
+      message.includes("pdf-angebot") ||
+      message.includes("aktualisiertes angebot")
     );
   });
 
@@ -100,7 +169,7 @@ function getWorkflowState(params: AdminOfferWorkflowStatusProps) {
     const message = getEventMessage(event);
 
     return (
-      type.includes("confirmed") ||
+      type.includes("offer_update_confirmed") ||
       type.includes("offer_confirmed") ||
       type.includes("customer_confirmed") ||
       message.includes("bestätigt") ||
@@ -120,178 +189,272 @@ function getWorkflowState(params: AdminOfferWorkflowStatusProps) {
       latestUpdateMailEvent?.created_at || null
     );
 
-  if (confirmedAfterUpdate) {
-    return {
-      key: "updated_confirmed",
-      title: "Aktualisiertes Angebot bestätigt",
-      label: "Abgeschlossen",
-      description:
-        "Der Kunde hat das zuletzt versendete aktualisierte Angebot offiziell angenommen.",
-      color: "green",
-      icon: CheckCircle2,
-      dateLabel: latestConfirmedEvent?.created_at
-        ? `Bestätigt am ${formatDateTime(latestConfirmedEvent.created_at)}`
-        : `Zuletzt aktualisiert am ${formatDateTime(updatedAt)}`,
-    };
-  }
+  const plainConfirmed = confirmed && !confirmedAfterUpdate;
 
-  if (updateMailWasSent) {
-    return {
-      key: "updated_sent",
-      title: "Aktualisiertes Angebot versandt",
-      label: "Warten auf Bestätigung",
-      description:
-        "Das manuell geänderte Angebot wurde dem Kunden als PDF gesendet. Die offizielle Annahme steht noch aus.",
-      color: "amber",
-      icon: MailCheck,
-      dateLabel: `Versendet am ${formatDateTime(
-        latestUpdateMailEvent?.created_at || null
-      )}`,
-    };
-  }
-
-  if (confirmed) {
-    return {
-      key: "confirmed",
-      title: "Angebot bestätigt",
-      label: "Bestätigt",
-      description:
-        "Der Kunde hat ein Angebot offiziell angenommen. Falls danach noch Änderungen gemacht wurden, sollte eine Aktualisierungsmail gesendet werden.",
-      color: "green",
-      icon: CheckCircle2,
-      dateLabel: `Zuletzt aktualisiert am ${formatDateTime(updatedAt)}`,
-    };
-  }
-
-  if (itemsCount > 0 && manualReviewItemsCount === 0 && offerItemsCount > 0) {
-    return {
-      key: "package_ready",
-      title: "Paket vorbereitet",
-      label: "Bereit zum Versand",
-      description:
-        "Die erkannten Positionen wurden übernommen oder manuell ergänzt. Du kannst jetzt das aktualisierte Angebot versenden.",
-      color: "blue",
-      icon: PackageCheck,
-      dateLabel: null,
-    };
-  }
-
-  if (manualReviewItemsCount > 0) {
-    return {
-      key: "open_items",
-      title: "Offene Positionen",
-      label: `${manualReviewItemsCount} offen`,
-      description:
-        "Es gibt noch erkannte Positionen ohne sicheren Produktvorschlag. Diese sollten manuell geprüft oder ergänzt werden.",
-      color: "orange",
-      icon: AlertTriangle,
-      dateLabel: null,
-    };
-  }
-
-  if (
+  const hasWorkStarted =
     aiStatus === "running" ||
-    aiStatus === "pending" ||
+    aiStatus === "done" ||
+    itemsCount > 0 ||
+    offerItemsCount > 0 ||
     offerStatus === "matching_done" ||
-    offerItemsCount > 0
-  ) {
+    offerStatus === "offer_created" ||
+    offerStatus === "customer_selection" ||
+    offerStatus === "offer_sent" ||
+    offerStatus === "confirmed" ||
+    requestStatus === "manual_review" ||
+    requestStatus === "confirmed";
+
+  const openItemsCurrent = manualReviewItemsCount > 0;
+
+  const packagePreparedCurrent =
+    itemsCount > 0 &&
+    offerItemsCount > 0 &&
+    manualReviewItemsCount === 0 &&
+    !plainConfirmed &&
+    !updateMailWasSent &&
+    !confirmedAfterUpdate;
+
+  const headerState = (() => {
+    if (confirmedAfterUpdate) {
+      return {
+        title: "Aktualisiertes Angebot bestätigt",
+        label: "Abgeschlossen",
+        description:
+          "Der Kunde hat das zuletzt per PDF versendete, manuell aktualisierte Angebot offiziell angenommen.",
+        tone: "green" as const,
+        icon: CheckCircle2,
+        dateLabel: latestConfirmedEvent?.created_at
+          ? `Bestätigt am ${formatDateTime(latestConfirmedEvent.created_at)}`
+          : `Zuletzt aktualisiert am ${formatDateTime(updatedAt)}`,
+      };
+    }
+
+    if (updateMailWasSent) {
+      return {
+        title: "Aktualisiertes Angebot versandt",
+        label: "Wartet auf Bestätigung",
+        description:
+          "Das manuell geänderte Angebot wurde dem Kunden als PDF gesendet. Die offizielle Annahme steht noch aus.",
+        tone: "amber" as const,
+        icon: MailCheck,
+        dateLabel: `Versendet am ${formatDateTime(
+          latestUpdateMailEvent?.created_at || null
+        )}`,
+      };
+    }
+
+    if (plainConfirmed) {
+      return {
+        title: "Angebot bestätigt",
+        label: "Bestätigt",
+        description:
+          "Der Kunde hat ein Angebot offiziell angenommen. Falls danach noch manuelle Änderungen erfolgen, muss anschließend eine Aktualisierungsmail gesendet werden.",
+        tone: "green" as const,
+        icon: CheckCircle2,
+        dateLabel: `Zuletzt aktualisiert am ${formatDateTime(updatedAt)}`,
+      };
+    }
+
+    if (packagePreparedCurrent) {
+      return {
+        title: "Paket vorbereitet",
+        label: "Bereit zum Versand",
+        description:
+          "Alle relevanten Positionen sind im Paketwunsch enthalten oder manuell ergänzt. Du kannst jetzt das aktualisierte Angebot versenden.",
+        tone: "blue" as const,
+        icon: PackageCheck,
+        dateLabel: null,
+      };
+    }
+
+    if (openItemsCurrent) {
+      return {
+        title: "Offene Positionen",
+        label: `${manualReviewItemsCount} offen`,
+        description:
+          "Es gibt noch erkannte Positionen ohne sichere Produktzuordnung. Diese müssen manuell geprüft oder ergänzt werden.",
+        tone: "amber" as const,
+        icon: AlertTriangle,
+        dateLabel: null,
+      };
+    }
+
+    if (hasWorkStarted) {
+      return {
+        title: "In Bearbeitung",
+        label: "Bearbeitung läuft",
+        description:
+          "Die Anfrage wurde bereits analysiert, gematcht oder manuell bearbeitet.",
+        tone: "blue" as const,
+        icon: Sparkles,
+        dateLabel: null,
+      };
+    }
+
     return {
-      key: "in_progress",
-      title: "In Arbeit",
-      label: "Bearbeitung läuft",
+      title: "Neu",
+      label: "Eingegangen",
       description:
-        "Die Anfrage wird analysiert, gematcht oder bereits manuell bearbeitet.",
-      color: "blue",
-      icon: Sparkles,
+        "Die Anfrage ist eingegangen. Analyse, Matching oder manuelle Bearbeitung können jetzt starten.",
+      tone: "neutral" as const,
+      icon: Clock3,
       dateLabel: null,
     };
-  }
+  })();
 
-  return {
-    key: "new",
-    title: "Neu",
-    label: "Eingegangen",
-    description:
-      "Die Anfrage ist eingegangen. Analyse, Matching oder manuelle Bearbeitung können jetzt starten.",
-    color: "neutral",
-    icon: Clock3,
-    dateLabel: null,
+  const tileStatus = {
+    new: (() => {
+      if (
+        !hasWorkStarted &&
+        !openItemsCurrent &&
+        !packagePreparedCurrent &&
+        !plainConfirmed &&
+        !updateMailWasSent &&
+        !confirmedAfterUpdate
+      ) {
+        return "aktuell" as TileStatus;
+      }
+
+      return "erledigt" as TileStatus;
+    })(),
+
+    inProgress: (() => {
+      if (
+        hasWorkStarted &&
+        !openItemsCurrent &&
+        !packagePreparedCurrent &&
+        !plainConfirmed &&
+        !updateMailWasSent &&
+        !confirmedAfterUpdate
+      ) {
+        return "aktuell" as TileStatus;
+      }
+
+      if (
+        hasWorkStarted ||
+        openItemsCurrent ||
+        packagePreparedCurrent ||
+        plainConfirmed ||
+        updateMailWasSent ||
+        confirmedAfterUpdate
+      ) {
+        return "erledigt" as TileStatus;
+      }
+
+      return "offen" as TileStatus;
+    })(),
+
+    openItems: (() => {
+      if (openItemsCurrent) {
+        return "aktuell" as TileStatus;
+      }
+
+      if (
+        itemsCount > 0 &&
+        (manualReviewItemsCount === 0 ||
+          packagePreparedCurrent ||
+          plainConfirmed ||
+          updateMailWasSent ||
+          confirmedAfterUpdate)
+      ) {
+        return "erledigt" as TileStatus;
+      }
+
+      return "offen" as TileStatus;
+    })(),
+
+    packagePrepared: (() => {
+      if (packagePreparedCurrent) {
+        return "aktuell" as TileStatus;
+      }
+
+      if (plainConfirmed || updateMailWasSent || confirmedAfterUpdate) {
+        return "erledigt" as TileStatus;
+      }
+
+      return "offen" as TileStatus;
+    })(),
+
+    offerSent: (() => {
+      if (updateMailWasSent && !confirmedAfterUpdate) {
+        return "aktuell" as TileStatus;
+      }
+
+      if (confirmedAfterUpdate) {
+        return "erledigt" as TileStatus;
+      }
+
+      return "offen" as TileStatus;
+    })(),
+
+    confirmed: (() => {
+      if (plainConfirmed || confirmedAfterUpdate) {
+        return "aktuell" as TileStatus;
+      }
+
+      return "offen" as TileStatus;
+    })(),
   };
-}
 
-function getStepClass(active: boolean, done: boolean) {
-  if (done) {
-    return "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]";
-  }
-
-  if (active) {
-    return "border-[#F0D2A8] bg-[#FFF8EC] text-[#A75B28]";
-  }
-
-  return "border-[#E8DED2] bg-white text-[#52616F]";
-}
-
-export default function AdminOfferWorkflowStatus(
-  props: AdminOfferWorkflowStatusProps
-) {
-  const state = getWorkflowState(props);
-  const Icon = state.icon;
-
-  const steps = [
+  const tiles = [
     {
       key: "new",
       title: "Neu",
-      description: "Anfrage eingegangen",
+      description: "Anfrage ist eingegangen",
       icon: Clock3,
+      status: tileStatus.new,
     },
     {
-      key: "in_progress",
-      title: "In Arbeit",
-      description: "Analyse oder Bearbeitung läuft",
+      key: "inProgress",
+      title: "In Bearbeitung",
+      description: "Analyse, Matching oder manuelle Prüfung läuft",
       icon: Sparkles,
+      status: tileStatus.inProgress,
     },
     {
-      key: "open_items",
+      key: "openItems",
       title: "Offene Positionen",
-      description: "Manuelle Prüfung nötig",
+      description: "Manuelle Ergänzung ist noch nötig",
       icon: AlertTriangle,
+      status: tileStatus.openItems,
     },
     {
-      key: "package_ready",
+      key: "packagePrepared",
       title: "Paket vorbereitet",
-      description: "Positionen sind gepflegt",
+      description: "Alle relevanten Positionen sind gepflegt",
       icon: PackageCheck,
+      status: tileStatus.packagePrepared,
     },
     {
-      key: "updated_sent",
-      title: "Angebot versandt",
-      description: "PDF-Mail wurde gesendet",
+      key: "offerSent",
+      title: "Aktualisiertes Angebot versandt",
+      description: "PDF-Mail wurde an den Kunden gesendet",
       icon: MailCheck,
+      status: tileStatus.offerSent,
     },
     {
-      key: "updated_confirmed",
-      title: "Bestätigt",
-      description: "Kunde hat angenommen",
+      key: "confirmed",
+      title: confirmedAfterUpdate
+        ? "Aktualisiertes Angebot bestätigt"
+        : "Angebot bestätigt",
+      description: confirmedAfterUpdate
+        ? "Kunde hat die aktualisierte Fassung angenommen"
+        : "Kunde hat offiziell angenommen",
       icon: CheckCircle2,
+      status: tileStatus.confirmed,
     },
   ];
 
-  const stepOrder = steps.map((step) => step.key);
-  const activeIndex = stepOrder.indexOf(state.key);
+  const headerClasses = getHeaderToneClasses(headerState.tone);
+  const HeaderIcon = headerState.icon;
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-5 flex items-start gap-4">
         <div
-          className={
-            state.color === "green"
-              ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]"
-              : state.color === "amber" || state.color === "orange"
-                ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFF8EC] text-[#A75B28]"
-                : "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#12395F]"
-          }
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${headerClasses.iconWrap}`}
         >
-          <Icon className="h-6 w-6" />
+          <HeaderIcon className="h-6 w-6" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -301,75 +464,73 @@ export default function AdminOfferWorkflowStatus(
             </p>
 
             <span
-              className={
-                state.color === "green"
-                  ? "rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]"
-                  : state.color === "amber" || state.color === "orange"
-                    ? "rounded-full bg-[#FFF8EC] px-3 py-1 text-xs font-black text-[#A75B28]"
-                    : "rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#12395F]"
-              }
+              className={`rounded-full px-3 py-1 text-xs font-black ${headerClasses.badge}`}
             >
-              {state.label}
+              {headerState.label}
             </span>
           </div>
 
           <h2 className="mt-2 text-2xl font-black tracking-tight text-[#102A43]">
-            {state.title}
+            {headerState.title}
           </h2>
 
           <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            {state.description}
+            {headerState.description}
           </p>
 
-          {state.dateLabel ? (
+          {headerState.dateLabel ? (
             <p className="mt-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#102A43]">
-              {state.dateLabel}
+              {headerState.dateLabel}
             </p>
           ) : null}
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {steps.map((step, index) => {
-          const StepIcon = step.icon;
-          const active = step.key === state.key;
-          const done = activeIndex > index;
+        {tiles.map((tile) => {
+          const Icon = tile.icon;
+          const classes = getTileClasses(tile.status);
 
           return (
             <div
-              key={step.key}
-              className={`rounded-2xl border p-4 ${getStepClass(active, done)}`}
+              key={tile.key}
+              className={`rounded-2xl border p-4 transition ${classes.card}`}
             >
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/80">
-                  <StepIcon className="h-4 w-4" />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${classes.iconWrap}`}
+                >
+                  <Icon className="h-5 w-5" />
                 </div>
 
-                <span className="text-xs font-black">
-                  {done ? "Erledigt" : active ? "Aktuell" : "Offen"}
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-black ${classes.badge}`}
+                >
+                  {getTileBadgeLabel(tile.status)}
                 </span>
               </div>
 
-              <p className="font-black">{step.title}</p>
-              <p className="mt-1 text-xs font-semibold leading-5 opacity-80">
-                {step.description}
+              <p className={`text-xl font-black ${classes.title}`}>
+                {tile.title}
+              </p>
+              <p className={`mt-2 text-sm font-semibold leading-6 ${classes.text}`}>
+                {tile.description}
               </p>
             </div>
           );
         })}
       </div>
 
-      {state.key === "package_ready" ? (
+      {(headerState.title === "Paket vorbereitet" ||
+        headerState.title === "Aktualisiertes Angebot versandt") && (
         <div className="mt-5 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-          <div className="flex items-start gap-3">
-            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#A75B28]" />
-            <p className="text-sm font-semibold leading-6 text-[#52616F]">
-              Das Paket sieht vorbereitet aus. Prüfe die Positionen kurz final
-              und sende dann die Aktualisierungsmail mit PDF-Angebot.
-            </p>
-          </div>
+          <p className="text-sm font-semibold leading-6 text-[#52616F]">
+            {headerState.title === "Paket vorbereitet"
+              ? "Das Paket ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Aktualisierungsmail mit PDF-Angebot."
+              : "Das aktualisierte Angebot wurde gesendet. Sobald der Kunde offiziell annimmt, wechselt der Status auf „Aktualisiertes Angebot bestätigt“."}
+          </p>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }
