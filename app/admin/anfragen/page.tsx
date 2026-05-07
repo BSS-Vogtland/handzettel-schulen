@@ -38,6 +38,7 @@ type SchoolRequest = {
   offer_token: string | null;
   ai_status: string | null;
   offer_status: string | null;
+
   fulfillment_method?: string | null;
   fulfillment_status?: string | null;
   picking_status?: string | null;
@@ -51,6 +52,7 @@ type SchoolRequest = {
   packed_at?: string | null;
   shipped_at?: string | null;
   picked_up_at?: string | null;
+
   created_at: string | null;
   updated_at: string | null;
 };
@@ -125,10 +127,8 @@ type RequestOverview = {
   hasAdminEdits: boolean;
 };
 
-type WorkflowArea = "open" | "confirmed" | "completed";
-
 type WorkflowStatus = {
-  area: WorkflowArea;
+  area: "open" | "fulfillment";
   title: string;
   subtitle: string;
   badge: string;
@@ -172,7 +172,7 @@ function formatMoney(value: unknown) {
   }).format(toNumber(value, 0));
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
@@ -184,7 +184,7 @@ function formatDateTime(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
-function formatDate(value: string | null | undefined) {
+function formatDate(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
@@ -244,83 +244,14 @@ function isUpdatedOfferConfirmedEvent(event: EventRow) {
   );
 }
 
-function isDoneLogisticsEvent(event: EventRow) {
-  const type = getEventType(event);
-  const text = getEventText(event);
-
-  return (
-    type.includes("picked_up") ||
-    type.includes("abgeholt") ||
-    type.includes("shipped") ||
-    type.includes("versendet") ||
-    type.includes("delivered") ||
-    type.includes("zugestellt") ||
-    type.includes("completed") ||
-    type.includes("abgeschlossen") ||
-    text.includes("abgeholt") ||
-    text.includes("versendet") ||
-    text.includes("zugestellt") ||
-    text.includes("beim kunden eingetroffen") ||
-    text.includes("abgeschlossen")
-  );
+function getFulfillmentMethodLabel(method?: string | null) {
+  if (method === "pickup") return "Abholung";
+  if (method === "shipping") return "Versand";
+  return "Übergabe offen";
 }
 
-function getDoneLogisticsLabel(overview: RequestOverview) {
-  const request = overview.request;
-
-  if (request.fulfillment_status === "picked_up" || request.picked_up_at) {
-    return "Abgeholt";
-  }
-
-  if (request.fulfillment_status === "shipped" || request.shipped_at) {
-    return "Versendet";
-  }
-
-  const latestDoneEvent = overview.events.find(isDoneLogisticsEvent);
-
-  if (!latestDoneEvent) return null;
-
-  const text = getEventText(latestDoneEvent);
-
-  if (text.includes("beim kunden eingetroffen") || text.includes("zugestellt")) {
-    return "Beim Kunden eingetroffen";
-  }
-
-  if (text.includes("versendet") || text.includes("shipped")) {
-    return "Versendet";
-  }
-
-  if (text.includes("abgeholt") || text.includes("picked_up")) {
-    return "Abgeholt";
-  }
-
-  if (text.includes("abgeschlossen") || text.includes("completed")) {
-    return "Abgeschlossen";
-  }
-
-  return "Abgeschlossen";
-}
-
-function getFulfillmentLabel(request: SchoolRequest) {
-  if (request.fulfillment_method === "pickup") return "Abholung gewünscht";
-  if (request.fulfillment_method === "shipping") return "Versand gewünscht";
-  return "Übergabe noch offen";
-}
-
-function getFulfillmentToneClass(request: SchoolRequest) {
-  if (request.fulfillment_method === "pickup") {
-    return "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]";
-  }
-
-  if (request.fulfillment_method === "shipping") {
-    return "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]";
-  }
-
-  return "border-[#E8DED2] bg-white text-[#52616F]";
-}
-
-function getPickingLabel(request: SchoolRequest) {
-  switch (request.picking_status) {
+function getPickingStatusLabel(status?: string | null) {
+  switch (status) {
     case "picking":
       return "Picking läuft";
     case "picked":
@@ -332,20 +263,22 @@ function getPickingLabel(request: SchoolRequest) {
   }
 }
 
-function getFulfillmentStatusLabel(request: SchoolRequest) {
-  switch (request.fulfillment_status) {
+function getFulfillmentStatusLabel(status?: string | null) {
+  switch (status) {
     case "pickup_requested":
-      return "Abholung vorbereiten";
+      return "Abholung gewünscht";
     case "shipping_requested":
-      return "Versand vorbereiten";
+      return "Versand gewünscht";
     case "ready_for_pickup":
       return "Abholbereit";
+    case "shipping_ready":
+      return "Versandbereit";
     case "shipped":
       return "Versendet";
     case "picked_up":
       return "Abgeholt";
     default:
-      return "Noch nicht ausgewählt";
+      return "Abwicklung offen";
   }
 }
 
@@ -381,10 +314,20 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Aktualisiertes Angebot versandt";
     case "offer_update_confirmed":
       return "Aktualisiertes Angebot bestätigt";
-    case "customer_pickup_requested":
-      return "Abholung im Laden gewünscht";
-    case "customer_shipping_requested":
-      return "Versand gewünscht";
+    case "fulfillment_start_picking":
+      return "Picking gestartet";
+    case "fulfillment_mark_picked":
+      return "Artikel gepickt";
+    case "fulfillment_mark_packed":
+      return "Paket gepackt";
+    case "fulfillment_ready_for_pickup":
+      return "Paket abholbereit";
+    case "fulfillment_mark_picked_up":
+      return "Paket abgeholt";
+    case "fulfillment_ready_for_shipping":
+      return "Paket versandbereit";
+    case "fulfillment_mark_shipped":
+      return "Paket versendet";
     case "admin_manual_offer_item_added":
       return "Admin hat Position ergänzt";
     case "admin_offer_item_deleted":
@@ -398,47 +341,134 @@ function getEventTypeLabel(event: EventRow | null) {
 
 function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
   const request = overview.request;
-  const hasUpdateMail = hasEvent(overview, isUpdateMailEvent);
+  const isConfirmed =
+    request.status === "confirmed" || request.offer_status === "confirmed";
+
   const hasUpdatedConfirmation = hasEvent(overview, isUpdatedOfferConfirmedEvent);
-  const doneLogisticsLabel = getDoneLogisticsLabel(overview);
+  const hasUpdateMail =
+    hasEvent(overview, isUpdateMailEvent) || request.offer_status === "offer_sent";
 
-  if (doneLogisticsLabel) {
-    return {
-      area: "completed",
-      title: doneLogisticsLabel,
-      subtitle:
-        "Dieser Vorgang wurde operativ abgeschlossen: abgeholt, versendet oder zugestellt.",
-      badge: "Abgeschlossen",
-      tone: "green",
-      icon: Truck,
-    };
-  }
+  if (isConfirmed || hasUpdatedConfirmation) {
+    if (request.fulfillment_status === "picked_up") {
+      return {
+        area: "fulfillment",
+        title: "Abgeholt",
+        subtitle:
+          "Der Kunde hat Abholung gewählt und das Schulpaket wurde als abgeholt markiert.",
+        badge: "Abgeholt",
+        tone: "green",
+        icon: CheckCircle2,
+      };
+    }
 
-  if (hasUpdatedConfirmation) {
+    if (request.fulfillment_status === "shipped") {
+      return {
+        area: "fulfillment",
+        title: "Versendet",
+        subtitle:
+          "Der Kunde hat Versand gewählt und das Schulpaket wurde als versendet markiert.",
+        badge: "Versendet",
+        tone: "green",
+        icon: Truck,
+      };
+    }
+
+    if (request.fulfillment_status === "ready_for_pickup") {
+      return {
+        area: "fulfillment",
+        title: "Abholbereit",
+        subtitle:
+          "Das Angebot ist bestätigt und das Paket ist zur Abholung vorbereitet.",
+        badge: "Abholbereit",
+        tone: "green",
+        icon: MapPin,
+      };
+    }
+
+    if (request.fulfillment_status === "shipping_ready") {
+      return {
+        area: "fulfillment",
+        title: "Versandbereit",
+        subtitle:
+          "Das Angebot ist bestätigt und das Paket ist für den Versand vorbereitet.",
+        badge: "Versandbereit",
+        tone: "blue",
+        icon: Truck,
+      };
+    }
+
+    if (request.picking_status === "packed") {
+      return {
+        area: "fulfillment",
+        title: "Paket gepackt",
+        subtitle:
+          "Das Angebot ist bestätigt. Die Artikel wurden gepackt und warten auf Abholung oder Versand.",
+        badge: getFulfillmentMethodLabel(request.fulfillment_method),
+        tone: "blue",
+        icon: PackageCheck,
+      };
+    }
+
+    if (request.picking_status === "picked") {
+      return {
+        area: "fulfillment",
+        title: "Artikel gepickt",
+        subtitle:
+          "Das Angebot ist bestätigt. Die Artikel wurden gepickt und können jetzt gepackt werden.",
+        badge: "Gepickt",
+        tone: "blue",
+        icon: ShoppingBasket,
+      };
+    }
+
+    if (request.picking_status === "picking") {
+      return {
+        area: "fulfillment",
+        title: "Picking läuft",
+        subtitle:
+          "Das Angebot ist bestätigt. Die Pickingliste wird gerade abgearbeitet.",
+        badge: "Picking",
+        tone: "amber",
+        icon: ShoppingBasket,
+      };
+    }
+
+    if (request.fulfillment_method === "pickup") {
+      return {
+        area: "fulfillment",
+        title: "Angebot bestätigt · Abholung",
+        subtitle:
+          "Der Kunde möchte im Laden abholen. Pickingliste erstellen und Paket zur Abholung vorbereiten.",
+        badge: "Abholung",
+        tone: "green",
+        icon: MapPin,
+      };
+    }
+
+    if (request.fulfillment_method === "shipping") {
+      return {
+        area: "fulfillment",
+        title: "Angebot bestätigt · Versand",
+        subtitle:
+          "Der Kunde möchte Versand. Versandkosten prüfen, Pickingliste abarbeiten und Paket versenden.",
+        badge: "Versand",
+        tone: "green",
+        icon: Truck,
+      };
+    }
+
     return {
-      area: "confirmed",
-      title: "Aktualisiertes Angebot bestätigt",
+      area: "fulfillment",
+      title: "Angebot bestätigt",
       subtitle:
-        "Der Kunde hat das manuell geänderte Angebot offiziell angenommen. Jetzt Picking, Abholung oder Versand vorbereiten.",
-      badge: getFulfillmentLabel(request),
+        "Der Kunde hat das Angebot offiziell angenommen. Übergabeart, Picking und Abwicklung können jetzt bearbeitet werden.",
+      badge: "Bestätigt",
       tone: "green",
       icon: CheckCircle2,
     };
   }
 
-  if (request.status === "confirmed" || request.offer_status === "confirmed") {
-    return {
-      area: "confirmed",
-      title: "Angebot bestätigt",
-      subtitle:
-        "Der Kunde hat verbindlich angenommen. Dieser Vorgang ist nicht erledigt, sondern bereit für Picking, Abholung oder Versand.",
-      badge: getFulfillmentLabel(request),
-      tone: "green",
-      icon: PackageCheck,
-    };
-  }
-
-  if (hasUpdateMail || request.offer_status === "offer_sent") {
+  if (hasUpdateMail) {
     return {
       area: "open",
       title: "Aktualisiertes Angebot versandt",
@@ -585,32 +615,45 @@ function getAiStatusLabel(status: string | null) {
 }
 
 function getSmallInfoBadges(overview: RequestOverview) {
+  const request = overview.request;
+
   const badges: Array<{
     label: string;
     className: string;
   }> = [];
 
   badges.push({
-    label: getAiStatusLabel(overview.request.ai_status),
+    label: getAiStatusLabel(request.ai_status),
     className: "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]",
   });
 
-  if (
-    overview.request.status === "confirmed" ||
-    overview.request.offer_status === "confirmed"
-  ) {
+  if (request.status === "confirmed" || request.offer_status === "confirmed") {
     badges.push({
-      label: getFulfillmentLabel(overview.request),
-      className: getFulfillmentToneClass(overview.request),
+      label: "Angebot bestätigt",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
     });
+  }
 
+  if (request.fulfillment_method) {
     badges.push({
-      label: getPickingLabel(overview.request),
+      label: getFulfillmentMethodLabel(request.fulfillment_method),
+      className:
+        request.fulfillment_method === "shipping"
+          ? "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]"
+          : "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    });
+  }
+
+  if (request.picking_status) {
+    badges.push({
+      label: getPickingStatusLabel(request.picking_status),
       className: "border-[#E8DED2] bg-white text-[#52616F]",
     });
+  }
 
+  if (request.fulfillment_status) {
     badges.push({
-      label: getFulfillmentStatusLabel(overview.request),
+      label: getFulfillmentStatusLabel(request.fulfillment_status),
       className: "border-[#E8DED2] bg-white text-[#52616F]",
     });
   }
@@ -725,19 +768,6 @@ function RequestCard({
             ))}
           </div>
 
-          {request.fulfillment_method === "pickup" &&
-          request.pickup_maps_url_snapshot ? (
-            <a
-              href={request.pickup_maps_url_snapshot}
-              target="_blank"
-              rel="noreferrer"
-              className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#BFE3CD] bg-[#F0FFF6] px-3 py-2 text-xs font-black text-[#2F7D50] transition hover:brightness-105"
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              Route zum Laden öffnen
-            </a>
-          ) : null}
-
           <h3 className="text-xl font-black text-[#102A43] sm:text-2xl">
             Anfrage {request.request_number || request.id}
           </h3>
@@ -822,9 +852,7 @@ function RequestCard({
             </div>
 
             <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
-              <p className="text-xs font-bold text-[#52616F]">
-                Manuell ergänzt
-              </p>
+              <p className="text-xs font-bold text-[#52616F]">Manuell ergänzt</p>
               <p className="text-lg font-black text-[#102A43]">
                 {overview.adminManualCount}
               </p>
@@ -881,16 +909,6 @@ function RequestCard({
             Anfrage bearbeiten
             <ArrowRight className="h-4 w-4" />
           </Link>
-
-          {workflow.area === "confirmed" ? (
-            <Link
-              href={`/admin/anfragen/${request.id}`}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-            >
-              Picking / Abwicklung
-              <PackageCheck className="h-4 w-4" />
-            </Link>
-          ) : null}
 
           {customerOfferPath && customerOfferUrl ? (
             <>
@@ -1134,27 +1152,21 @@ export default async function AdminRequestsPage() {
     (overview) => getWorkflowStatus(overview).area === "open"
   );
 
-  const confirmedOverviews = overviews.filter(
-    (overview) => getWorkflowStatus(overview).area === "confirmed"
-  );
-
-  const completedOverviews = overviews.filter(
-    (overview) => getWorkflowStatus(overview).area === "completed"
+  const fulfillmentOverviews = overviews.filter(
+    (overview) => getWorkflowStatus(overview).area === "fulfillment"
   );
 
   const totalRequests = overviews.length;
   const openCount = openOverviews.length;
-  const confirmedCount = confirmedOverviews.length;
-  const completedCount = completedOverviews.length;
-
+  const fulfillmentCount = fulfillmentOverviews.length;
   const manualReviewCount = overviews.filter(
     (overview) => overview.manualReviewCount > 0
   ).length;
-
-  const updateMailSentCount = overviews.filter(
-    (overview) =>
-      hasEvent(overview, isUpdateMailEvent) ||
-      overview.request.offer_status === "offer_sent"
+  const shippingCount = fulfillmentOverviews.filter(
+    (overview) => overview.request.fulfillment_method === "shipping"
+  ).length;
+  const pickupCount = fulfillmentOverviews.filter(
+    (overview) => overview.request.fulfillment_method === "pickup"
   ).length;
 
   const refreshedAt = new Date().toISOString();
@@ -1175,9 +1187,9 @@ export default async function AdminRequestsPage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Bestätigte Angebote sind jetzt ein eigener Arbeitsbereich. Dort
-                beginnt die interne Abwicklung mit Pickingliste, Abholung oder
-                Versand.
+                Die Übersicht trennt offene Anfragen von bestätigten Angeboten
+                in der Abwicklung. Sobald ein Kunde bestätigt hat, landet der
+                Vorgang im Bereich „Angebot bestätigt / Abwicklung“.
               </p>
             </div>
 
@@ -1196,7 +1208,7 @@ export default async function AdminRequestsPage() {
 
               <a
                 href="/admin/anfragen"
-                className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                className="mt-4 inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
                 <RefreshCw className="h-4 w-4" />
                 Aktualisieren
@@ -1222,23 +1234,23 @@ export default async function AdminRequestsPage() {
 
           <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Angebot bestätigt
+              Bestätigt / Abwicklung
             </p>
-            <p className="mt-2 text-3xl font-black">{confirmedCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Abgeschlossen
-            </p>
-            <p className="mt-2 text-3xl font-black">{completedCount}</p>
+            <p className="mt-2 text-3xl font-black">{fulfillmentCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Angebot versandt
+              Versand
             </p>
-            <p className="mt-2 text-3xl font-black">{updateMailSentCount}</p>
+            <p className="mt-2 text-3xl font-black">{shippingCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              Abholung
+            </p>
+            <p className="mt-2 text-3xl font-black">{pickupCount}</p>
           </div>
         </section>
 
@@ -1297,24 +1309,23 @@ export default async function AdminRequestsPage() {
                       Bereich Angebot bestätigt
                     </p>
                     <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                      Bestätigte Angebote
+                      Angebot bestätigt / Abwicklung
                     </h2>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                      Diese Vorgänge sind kaufmännisch bestätigt und müssen nun
-                      gepickt, gepackt, zur Abholung bereitgestellt oder
-                      versendet werden.
+                      Bestätigte Angebote, Pickingliste, Abholung, Versand,
+                      abholbereit, versendet oder abgeholt.
                     </p>
                   </div>
 
                   <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#2F7D50]">
-                    {confirmedCount} bestätigt
+                    {fulfillmentCount} in Abwicklung
                   </span>
                 </div>
               </div>
 
-              {confirmedOverviews.length > 0 ? (
+              {fulfillmentOverviews.length > 0 ? (
                 <div className="space-y-4">
-                  {confirmedOverviews.map((overview) => (
+                  {fulfillmentOverviews.map((overview) => (
                     <RequestCard
                       key={overview.request.id}
                       overview={overview}
@@ -1325,56 +1336,11 @@ export default async function AdminRequestsPage() {
               ) : (
                 <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
                   <h3 className="text-xl font-black text-[#102A43]">
-                    Noch keine bestätigten Angebote.
+                    Noch keine bestätigten Angebote in Abwicklung.
                   </h3>
                   <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                    Sobald ein Kunde verbindlich bestätigt, erscheint der
-                    Vorgang hier für Picking, Abholung oder Versand.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-4">
-              <div className="rounded-[30px] border border-[#C8D8E8] bg-[#EEF4FA] p-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#12395F]">
-                      Bereich Abgeschlossen
-                    </p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                      Abgeschlossene Vorgänge
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                      Abgeholt, versendet, zugestellt oder vollständig
-                      abgeschlossen.
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#12395F]">
-                    {completedCount} abgeschlossen
-                  </span>
-                </div>
-              </div>
-
-              {completedOverviews.length > 0 ? (
-                <div className="space-y-4">
-                  {completedOverviews.map((overview) => (
-                    <RequestCard
-                      key={overview.request.id}
-                      overview={overview}
-                      siteUrl={siteUrl}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
-                  <h3 className="text-xl font-black text-[#102A43]">
-                    Noch keine abgeschlossenen Vorgänge.
-                  </h3>
-                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                    Sobald ein Paket abgeholt oder versendet wurde, erscheint es
-                    hier.
+                    Sobald ein Kunde ein Angebot bestätigt, erscheint der Vorgang
+                    hier für Picking, Abholung oder Versand.
                   </p>
                 </div>
               )}
