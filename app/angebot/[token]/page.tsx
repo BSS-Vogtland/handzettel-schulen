@@ -133,6 +133,13 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function cleanText(value: unknown, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+
+  const text = String(value).trim();
+  return text.length > 0 ? text : fallback;
+}
+
 function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
@@ -446,6 +453,15 @@ function isStrictMatchVisible(item: RequestItem, match: RequestMatch) {
   return true;
 }
 
+function isSafeAutoMatch(match: RequestMatch) {
+  return Boolean(match.product_id) && toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE;
+}
+
+function isSelectableOpenMatch(match: RequestMatch) {
+  const score = toNumber(match.match_score, 0);
+  return score >= 70 && score < AUTO_PRESELECT_MIN_SCORE;
+}
+
 function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
   const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
@@ -604,7 +620,10 @@ function getItemFacts(item: RequestItem | null | undefined) {
   return facts;
 }
 
-function getOfferItemScoreLabel(item: OfferItem, matchById: Map<string, RequestMatch>) {
+function getOfferItemScoreLabel(
+  item: OfferItem,
+  matchById: Map<string, RequestMatch>
+) {
   if (!item.match_id) return null;
 
   const match = matchById.get(item.match_id);
@@ -633,6 +652,92 @@ function isAutoPreselectedOfferItem(
 
   const match = matchById.get(item.match_id);
   return toNumber(match?.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE;
+}
+
+async function insertMissingSafeMatchesIntoOffer(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  request: SchoolRequest;
+  items: RequestItem[];
+  matchesByItem: Map<string, RequestMatch[]>;
+  selectedOfferItemsByRequestItem: Map<string, OfferItem[]>;
+}) {
+  const {
+    supabase,
+    request,
+    items,
+    matchesByItem,
+    selectedOfferItemsByRequestItem,
+  } = params;
+
+  if (request.status === "confirmed" || request.offer_status === "confirmed") {
+    return 0;
+  }
+
+  const rowsToInsert = items
+    .map((item) => {
+      const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
+
+      if (selectedForItem.length > 0) return null;
+
+      const bestSafeMatch = (matchesByItem.get(item.id) || [])
+        .filter(isSafeAutoMatch)
+        .sort(compareMatchesStable)[0];
+
+      if (!bestSafeMatch) return null;
+
+      const productPrice = toNumber(bestSafeMatch.product_price, 0);
+
+      return {
+        request_id: request.id,
+        request_item_id: bestSafeMatch.request_item_id,
+        match_id: bestSafeMatch.id,
+        product_id: bestSafeMatch.product_id,
+        product_name: cleanText(bestSafeMatch.product_name, "Produkt"),
+        product_sku: cleanText(bestSafeMatch.product_sku, "") || null,
+        product_price: productPrice,
+        quantity: toNumber(item.quantity, 1) || 1,
+        unit: "Stk.",
+        source: "auto_preselected",
+        status: "preselected",
+        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
+          bestSafeMatch.match_score,
+          0
+        )} % Übereinstimmung erreicht hat.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+  if (rowsToInsert.length === 0) return 0;
+
+  const { error } = await supabase.from("school_offer_items").insert(rowsToInsert);
+
+  if (error) {
+    console.error("Sichere Treffer konnten nicht nachgezogen werden:", error);
+    return 0;
+  }
+
+  await supabase.from("school_request_events").insert({
+    request_id: request.id,
+    event_type: "customer_auto_preselected_items_repaired",
+    message: `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt.`,
+    metadata: {
+      threshold: AUTO_PRESELECT_MIN_SCORE,
+      insertedCount: rowsToInsert.length,
+    },
+    created_at: new Date().toISOString(),
+  });
+
+  await supabase
+    .from("school_requests")
+    .update({
+      offer_status: "customer_selection",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", request.id);
+
+  return rowsToInsert.length;
 }
 
 function ProductImageBox({
@@ -709,7 +814,7 @@ export default async function CustomerOfferPage({ params }: Params) {
     ]);
 
   const items = (requestItems || []) as RequestItem[];
-  const selectedOfferItems = ((offerItems || []) as OfferItem[]).sort(
+  let selectedOfferItems = ((offerItems || []) as OfferItem[]).sort(
     compareOfferItemsStable
   );
   const uploadedFiles = (files || []) as RequestFile[];
@@ -738,6 +843,80 @@ export default async function CustomerOfferPage({ params }: Params) {
     matches = (matchRows || []) as RequestMatch[];
   }
 
+  const requestItemById = new Map<string, RequestItem>();
+  const matchById = new Map<string, RequestMatch>();
+
+  for (const item of items) {
+    requestItemById.set(item.id, item);
+  }
+
+  for (const match of matches) {
+    matchById.set(match.id, match);
+  }
+
+  const matchesByItem = new Map<string, RequestMatch[]>();
+
+  for (const item of items) {
+    const allItemMatches = matches
+      .filter((match) => match.request_item_id === item.id)
+      .sort(compareMatchesStable);
+
+    const strictMatches = allItemMatches
+      .filter((match) => isStrictMatchVisible(item, match))
+      .slice(0, 3);
+
+    matchesByItem.set(item.id, strictMatches);
+  }
+
+  let selectedOfferItemsByRequestItem = new Map<string, OfferItem[]>();
+
+  for (const offerItem of selectedOfferItems) {
+    if (!offerItem.request_item_id) continue;
+
+    const current =
+      selectedOfferItemsByRequestItem.get(offerItem.request_item_id) || [];
+    current.push(offerItem);
+    selectedOfferItemsByRequestItem.set(offerItem.request_item_id, current);
+  }
+
+  const repairedCount = await insertMissingSafeMatchesIntoOffer({
+    supabase,
+    request,
+    items,
+    matchesByItem,
+    selectedOfferItemsByRequestItem,
+  });
+
+  if (repairedCount > 0) {
+    const { data: refreshedOfferItems, error: refreshedOfferItemsError } =
+      await supabase
+        .from("school_offer_items")
+        .select("*")
+        .eq("request_id", request.id)
+        .order("created_at", { ascending: true });
+
+    if (refreshedOfferItemsError) {
+      throw new Error(
+        `Paketpositionen konnten nach der automatischen Vorauswahl nicht neu geladen werden: ${refreshedOfferItemsError.message}`
+      );
+    }
+
+    selectedOfferItems = ((refreshedOfferItems || []) as OfferItem[]).sort(
+      compareOfferItemsStable
+    );
+
+    selectedOfferItemsByRequestItem = new Map<string, OfferItem[]>();
+
+    for (const offerItem of selectedOfferItems) {
+      if (!offerItem.request_item_id) continue;
+
+      const current =
+        selectedOfferItemsByRequestItem.get(offerItem.request_item_id) || [];
+      current.push(offerItem);
+      selectedOfferItemsByRequestItem.set(offerItem.request_item_id, current);
+    }
+  }
+
   const productIds = Array.from(
     new Set(
       [
@@ -758,41 +937,6 @@ export default async function CustomerOfferPage({ params }: Params) {
     for (const product of (productRows || []) as ProductRow[]) {
       productImageById.set(product.id, product.image_url || null);
     }
-  }
-
-  const requestItemById = new Map<string, RequestItem>();
-  const matchById = new Map<string, RequestMatch>();
-  const selectedOfferItemsByRequestItem = new Map<string, OfferItem[]>();
-
-  for (const item of items) {
-    requestItemById.set(item.id, item);
-  }
-
-  for (const match of matches) {
-    matchById.set(match.id, match);
-  }
-
-  for (const offerItem of selectedOfferItems) {
-    if (!offerItem.request_item_id) continue;
-
-    const current =
-      selectedOfferItemsByRequestItem.get(offerItem.request_item_id) || [];
-    current.push(offerItem);
-    selectedOfferItemsByRequestItem.set(offerItem.request_item_id, current);
-  }
-
-  const matchesByItem = new Map<string, RequestMatch[]>();
-
-  for (const item of items) {
-    const allItemMatches = matches
-      .filter((match) => match.request_item_id === item.id)
-      .sort(compareMatchesStable);
-
-    const strictMatches = allItemMatches
-      .filter((match) => isStrictMatchVisible(item, match))
-      .slice(0, 3);
-
-    matchesByItem.set(item.id, strictMatches);
   }
 
   const selectedMatchIds = new Set(
@@ -824,15 +968,22 @@ export default async function CustomerOfferPage({ params }: Params) {
   const openChoiceItems = items.filter((item) => {
     const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
     const itemMatches = matchesByItem.get(item.id) || [];
+    const selectableMatches = itemMatches.filter(isSelectableOpenMatch);
 
-    return selectedForItem.length === 0 && itemMatches.length > 0;
+    return selectedForItem.length === 0 && selectableMatches.length > 0;
   });
 
   const manualReviewItems = items.filter((item) => {
     const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
     const itemMatches = matchesByItem.get(item.id) || [];
+    const safeMatches = itemMatches.filter(isSafeAutoMatch);
+    const selectableMatches = itemMatches.filter(isSelectableOpenMatch);
 
-    return selectedForItem.length === 0 && itemMatches.length === 0;
+    return (
+      selectedForItem.length === 0 &&
+      safeMatches.length === 0 &&
+      selectableMatches.length === 0
+    );
   });
 
   const handledItemCount = new Set(
@@ -1309,7 +1460,10 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                   <div className="space-y-4">
                     {openChoiceItems.map((item, index) => {
-                      const itemMatches = matchesByItem.get(item.id) || [];
+                      const itemMatches = (matchesByItem.get(item.id) || [])
+                        .filter(isSelectableOpenMatch)
+                        .sort(compareMatchesStable);
+
                       const displayLineature = getDisplayLineature(item);
 
                       const excludedProductIds = uniqueCleanStrings([
