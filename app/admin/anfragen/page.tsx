@@ -7,10 +7,13 @@ import {
   ClipboardList,
   Eye,
   FileText,
+  MailCheck,
+  PackageCheck,
   RefreshCw,
   School,
   ShoppingBasket,
   Sparkles,
+  Truck,
   User,
   Wrench,
 } from "lucide-react";
@@ -86,6 +89,8 @@ type EventRow = {
   event_type?: string | null;
   type?: string | null;
   message: string | null;
+  title?: string | null;
+  description?: string | null;
   created_at: string | null;
 };
 
@@ -101,8 +106,18 @@ type RequestOverview = {
   manualReviewCount: number;
   openWithMatchesCount: number;
   latestEvent: EventRow | null;
+  events: EventRow[];
   totalPrice: number;
   hasAdminEdits: boolean;
+};
+
+type WorkflowStatus = {
+  area: "open" | "done";
+  title: string;
+  subtitle: string;
+  badge: string;
+  tone: "neutral" | "blue" | "amber" | "green";
+  icon: typeof ClipboardList;
 };
 
 function getSupabaseAdmin() {
@@ -163,123 +178,101 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function getStatusLabel(status: string | null) {
-  switch (status) {
-    case "received":
-      return "Neu eingegangen";
-    case "analysis_pending":
-      return "Analyse offen";
-    case "analysis_running":
-      return "Analyse läuft";
-    case "analysis_done":
-      return "Ausgewertet";
-    case "manual_review":
-      return "Manuelle Prüfung";
-    case "offer_created":
-      return "Angebot erstellt";
-    case "offer_sent":
-      return "Angebot gesendet";
-    case "confirmed":
-      return "Abgesendet";
-    case "cancelled":
-      return "Abgebrochen";
-    default:
-      return status || "Unbekannt";
-  }
+function getEventType(event: EventRow | null) {
+  if (!event) return "";
+  return String(event.event_type || event.type || "").toLowerCase();
 }
 
-function getOfferStatusLabel(status: string | null) {
-  switch (status) {
-    case "not_created":
-      return "Noch kein Paket";
-    case "matching_done":
-      return "Vorschläge erstellt";
-    case "offer_created":
-      return "Paket erstellt";
-    case "customer_selection":
-      return "Kundenauswahl";
-    case "confirmed":
-      return "Bestätigt";
-    default:
-      return status || "—";
-  }
+function getEventText(event: EventRow | null) {
+  if (!event) return "";
+
+  return [
+    event.event_type || "",
+    event.type || "",
+    event.message || "",
+    event.title || "",
+    event.description || "",
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
-function getAiStatusLabel(status: string | null) {
-  switch (status) {
-    case "pending":
-      return "KI offen";
-    case "running":
-      return "KI läuft";
-    case "done":
-      return "KI fertig";
-    case "error":
-      return "KI-Fehler";
-    case "unsupported_file_type":
-      return "Dateityp unklar";
-    case "no_items_detected":
-      return "Nichts erkannt";
-    default:
-      return status || "—";
-  }
+function hasEvent(
+  overview: RequestOverview,
+  matcher: (event: EventRow) => boolean
+) {
+  return overview.events.some(matcher);
 }
 
-function getPrimaryBadge(overview: RequestOverview) {
-  const request = overview.request;
+function isUpdateMailEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
 
-  if (request.status === "confirmed" || request.offer_status === "confirmed") {
-    return {
-      label: "Bestätigt",
-      className: "bg-[#F0FFF6] text-[#2F7D50] border-[#BFE3CD]",
-      icon: CheckCircle2,
-    };
+  return (
+    type.includes("offer_update_mail_sent") ||
+    type.includes("update_mail") ||
+    text.includes("aktualisierungsmail") ||
+    text.includes("pdf-angebot") ||
+    text.includes("aktualisiertes angebot")
+  );
+}
+
+function isUpdatedOfferConfirmedEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
+
+  return (
+    type.includes("offer_update_confirmed") ||
+    text.includes("aktualisiertes angebot bestätigt") ||
+    text.includes("aktualisiertes angebot offiziell angenommen")
+  );
+}
+
+function isDoneLogisticsEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
+
+  return (
+    type.includes("picked_up") ||
+    type.includes("abgeholt") ||
+    type.includes("shipped") ||
+    type.includes("versendet") ||
+    type.includes("delivered") ||
+    type.includes("zugestellt") ||
+    type.includes("completed") ||
+    type.includes("abgeschlossen") ||
+    text.includes("abgeholt") ||
+    text.includes("versendet") ||
+    text.includes("zugestellt") ||
+    text.includes("beim kunden eingetroffen") ||
+    text.includes("abgeschlossen")
+  );
+}
+
+function getDoneLogisticsLabel(overview: RequestOverview) {
+  const latestDoneEvent = overview.events.find(isDoneLogisticsEvent);
+
+  if (!latestDoneEvent) return null;
+
+  const text = getEventText(latestDoneEvent);
+
+  if (text.includes("beim kunden eingetroffen") || text.includes("zugestellt")) {
+    return "Beim Kunden eingetroffen";
   }
 
-  if (overview.manualReviewCount > 0) {
-    return {
-      label: "Manuell prüfen",
-      className: "bg-[#FFF4E5] text-[#A75B28] border-[#F1D1A8]",
-      icon: AlertTriangle,
-    };
+  if (text.includes("versendet") || text.includes("shipped")) {
+    return "Versendet";
   }
 
-  if (overview.hasAdminEdits) {
-    return {
-      label: "Nachbearbeitet",
-      className: "bg-[#EEF4FA] text-[#12395F] border-[#C8D8E8]",
-      icon: Wrench,
-    };
+  if (text.includes("abgeholt") || text.includes("picked_up")) {
+    return "Abgeholt";
   }
 
-  if (overview.offerItemCount > 0) {
-    return {
-      label: "Paket läuft",
-      className: "bg-[#F0FFF6] text-[#2F7D50] border-[#BFE3CD]",
-      icon: ShoppingBasket,
-    };
+  if (text.includes("abgeschlossen") || text.includes("completed")) {
+    return "Abgeschlossen";
   }
 
-  if (overview.itemCount > 0 && overview.matchCount > 0) {
-    return {
-      label: "Vorschläge da",
-      className: "bg-[#EEF4FA] text-[#12395F] border-[#C8D8E8]",
-      icon: Sparkles,
-    };
-  }
-
-  if (request.status === "analysis_running" || request.ai_status === "running") {
-    return {
-      label: "Analyse läuft",
-      className: "bg-[#EEF4FA] text-[#12395F] border-[#C8D8E8]",
-      icon: RefreshCw,
-    };
-  }
-
-  return {
-    label: "Neu",
-    className: "bg-white text-[#52616F] border-[#E8DED2]",
-    icon: ClipboardList,
-  };
+  return "Erledigt";
 }
 
 function getEventTypeLabel(event: EventRow | null) {
@@ -304,8 +297,16 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Kunde hat Produkt gewählt";
     case "customer_product_search_selected":
       return "Kunde hat Produkt gesucht";
+    case "customer_package_submitted_manual_review":
+      return "Paketwunsch abgesendet · manuelle Prüfung nötig";
     case "offer_confirmed":
-      return "Paketwunsch abgesendet";
+      return "Angebot bestätigt";
+    case "offer_confirmed_complete_customer_selection":
+      return "Angebot vollständig durch Kunde bestätigt";
+    case "offer_update_mail_sent":
+      return "Aktualisiertes Angebot versandt";
+    case "offer_update_confirmed":
+      return "Aktualisiertes Angebot bestätigt";
     case "admin_manual_offer_item_added":
       return "Admin hat Position ergänzt";
     case "admin_offer_item_deleted":
@@ -317,9 +318,485 @@ function getEventTypeLabel(event: EventRow | null) {
   }
 }
 
+function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
+  const request = overview.request;
+  const hasUpdateMail = hasEvent(overview, isUpdateMailEvent);
+  const hasUpdatedConfirmation = hasEvent(overview, isUpdatedOfferConfirmedEvent);
+  const doneLogisticsLabel = getDoneLogisticsLabel(overview);
+
+  if (doneLogisticsLabel) {
+    return {
+      area: "done",
+      title: doneLogisticsLabel,
+      subtitle:
+        "Diese Anfrage ist im operativen Ablauf abgeschlossen oder beim Kunden angekommen.",
+      badge: "Erledigt",
+      tone: "green",
+      icon: Truck,
+    };
+  }
+
+  if (hasUpdatedConfirmation) {
+    return {
+      area: "done",
+      title: "Aktualisiertes Angebot bestätigt",
+      subtitle:
+        "Der Kunde hat das manuell geänderte Angebot offiziell angenommen.",
+      badge: "Erledigt",
+      tone: "green",
+      icon: CheckCircle2,
+    };
+  }
+
+  if (request.status === "confirmed" || request.offer_status === "confirmed") {
+    return {
+      area: "done",
+      title: "Angebot bestätigt",
+      subtitle:
+        "Der Kunde hat das Angebot offiziell angenommen. Falls danach noch Lieferung/Abholung folgt, kann der Vorgang später weiter markiert werden.",
+      badge: "Erledigt",
+      tone: "green",
+      icon: CheckCircle2,
+    };
+  }
+
+  if (hasUpdateMail || request.offer_status === "offer_sent") {
+    return {
+      area: "open",
+      title: "Aktualisiertes Angebot versandt",
+      subtitle:
+        "Das manuell geänderte Angebot wurde gesendet. Es wartet noch auf Kundenbestätigung.",
+      badge: "Wartet auf Bestätigung",
+      tone: "amber",
+      icon: MailCheck,
+    };
+  }
+
+  if (overview.manualReviewCount > 0 || request.status === "manual_review") {
+    return {
+      area: "open",
+      title: "Manuelle Prüfung nötig",
+      subtitle:
+        "Es gibt offene Positionen, die geprüft oder ergänzt werden müssen.",
+      badge: `${overview.manualReviewCount} offen`,
+      tone: "amber",
+      icon: AlertTriangle,
+    };
+  }
+
+  if (overview.hasAdminEdits) {
+    return {
+      area: "open",
+      title: "Nachbearbeitet",
+      subtitle:
+        "Du hast Positionen manuell angepasst. Prüfe final und sende danach das aktualisierte Angebot.",
+      badge: "Bereit zur Prüfung",
+      tone: "blue",
+      icon: Wrench,
+    };
+  }
+
+  if (overview.offerItemCount > 0) {
+    return {
+      area: "open",
+      title: "Paket vorbereitet",
+      subtitle:
+        "Es gibt bereits Paketpositionen. Der Paketwunsch ist noch nicht final bestätigt.",
+      badge: "In Bearbeitung",
+      tone: "blue",
+      icon: ShoppingBasket,
+    };
+  }
+
+  if (overview.itemCount > 0 && overview.matchCount > 0) {
+    return {
+      area: "open",
+      title: "Vorschläge verfügbar",
+      subtitle:
+        "Die Liste wurde ausgewertet und passende Produktvorschläge sind vorhanden.",
+      badge: "Kunde kann wählen",
+      tone: "blue",
+      icon: Sparkles,
+    };
+  }
+
+  if (request.ai_status === "running" || request.status === "analysis_running") {
+    return {
+      area: "open",
+      title: "Analyse läuft",
+      subtitle:
+        "Die Kundenliste wird gerade ausgewertet oder vorbereitet.",
+      badge: "In Bearbeitung",
+      tone: "blue",
+      icon: RefreshCw,
+    };
+  }
+
+  if (request.ai_status === "done" || request.status === "analysis_done") {
+    return {
+      area: "open",
+      title: "Auswertung fertig",
+      subtitle:
+        "Die KI-Auswertung ist fertig. Die Anfrage kann weiter bearbeitet werden.",
+      badge: "Nächster Schritt offen",
+      tone: "blue",
+      icon: Sparkles,
+    };
+  }
+
+  return {
+    area: "open",
+    title: "Neu eingegangen",
+    subtitle:
+      "Die Anfrage ist neu und muss noch ausgewertet oder bearbeitet werden.",
+    badge: "Neu",
+    tone: "neutral",
+    icon: ClipboardList,
+  };
+}
+
+function getStatusToneClasses(tone: WorkflowStatus["tone"]) {
+  switch (tone) {
+    case "green":
+      return {
+        wrap: "border-[#BFE3CD] bg-[#F0FFF6]",
+        icon: "bg-white text-[#2F7D50]",
+        label: "bg-white text-[#2F7D50] border-[#BFE3CD]",
+        title: "text-[#1F5D3A]",
+      };
+    case "amber":
+      return {
+        wrap: "border-[#F1D1A8] bg-[#FFF8EE]",
+        icon: "bg-white text-[#A75B28]",
+        label: "bg-white text-[#A75B28] border-[#F1D1A8]",
+        title: "text-[#8A4A1F]",
+      };
+    case "blue":
+      return {
+        wrap: "border-[#C8D8E8] bg-[#EEF4FA]",
+        icon: "bg-white text-[#12395F]",
+        label: "bg-white text-[#12395F] border-[#C8D8E8]",
+        title: "text-[#12395F]",
+      };
+    default:
+      return {
+        wrap: "border-[#E8DED2] bg-[#FBF7F0]",
+        icon: "bg-white text-[#52616F]",
+        label: "bg-white text-[#52616F] border-[#E8DED2]",
+        title: "text-[#102A43]",
+      };
+  }
+}
+
+function getAiStatusLabel(status: string | null) {
+  switch (status) {
+    case "pending":
+      return "KI offen";
+    case "running":
+      return "KI läuft";
+    case "done":
+      return "KI fertig";
+    case "error":
+      return "KI-Fehler";
+    case "unsupported_file_type":
+      return "Dateityp unklar";
+    case "no_items_detected":
+      return "Nichts erkannt";
+    default:
+      return status || "KI unbekannt";
+  }
+}
+
+function getSmallInfoBadges(overview: RequestOverview) {
+  const badges: Array<{
+    label: string;
+    className: string;
+  }> = [];
+
+  badges.push({
+    label: getAiStatusLabel(overview.request.ai_status),
+    className: "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]",
+  });
+
+  if (overview.customerSelectedCount > 0) {
+    badges.push({
+      label: `Kunde gewählt: ${overview.customerSelectedCount}`,
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    });
+  }
+
+  if (overview.adminManualCount > 0) {
+    badges.push({
+      label: `Manuell ergänzt: ${overview.adminManualCount}`,
+      className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    });
+  }
+
+  if (overview.manualReviewCount > 0) {
+    badges.push({
+      label: `Offene Positionen: ${overview.manualReviewCount}`,
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    });
+  }
+
+  if (overview.openWithMatchesCount > 0) {
+    badges.push({
+      label: `Auswahl offen: ${overview.openWithMatchesCount}`,
+      className: "border-[#E8DED2] bg-white text-[#52616F]",
+    });
+  }
+
+  if (hasEvent(overview, isUpdateMailEvent) || overview.request.offer_status === "offer_sent") {
+    badges.push({
+      label: "Aktualisierungsmail versandt",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    });
+  }
+
+  return badges;
+}
+
+function RequestCard({
+  overview,
+  siteUrl,
+}: {
+  overview: RequestOverview;
+  siteUrl: string;
+}) {
+  const request = overview.request;
+  const workflow = getWorkflowStatus(overview);
+  const toneClasses = getStatusToneClasses(workflow.tone);
+  const StatusIcon = workflow.icon;
+
+  const customerOfferPath = request.offer_token
+    ? `/angebot/${request.offer_token}`
+    : null;
+
+  const customerOfferUrl = customerOfferPath
+    ? `${siteUrl}${customerOfferPath}`
+    : null;
+
+  const infoBadges = getSmallInfoBadges(overview);
+
+  return (
+    <article className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm transition hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_280px] lg:items-start">
+        <div>
+          <div className={`mb-4 rounded-[26px] border p-4 ${toneClasses.wrap}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClasses.icon}`}
+                >
+                  <StatusIcon className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                    Aktueller Status
+                  </p>
+
+                  <h2 className={`mt-1 text-xl font-black ${toneClasses.title}`}>
+                    {workflow.title}
+                  </h2>
+
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                    {workflow.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              <span
+                className={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-black ${toneClasses.label}`}
+              >
+                {workflow.badge}
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {infoBadges.map((badge) => (
+              <span
+                key={badge.label}
+                className={`rounded-full border px-3 py-1 text-xs font-black ${badge.className}`}
+              >
+                {badge.label}
+              </span>
+            ))}
+          </div>
+
+          <h3 className="text-xl font-black text-[#102A43] sm:text-2xl">
+            Anfrage {request.request_number || request.id}
+          </h3>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl bg-[#FBF7F0] p-3">
+              <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <User className="h-3.5 w-3.5" />
+                Kunde
+              </div>
+              <p className="font-black text-[#102A43]">
+                {request.customer_name || "Nicht angegeben"}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                {request.email || request.phone || "Kein Kontakt"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#FBF7F0] p-3">
+              <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <School className="h-3.5 w-3.5" />
+                Kind / Schule
+              </div>
+              <p className="font-black text-[#102A43]">
+                {request.child_name || "Nicht angegeben"}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                {request.school_name || "Keine Schule"}
+                {request.class_name ? ` · ${request.class_name}` : ""}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#FBF7F0] p-3">
+              <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <FileText className="h-3.5 w-3.5" />
+                Datei
+              </div>
+              <p className="font-black text-[#102A43]">
+                {overview.fileCount} Datei
+                {overview.fileCount === 1 ? "" : "en"}
+              </p>
+              <p className="mt-1 truncate text-xs font-semibold text-[#52616F]">
+                {overview.firstFileName || "Keine Datei"}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#FBF7F0] p-3">
+              <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <ShoppingBasket className="h-3.5 w-3.5" />
+                Paket
+              </div>
+              <p className="font-black text-[#102A43]">
+                {overview.offerItemCount} Position
+                {overview.offerItemCount === 1 ? "" : "en"}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                {formatMoney(overview.totalPrice)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+              <p className="text-xs font-bold text-[#52616F]">Erkannt</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.itemCount}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+              <p className="text-xs font-bold text-[#52616F]">Vorschläge</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.matchCount}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+              <p className="text-xs font-bold text-[#52616F]">Kunde gewählt</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.customerSelectedCount}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+              <p className="text-xs font-bold text-[#52616F]">Manuell ergänzt</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.adminManualCount}
+              </p>
+            </div>
+
+            <div
+              className={`rounded-2xl border px-3 py-2 ${
+                overview.manualReviewCount > 0
+                  ? "border-[#F1D1A8] bg-[#FFF8EE]"
+                  : "border-[#E8DED2] bg-white"
+              }`}
+            >
+              <p className="text-xs font-bold text-[#52616F]">Offen</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.manualReviewCount}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+              Letztes Ereignis
+            </p>
+            <p className="mt-1 text-sm font-black text-[#102A43]">
+              {getEventTypeLabel(overview.latestEvent)}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-[#52616F]">
+              {overview.latestEvent?.message ||
+                "Noch keine Detailmeldung vorhanden."}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-[#52616F]">
+              {formatDateTime(overview.latestEvent?.created_at || null)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Eingegangen
+            </p>
+            <p className="mt-2 text-lg font-black text-[#102A43]">
+              {formatDate(request.created_at)}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-[#52616F]">
+              Aktualisiert: {formatDateTime(request.updated_at)}
+            </p>
+          </div>
+
+          <Link
+            href={`/admin/anfragen/${request.id}`}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+          >
+            Anfrage bearbeiten
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+
+          {customerOfferPath && customerOfferUrl ? (
+            <>
+              <Link
+                href={customerOfferPath}
+                target="_blank"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                Kundenseite öffnen
+                <Eye className="h-4 w-4" />
+              </Link>
+
+              <CopyOfferLinkButton url={customerOfferUrl} />
+            </>
+          ) : null}
+
+          <DeleteRequestButton
+            requestId={request.id}
+            requestLabel={`Anfrage ${request.request_number || request.id}`}
+          />
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default async function AdminRequestsPage() {
   const supabase = getSupabaseAdmin();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000";
 
   const { data: requestRows, error: requestError } = await supabase
     .from("school_requests")
@@ -522,27 +999,30 @@ export default async function AdminRequestsPage() {
       manualReviewCount,
       openWithMatchesCount,
       latestEvent: requestEvents[0] || null,
+      events: requestEvents,
       totalPrice,
       hasAdminEdits: adminManualCount > 0 || hasAdminEditEvent,
     };
   });
 
+  const openOverviews = overviews.filter(
+    (overview) => getWorkflowStatus(overview).area === "open"
+  );
+
+  const doneOverviews = overviews.filter(
+    (overview) => getWorkflowStatus(overview).area === "done"
+  );
+
   const totalRequests = overviews.length;
-  const newCount = overviews.filter(
-    (overview) =>
-      overview.request.status === "received" ||
-      overview.request.ai_status === "pending"
-  ).length;
-  const confirmedCount = overviews.filter(
-    (overview) =>
-      overview.request.status === "confirmed" ||
-      overview.request.offer_status === "confirmed"
-  ).length;
+  const openCount = openOverviews.length;
+  const doneCount = doneOverviews.length;
   const manualReviewCount = overviews.filter(
     (overview) => overview.manualReviewCount > 0
   ).length;
-  const adminEditedCount = overviews.filter(
-    (overview) => overview.hasAdminEdits
+  const updateMailSentCount = overviews.filter(
+    (overview) =>
+      hasEvent(overview, isUpdateMailEvent) ||
+      overview.request.offer_status === "offer_sent"
   ).length;
 
   const refreshedAt = new Date().toISOString();
@@ -563,9 +1043,9 @@ export default async function AdminRequestsPage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Hier siehst Du alle eingegangenen Schulmateriallisten inklusive
-                Status, Auswertung, Kundenauswahl, Paketpositionen und manueller
-                Nachbearbeitung.
+                Die Übersicht ist jetzt in offene und erledigte Vorgänge
+                getrennt. Auf jeder Karte siehst Du direkt den aktuellen
+                Hauptstatus, ohne technische Rohwerte wie offer_sent.
               </p>
             </div>
 
@@ -601,254 +1081,126 @@ export default async function AdminRequestsPage() {
             <p className="mt-2 text-3xl font-black">{totalRequests}</p>
           </div>
 
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Neu / offen
+          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Offen
             </p>
-            <p className="mt-2 text-3xl font-black">{newCount}</p>
+            <p className="mt-2 text-3xl font-black">{openCount}</p>
           </div>
 
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Bestätigt
+              Erledigt
             </p>
-            <p className="mt-2 text-3xl font-black">{confirmedCount}</p>
+            <p className="mt-2 text-3xl font-black">{doneCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Prüfen
+              Manuell prüfen
             </p>
             <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Bearbeitet
+              Angebot versandt
             </p>
-            <p className="mt-2 text-3xl font-black">{adminEditedCount}</p>
+            <p className="mt-2 text-3xl font-black">{updateMailSentCount}</p>
           </div>
         </section>
 
         {overviews.length > 0 ? (
-          <section className="space-y-4">
-            {overviews.map((overview) => {
-              const request = overview.request;
-              const badge = getPrimaryBadge(overview);
-              const BadgeIcon = badge.icon;
-
-              const customerOfferPath = request.offer_token
-                ? `/angebot/${request.offer_token}`
-                : null;
-
-              const customerOfferUrl = customerOfferPath
-                ? `${siteUrl}${customerOfferPath}`
-                : null;
-
-              return (
-                <article
-                  key={request.id}
-                  className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm transition hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-6"
-                >
-                  <div className="grid gap-5 lg:grid-cols-[1fr_280px] lg:items-start">
-                    <div>
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black ${badge.className}`}
-                        >
-                          <BadgeIcon className="h-3.5 w-3.5" />
-                          {badge.label}
-                        </span>
-
-                        <span className="rounded-full border border-[#E8DED2] bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#52616F]">
-                          {getStatusLabel(request.status)}
-                        </span>
-
-                        <span className="rounded-full border border-[#E8DED2] bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#52616F]">
-                          {getOfferStatusLabel(request.offer_status)}
-                        </span>
-
-                        <span className="rounded-full border border-[#E8DED2] bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#52616F]">
-                          {getAiStatusLabel(request.ai_status)}
-                        </span>
-                      </div>
-
-                      <h2 className="text-xl font-black text-[#102A43] sm:text-2xl">
-                        Anfrage {request.request_number || request.id}
-                      </h2>
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                          <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                            <User className="h-3.5 w-3.5" />
-                            Kunde
-                          </div>
-                          <p className="font-black text-[#102A43]">
-                            {request.customer_name || "Nicht angegeben"}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                            {request.email || request.phone || "Kein Kontakt"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                          <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                            <School className="h-3.5 w-3.5" />
-                            Kind / Schule
-                          </div>
-                          <p className="font-black text-[#102A43]">
-                            {request.child_name || "Nicht angegeben"}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                            {request.school_name || "Keine Schule"}
-                            {request.class_name ? ` · ${request.class_name}` : ""}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                          <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                            <FileText className="h-3.5 w-3.5" />
-                            Datei
-                          </div>
-                          <p className="font-black text-[#102A43]">
-                            {overview.fileCount} Datei
-                            {overview.fileCount === 1 ? "" : "en"}
-                          </p>
-                          <p className="mt-1 truncate text-xs font-semibold text-[#52616F]">
-                            {overview.firstFileName || "Keine Datei"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                          <div className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                            <ShoppingBasket className="h-3.5 w-3.5" />
-                            Paket
-                          </div>
-                          <p className="font-black text-[#102A43]">
-                            {overview.offerItemCount} Position
-                            {overview.offerItemCount === 1 ? "" : "en"}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                            {formatMoney(overview.totalPrice)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                        <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
-                          <p className="text-xs font-bold text-[#52616F]">
-                            Erkannt
-                          </p>
-                          <p className="text-lg font-black text-[#102A43]">
-                            {overview.itemCount}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
-                          <p className="text-xs font-bold text-[#52616F]">
-                            Vorschläge
-                          </p>
-                          <p className="text-lg font-black text-[#102A43]">
-                            {overview.matchCount}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
-                          <p className="text-xs font-bold text-[#52616F]">
-                            Kunde gewählt
-                          </p>
-                          <p className="text-lg font-black text-[#102A43]">
-                            {overview.customerSelectedCount}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
-                          <p className="text-xs font-bold text-[#52616F]">
-                            BSS ergänzt
-                          </p>
-                          <p className="text-lg font-black text-[#102A43]">
-                            {overview.adminManualCount}
-                          </p>
-                        </div>
-
-                        <div
-                          className={`rounded-2xl border px-3 py-2 ${
-                            overview.manualReviewCount > 0
-                              ? "border-[#F1D1A8] bg-[#FFF8EE]"
-                              : "border-[#E8DED2] bg-white"
-                          }`}
-                        >
-                          <p className="text-xs font-bold text-[#52616F]">
-                            Manuell prüfen
-                          </p>
-                          <p className="text-lg font-black text-[#102A43]">
-                            {overview.manualReviewCount}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                          Letztes Ereignis
-                        </p>
-                        <p className="mt-1 text-sm font-black text-[#102A43]">
-                          {getEventTypeLabel(overview.latestEvent)}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                          {overview.latestEvent?.message ||
-                            "Noch keine Detailmeldung vorhanden."}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                          {formatDateTime(overview.latestEvent?.created_at || null)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                          Eingegangen
-                        </p>
-                        <p className="mt-2 text-lg font-black text-[#102A43]">
-                          {formatDate(request.created_at)}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                          Aktualisiert: {formatDateTime(request.updated_at)}
-                        </p>
-                      </div>
-
-                      <Link
-                        href={`/admin/anfragen/${request.id}`}
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                      >
-                        Anfrage bearbeiten
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-
-                      {customerOfferPath && customerOfferUrl ? (
-                        <>
-                          <Link
-                            href={customerOfferPath}
-                            target="_blank"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                          >
-                            Kundenseite öffnen
-                            <Eye className="h-4 w-4" />
-                          </Link>
-
-                          <CopyOfferLinkButton url={customerOfferUrl} />
-                        </>
-                      ) : null}
-
-                      <DeleteRequestButton
-                        requestId={request.id}
-                        requestLabel={`Anfrage ${request.request_number || request.id}`}
-                      />
-                    </div>
+          <section className="space-y-8">
+            <section className="space-y-4">
+              <div className="rounded-[30px] border border-[#F1D1A8] bg-[#FFF8EE] p-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+                      Bereich Offen
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                      Offene Anfragen
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                      Neu, in Bearbeitung, manuelle Prüfung, Paket vorbereitet
+                      oder aktualisiertes Angebot versandt.
+                    </p>
                   </div>
-                </article>
-              );
-            })}
+
+                  <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#A75B28]">
+                    {openCount} offen
+                  </span>
+                </div>
+              </div>
+
+              {openOverviews.length > 0 ? (
+                <div className="space-y-4">
+                  {openOverviews.map((overview) => (
+                    <RequestCard
+                      key={overview.request.id}
+                      overview={overview}
+                      siteUrl={siteUrl}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
+                  <h3 className="text-xl font-black text-[#102A43]">
+                    Keine offenen Anfragen.
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
+                    Alles, was aktuell bearbeitet werden muss, erscheint später
+                    wieder in diesem Bereich.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <div className="rounded-[30px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
+                      Bereich Erledigt
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                      Erledigte Vorgänge
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                      Bestätigt, abgeholt, versendet, beim Kunden eingetroffen
+                      oder abgeschlossen.
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#2F7D50]">
+                    {doneCount} erledigt
+                  </span>
+                </div>
+              </div>
+
+              {doneOverviews.length > 0 ? (
+                <div className="space-y-4">
+                  {doneOverviews.map((overview) => (
+                    <RequestCard
+                      key={overview.request.id}
+                      overview={overview}
+                      siteUrl={siteUrl}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
+                  <h3 className="text-xl font-black text-[#102A43]">
+                    Noch keine erledigten Vorgänge.
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
+                    Sobald ein Angebot bestätigt, abgeholt, versendet oder
+                    abgeschlossen ist, erscheint es hier.
+                  </p>
+                </div>
+              )}
+            </section>
           </section>
         ) : (
           <section className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
