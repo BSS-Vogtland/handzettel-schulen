@@ -180,6 +180,8 @@ export default function AdminOfferWorkflowStatus(
 
   const confirmed = isConfirmed(requestStatus, offerStatus);
 
+  const hasUpdatedOfferConfirmed = Boolean(latestConfirmedEvent);
+
   const updateMailWasSent =
     Boolean(latestUpdateMailEvent) || offerStatus === "offer_sent";
 
@@ -383,27 +385,26 @@ export default function AdminOfferWorkflowStatus(
     })(),
 
     offerSent: (() => {
-      if (updateMailWasSent && !confirmedAfterUpdate) {
-        return "aktuell" as TileStatus;
-      }
-
-      if (confirmedAfterUpdate) {
-        return "erledigt" as TileStatus;
-      }
-
-      return "offen" as TileStatus;
-    })(),
-
-    confirmed: (() => {
-  if (plainConfirmed || confirmedAfterUpdate) {
+  if (updateMailWasSent || confirmedAfterUpdate || hasUpdatedOfferConfirmed) {
     return "erledigt" as TileStatus;
   }
 
   return "offen" as TileStatus;
 })(),
-  };
 
-  const tiles = [
+confirmed: (() => {
+  if (plainConfirmed || confirmedAfterUpdate || hasUpdatedOfferConfirmed) {
+    return "erledigt" as TileStatus;
+  }
+
+  if (updateMailWasSent) {
+    return "aktuell" as TileStatus;
+  }
+
+  return "offen" as TileStatus;
+})(),
+};
+const tiles = [
     {
       key: "new",
       title: "Neu",
@@ -529,15 +530,15 @@ export default function AdminOfferWorkflowStatus(
       </div>
 
       {(headerState.title === "Paket vorbereitet" ||
-        headerState.title === "Aktualisiertes Angebot versandt") && (
-        <div className="mt-5 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-          <p className="text-sm font-semibold leading-6 text-[#52616F]">
-            {headerState.title === "Paket vorbereitet"
-              ? "Das Paket ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Aktualisierungsmail mit PDF-Angebot."
-              : "Das aktualisierte Angebot wurde gesendet. Sobald der Kunde offiziell annimmt, wechselt der Status auf „Aktualisiertes Angebot bestätigt“."}
-          </p>
-        </div>
-      )}
+  headerState.title === "Aktualisiertes Angebot versandt") && (
+  <div className="mt-5 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+    <p className="text-sm font-semibold leading-6 text-[#52616F]">
+      {headerState.title === "Paket vorbereitet"
+        ? "Das Paket ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Aktualisierungsmail mit PDF-Angebot."
+        : "Die Aktualisierungsmail wurde versendet. Dieser Schritt ist erledigt. Aktuell wartet der Vorgang auf die offizielle Bestätigung durch den Kunden."}
+    </p>
+  </div>
+)}
     </section>
   );
 }
