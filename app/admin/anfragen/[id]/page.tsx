@@ -24,6 +24,7 @@ import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
+import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,21 @@ type SchoolRequest = {
   offer_token: string | null;
   ai_status: string | null;
   offer_status: string | null;
+
+  fulfillment_method?: string | null;
+  fulfillment_status?: string | null;
+  picking_status?: string | null;
+  shipping_cost_status?: string | null;
+  pickup_location_label?: string | null;
+  pickup_address_snapshot?: string | null;
+  pickup_maps_url_snapshot?: string | null;
+  confirmed_at?: string | null;
+  picking_started_at?: string | null;
+  picked_at?: string | null;
+  packed_at?: string | null;
+  shipped_at?: string | null;
+  picked_up_at?: string | null;
+
   created_at: string | null;
   updated_at: string | null;
 };
@@ -848,6 +864,26 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               manualReviewItemsCount={manualReviewItems.length}
               events={events}
               updatedAt={request.updated_at}
+            />
+
+            <AdminFulfillmentPanel
+              requestId={request.id}
+              requestStatus={request.status}
+              offerStatus={request.offer_status}
+              fulfillmentMethod={request.fulfillment_method}
+              fulfillmentStatus={request.fulfillment_status}
+              pickingStatus={request.picking_status}
+              shippingCostStatus={request.shipping_cost_status}
+              pickupLocationLabel={request.pickup_location_label}
+              pickupAddressSnapshot={request.pickup_address_snapshot}
+              pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
+              confirmedAt={request.confirmed_at}
+              pickingStartedAt={request.picking_started_at}
+              pickedAt={request.picked_at}
+              packedAt={request.packed_at}
+              shippedAt={request.shipped_at}
+              pickedUpAt={request.picked_up_at}
+              offerItems={offerItems}
             />
 
             <AdminSendOfferUpdateMailButton requestId={request.id} />
