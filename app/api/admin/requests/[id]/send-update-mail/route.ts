@@ -374,7 +374,7 @@ async function createOfferPdfBuffer(params: {
 
   drawText({
     page,
-    text: "Angebot fuer:",
+    text: "Angebot für:",
     x: 48,
     y,
     size: 13,
@@ -415,7 +415,7 @@ async function createOfferPdfBuffer(params: {
   y = drawWrappedText({
     page,
     text:
-      "Wir haben Deinen Schulmaterial-Paketwunsch geprueft und das Angebot aktualisiert. Die folgenden Positionen bilden den aktuellen Stand Deines Angebots ab.",
+      "Wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot aktualisiert. Die folgenden Positionen bilden den aktuellen Stand Deines Angebots ab.",
     x: 48,
     y,
     maxWidth: 500,
@@ -633,7 +633,7 @@ async function createOfferPdfBuffer(params: {
   y = drawWrappedText({
     page,
     text:
-      "Wenn alles passt, kannst Du Dein Angebot online offiziell annehmen. Nutze dafuer bitte den Button in der E-Mail oder oeffne folgenden Link:",
+      "Wenn alles passt, kannst Du Dein Angebot online offiziell annehmen. Nutze dafür bitte den Button in der E-Mail oder öffne folgenden Link:",
     x: 48,
     y,
     maxWidth: 500,
@@ -662,7 +662,7 @@ async function createOfferPdfBuffer(params: {
   drawWrappedText({
     page,
     text:
-      "Hinweis: Dieses Angebot wurde auf Basis Deiner hochgeladenen Schulmaterialliste und der aktuellen manuellen Pruefung durch Handzettel-Schulen.de erstellt. Aenderungen und Rueckfragen sind weiterhin moeglich.",
+      "Hinweis: Dieses Angebot wurde auf Basis Deiner hochgeladenen Schulmaterialliste und der aktuellen manuellen Prüfung durch Handzettel-Schulen.de erstellt. Änderungen und Rückfragen sind weiterhin möglich.",
     x: 48,
     y,
     maxWidth: 500,
