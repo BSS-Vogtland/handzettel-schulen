@@ -9,6 +9,15 @@ type RouteContext = {
   }>;
 };
 
+type FulfillmentMethod = "pickup" | "shipping";
+
+type ConfirmBody = {
+  fulfillmentMethod?: FulfillmentMethod | null;
+  pickupLocationLabel?: string | null;
+  pickupAddressSnapshot?: string | null;
+  pickupMapsUrlSnapshot?: string | null;
+};
+
 type RequestRow = {
   id: string;
   request_number: string | null;
@@ -37,11 +46,26 @@ type OfferItemRow = {
   request_item_id: string | null;
 };
 
-function getSiteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://www.handzettel-schulen.de"
-  );
+function cleanString(value: unknown) {
+  if (value === null || value === undefined) return null;
+
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
+async function readBodySafely(request: Request): Promise<ConfirmBody> {
+  try {
+    const rawText = await request.text();
+
+    if (!rawText.trim()) {
+      return {};
+    }
+
+    const parsed = JSON.parse(rawText) as ConfirmBody;
+    return parsed || {};
+  } catch {
+    return {};
+  }
 }
 
 function getEventType(event: EventRow) {
@@ -63,25 +87,11 @@ function isUpdateMailEvent(event: EventRow) {
     type.includes("update_mail") ||
     text.includes("aktualisierungsmail") ||
     text.includes("pdf-angebot") ||
-    text.includes("aktualisiertes angebot") ||
-    text.includes("aktualisierungsmail mit pdf")
+    text.includes("aktualisiertes angebot")
   );
 }
 
-function isUpdateConfirmationEvent(event: EventRow) {
-  const type = getEventType(event);
-  const text = getEventText(event);
-
-  return (
-    type.includes("offer_update_confirmed") ||
-    text.includes("aktualisiertes angebot bestätigt") ||
-    text.includes("aktualisiertes angebot offiziell angenommen") ||
-    text.includes("manuell aktualisierte") ||
-    text.includes("aktualisierte fassung angenommen")
-  );
-}
-
-function isAnyConfirmationEvent(event: EventRow) {
+function isConfirmationEvent(event: EventRow) {
   const type = getEventType(event);
   const text = getEventText(event);
 
@@ -98,6 +108,7 @@ function isAnyConfirmationEvent(event: EventRow) {
 
 function getTime(value: string | null | undefined) {
   if (!value) return 0;
+
   const time = new Date(value).getTime();
   return Number.isFinite(time) ? time : 0;
 }
@@ -109,6 +120,29 @@ function findLatestEvent(
   return events.find(matcher) || null;
 }
 
+function getFulfillmentStatus(method: FulfillmentMethod) {
+  if (method === "pickup") return "pickup_requested";
+  return "shipping_requested";
+}
+
+function getShippingCostStatus(method: FulfillmentMethod) {
+  if (method === "shipping") return "pending_calculation";
+  return "not_required";
+}
+
+function getFulfillmentLabel(method: FulfillmentMethod) {
+  if (method === "pickup") return "Abholung im Laden";
+  return "Versand gewünscht";
+}
+
+function getFulfillmentMessage(method: FulfillmentMethod) {
+  if (method === "pickup") {
+    return "Der Kunde möchte das Schulpaket im Laden abholen.";
+  }
+
+  return "Der Kunde möchte das Schulpaket zugesendet bekommen. Die Versandkosten werden im Nachgang berechnet.";
+}
+
 async function insertRequestEvent(params: {
   requestId: string;
   eventType: string;
@@ -117,6 +151,7 @@ async function insertRequestEvent(params: {
   metadata?: Record<string, unknown>;
 }) {
   const { requestId, eventType, title, message, metadata } = params;
+
   const createdAt = new Date().toISOString();
 
   const firstAttempt = await supabaseServer.from("school_request_events").insert({
@@ -148,327 +183,374 @@ async function insertRequestEvent(params: {
     created_at: createdAt,
   });
 
-  if (!thirdAttempt.error) return;
-
-  console.error("Event konnte nicht gespeichert werden:", {
-    firstError: firstAttempt.error,
-    secondError: secondAttempt.error,
-    thirdError: thirdAttempt.error,
-  });
+  if (thirdAttempt.error) {
+    console.error("Event konnte nicht gespeichert werden:", {
+      firstError: firstAttempt.error,
+      secondError: secondAttempt.error,
+      thirdError: thirdAttempt.error,
+    });
+  }
 }
 
-async function confirmOfferByToken(token: string, source: "post" | "email_link") {
-  if (!token) {
-    return {
-      ok: false,
-      status: 400,
-      mode: "missing_token",
-      message: "Kein Angebotstoken übergeben.",
-      redirectToken: null as string | null,
-    };
-  }
+export async function POST(request: Request, context: RouteContext) {
+  try {
+    const { token } = await context.params;
+    const body = await readBodySafely(request);
 
-  const { data: requestData, error: requestError } = await supabaseServer
-    .from("school_requests")
-    .select("id, request_number, status, offer_status, updated_at")
-    .eq("offer_token", token)
-    .single();
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, message: "Kein Angebotstoken übergeben." },
+        { status: 400 }
+      );
+    }
 
-  if (requestError || !requestData) {
-    return {
-      ok: false,
-      status: 404,
-      mode: "not_found",
-      message: requestError?.message || "Das Angebot wurde nicht gefunden.",
-      redirectToken: token,
-    };
-  }
+    const fulfillmentMethod = body.fulfillmentMethod || null;
 
-  const requestRow = requestData as RequestRow;
+    if (
+      fulfillmentMethod !== "pickup" &&
+      fulfillmentMethod !== "shipping"
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Bitte wähle aus, ob Du Dein Paket im Laden abholen möchtest oder ob es zugesendet werden soll.",
+        },
+        { status: 400 }
+      );
+    }
 
-  const { data: eventsData, error: eventsError } = await supabaseServer
-    .from("school_request_events")
-    .select("*")
-    .eq("request_id", requestRow.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    const pickupLocationLabel = cleanString(body.pickupLocationLabel);
+    const pickupAddressSnapshot = cleanString(body.pickupAddressSnapshot);
+    const pickupMapsUrlSnapshot = cleanString(body.pickupMapsUrlSnapshot);
 
-  if (eventsError) {
-    console.error("Events konnten nicht geladen werden:", eventsError);
-  }
+    const { data: requestData, error: requestError } = await supabaseServer
+      .from("school_requests")
+      .select("id, request_number, status, offer_status, updated_at")
+      .eq("offer_token", token)
+      .single();
 
-  const events = (eventsData || []) as EventRow[];
+    if (requestError || !requestData) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            requestError?.message || "Das Angebot wurde nicht gefunden.",
+        },
+        { status: 404 }
+      );
+    }
 
-  const latestUpdateMailEvent = findLatestEvent(events, isUpdateMailEvent);
-  const latestUpdateConfirmationEvent = findLatestEvent(
-    events,
-    isUpdateConfirmationEvent
-  );
-  const latestAnyConfirmationEvent = findLatestEvent(
-    events,
-    isAnyConfirmationEvent
-  );
+    const requestRow = requestData as RequestRow;
 
-  const latestUpdateMailTime = getTime(latestUpdateMailEvent?.created_at);
-  const latestUpdateConfirmationTime = getTime(
-    latestUpdateConfirmationEvent?.created_at
-  );
-  const latestAnyConfirmationTime = getTime(latestAnyConfirmationEvent?.created_at);
+    const { data: eventsData, error: eventsError } = await supabaseServer
+      .from("school_request_events")
+      .select("*")
+      .eq("request_id", requestRow.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-  const hasOfferSentStatus = requestRow.offer_status === "offer_sent";
+    if (eventsError) {
+      console.error("Events konnten nicht geladen werden:", eventsError);
+    }
 
-  const hasPendingUpdatedOfferByEvent =
-    Boolean(latestUpdateMailEvent) &&
-    latestUpdateMailTime > latestUpdateConfirmationTime &&
-    latestUpdateMailTime >= latestAnyConfirmationTime;
+    const events = (eventsData || []) as EventRow[];
 
-  const hasPendingUpdatedOffer =
-    hasOfferSentStatus || hasPendingUpdatedOfferByEvent || source === "email_link";
+    const latestUpdateMailEvent = findLatestEvent(events, isUpdateMailEvent);
+    const latestConfirmationEvent = findLatestEvent(events, isConfirmationEvent);
 
-  if (
-    requestRow.status === "confirmed" &&
-    requestRow.offer_status === "confirmed" &&
-    !hasPendingUpdatedOffer
-  ) {
-    return {
-      ok: true,
-      status: 200,
-      mode: "already_confirmed",
-      message: "Dieses Angebot wurde bereits bestätigt.",
-      redirectToken: token,
-    };
-  }
+    const latestUpdateMailTime = getTime(latestUpdateMailEvent?.created_at);
+    const latestConfirmationTime = getTime(latestConfirmationEvent?.created_at);
 
-  const { data: offerItemsData, error: offerItemsError } = await supabaseServer
-    .from("school_offer_items")
-    .select("id, request_item_id")
-    .eq("request_id", requestRow.id);
+    const hasPendingUpdatedOffer =
+      Boolean(latestUpdateMailEvent) &&
+      latestUpdateMailTime > latestConfirmationTime;
 
-  if (offerItemsError) {
-    return {
-      ok: false,
-      status: 500,
-      mode: "offer_items_error",
-      message: `Die Angebotspositionen konnten nicht geprüft werden: ${offerItemsError.message}`,
-      redirectToken: token,
-    };
-  }
+    if (requestRow.status === "confirmed" && !hasPendingUpdatedOffer) {
+      return NextResponse.json({
+        ok: true,
+        mode: "already_confirmed",
+        message: "Dieses Angebot wurde bereits bestätigt.",
+      });
+    }
 
-  const offerItems = (offerItemsData || []) as OfferItemRow[];
-
-  if (offerItems.length <= 0) {
-    return {
-      ok: false,
-      status: 400,
-      mode: "no_offer_items",
-      message:
-        "Dieses Angebot enthält noch keine Produkte und kann daher nicht bestätigt werden.",
-      redirectToken: token,
-    };
-  }
-
-  const { data: requestItemsData, error: requestItemsError } =
-    await supabaseServer
-      .from("school_request_items")
-      .select("id")
+    const { data: offerItemsData, error: offerItemsError } = await supabaseServer
+      .from("school_offer_items")
+      .select("id, request_item_id")
       .eq("request_id", requestRow.id);
 
-  if (requestItemsError) {
-    return {
-      ok: false,
-      status: 500,
-      mode: "request_items_error",
-      message: `Die erkannten Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
-      redirectToken: token,
+    if (offerItemsError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Die Angebotspositionen konnten nicht geprüft werden: ${offerItemsError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const offerItems = (offerItemsData || []) as OfferItemRow[];
+
+    if (offerItems.length <= 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Dieses Angebot enthält noch keine Produkte und kann daher nicht bestätigt werden.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: requestItemsData, error: requestItemsError } =
+      await supabaseServer
+        .from("school_request_items")
+        .select("id")
+        .eq("request_id", requestRow.id);
+
+    if (requestItemsError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Die erkannten Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const requestItems = (requestItemsData || []) as RequestItemRow[];
+
+    const coveredRequestItemIds = new Set(
+      offerItems
+        .map((item) => item.request_item_id)
+        .filter((value): value is string => Boolean(value))
+    );
+
+    const openRequestItems = requestItems.filter(
+      (item) => !coveredRequestItemIds.has(item.id)
+    );
+
+    const hasOpenManualReviewItems =
+      requestItems.length > 0 && openRequestItems.length > 0;
+
+    const fulfillmentUpdate = {
+      fulfillment_method: fulfillmentMethod,
+      fulfillment_status: getFulfillmentStatus(fulfillmentMethod),
+      shipping_cost_status: getShippingCostStatus(fulfillmentMethod),
+      pickup_location_label:
+        fulfillmentMethod === "pickup" ? pickupLocationLabel : null,
+      pickup_address_snapshot:
+        fulfillmentMethod === "pickup" ? pickupAddressSnapshot : null,
+      pickup_maps_url_snapshot:
+        fulfillmentMethod === "pickup" ? pickupMapsUrlSnapshot : null,
+      confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-  }
 
-  const requestItems = (requestItemsData || []) as RequestItemRow[];
+    if (hasPendingUpdatedOffer) {
+      const { error: updateError } = await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "confirmed",
+          offer_status: "confirmed",
+          ...fulfillmentUpdate,
+        })
+        .eq("id", requestRow.id);
 
-  const coveredRequestItemIds = new Set(
-    offerItems
-      .map((item) => item.request_item_id)
-      .filter((value): value is string => Boolean(value))
-  );
+      if (updateError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Das aktualisierte Angebot konnte nicht bestätigt werden: ${updateError.message}`,
+          },
+          { status: 500 }
+        );
+      }
 
-  const openRequestItems = requestItems.filter(
-    (item) => !coveredRequestItemIds.has(item.id)
-  );
+      await insertRequestEvent({
+        requestId: requestRow.id,
+        eventType: "offer_update_confirmed",
+        title: "Aktualisiertes Angebot bestätigt",
+        message:
+          "Der Kunde hat das manuell aktualisierte Schulpaket-Angebot offiziell angenommen.",
+        metadata: {
+          fulfillment_method: fulfillmentMethod,
+          fulfillment_label: getFulfillmentLabel(fulfillmentMethod),
+          fulfillment_message: getFulfillmentMessage(fulfillmentMethod),
+          pickup_location_label: fulfillmentUpdate.pickup_location_label,
+          pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+          pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+          shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          open_request_items_count: openRequestItems.length,
+          offer_items_count: offerItems.length,
+          request_items_count: requestItems.length,
+        },
+      });
 
-  const hasOpenManualReviewItems =
-    requestItems.length > 0 && openRequestItems.length > 0;
+      await insertRequestEvent({
+        requestId: requestRow.id,
+        eventType:
+          fulfillmentMethod === "pickup"
+            ? "customer_pickup_requested"
+            : "customer_shipping_requested",
+        title: getFulfillmentLabel(fulfillmentMethod),
+        message: getFulfillmentMessage(fulfillmentMethod),
+        metadata: {
+          fulfillment_method: fulfillmentMethod,
+          pickup_location_label: fulfillmentUpdate.pickup_location_label,
+          pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+          pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+          shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+        },
+      });
 
-  /*
-    FALL 1:
-    Direkter Klick aus der Aktualisierungsmail oder bereits als offer_sent markiert.
-    Das aktualisierte Angebot wird direkt bestätigt.
-  */
-  if (hasPendingUpdatedOffer) {
-    const now = new Date().toISOString();
+      return NextResponse.json({
+        ok: true,
+        mode: "updated_offer_confirmed",
+        fulfillmentMethod,
+        message: "Das aktualisierte Angebot wurde offiziell bestätigt.",
+      });
+    }
+
+    if (hasOpenManualReviewItems) {
+      const { error: updateError } = await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "manual_review",
+          offer_status: "customer_selection",
+          ...fulfillmentUpdate,
+        })
+        .eq("id", requestRow.id);
+
+      if (updateError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Der Paketwunsch konnte nicht gespeichert werden: ${updateError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      await insertRequestEvent({
+        requestId: requestRow.id,
+        eventType: "customer_package_submitted_manual_review",
+        title: "Paketwunsch abgesendet",
+        message:
+          "Der Kunde hat seinen Paketwunsch abgesendet. Es gibt noch offene Positionen, die manuell geprüft oder ergänzt werden müssen.",
+        metadata: {
+          fulfillment_method: fulfillmentMethod,
+          fulfillment_label: getFulfillmentLabel(fulfillmentMethod),
+          fulfillment_message: getFulfillmentMessage(fulfillmentMethod),
+          pickup_location_label: fulfillmentUpdate.pickup_location_label,
+          pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+          pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+          shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          open_request_items_count: openRequestItems.length,
+          offer_items_count: offerItems.length,
+          request_items_count: requestItems.length,
+        },
+      });
+
+      await insertRequestEvent({
+        requestId: requestRow.id,
+        eventType:
+          fulfillmentMethod === "pickup"
+            ? "customer_pickup_requested"
+            : "customer_shipping_requested",
+        title: getFulfillmentLabel(fulfillmentMethod),
+        message: getFulfillmentMessage(fulfillmentMethod),
+        metadata: {
+          fulfillment_method: fulfillmentMethod,
+          pickup_location_label: fulfillmentUpdate.pickup_location_label,
+          pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+          pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+          shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mode: "manual_review_required",
+        fulfillmentMethod,
+        message:
+          fulfillmentMethod === "pickup"
+            ? "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Abholung im Laden ausgewählt."
+            : "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Versand ausgewählt; die Versandkosten werden im Nachgang berechnet.",
+      });
+    }
 
     const { error: updateError } = await supabaseServer
       .from("school_requests")
       .update({
         status: "confirmed",
         offer_status: "confirmed",
-        updated_at: now,
+        ...fulfillmentUpdate,
       })
       .eq("id", requestRow.id);
 
     if (updateError) {
-      return {
-        ok: false,
-        status: 500,
-        mode: "updated_offer_confirm_error",
-        message: `Das aktualisierte Angebot konnte nicht bestätigt werden: ${updateError.message}`,
-        redirectToken: token,
-      };
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Das Angebot konnte nicht bestätigt werden: ${updateError.message}`,
+        },
+        { status: 500 }
+      );
     }
 
     await insertRequestEvent({
       requestId: requestRow.id,
-      eventType: "offer_update_confirmed",
-      title: "Aktualisiertes Angebot bestätigt",
+      eventType: "offer_confirmed_complete_customer_selection",
+      title: "Angebot bestätigt",
       message:
-        source === "email_link"
-          ? "Der Kunde hat das manuell aktualisierte Schulpaket-Angebot direkt über den Button in der E-Mail offiziell angenommen."
-          : "Der Kunde hat das manuell aktualisierte Schulpaket-Angebot offiziell angenommen.",
+        "Der Kunde hat alle erkannten Positionen selbst ausgewählt und das Schulpaket-Angebot offiziell bestätigt.",
       metadata: {
-        confirmed_from: source === "email_link" ? "email_button" : "updated_offer",
-        previous_status: requestRow.status,
-        previous_offer_status: requestRow.offer_status,
-        open_request_items_count: openRequestItems.length,
-        offer_items_count: offerItems.length,
-        request_items_count: requestItems.length,
-        had_offer_sent_status: hasOfferSentStatus,
-        had_update_mail_event: Boolean(latestUpdateMailEvent),
-      },
-    });
-
-    return {
-      ok: true,
-      status: 200,
-      mode: "updated_offer_confirmed",
-      message: "Das aktualisierte Angebot wurde offiziell bestätigt.",
-      redirectToken: token,
-    };
-  }
-
-  /*
-    FALL 2:
-    Normaler Paketwunsch vom Kunden, aber es gibt noch offene Positionen.
-    Das ist keine finale Bestätigung.
-  */
-  if (hasOpenManualReviewItems) {
-    const { error: updateError } = await supabaseServer
-      .from("school_requests")
-      .update({
-        status: "manual_review",
-        offer_status: "customer_selection",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", requestRow.id);
-
-    if (updateError) {
-      return {
-        ok: false,
-        status: 500,
-        mode: "manual_review_update_error",
-        message: `Der Paketwunsch konnte nicht gespeichert werden: ${updateError.message}`,
-        redirectToken: token,
-      };
-    }
-
-    await insertRequestEvent({
-      requestId: requestRow.id,
-      eventType: "customer_package_submitted_manual_review",
-      title: "Paketwunsch abgesendet",
-      message:
-        "Der Kunde hat seinen Paketwunsch abgesendet. Es gibt noch offene Positionen, die manuell geprüft oder ergänzt werden müssen.",
-      metadata: {
-        confirmed_from: "customer_package_submission",
+        fulfillment_method: fulfillmentMethod,
+        fulfillment_label: getFulfillmentLabel(fulfillmentMethod),
+        fulfillment_message: getFulfillmentMessage(fulfillmentMethod),
+        pickup_location_label: fulfillmentUpdate.pickup_location_label,
+        pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+        pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+        shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
         open_request_items_count: openRequestItems.length,
         offer_items_count: offerItems.length,
         request_items_count: requestItems.length,
       },
     });
 
-    return {
-      ok: true,
-      status: 200,
-      mode: "manual_review_required",
-      message:
-        "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft.",
-      redirectToken: token,
-    };
-  }
-
-  /*
-    FALL 3:
-    Kunde hat alle erkannten Positionen selbst vollständig gewählt.
-  */
-  const { error: updateError } = await supabaseServer
-    .from("school_requests")
-    .update({
-      status: "confirmed",
-      offer_status: "confirmed",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", requestRow.id);
-
-  if (updateError) {
-    return {
-      ok: false,
-      status: 500,
-      mode: "normal_confirm_error",
-      message: `Das Angebot konnte nicht bestätigt werden: ${updateError.message}`,
-      redirectToken: token,
-    };
-  }
-
-  await insertRequestEvent({
-    requestId: requestRow.id,
-    eventType: "offer_confirmed_complete_customer_selection",
-    title: "Angebot bestätigt",
-    message:
-      "Der Kunde hat alle erkannten Positionen selbst ausgewählt und das Schulpaket-Angebot offiziell bestätigt.",
-    metadata: {
-      confirmed_from: "complete_customer_selection",
-      open_request_items_count: openRequestItems.length,
-      offer_items_count: offerItems.length,
-      request_items_count: requestItems.length,
-    },
-  });
-
-  return {
-    ok: true,
-    status: 200,
-    mode: "offer_confirmed",
-    message: "Das Angebot wurde bestätigt.",
-    redirectToken: token,
-  };
-}
-
-export async function POST(_request: Request, context: RouteContext) {
-  try {
-    const { token } = await context.params;
-    const result = await confirmOfferByToken(token, "post");
-
-    return NextResponse.json(
-      {
-        ok: result.ok,
-        mode: result.mode,
-        message: result.message,
+    await insertRequestEvent({
+      requestId: requestRow.id,
+      eventType:
+        fulfillmentMethod === "pickup"
+          ? "customer_pickup_requested"
+          : "customer_shipping_requested",
+      title: getFulfillmentLabel(fulfillmentMethod),
+      message: getFulfillmentMessage(fulfillmentMethod),
+      metadata: {
+        fulfillment_method: fulfillmentMethod,
+        pickup_location_label: fulfillmentUpdate.pickup_location_label,
+        pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
+        pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
+        shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
       },
-      { status: result.status }
-    );
+    });
+
+    return NextResponse.json({
+      ok: true,
+      mode: "offer_confirmed",
+      fulfillmentMethod,
+      message:
+        fulfillmentMethod === "pickup"
+          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt."
+          : "Das Angebot wurde bestätigt. Du hast Versand ausgewählt; die Versandkosten werden im Nachgang berechnet.",
+    });
   } catch (error) {
     console.error("Fehler beim Bestätigen des Angebots:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        mode: "unexpected_error",
         message:
           error instanceof Error
             ? error.message
@@ -479,26 +561,13 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 }
 
-export async function GET(_request: Request, context: RouteContext) {
-  try {
-    const { token } = await context.params;
-    const result = await confirmOfferByToken(token, "email_link");
-
-    const redirectUrl = new URL(
-      `/angebot/${encodeURIComponent(token)}`,
-      getSiteUrl()
-    );
-
-    redirectUrl.searchParams.set("confirmed", result.ok ? "1" : "0");
-    redirectUrl.searchParams.set("mode", result.mode);
-
-    return NextResponse.redirect(redirectUrl);
-  } catch (error) {
-    console.error("Fehler beim direkten Bestätigungslink:", error);
-
-    const fallbackUrl = new URL("/", getSiteUrl());
-    fallbackUrl.searchParams.set("confirmed", "0");
-
-    return NextResponse.redirect(fallbackUrl);
-  }
+export async function GET() {
+  return NextResponse.json(
+    {
+      ok: false,
+      message:
+        "Diese Route kann nur per POST genutzt werden. Bitte den Button auf der Angebotsseite verwenden.",
+    },
+    { status: 405 }
+  );
 }
