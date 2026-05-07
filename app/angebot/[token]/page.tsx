@@ -14,6 +14,7 @@ import CustomerPreparePackageButton from "@/components/CustomerPreparePackageBut
 import CustomerSelectProductButton from "@/components/CustomerSelectProductButton";
 import ConfirmOfferButton from "@/components/ConfirmOfferButton";
 import CustomerProductSearch from "@/components/CustomerProductSearch";
+import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -557,9 +558,9 @@ function getMatchScoreLabel(score: unknown) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "admin_manual":
-      return "Von BSS ergänzt";
+      return "Von Handzettel-Schulen.de ergänzt";
     case "admin_existing_product":
-      return "Von BSS ergänzt";
+      return "Von Handzettel-Schulen.de ergänzt";
     case "customer_search":
       return "Von Dir gesucht";
     case "customer_selection":
@@ -767,7 +768,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
                   {isConfirmed
-                    ? "Hier siehst Du den aktuellen finalen Paketwunsch inklusive Produktbildern und möglichen Korrekturen durch BSS."
+                    ? "Hier siehst Du den aktuellen finalen Paketwunsch inklusive Produktbildern und möglichen Korrekturen durch Handzettel-Schulen.de."
                     : "Wir bereiten Deine Schulmaterialliste für Dich vor. Sichere Treffer kannst Du direkt übernehmen. Alles, was nicht eindeutig ist, prüfen wir persönlich."}
                 </p>
               </div>
@@ -846,8 +847,9 @@ export default async function CustomerOfferPage({ params }: Params) {
                   Dein Paketwunsch wurde erfolgreich abgesendet.
                 </h2>
                 <p className="mt-1 text-sm leading-6">
-                  BSS hat Deine Auswahl erhalten. Der Paketwunsch wird final
-                  geprüft und bei Bedarf sauber ergänzt oder korrigiert.
+                  Handzettel-Schulen.de hat Deine Auswahl erhalten. Der
+                  Paketwunsch wird final geprüft und bei Bedarf sauber ergänzt
+                  oder korrigiert.
                 </p>
               </div>
             </div>
@@ -1172,8 +1174,8 @@ export default async function CustomerOfferPage({ params }: Params) {
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
                 {isConfirmed
-                  ? "Diese Übersicht zeigt den aktuellen Paketwunsch inklusive möglicher Ergänzungen oder Korrekturen durch BSS."
-                  : "Diese Auswahl ist noch nicht verbindlich. Sobald Du Deinen Paketwunsch absendest, prüft BSS die Angaben final und meldet sich bei Rückfragen."}
+                  ? "Diese Übersicht zeigt den aktuellen Paketwunsch inklusive möglicher Ergänzungen oder Korrekturen durch Handzettel-Schulen.de."
+                  : "Diese Auswahl ist noch nicht verbindlich. Sobald Du Deinen Paketwunsch absendest, prüft Handzettel-Schulen.de die Angaben final und meldet sich bei Rückfragen."}
               </p>
             </div>
 
@@ -1219,7 +1221,7 @@ export default async function CustomerOfferPage({ params }: Params) {
                             {item.source === "admin_manual" ||
                             item.source === "admin_existing_product" ? (
                               <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                durch BSS geprüft
+                                durch Handzettel-Schulen.de geprüft
                               </span>
                             ) : null}
                           </div>
@@ -1280,6 +1282,8 @@ export default async function CustomerOfferPage({ params }: Params) {
           )}
         </section>
       </section>
+
+      <LegalFooter />
     </main>
   );
 }

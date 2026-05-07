@@ -1,5 +1,6 @@
 import Image from "next/image";
 import UploadForm from "@/components/UploadForm";
+import LegalFooter from "@/components/LegalFooter";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -46,7 +47,8 @@ const faqs = [
       "Du kannst Deine Schulmaterialliste als Foto, Screenshot oder PDF hochladen. Auch ein fotografierter Handzettel der Schule ist möglich.",
   },
   {
-    question: "Kann ich auch eine Liste aus LernSax oder dem Thüringer Schulportal nutzen?",
+    question:
+      "Kann ich auch eine Liste aus LernSax oder dem Thüringer Schulportal nutzen?",
     answer:
       "Ja. Du kannst Deine Liste aus LernSax oder dem Thüringer Schulportal speichern und anschließend bei Handzettel-Schulen.de hochladen.",
   },
@@ -426,7 +428,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="faq" className="border-t border-[#E8DED2] bg-white px-5 py-14 lg:px-8">
+      <section
+        id="faq"
+        className="border-t border-[#E8DED2] bg-white px-5 py-14 lg:px-8"
+      >
         <div className="mx-auto max-w-4xl">
           <div className="text-center">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
@@ -475,8 +480,8 @@ export default function Home() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#40566D]">
-            Handzettel-Schulen.de findest Du auch mit Elterntipps, kurzen
-            Videos und einfachen Erklärungen rund um Schulmateriallisten.
+            Handzettel-Schulen.de findest Du auch mit Elterntipps, kurzen Videos
+            und einfachen Erklärungen rund um Schulmateriallisten.
           </p>
 
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
@@ -503,17 +508,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="pb-24 pt-8 text-center text-sm text-[#6B7280] lg:pb-8">
-        <div className="mx-auto max-w-7xl px-5">
-          <div className="font-serif text-lg font-black text-[#102A43]">
-            Handzettel-Schulen.de
-          </div>
-          <p className="mt-2">
-            © 2026 Handzettel-Schulen.de — Du bestellst zu Hause. Wir packen
-            Deine Schultasche.
-          </p>
-        </div>
-      </footer>
+      <LegalFooter />
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#E8DED2] bg-white p-3 lg:hidden">
         <a
