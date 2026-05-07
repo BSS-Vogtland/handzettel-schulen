@@ -42,11 +42,7 @@ function getEventType(event: EventRow) {
 }
 
 function getEventText(event: EventRow) {
-  return [
-    event.message || "",
-    event.title || "",
-    event.description || "",
-  ]
+  return [event.message || "", event.title || "", event.description || ""]
     .join(" ")
     .toLowerCase();
 }
@@ -60,11 +56,25 @@ function isUpdateMailEvent(event: EventRow) {
     type.includes("update_mail") ||
     text.includes("aktualisierungsmail") ||
     text.includes("pdf-angebot") ||
-    text.includes("aktualisiertes angebot")
+    text.includes("aktualisiertes angebot") ||
+    text.includes("aktualisierungsmail mit pdf")
   );
 }
 
-function isConfirmationEvent(event: EventRow) {
+function isUpdateConfirmationEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
+
+  return (
+    type.includes("offer_update_confirmed") ||
+    text.includes("aktualisiertes angebot bestätigt") ||
+    text.includes("aktualisiertes angebot offiziell angenommen") ||
+    text.includes("manuell aktualisierte") ||
+    text.includes("aktualisierte fassung angenommen")
+  );
+}
+
+function isAnyConfirmationEvent(event: EventRow) {
   const type = getEventType(event);
   const text = getEventText(event);
 
@@ -100,7 +110,6 @@ async function insertRequestEvent(params: {
   metadata?: Record<string, unknown>;
 }) {
   const { requestId, eventType, title, message, metadata } = params;
-
   const createdAt = new Date().toISOString();
 
   const firstAttempt = await supabaseServer.from("school_request_events").insert({
@@ -132,13 +141,13 @@ async function insertRequestEvent(params: {
     created_at: createdAt,
   });
 
-  if (thirdAttempt.error) {
-    console.error("Event konnte nicht gespeichert werden:", {
-      firstError: firstAttempt.error,
-      secondError: secondAttempt.error,
-      thirdError: thirdAttempt.error,
-    });
-  }
+  if (!thirdAttempt.error) return;
+
+  console.error("Event konnte nicht gespeichert werden:", {
+    firstError: firstAttempt.error,
+    secondError: secondAttempt.error,
+    thirdError: thirdAttempt.error,
+  });
 }
 
 export async function POST(_request: Request, context: RouteContext) {
@@ -162,8 +171,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message:
-            requestError?.message || "Das Angebot wurde nicht gefunden.",
+          message: requestError?.message || "Das Angebot wurde nicht gefunden.",
         },
         { status: 404 }
       );
@@ -176,7 +184,7 @@ export async function POST(_request: Request, context: RouteContext) {
       .select("*")
       .eq("request_id", requestRow.id)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (eventsError) {
       console.error("Events konnten nicht geladen werden:", eventsError);
@@ -185,16 +193,45 @@ export async function POST(_request: Request, context: RouteContext) {
     const events = (eventsData || []) as EventRow[];
 
     const latestUpdateMailEvent = findLatestEvent(events, isUpdateMailEvent);
-    const latestConfirmationEvent = findLatestEvent(events, isConfirmationEvent);
+    const latestUpdateConfirmationEvent = findLatestEvent(
+      events,
+      isUpdateConfirmationEvent
+    );
+    const latestAnyConfirmationEvent = findLatestEvent(
+      events,
+      isAnyConfirmationEvent
+    );
 
     const latestUpdateMailTime = getTime(latestUpdateMailEvent?.created_at);
-    const latestConfirmationTime = getTime(latestConfirmationEvent?.created_at);
+    const latestUpdateConfirmationTime = getTime(
+      latestUpdateConfirmationEvent?.created_at
+    );
+    const latestAnyConfirmationTime = getTime(
+      latestAnyConfirmationEvent?.created_at
+    );
+
+    /*
+      WICHTIG:
+      offer_status === "offer_sent" ist der harte Marker:
+      Das manuell geänderte Angebot wurde versendet und wartet auf Annahme.
+      Wenn der Kunde jetzt klickt, muss es als aktualisiertes Angebot bestätigt werden,
+      auch wenn das Event "offer_update_mail_sent" nicht zuverlässig gefunden wurde.
+    */
+    const hasOfferSentStatus = requestRow.offer_status === "offer_sent";
+
+    const hasPendingUpdatedOfferByEvent =
+      Boolean(latestUpdateMailEvent) &&
+      latestUpdateMailTime > latestUpdateConfirmationTime &&
+      latestUpdateMailTime >= latestAnyConfirmationTime;
 
     const hasPendingUpdatedOffer =
-      Boolean(latestUpdateMailEvent) &&
-      latestUpdateMailTime > latestConfirmationTime;
+      hasOfferSentStatus || hasPendingUpdatedOfferByEvent;
 
-    if (requestRow.status === "confirmed" && !hasPendingUpdatedOffer) {
+    if (
+      requestRow.status === "confirmed" &&
+      requestRow.offer_status === "confirmed" &&
+      !hasPendingUpdatedOffer
+    ) {
       return NextResponse.json({
         ok: true,
         mode: "already_confirmed",
@@ -261,13 +298,21 @@ export async function POST(_request: Request, context: RouteContext) {
     const hasOpenManualReviewItems =
       requestItems.length > 0 && openRequestItems.length > 0;
 
+    /*
+      FALL 1:
+      Kunde bestätigt ein aktualisiertes Angebot aus der Aktualisierungsmail.
+      Das hat Vorrang vor offenen Positionen, weil diese in diesem Ablauf bereits
+      durch den Admin manuell geprüft/ergänzt wurden.
+    */
     if (hasPendingUpdatedOffer) {
+      const now = new Date().toISOString();
+
       const { error: updateError } = await supabaseServer
         .from("school_requests")
         .update({
           status: "confirmed",
           offer_status: "confirmed",
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
         .eq("id", requestRow.id);
 
@@ -288,9 +333,14 @@ export async function POST(_request: Request, context: RouteContext) {
         message:
           "Der Kunde hat das manuell aktualisierte Schulpaket-Angebot offiziell angenommen.",
         metadata: {
+          confirmed_from: "updated_offer",
+          previous_status: requestRow.status,
+          previous_offer_status: requestRow.offer_status,
           open_request_items_count: openRequestItems.length,
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
+          had_offer_sent_status: hasOfferSentStatus,
+          had_update_mail_event: Boolean(latestUpdateMailEvent),
         },
       });
 
@@ -301,6 +351,11 @@ export async function POST(_request: Request, context: RouteContext) {
       });
     }
 
+    /*
+      FALL 2:
+      Normaler Paketwunsch vom Kunden, aber es gibt noch offene Positionen.
+      Das ist KEINE finale Bestätigung.
+    */
     if (hasOpenManualReviewItems) {
       const { error: updateError } = await supabaseServer
         .from("school_requests")
@@ -328,6 +383,7 @@ export async function POST(_request: Request, context: RouteContext) {
         message:
           "Der Kunde hat seinen Paketwunsch abgesendet. Es gibt noch offene Positionen, die manuell geprüft oder ergänzt werden müssen.",
         metadata: {
+          confirmed_from: "customer_package_submission",
           open_request_items_count: openRequestItems.length,
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
@@ -342,6 +398,11 @@ export async function POST(_request: Request, context: RouteContext) {
       });
     }
 
+    /*
+      FALL 3:
+      Kunde hat alle erkannten Positionen selbst vollständig ausgewählt.
+      Erst dann ist die normale Kundenauswahl wirklich bestätigt.
+    */
     const { error: updateError } = await supabaseServer
       .from("school_requests")
       .update({
@@ -368,6 +429,7 @@ export async function POST(_request: Request, context: RouteContext) {
       message:
         "Der Kunde hat alle erkannten Positionen selbst ausgewählt und das Schulpaket-Angebot offiziell bestätigt.",
       metadata: {
+        confirmed_from: "complete_customer_selection",
         open_request_items_count: openRequestItems.length,
         offer_items_count: offerItems.length,
         request_items_count: requestItems.length,
