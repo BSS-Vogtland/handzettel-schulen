@@ -76,10 +76,12 @@ function pickNumber(row: AnyRecord | null | undefined, keys: string[], fallback 
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
+  const formatted = new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
+
+  return `${formatted} EUR`;
 }
 
 function formatDate(value = new Date()) {
@@ -188,25 +190,63 @@ function hexToRgb(hex: string) {
   return rgb(r, g, b);
 }
 
-function sanitizePdfText(value: string) {
+function restoreGermanUmlauts(value: string) {
   return String(value || "")
-    .replace(/geprueft/g, "geprüft")
-    .replace(/Geprueft/g, "Geprüft")
-    .replace(/Pruefung/g, "Prüfung")
-    .replace(/pruefung/g, "prüfung")
-    .replace(/fuer/g, "für")
-    .replace(/Fuer/g, "Für")
-    .replace(/dafuer/g, "dafür")
-    .replace(/Dafuer/g, "Dafür")
-    .replace(/oeffne/g, "öffne")
-    .replace(/Oeffne/g, "Öffne")
-    .replace(/Aenderungen/g, "Änderungen")
-    .replace(/aenderungen/g, "änderungen")
-    .replace(/Rueckfragen/g, "Rückfragen")
-    .replace(/rueckfragen/g, "rückfragen")
-    .replace(/moeglich/g, "möglich")
-    .replace(/Moeglich/g, "Möglich")
-    .replace(/Schulmaterial-Paketwunsch/g, "Schulmaterial-Paketwunsch")
+    .replace(/\bAngebot fuer\b/g, "Angebot für")
+    .replace(/\bfuer\b/g, "für")
+    .replace(/\bFuer\b/g, "Für")
+    .replace(/\bdafuer\b/g, "dafür")
+    .replace(/\bDafuer\b/g, "Dafür")
+    .replace(/\bueber\b/g, "über")
+    .replace(/\bUeber\b/g, "Über")
+    .replace(/\bzurueck\b/g, "zurück")
+    .replace(/\bZurueck\b/g, "Zurück")
+    .replace(/\boeffne\b/g, "öffne")
+    .replace(/\bOeffne\b/g, "Öffne")
+    .replace(/\bmoeglich\b/g, "möglich")
+    .replace(/\bMoeglich\b/g, "Möglich")
+    .replace(/\bgeprueft\b/g, "geprüft")
+    .replace(/\bGeprueft\b/g, "Geprüft")
+    .replace(/\bpruefen\b/g, "prüfen")
+    .replace(/\bPruefen\b/g, "Prüfen")
+    .replace(/\bPruefung\b/g, "Prüfung")
+    .replace(/\bpruefung\b/g, "prüfung")
+    .replace(/\bAenderungen\b/g, "Änderungen")
+    .replace(/\baenderungen\b/g, "änderungen")
+    .replace(/\bRueckfragen\b/g, "Rückfragen")
+    .replace(/\brueckfragen\b/g, "rückfragen")
+    .replace(/\bkoennen\b/g, "können")
+    .replace(/\bKoennen\b/g, "Können")
+    .replace(/\bmuessen\b/g, "müssen")
+    .replace(/\bMuessen\b/g, "Müssen")
+    .replace(/\bwuenschen\b/g, "wünschen")
+    .replace(/\bWuenschen\b/g, "Wünschen")
+    .replace(/\bSchueler\b/g, "Schüler")
+    .replace(/\bschueler\b/g, "schüler")
+    .replace(/\bSchuelerin\b/g, "Schülerin")
+    .replace(/\bschuelerin\b/g, "schülerin")
+    .replace(/\bSchuelerinnen\b/g, "Schülerinnen")
+    .replace(/\bschuelerinnen\b/g, "schülerinnen")
+    .replace(/\bUmschlaege\b/g, "Umschläge")
+    .replace(/\bumschlaege\b/g, "umschläge")
+    .replace(/\bHuelle\b/g, "Hülle")
+    .replace(/\bhuelle\b/g, "hülle")
+    .replace(/\bHeftehuelle\b/g, "Heftehülle")
+    .replace(/\bheftehuelle\b/g, "heftehülle")
+    .replace(/\bKaeufer\b/g, "Käufer")
+    .replace(/\bkaeufer\b/g, "käufer")
+    .replace(/\bMaedchen\b/g, "Mädchen")
+    .replace(/\bmaedchen\b/g, "mädchen")
+    .replace(/\bgroesse\b/g, "größe")
+    .replace(/\bGroesse\b/g, "Größe")
+    .replace(/\bgroesser\b/g, "größer")
+    .replace(/\bGroesser\b/g, "Größer")
+    .replace(/\bweiss\b/g, "weiß")
+    .replace(/\bWeiss\b/g, "Weiß");
+}
+
+function sanitizePdfText(value: string) {
+  return restoreGermanUmlauts(String(value || ""))
     .replace(/€/g, "EUR")
     .replace(/–/g, "-")
     .replace(/—/g, "-")

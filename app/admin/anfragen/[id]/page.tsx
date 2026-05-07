@@ -23,6 +23,7 @@ import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton"
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
+import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -324,36 +325,6 @@ function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
   });
 }
 
-function getEventType(event: EventRow) {
-  return String(event.event_type || event.type || "").toLowerCase();
-}
-
-function getEventMessage(event: EventRow) {
-  return String(event.message || "").toLowerCase();
-}
-
-function findLatestEvent(
-  events: EventRow[],
-  matcher: (event: EventRow) => boolean
-) {
-  return events.find(matcher) || null;
-}
-
-function isConfirmedRequest(request: SchoolRequest) {
-  return request.status === "confirmed" || request.offer_status === "confirmed";
-}
-
-function isAfterOrSame(a: string | null, b: string | null) {
-  if (!a || !b) return false;
-
-  const aTime = new Date(a).getTime();
-  const bTime = new Date(b).getTime();
-
-  if (!Number.isFinite(aTime) || !Number.isFinite(bTime)) return false;
-
-  return aTime >= bTime;
-}
-
 export default async function AdminRequestDetailPage({ params }: Params) {
   const { id } = await params;
   const supabase = getSupabaseAdmin();
@@ -428,42 +399,6 @@ export default async function AdminRequestDetailPage({ params }: Params) {
   const items = (itemsData || []) as RequestItem[];
   const offerItems = (offerItemsData || []) as OfferItem[];
   const events = (eventsData || []) as EventRow[];
-
-  const latestUpdateMailEvent = findLatestEvent(events, (event) => {
-    const type = getEventType(event);
-    const message = getEventMessage(event);
-
-    return (
-      type.includes("offer_update_mail_sent") ||
-      type.includes("update_mail") ||
-      message.includes("aktualisierungsmail") ||
-      message.includes("pdf-angebot")
-    );
-  });
-
-  const latestConfirmedEvent = findLatestEvent(events, (event) => {
-    const type = getEventType(event);
-    const message = getEventMessage(event);
-
-    return (
-      type.includes("confirmed") ||
-      type.includes("offer_confirmed") ||
-      type.includes("customer_confirmed") ||
-      message.includes("bestätigt") ||
-      message.includes("angenommen") ||
-      message.includes("offiziell angenommen")
-    );
-  });
-
-  const requestIsConfirmed = isConfirmedRequest(request);
-  const updateMailWasSent = Boolean(latestUpdateMailEvent);
-  const confirmationAfterLatestUpdate =
-    requestIsConfirmed &&
-    updateMailWasSent &&
-    isAfterOrSame(
-      latestConfirmedEvent?.created_at || request.updated_at,
-      latestUpdateMailEvent?.created_at || null
-    );
 
   const itemIds = items.map((item) => item.id);
 
@@ -904,110 +839,16 @@ export default async function AdminRequestDetailPage({ params }: Params) {
           </aside>
 
           <section className="space-y-6">
-            {confirmationAfterLatestUpdate ? (
-              <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
-                    <CheckCircle2 className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                      Aktualisiertes Angebot bestätigt
-                    </p>
-                    <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                      Der Kunde hat das manuell geänderte Angebot angenommen.
-                    </h2>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                      Die letzte Aktualisierungsmail wurde am{" "}
-                      <span className="font-black text-[#102A43]">
-                        {formatDateTime(latestUpdateMailEvent?.created_at || null)}
-                      </span>{" "}
-                      gesendet. Die Bestätigung liegt danach vor
-                      {latestConfirmedEvent?.created_at ? (
-                        <>
-                          {" "}
-                          am{" "}
-                          <span className="font-black text-[#102A43]">
-                            {formatDateTime(latestConfirmedEvent.created_at)}
-                          </span>
-                        </>
-                      ) : null}
-                      .
-                    </p>
-                  </div>
-                </div>
-              </section>
-            ) : requestIsConfirmed ? (
-              <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
-                    <CheckCircle2 className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                      Angebot bestätigt
-                    </p>
-                    <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                      Der Kunde hat ein Angebot offiziell angenommen.
-                    </h2>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                      Der aktuelle Status dieser Anfrage ist bestätigt. Falls Du
-                      danach noch manuell Änderungen vorgenommen hast, sende dem
-                      Kunden erneut eine Aktualisierungsmail.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            ) : updateMailWasSent ? (
-              <section className="rounded-[32px] border border-[#F0D2A8] bg-[#FFF8EC] p-5 shadow-sm sm:p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
-                    <AlertTriangle className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                      Aktualisierung gesendet
-                    </p>
-                    <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                      Das aktualisierte Angebot wurde noch nicht bestätigt.
-                    </h2>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                      Die letzte Aktualisierungsmail wurde am{" "}
-                      <span className="font-black text-[#102A43]">
-                        {formatDateTime(latestUpdateMailEvent?.created_at || null)}
-                      </span>{" "}
-                      gesendet. Sobald der Kunde das Angebot offiziell annimmt,
-                      erscheint hier eine grüne Bestätigung.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            ) : (
-              <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                    <Mail className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                      Kein aktualisiertes Angebot versendet
-                    </p>
-                    <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                      Nach manueller Anpassung kannst Du eine Aktualisierungsmail senden.
-                    </h2>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                      Sobald Du das aktuelle Angebot per PDF versendest, wird der
-                      Versand im Verlauf gespeichert. Nach der Kundenbestätigung
-                      erkennst Du hier den bestätigten Status.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
+            <AdminOfferWorkflowStatus
+              requestStatus={request.status}
+              offerStatus={request.offer_status}
+              aiStatus={request.ai_status}
+              itemsCount={items.length}
+              offerItemsCount={offerItems.length}
+              manualReviewItemsCount={manualReviewItems.length}
+              events={events}
+              updatedAt={request.updated_at}
+            />
 
             <AdminSendOfferUpdateMailButton requestId={request.id} />
 
