@@ -28,11 +28,23 @@ type SchoolRequest = {
   request_number: string | null;
   source: string | null;
   status: string | null;
+
   customer_name: string | null;
+  name?: string | null;
+  parent_name?: string | null;
+  guardian_name?: string | null;
+  contact_name?: string | null;
+
   child_name: string | null;
   school_name: string | null;
   class_name: string | null;
+
   email: string | null;
+  customer_email?: string | null;
+  parent_email?: string | null;
+  contact_email?: string | null;
+  guardian_email?: string | null;
+
   phone: string | null;
   message: string | null;
   offer_token: string | null;
@@ -165,6 +177,11 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function cleanText(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
+}
+
 function formatMoney(value: unknown) {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
@@ -192,6 +209,29 @@ function formatDate(value: string | null) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function getCustomerDisplayName(request: SchoolRequest) {
+  return (
+    cleanText(request.customer_name) ||
+    cleanText(request.parent_name) ||
+    cleanText(request.guardian_name) ||
+    cleanText(request.contact_name) ||
+    cleanText(request.name) ||
+    "Nicht angegeben"
+  );
+}
+
+function getCustomerDisplayContact(request: SchoolRequest) {
+  return (
+    cleanText(request.email) ||
+    cleanText(request.customer_email) ||
+    cleanText(request.parent_email) ||
+    cleanText(request.contact_email) ||
+    cleanText(request.guardian_email) ||
+    cleanText(request.phone) ||
+    "Kein Kontakt"
+  );
 }
 
 function getEventType(event: EventRow | null) {
@@ -346,7 +386,8 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
 
   const hasUpdatedConfirmation = hasEvent(overview, isUpdatedOfferConfirmedEvent);
   const hasUpdateMail =
-    hasEvent(overview, isUpdateMailEvent) || request.offer_status === "offer_sent";
+    hasEvent(overview, isUpdateMailEvent) ||
+    request.offer_status === "offer_sent";
 
   if (isConfirmed || hasUpdatedConfirmation) {
     if (request.fulfillment_status === "picked_up") {
@@ -779,10 +820,10 @@ function RequestCard({
                 Kunde
               </div>
               <p className="font-black text-[#102A43]">
-                {request.customer_name || "Nicht angegeben"}
+                {getCustomerDisplayName(request)}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                {request.email || request.phone || "Kein Kontakt"}
+                {getCustomerDisplayContact(request)}
               </p>
             </div>
 
@@ -1159,9 +1200,6 @@ export default async function AdminRequestsPage() {
   const totalRequests = overviews.length;
   const openCount = openOverviews.length;
   const fulfillmentCount = fulfillmentOverviews.length;
-  const manualReviewCount = overviews.filter(
-    (overview) => overview.manualReviewCount > 0
-  ).length;
   const shippingCount = fulfillmentOverviews.filter(
     (overview) => overview.request.fulfillment_method === "shipping"
   ).length;

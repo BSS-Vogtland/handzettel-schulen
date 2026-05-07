@@ -4,7 +4,7 @@ import { sendMail } from "@/lib/sendMail";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -21,6 +21,23 @@ function cleanString(value: FormDataEntryValue | null) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getFirstCleanString(
+  formData: FormData,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = cleanString(formData.get(key));
+    if (value) return value;
+  }
+
+  return null;
+}
+
+function looksLikeEmail(value: string | null) {
+  if (!value) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 function getFileExtension(fileName: string) {
   const parts = fileName.split(".");
   if (parts.length < 2) return "upload";
@@ -35,11 +52,14 @@ function getSiteUrl() {
 }
 
 function buildOfferEmail(input: {
+  customerName: string | null;
   childName: string | null;
   schoolName: string | null;
   requestNumber: string | null;
   offerUrl: string;
 }) {
+  const greeting = input.customerName ? `Hallo ${input.customerName},` : "Hallo,";
+
   const childLine = input.childName
     ? `für ${input.childName}`
     : "für Deine Schulmaterialliste";
@@ -53,7 +73,7 @@ function buildOfferEmail(input: {
     : null;
 
   const text = [
-    "Hallo,",
+    greeting,
     "",
     `vielen Dank für Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
     "",
@@ -76,7 +96,7 @@ function buildOfferEmail(input: {
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.6; max-width: 640px;">
       <h2 style="color: #102A43; margin-bottom: 12px;">Dein persönlicher Link zu Deiner Schulmaterialliste</h2>
 
-      <p>Hallo,</p>
+      <p>${greeting}</p>
 
       <p>
         vielen Dank für Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
@@ -193,7 +213,7 @@ export async function POST(request: Request) {
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { ok: false, message: "Die Datei darf maximal 10 MB groß sein." },
+        { ok: false, message: "Die Datei darf maximal 20 MB groß sein." },
         { status: 400 }
       );
     }
@@ -209,25 +229,53 @@ export async function POST(request: Request) {
       );
     }
 
-    const childName = cleanString(formData.get("childName"));
-    const className = cleanString(formData.get("className"));
+    const customerName = getFirstCleanString(formData, [
+      "customer_name",
+      "customerName",
+      "name",
+    ]);
+
+    const childName = getFirstCleanString(formData, [
+      "child_name",
+      "childName",
+    ]);
+
+    const className = getFirstCleanString(formData, [
+      "class_name",
+      "className",
+    ]);
+
+    const schoolName = getFirstCleanString(formData, [
+      "school_name",
+      "schoolName",
+    ]);
+
     const contact = cleanString(formData.get("contact"));
-    const schoolName = cleanString(formData.get("schoolName"));
+    const rawEmail = cleanString(formData.get("email"));
+    const rawPhone = cleanString(formData.get("phone"));
     const message = cleanString(formData.get("message"));
 
-    const isEmail = contact?.includes("@") ?? false;
-    const customerEmail = isEmail ? contact : null;
+    const email =
+      looksLikeEmail(rawEmail) ? rawEmail : looksLikeEmail(contact) ? contact : null;
+
+    const phone =
+      !looksLikeEmail(contact) && contact
+        ? contact
+        : rawPhone && !looksLikeEmail(rawPhone)
+        ? rawPhone
+        : null;
 
     const { data: createdRequest, error: requestError } = await supabaseServer
       .from("school_requests")
       .insert({
         source: "website",
         status: "received",
+        customer_name: customerName,
         child_name: childName,
         class_name: className,
         school_name: schoolName,
-        email: customerEmail,
-        phone: !isEmail ? contact : null,
+        email,
+        phone,
         message,
         ai_status: "pending",
         offer_status: "not_created",
@@ -302,6 +350,13 @@ export async function POST(request: Request) {
       title: "Materialliste eingegangen",
       description: "Die Materialliste wurde über die Website hochgeladen.",
       metadata: {
+        customerName,
+        childName,
+        schoolName,
+        className,
+        contact,
+        email,
+        phone,
         originalFilename: file.name,
         fileType: file.type,
         fileSize: file.size,
@@ -314,9 +369,10 @@ export async function POST(request: Request) {
     let emailSent = false;
     let emailMessage: string | null = null;
 
-    if (customerEmail) {
+    if (email) {
       try {
         const emailContent = buildOfferEmail({
+          customerName,
           childName,
           schoolName,
           requestNumber: createdRequest.request_number,
@@ -324,7 +380,7 @@ export async function POST(request: Request) {
         });
 
         await sendMail({
-          to: customerEmail,
+          to: email,
           subject: emailContent.subject,
           text: emailContent.text,
           html: emailContent.html,
@@ -337,9 +393,9 @@ export async function POST(request: Request) {
           requestId: createdRequest.id,
           eventType: "offer_link_email_sent",
           title: "Angebotslink per E-Mail gesendet",
-          description: `Der persönliche Angebotslink wurde automatisch an ${customerEmail} gesendet.`,
+          description: `Der persönliche Angebotslink wurde automatisch an ${email} gesendet.`,
           metadata: {
-            email: customerEmail,
+            email,
             offerUrl,
           },
         });
@@ -359,7 +415,7 @@ export async function POST(request: Request) {
               ? emailError.message
               : "Der Angebotslink konnte nicht automatisch per E-Mail gesendet werden.",
           metadata: {
-            email: customerEmail,
+            email,
             offerUrl,
           },
         });
@@ -376,6 +432,7 @@ export async function POST(request: Request) {
           "Es wurde keine E-Mail-Adresse angegeben. Der Angebotslink wurde nicht automatisch versendet.",
         metadata: {
           contact,
+          phone,
           offerUrl,
         },
       });
@@ -386,6 +443,7 @@ export async function POST(request: Request) {
       requestId: createdRequest.id,
       requestNumber: createdRequest.request_number,
       offerToken: createdRequest.offer_token,
+      token: createdRequest.offer_token,
       offerUrl,
       redirectUrl: `/angebot/${createdRequest.offer_token}`,
       emailSent,
