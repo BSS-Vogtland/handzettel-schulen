@@ -17,6 +17,33 @@ type SchoolRequest = {
   ai_status: string | null;
 };
 
+type RequestItemRow = {
+  id: string;
+};
+
+type RequestMatchRow = {
+  id: string;
+  request_item_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  product_sku: string | null;
+  product_price: number | string | null;
+  match_score: number | string | null;
+  match_reason: string | null;
+  selected: boolean | null;
+  created_at: string | null;
+};
+
+type OfferItemRow = {
+  id: string;
+  request_id: string;
+  request_item_id: string | null;
+  match_id: string | null;
+  product_id: string | null;
+};
+
+const AUTO_PRESELECT_MIN_SCORE = 85;
+
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
@@ -39,6 +66,24 @@ function getSupabaseAdmin() {
   });
 }
 
+function toNumber(value: unknown, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function cleanText(value: unknown, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+
+  const text = String(value).trim();
+  return text.length > 0 ? text : fallback;
+}
+
 async function createRequestEvent(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   requestId: string,
@@ -46,18 +91,28 @@ async function createRequestEvent(
   message: string,
   metadata?: Record<string, unknown>
 ) {
+  const createdAt = new Date().toISOString();
+
   const payloads = [
     {
       request_id: requestId,
       event_type: eventType,
       message,
       metadata: metadata ?? {},
+      created_at: createdAt,
     },
     {
       request_id: requestId,
       type: eventType,
       message,
       metadata: metadata ?? {},
+      created_at: createdAt,
+    },
+    {
+      request_id: requestId,
+      event_type: eventType,
+      message,
+      created_at: createdAt,
     },
   ];
 
@@ -93,6 +148,218 @@ function getShortRawText(rawText: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 500);
+}
+
+function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
+  const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
+
+  if (scoreDifference !== 0) return scoreDifference;
+
+  const nameComparison = String(a.product_name || "").localeCompare(
+    String(b.product_name || ""),
+    "de",
+    {
+      numeric: true,
+      sensitivity: "base",
+    }
+  );
+
+  if (nameComparison !== 0) return nameComparison;
+
+  const skuComparison = String(a.product_sku || "").localeCompare(
+    String(b.product_sku || ""),
+    "de",
+    {
+      numeric: true,
+      sensitivity: "base",
+    }
+  );
+
+  if (skuComparison !== 0) return skuComparison;
+
+  return String(a.id).localeCompare(String(b.id), "de", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function getBestAutoPreselectMatches(matches: RequestMatchRow[]) {
+  const matchesByRequestItem = new Map<string, RequestMatchRow[]>();
+
+  for (const match of matches) {
+    if (!match.request_item_id) continue;
+    if (!match.product_id) continue;
+
+    const score = toNumber(match.match_score, 0);
+    if (score < AUTO_PRESELECT_MIN_SCORE) continue;
+
+    const current = matchesByRequestItem.get(match.request_item_id) || [];
+    current.push(match);
+    matchesByRequestItem.set(match.request_item_id, current);
+  }
+
+  const bestMatches: RequestMatchRow[] = [];
+
+  for (const itemMatches of matchesByRequestItem.values()) {
+    const bestMatch = itemMatches.sort(compareMatches)[0];
+
+    if (bestMatch) {
+      bestMatches.push(bestMatch);
+    }
+  }
+
+  return bestMatches.sort(compareMatches);
+}
+
+async function autoPreselectSafeMatches(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+  requestItemIds: string[];
+}) {
+  const { supabase, requestId, requestItemIds } = params;
+
+  if (requestItemIds.length === 0) {
+    return {
+      preselectedCount: 0,
+      alreadyExistingCount: 0,
+      candidateCount: 0,
+    };
+  }
+
+  const { data: matchesData, error: matchesError } = await supabase
+    .from("school_request_matches")
+    .select("*")
+    .in("request_item_id", requestItemIds)
+    .order("request_item_id", { ascending: true })
+    .order("match_score", { ascending: false })
+    .order("product_name", { ascending: true })
+    .order("product_sku", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (matchesError) {
+    throw new Error(
+      `Sichere Treffer konnten nicht geladen werden: ${matchesError.message}`
+    );
+  }
+
+  const matches = (matchesData || []) as RequestMatchRow[];
+  const candidates = getBestAutoPreselectMatches(matches);
+
+  if (candidates.length === 0) {
+    return {
+      preselectedCount: 0,
+      alreadyExistingCount: 0,
+      candidateCount: 0,
+    };
+  }
+
+  const { data: existingOfferItemsData, error: existingOfferItemsError } =
+    await supabase
+      .from("school_offer_items")
+      .select("id, request_id, request_item_id, match_id, product_id")
+      .eq("request_id", requestId);
+
+  if (existingOfferItemsError) {
+    throw new Error(
+      `Bestehende Paketpositionen konnten nicht geprüft werden: ${existingOfferItemsError.message}`
+    );
+  }
+
+  const existingOfferItems = (existingOfferItemsData || []) as OfferItemRow[];
+
+  const existingRequestItemIds = new Set(
+    existingOfferItems
+      .map((item) => item.request_item_id)
+      .filter((value): value is string => Boolean(value))
+  );
+
+  const existingMatchIds = new Set(
+    existingOfferItems
+      .map((item) => item.match_id)
+      .filter((value): value is string => Boolean(value))
+  );
+
+  const existingProductKeys = new Set(
+    existingOfferItems
+      .map((item) => {
+        if (!item.request_item_id || !item.product_id) return null;
+        return `${item.request_item_id}::${item.product_id}`;
+      })
+      .filter((value): value is string => Boolean(value))
+  );
+
+  const rowsToInsert = candidates
+    .filter((match) => {
+      const productKey = `${match.request_item_id}::${match.product_id}`;
+
+      if (existingRequestItemIds.has(match.request_item_id)) return false;
+      if (existingMatchIds.has(match.id)) return false;
+      if (existingProductKeys.has(productKey)) return false;
+
+      return true;
+    })
+    .map((match) => {
+      const quantity = 1;
+      const productPrice = toNumber(match.product_price, 0);
+
+      return {
+        request_id: requestId,
+        request_item_id: match.request_item_id,
+        match_id: match.id,
+        product_id: match.product_id,
+        product_name: cleanText(match.product_name, "Produkt"),
+        product_sku: cleanText(match.product_sku, "") || null,
+        product_price: productPrice,
+        quantity,
+        unit: "Stk.",
+        total_price: quantity * productPrice,
+        source: "auto_preselected",
+        status: "preselected",
+        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
+          match.match_score,
+          0
+        )} % Übereinstimmung erreicht hat.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+  if (rowsToInsert.length === 0) {
+    return {
+      preselectedCount: 0,
+      alreadyExistingCount: candidates.length,
+      candidateCount: candidates.length,
+    };
+  }
+
+  const { error: insertError } = await supabase
+    .from("school_offer_items")
+    .insert(rowsToInsert);
+
+  if (insertError) {
+    throw new Error(
+      `Sichere Treffer konnten nicht automatisch in den Paketwunsch gelegt werden: ${insertError.message}`
+    );
+  }
+
+  await createRequestEvent(
+    supabase,
+    requestId,
+    "customer_auto_preselected_items",
+    `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt.`,
+    {
+      threshold: AUTO_PRESELECT_MIN_SCORE,
+      preselectedCount: rowsToInsert.length,
+      candidateCount: candidates.length,
+      matchIds: rowsToInsert.map((row) => row.match_id),
+    }
+  );
+
+  return {
+    preselectedCount: rowsToInsert.length,
+    alreadyExistingCount: candidates.length - rowsToInsert.length,
+    candidateCount: candidates.length,
+  };
 }
 
 export async function POST(request: NextRequest, context: Params) {
@@ -193,9 +460,10 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       requestId,
       "customer_prepare_started",
-      "Kunde hat die automatische Listenauswertung gestartet.",
+      "Kunde hat die automatische Paketvorbereitung gestartet.",
       {
         token,
+        autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
     );
 
@@ -286,6 +554,7 @@ export async function POST(request: NextRequest, context: Params) {
           ok: false,
           itemCount: 0,
           matchCount: 0,
+          preselectedCount: 0,
           message:
             "Es konnten keine Positionen aus der Liste erkannt werden. Bitte prüfe die Datei oder bearbeite die Anfrage manuell.",
         },
@@ -308,7 +577,9 @@ export async function POST(request: NextRequest, context: Params) {
       );
     }
 
-    const requestItemIds = (requestItems || []).map((item) => item.id);
+    const requestItemIds = ((requestItems || []) as RequestItemRow[]).map(
+      (item) => item.id
+    );
 
     let matchCount = 0;
 
@@ -386,12 +657,24 @@ export async function POST(request: NextRequest, context: Params) {
       }
     }
 
+    const autoPreselectResult = await autoPreselectSafeMatches({
+      supabase,
+      requestId,
+      requestItemIds,
+    });
+
+    const nextOfferStatus =
+      autoPreselectResult.preselectedCount > 0 ||
+      autoPreselectResult.alreadyExistingCount > 0
+        ? "customer_selection"
+        : "matching_done";
+
     await supabase
       .from("school_requests")
       .update({
         status: "analysis_done",
         ai_status: "done",
-        offer_status: "matching_done",
+        offer_status: nextOfferStatus,
         updated_at: new Date().toISOString(),
       })
       .eq("id", requestId);
@@ -400,10 +683,15 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       requestId,
       "customer_prepare_done",
-      "Automatische Listenauswertung und Produktvorschläge wurden erstellt.",
+      autoPreselectResult.preselectedCount > 0
+        ? "Automatische Listenauswertung wurde abgeschlossen. Sichere Treffer wurden direkt in den Paketwunsch gelegt."
+        : "Automatische Listenauswertung und Produktvorschläge wurden erstellt.",
       {
         itemCount,
         matchCount,
+        preselectedCount: autoPreselectResult.preselectedCount,
+        alreadyExistingCount: autoPreselectResult.alreadyExistingCount,
+        autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
     );
 
@@ -411,10 +699,15 @@ export async function POST(request: NextRequest, context: Params) {
       ok: true,
       itemCount,
       matchCount,
+      preselectedCount: autoPreselectResult.preselectedCount,
+      alreadyExistingCount: autoPreselectResult.alreadyExistingCount,
+      autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       message:
-        matchCount > 0
-          ? "Deine Liste wurde ausgewertet. Du kannst jetzt passende Produkte auswählen."
-          : "Deine Liste wurde ausgewertet. Es wurden Positionen erkannt, aber nicht überall passende Produktvorschläge gefunden. Du kannst Produkte selbst suchen oder BSS prüft die Positionen manuell.",
+        autoPreselectResult.preselectedCount > 0
+          ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`
+          : matchCount > 0
+          ? "Deine Liste wurde ausgewertet. Sichere Treffer werden angezeigt, offene Positionen kannst Du aktiv auswählen."
+          : "Deine Liste wurde ausgewertet. Es wurden Positionen erkannt, aber nicht überall passende Produktvorschläge gefunden. Du kannst Produkte selbst suchen oder Handzettel-Schulen.de prüft die Positionen manuell.",
     });
   } catch (error) {
     console.error("Customer prepare package error:", error);

@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import {
+  AlertTriangle,
   CheckCircle2,
   FileText,
   ImageIcon,
@@ -14,6 +15,7 @@ import CustomerPreparePackageButton from "@/components/CustomerPreparePackageBut
 import CustomerSelectProductButton from "@/components/CustomerSelectProductButton";
 import ConfirmOfferButton from "@/components/ConfirmOfferButton";
 import CustomerProductSearch from "@/components/CustomerProductSearch";
+import CustomerRemoveOfferItemButton from "@/components/CustomerRemoveOfferItemButton";
 import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +101,8 @@ type ProductRow = {
   id: string;
   image_url?: string | null;
 };
+
+const AUTO_PRESELECT_MIN_SCORE = 85;
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -550,6 +554,7 @@ function getMatchScoreLabel(score: unknown) {
   const value = toNumber(score, 0);
 
   if (value >= 90) return "Beste Empfehlung";
+  if (value >= 85) return "Sicherer Treffer";
   if (value >= 80) return "Sehr passend";
   if (value >= 70) return "Passend";
   return "Option";
@@ -557,6 +562,8 @@ function getMatchScoreLabel(score: unknown) {
 
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
+    case "auto_preselected":
+      return "Für Dich vorausgewählt";
     case "admin_manual":
       return "Von Handzettel-Schulen.de ergänzt";
     case "admin_existing_product":
@@ -580,6 +587,52 @@ function uniqueCleanStrings(values: Array<string | null | undefined>) {
         .filter((value) => value.length > 0)
     )
   );
+}
+
+function getItemFacts(item: RequestItem | null | undefined) {
+  if (!item) return [];
+
+  const facts: string[] = [];
+  const lineature = getDisplayLineature(item);
+
+  facts.push(`Menge: ${toNumber(item.quantity, 1)}`);
+
+  if (item.format) facts.push(`Format: ${item.format}`);
+  if (lineature && lineature !== "unknown") facts.push(`Lineatur: ${lineature}`);
+  if (item.color) facts.push(`Farbe: ${item.color}`);
+
+  return facts;
+}
+
+function getOfferItemScoreLabel(item: OfferItem, matchById: Map<string, RequestMatch>) {
+  if (!item.match_id) return null;
+
+  const match = matchById.get(item.match_id);
+  if (!match) return null;
+
+  const score = toNumber(match.match_score, 0);
+
+  if (score <= 0) return null;
+
+  if (item.source === "auto_preselected" || score >= AUTO_PRESELECT_MIN_SCORE) {
+    return `Vorausgewählt · ${score} %`;
+  }
+
+  return `${getMatchScoreLabel(score)} · ${score} %`;
+}
+
+function isAutoPreselectedOfferItem(
+  item: OfferItem,
+  matchById: Map<string, RequestMatch>
+) {
+  if (item.source === "auto_preselected" || item.status === "preselected") {
+    return true;
+  }
+
+  if (!item.match_id) return false;
+
+  const match = matchById.get(item.match_id);
+  return toNumber(match?.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE;
 }
 
 function ProductImageBox({
@@ -707,6 +760,27 @@ export default async function CustomerOfferPage({ params }: Params) {
     }
   }
 
+  const requestItemById = new Map<string, RequestItem>();
+  const matchById = new Map<string, RequestMatch>();
+  const selectedOfferItemsByRequestItem = new Map<string, OfferItem[]>();
+
+  for (const item of items) {
+    requestItemById.set(item.id, item);
+  }
+
+  for (const match of matches) {
+    matchById.set(match.id, match);
+  }
+
+  for (const offerItem of selectedOfferItems) {
+    if (!offerItem.request_item_id) continue;
+
+    const current =
+      selectedOfferItemsByRequestItem.get(offerItem.request_item_id) || [];
+    current.push(offerItem);
+    selectedOfferItemsByRequestItem.set(offerItem.request_item_id, current);
+  }
+
   const matchesByItem = new Map<string, RequestMatch[]>();
 
   for (const item of items) {
@@ -739,51 +813,178 @@ export default async function CustomerOfferPage({ params }: Params) {
     return sum + quantity * price;
   }, 0);
 
+  const autoPreselectedOfferItems = selectedOfferItems.filter((item) =>
+    isAutoPreselectedOfferItem(item, matchById)
+  );
+
+  const otherSelectedOfferItems = selectedOfferItems.filter(
+    (item) => !isAutoPreselectedOfferItem(item, matchById)
+  );
+
+  const openChoiceItems = items.filter((item) => {
+    const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
+    const itemMatches = matchesByItem.get(item.id) || [];
+
+    return selectedForItem.length === 0 && itemMatches.length > 0;
+  });
+
+  const manualReviewItems = items.filter((item) => {
+    const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
+    const itemMatches = matchesByItem.get(item.id) || [];
+
+    return selectedForItem.length === 0 && itemMatches.length === 0;
+  });
+
+  const handledItemCount = new Set(
+    selectedOfferItems
+      .map((item) => item.request_item_id)
+      .filter((id): id is string => Boolean(id))
+  ).size;
+
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative h-16 w-16 overflow-hidden rounded-3xl border border-[#E8DED2] bg-[#FBF7F0]">
-                <Image
-                  src="/handzettel-logo.png"
-                  alt="Handzettel-Schulen.de"
-                  fill
-                  className="object-contain p-2"
-                  priority
-                />
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="overflow-hidden rounded-[34px] border border-[#E8DED2] bg-white shadow-sm">
+          <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_360px] lg:items-stretch">
+            <div className="flex flex-col justify-between">
+              <div className="flex items-start gap-4">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-3xl border border-[#E8DED2] bg-[#FBF7F0]">
+                  <Image
+                    src="/handzettel-logo.png"
+                    alt="Handzettel-Schulen.de"
+                    fill
+                    className="object-contain p-2"
+                    priority
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+                    Handzettel-Schulen.de
+                  </p>
+
+                  <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
+                    {isConfirmed
+                      ? "Dein finaler Paketwunsch"
+                      : "Dein vorbereiteter Paketwunsch"}
+                  </h1>
+
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
+                    {isConfirmed
+                      ? "Hier siehst Du den aktuellen finalen Stand Deines Schulmaterial-Paketwunsches."
+                      : "Sichere Treffer ab 85 % wurden bereits für Dich ins Paket gelegt. Du kannst sie bei Bedarf einfach entfernen. Offene Positionen kannst Du ergänzen oder persönlich prüfen lassen."}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-                  Handzettel-Schulen.de
-                </p>
+              {!isConfirmed ? (
+                <div className="mt-6 rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="font-black">
+                        Sicher passende Produkte sind schon vorbereitet.
+                      </p>
+                      <p className="mt-1 text-sm font-semibold leading-6">
+                        Prüfe nur kurz Dein Paket, entferne bei Bedarf einzelne
+                        Produkte und ergänze die offenen Positionen.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
-                <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-4xl">
-                  {isConfirmed
-                    ? "Dein finaler Schulmaterial-Paketwunsch"
-                    : "Deine persönliche Produktauswahl"}
-                </h1>
+            <aside className="rounded-[30px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Dein Paket
+              </p>
 
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-                  {isConfirmed
-                    ? "Hier siehst Du den aktuellen finalen Paketwunsch inklusive Produktbildern und möglichen Korrekturen durch Handzettel-Schulen.de."
-                    : "Wir bereiten Deine Schulmaterialliste für Dich vor. Sichere Treffer kannst Du direkt übernehmen. Alles, was nicht eindeutig ist, prüfen wir persönlich."}
-                </p>
+              <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+                {formatMoney(totalPrice)}
+              </h2>
+
+              <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                {selectedOfferItems.length} Paketposition
+                {selectedOfferItems.length === 1 ? "" : "en"}
+              </p>
+
+              <div className="mt-4 space-y-2 text-sm font-semibold text-[#52616F]">
+                <div className="flex justify-between gap-3">
+                  <span>Vorausgewählt</span>
+                  <span className="font-black text-[#2F7D50]">
+                    {autoPreselectedOfferItems.length}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <span>Noch auswählen</span>
+                  <span className="font-black text-[#A75B28]">
+                    {openChoiceItems.length}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <span>Persönliche Prüfung</span>
+                  <span className="font-black text-[#52616F]">
+                    {manualReviewItems.length}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="rounded-3xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm">
-              <p className="font-black text-[#102A43]">
-                Anfrage {request.request_number || "—"}
-              </p>
-              <p className="mt-1 text-[#52616F]">
-                Erstellt am {formatDate(request.created_at)}
-              </p>
-            </div>
+              {!isConfirmed && selectedOfferItems.length > 0 ? (
+                <div className="mt-5">
+                  <ConfirmOfferButton token={token} />
+                </div>
+              ) : null}
+
+              {isConfirmed ? (
+                <div className="mt-5 rounded-2xl border border-[#BFE3CD] bg-white p-4 text-[#2F7D50]">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p className="text-sm font-black">
+                      Dein Paketwunsch wurde abgesendet.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </aside>
           </div>
         </header>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Erkannte Positionen
+            </p>
+            <p className="mt-2 text-3xl font-black">{items.length}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em]">
+              Automatisch im Paket
+            </p>
+            <p className="mt-2 text-3xl font-black">
+              {autoPreselectedOfferItems.length}
+            </p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28] shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em]">
+              Auswahl offen
+            </p>
+            <p className="mt-2 text-3xl font-black">{openChoiceItems.length}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#52616F]">
+              Persönliche Prüfung
+            </p>
+            <p className="mt-2 text-3xl font-black text-[#102A43]">
+              {manualReviewItems.length}
+            </p>
+          </div>
+        </section>
 
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
@@ -825,11 +1026,10 @@ export default async function CustomerOfferPage({ params }: Params) {
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed ? "Abgesendet" : "Auswahl offen"}
+              {isConfirmed ? "Abgesendet" : "In Vorbereitung"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
-              {items.length} erkannte Positionen · {selectedOfferItems.length}{" "}
-              Paketpositionen
+              {handledItemCount} von {items.length} Positionen im Paket
             </p>
           </div>
         </section>
@@ -856,431 +1056,592 @@ export default async function CustomerOfferPage({ params }: Params) {
           </section>
         ) : null}
 
-        {items.length > 0 && !isConfirmed ? (
-          <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#A75B28]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Persönliche Vorauswahl
+        {items.length > 0 ? (
+          <section className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
+            <div className="space-y-6">
+              <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                      Bereits für Dich vorausgewählt
+                    </p>
+                    <h2 className="text-2xl font-black text-[#102A43]">
+                      Sichere Treffer liegen schon im Paket
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-[#2F7D50]">
+                      Diese Produkte wurden wegen hoher Übereinstimmung direkt
+                      übernommen. Du musst sie nur entfernen, wenn Du sie nicht
+                      möchtest.
+                    </p>
+                  </div>
                 </div>
 
-                <h2 className="text-2xl font-black">
-                  Deine Liste wurde vorbereitet
-                </h2>
+                {autoPreselectedOfferItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {autoPreselectedOfferItems.map((item) => {
+                      const requestItem = item.request_item_id
+                        ? requestItemById.get(item.request_item_id)
+                        : null;
 
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-                  Pro Position zeigen wir Dir maximal drei passende Produkte.
-                  Der beste Treffer ist deutlich markiert. Weitere Optionen sind
-                  nur Alternativen. Unsichere Positionen werden nicht geraten,
-                  sondern persönlich durch unser Team geprüft.
-                </p>
-              </div>
-            </div>
+                      const imageUrl = item.product_id
+                        ? productImageById.get(item.product_id) || null
+                        : null;
 
-            <div className="space-y-5">
-              {items.map((item, index) => {
-                const itemMatches = matchesByItem.get(item.id) || [];
-                const displayLineature = getDisplayLineature(item);
+                      const itemTotal =
+                        toNumber(item.quantity, 1) *
+                        toNumber(item.product_price, 0);
 
-                const selectedOfferItemsForThisItem = selectedOfferItems.filter(
-                  (offerItem) => offerItem.request_item_id === item.id
-                );
+                      const scoreLabel = getOfferItemScoreLabel(item, matchById);
 
-                const excludedProductIds = uniqueCleanStrings([
-                  ...itemMatches.map((match) => match.product_id),
-                  ...selectedOfferItemsForThisItem.map(
-                    (offerItem) => offerItem.product_id
-                  ),
-                ]);
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-[26px] border border-[#BFE3CD] bg-white p-4"
+                        >
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                              <ProductImageBox
+                                imageUrl={imageUrl}
+                                alt={item.product_name}
+                                size="small"
+                              />
 
-                const excludedProductSkus = uniqueCleanStrings([
-                  ...itemMatches.map((match) => match.product_sku),
-                  ...selectedOfferItemsForThisItem.map(
-                    (offerItem) => offerItem.product_sku
-                  ),
-                ]);
+                              <div>
+                                <div className="mb-2 flex flex-wrap gap-2">
+                                  <span className="rounded-full bg-[#2F7D50] px-3 py-1 text-xs font-black text-white">
+                                    {scoreLabel || "Vorausgewählt"}
+                                  </span>
 
-                return (
-                  <article
-                    key={item.id}
-                    className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4 sm:p-5"
-                  >
-                    <div className="flex flex-col items-center gap-3 text-center">
-                      <div className="inline-flex rounded-full bg-[#102A43] px-5 py-2 text-sm font-black uppercase tracking-[0.18em] text-white shadow-sm">
-                        Position {index + 1}
-                      </div>
+                                  <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
+                                    Im Paket
+                                  </span>
+                                </div>
 
-                      <div>
-                        <h3 className="mt-1 text-xl font-black text-[#102A43]">
-                          {getRequestItemTitle(item)}
-                        </h3>
+                                <h3 className="font-black text-[#102A43]">
+                                  {item.product_name}
+                                </h3>
 
-                        <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs font-bold text-[#52616F]">
-                          <span className="rounded-full bg-white px-3 py-1 shadow-sm">
-                            Menge: {toNumber(item.quantity, 1)}
-                          </span>
+                                <p className="mt-1 text-sm text-[#52616F]">
+                                  {item.product_sku
+                                    ? `Art.-Nr.: ${item.product_sku}`
+                                    : "Ohne Artikelnummer"}
+                                </p>
 
-                          {item.format ? (
-                            <span className="rounded-full bg-white px-3 py-1 shadow-sm">
-                              Format: {item.format}
-                            </span>
-                          ) : null}
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {getItemFacts(requestItem).map((fact) => (
+                                    <span
+                                      key={fact}
+                                      className="rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-bold text-[#52616F]"
+                                    >
+                                      {fact}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
 
-                          {displayLineature &&
-                          displayLineature !== "unknown" ? (
-                            <span className="rounded-full bg-white px-3 py-1 shadow-sm">
-                              Lineatur: {displayLineature}
-                            </span>
-                          ) : null}
+                            <div className="flex shrink-0 flex-col gap-3 md:min-w-[190px] md:items-end">
+                              <div className="md:text-right">
+                                <p className="text-lg font-black text-[#102A43]">
+                                  {formatMoney(item.product_price)}
+                                </p>
+                                <p className="text-sm font-semibold text-[#52616F]">
+                                  Gesamt: {formatMoney(itemTotal)}
+                                </p>
+                              </div>
 
-                          {item.color ? (
-                            <span className="rounded-full bg-white px-3 py-1 shadow-sm">
-                              Farbe: {item.color}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
+                              {!isConfirmed ? (
+                                <CustomerRemoveOfferItemButton
+                                  token={token}
+                                  itemId={item.id}
+                                  productName={item.product_name}
+                                />
+                              ) : null}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-[26px] border border-dashed border-[#BFE3CD] bg-white p-5 text-sm font-semibold text-[#2F7D50]">
+                    Noch keine sicheren Treffer automatisch im Paket. Sobald
+                    passende Produkte mit mindestens 85 % erkannt werden,
+                    erscheinen sie hier.
+                  </div>
+                )}
+              </section>
+
+              {otherSelectedOfferItems.length > 0 ? (
+                <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                      <ShoppingBasket className="h-5 w-5" />
                     </div>
 
-                    {itemMatches.length > 0 ? (
-                      <div className="mt-4 grid gap-3">
-                        {itemMatches.map((match, matchIndex) => {
-                          const alreadySelected = selectedMatchIds.has(match.id);
-                          const imageUrl = match.product_id
-                            ? productImageById.get(match.product_id) || null
-                            : null;
-
-                          const isTopMatch = matchIndex === 0;
-
-                          return (
-                            <div
-                              key={match.id}
-                              className={
-                                isTopMatch
-                                  ? "rounded-3xl border-2 border-[#2F7D50] bg-white p-4 shadow-sm"
-                                  : "rounded-3xl border border-[#E8DED2] bg-white/80 p-3"
-                              }
-                            >
-                              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                                  <ProductImageBox
-                                    imageUrl={imageUrl}
-                                    alt={match.product_name || "Produktvorschlag"}
-                                    size={isTopMatch ? "large" : "small"}
-                                  />
-
-                                  <div>
-                                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                                      <span
-                                        className={
-                                          isTopMatch
-                                            ? "rounded-full bg-[#2F7D50] px-4 py-1.5 text-sm font-black text-white"
-                                            : "rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]"
-                                        }
-                                      >
-                                        {getMatchScoreLabel(match.match_score)} ·{" "}
-                                        {toNumber(match.match_score, 0)} %
-                                      </span>
-
-                                      {isTopMatch ? (
-                                        <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                          Empfohlenes Produkt
-                                        </span>
-                                      ) : (
-                                        <span className="rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#A75B28]">
-                                          Alternative Option
-                                        </span>
-                                      )}
-
-                                      {alreadySelected ? (
-                                        <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                          Im Paket
-                                        </span>
-                                      ) : null}
-                                    </div>
-
-                                    <h4
-                                      className={
-                                        isTopMatch
-                                          ? "text-lg font-black text-[#102A43]"
-                                          : "font-black text-[#102A43]"
-                                      }
-                                    >
-                                      {match.product_name || "Produktvorschlag"}
-                                    </h4>
-
-                                    <p className="mt-1 text-sm text-[#52616F]">
-                                      {match.product_sku
-                                        ? `Art.-Nr.: ${match.product_sku}`
-                                        : "Ohne Artikelnummer"}
-                                    </p>
-
-                                    {match.match_reason ? (
-                                      <p className="mt-2 max-w-2xl text-xs leading-5 text-[#52616F]">
-                                        {match.match_reason}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-
-                                <div className="flex shrink-0 flex-col gap-3 md:items-end">
-                                  <p
-                                    className={
-                                      isTopMatch
-                                        ? "text-xl font-black text-[#102A43]"
-                                        : "text-lg font-black text-[#102A43]"
-                                    }
-                                  >
-                                    {formatMoney(match.product_price)}
-                                  </p>
-
-                                  <CustomerSelectProductButton
-                                    token={token}
-                                    matchId={match.id}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-[30px] border border-[#D8C8B8] bg-white p-6 shadow-sm sm:p-7">
-                        <div className="flex flex-col items-center text-center">
-                          <div className="inline-flex rounded-full bg-[#102A43] px-4 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-white">
-                            Top-Service
-                          </div>
-
-                          <div className="relative mt-4 h-24 w-24 overflow-hidden rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] shadow-sm">
-                            <Image
-                              src="/handzettel-logo.png"
-                              alt="Handzettel-Schulen.de"
-                              fill
-                              className="object-contain p-3"
-                            />
-                          </div>
-
-                          <h4 className="mt-4 text-center text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
-                            Persönliche Produktprüfung
-                            <span className="block text-[#A75B28]">
-                              durch unser Team
-                            </span>
-                          </h4>
-
-                          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#52616F]">
-                            Für diese Position wird kein unsicherer Artikel
-                            geraten. Handzettel-Schulen.de sucht das passende
-                            Produkt persönlich für Dich heraus und ergänzt es
-                            sauber für Deinen Paketwunsch.
-                          </p>
-
-                          <div className="mt-5 grid w-full max-w-3xl gap-3 sm:grid-cols-3">
-                            <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-3 text-left">
-                              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#A75B28] shadow-sm">
-                                <FileText className="h-4 w-4" />
-                              </div>
-
-                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                                1. Position erkannt
-                              </p>
-
-                              <p className="mt-1.5 text-xs leading-5 text-[#52616F]">
-                                Deine Listenposition wird übernommen und nicht
-                                blind mit einem unsicheren Artikel gefüllt.
-                              </p>
-                            </div>
-
-                            <div className="rounded-[24px] border border-[#D8C8B8] bg-white p-3 text-left shadow-sm">
-                              <div className="mb-2 flex items-center gap-2">
-                                <div className="relative h-9 w-9 overflow-hidden rounded-2xl border border-[#E8DED2] bg-[#FBF7F0]">
-                                  <Image
-                                    src="/handzettel-logo.png"
-                                    alt="Handzettel-Schulen.de"
-                                    fill
-                                    className="object-contain p-1.5"
-                                  />
-                                </div>
-
-                                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#F4E9DC] text-[#A75B28]">
-                                  <Sparkles className="h-4 w-4" />
-                                </div>
-                              </div>
-
-                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                                2. Persönlich geprüft
-                              </p>
-
-                              <p className="mt-1.5 text-xs leading-5 text-[#52616F]">
-                                Unser Team prüft Format, Farbe, Lineatur und
-                                Artikelart und sucht gezielt das passende
-                                Produkt heraus.
-                              </p>
-                            </div>
-
-                            <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-3 text-left">
-                              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#2F7D50] shadow-sm">
-                                <CheckCircle2 className="h-4 w-4" />
-                              </div>
-
-                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                                3. Sauber ergänzt
-                              </p>
-
-                              <p className="mt-1.5 text-xs leading-5 text-[#52616F]">
-                                Das passende Produkt wird für Deinen
-                                Paketwunsch ergänzt, damit Du eine saubere
-                                Auswahl erhältst.
-                              </p>
-                            </div>
-                          </div>
-
-                          <p className="mx-auto mt-4 max-w-xl text-sm font-black leading-6 text-[#A75B28]">
-                            Du musst hier nichts weiter tun. Optional kannst Du
-                            unten zusätzlich selbst im Produktbestand suchen und
-                            uns einen Vorschlag mitsenden.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <CustomerProductSearch
-                      token={token}
-                      requestItemId={item.id}
-                      defaultQuery={getCustomerSearchDefaultQuery(item)}
-                      excludedProductIds={excludedProductIds}
-                      excludedProductSkus={excludedProductSkus}
-                    />
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#A75B28]">
-                <ShoppingBasket className="h-3.5 w-3.5" />
-                {isConfirmed ? "Finaler Paketwunsch" : "Aktueller Paketwunsch"}
-              </div>
-
-              <h2 className="text-2xl font-black">
-                {isConfirmed
-                  ? "Aktueller finaler Stand"
-                  : "Deine bisher ausgewählten Produkte"}
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-                {isConfirmed
-                  ? "Diese Übersicht zeigt den aktuellen Paketwunsch inklusive möglicher Ergänzungen oder Korrekturen durch Handzettel-Schulen.de."
-                  : "Diese Auswahl ist noch nicht verbindlich. Sobald Du Deinen Paketwunsch absendest, prüft Handzettel-Schulen.de die Angaben final und meldet sich bei Rückfragen."}
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-[#FBF7F0] px-4 py-3 text-right">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Aktuelle Zwischensumme
-              </p>
-              <p className="text-2xl font-black text-[#102A43]">
-                {formatMoney(totalPrice)}
-              </p>
-            </div>
-          </div>
-
-          {selectedOfferItems.length > 0 ? (
-            <div className="space-y-3">
-              {selectedOfferItems.map((item) => {
-                const itemTotal =
-                  toNumber(item.quantity, 1) * toNumber(item.product_price, 0);
-
-                const imageUrl = item.product_id
-                  ? productImageById.get(item.product_id) || null
-                  : null;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-3xl border border-[#E8DED2] bg-[#FBF7F0] p-4"
-                  >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                        <ProductImageBox
-                          imageUrl={imageUrl}
-                          alt={item.product_name}
-                          size="small"
-                        />
-
-                        <div>
-                          <div className="mb-2 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                              {getOfferItemSourceLabel(item.source)}
-                            </span>
-
-                            {item.source === "admin_manual" ||
-                            item.source === "admin_existing_product" ? (
-                              <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                durch Handzettel-Schulen.de geprüft
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <h3 className="font-black text-[#102A43]">
-                            {item.product_name}
-                          </h3>
-
-                          <p className="mt-1 text-sm text-[#52616F]">
-                            {item.product_sku
-                              ? `Art.-Nr.: ${item.product_sku}`
-                              : "Ohne Artikelnummer"}
-                          </p>
-
-                          <p className="mt-1 text-sm text-[#52616F]">
-                            Menge: {toNumber(item.quantity, 1)}
-                            {item.unit ? ` ${item.unit}` : ""}
-                          </p>
-
-                          {item.notes ? (
-                            <p className="mt-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-[#52616F]">
-                              Hinweis: {item.notes}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="text-left md:text-right">
-                        <p className="font-black text-[#102A43]">
-                          {formatMoney(item.product_price)}
-                        </p>
-                        <p className="mt-1 text-sm text-[#52616F]">
-                          Gesamt: {formatMoney(itemTotal)}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Zusätzlich im Paket
+                      </p>
+                      <h2 className="text-2xl font-black text-[#102A43]">
+                        Von Dir oder unserem Team ergänzt
+                      </h2>
                     </div>
                   </div>
-                );
-              })}
 
-              {!isConfirmed ? (
-                <div className="pt-3">
-                  <ConfirmOfferButton token={token} />
-                </div>
+                  <div className="space-y-3">
+                    {otherSelectedOfferItems.map((item) => {
+                      const requestItem = item.request_item_id
+                        ? requestItemById.get(item.request_item_id)
+                        : null;
+
+                      const imageUrl = item.product_id
+                        ? productImageById.get(item.product_id) || null
+                        : null;
+
+                      const itemTotal =
+                        toNumber(item.quantity, 1) *
+                        toNumber(item.product_price, 0);
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                        >
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                              <ProductImageBox
+                                imageUrl={imageUrl}
+                                alt={item.product_name}
+                                size="small"
+                              />
+
+                              <div>
+                                <div className="mb-2 flex flex-wrap gap-2">
+                                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
+                                    {getOfferItemSourceLabel(item.source)}
+                                  </span>
+
+                                  <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
+                                    Im Paket
+                                  </span>
+                                </div>
+
+                                <h3 className="font-black text-[#102A43]">
+                                  {item.product_name}
+                                </h3>
+
+                                <p className="mt-1 text-sm text-[#52616F]">
+                                  {item.product_sku
+                                    ? `Art.-Nr.: ${item.product_sku}`
+                                    : "Ohne Artikelnummer"}
+                                </p>
+
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {getItemFacts(requestItem).map((fact) => (
+                                    <span
+                                      key={fact}
+                                      className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#52616F]"
+                                    >
+                                      {fact}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                {item.notes ? (
+                                  <p className="mt-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-[#52616F]">
+                                    Hinweis: {item.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 flex-col gap-3 md:min-w-[190px] md:items-end">
+                              <div className="md:text-right">
+                                <p className="text-lg font-black text-[#102A43]">
+                                  {formatMoney(item.product_price)}
+                                </p>
+                                <p className="text-sm font-semibold text-[#52616F]">
+                                  Gesamt: {formatMoney(itemTotal)}
+                                </p>
+                              </div>
+
+                              {!isConfirmed ? (
+                                <CustomerRemoveOfferItemButton
+                                  token={token}
+                                  itemId={item.id}
+                                  productName={item.product_name}
+                                />
+                              ) : null}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {!isConfirmed && openChoiceItems.length > 0 ? (
+                <section className="rounded-[32px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Bitte noch auswählen
+                      </p>
+                      <h2 className="text-2xl font-black text-[#102A43]">
+                        Hier brauchen wir Deine Entscheidung
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-[#A75B28]">
+                        Diese Positionen haben passende Vorschläge, aber nicht
+                        sicher genug für eine automatische Vorauswahl.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {openChoiceItems.map((item, index) => {
+                      const itemMatches = matchesByItem.get(item.id) || [];
+                      const displayLineature = getDisplayLineature(item);
+
+                      const excludedProductIds = uniqueCleanStrings([
+                        ...itemMatches.map((match) => match.product_id),
+                      ]);
+
+                      const excludedProductSkus = uniqueCleanStrings([
+                        ...itemMatches.map((match) => match.product_sku),
+                      ]);
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-[28px] border border-[#F1D1A8] bg-white p-4"
+                        >
+                          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                                Offene Position {index + 1}
+                              </p>
+
+                              <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                                {getRequestItemTitle(item)}
+                              </h3>
+
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-[#52616F]">
+                                <span className="rounded-full bg-[#FBF7F0] px-3 py-1">
+                                  Menge: {toNumber(item.quantity, 1)}
+                                </span>
+
+                                {item.format ? (
+                                  <span className="rounded-full bg-[#FBF7F0] px-3 py-1">
+                                    Format: {item.format}
+                                  </span>
+                                ) : null}
+
+                                {displayLineature &&
+                                displayLineature !== "unknown" ? (
+                                  <span className="rounded-full bg-[#FBF7F0] px-3 py-1">
+                                    Lineatur: {displayLineature}
+                                  </span>
+                                ) : null}
+
+                                {item.color ? (
+                                  <span className="rounded-full bg-[#FBF7F0] px-3 py-1">
+                                    Farbe: {item.color}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            {itemMatches.map((match, matchIndex) => {
+                              const alreadySelected = selectedMatchIds.has(
+                                match.id
+                              );
+
+                              const imageUrl = match.product_id
+                                ? productImageById.get(match.product_id) || null
+                                : null;
+
+                              return (
+                                <div
+                                  key={match.id}
+                                  className={
+                                    matchIndex === 0
+                                      ? "rounded-3xl border-2 border-[#A75B28] bg-[#FFF8EE] p-4"
+                                      : "rounded-3xl border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                                  }
+                                >
+                                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                                      <ProductImageBox
+                                        imageUrl={imageUrl}
+                                        alt={
+                                          match.product_name ||
+                                          "Produktvorschlag"
+                                        }
+                                        size={matchIndex === 0 ? "large" : "small"}
+                                      />
+
+                                      <div>
+                                        <div className="mb-2 flex flex-wrap gap-2">
+                                          <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
+                                            {getMatchScoreLabel(
+                                              match.match_score
+                                            )}{" "}
+                                            · {toNumber(match.match_score, 0)} %
+                                          </span>
+
+                                          {matchIndex === 0 ? (
+                                            <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
+                                              Beste offene Empfehlung
+                                            </span>
+                                          ) : (
+                                            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
+                                              Alternative
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <h4 className="font-black text-[#102A43]">
+                                          {match.product_name ||
+                                            "Produktvorschlag"}
+                                        </h4>
+
+                                        <p className="mt-1 text-sm text-[#52616F]">
+                                          {match.product_sku
+                                            ? `Art.-Nr.: ${match.product_sku}`
+                                            : "Ohne Artikelnummer"}
+                                        </p>
+
+                                        {match.match_reason ? (
+                                          <p className="mt-2 max-w-2xl text-xs leading-5 text-[#52616F]">
+                                            {match.match_reason}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 flex-col gap-3 md:min-w-[180px] md:items-end">
+                                      <p className="text-lg font-black text-[#102A43]">
+                                        {formatMoney(match.product_price)}
+                                      </p>
+
+                                      <CustomerSelectProductButton
+                                        token={token}
+                                        matchId={match.id}
+                                        alreadySelected={alreadySelected}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <CustomerProductSearch
+                            token={token}
+                            requestItemId={item.id}
+                            defaultQuery={getCustomerSearchDefaultQuery(item)}
+                            excludedProductIds={excludedProductIds}
+                            excludedProductSkus={excludedProductSkus}
+                          />
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {!isConfirmed && manualReviewItems.length > 0 ? (
+                <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Wird persönlich geprüft
+                      </p>
+                      <h2 className="text-2xl font-black text-[#102A43]">
+                        Diese Positionen übernehmen wir für Dich
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-[#52616F]">
+                        Hier wurde kein sicherer Treffer gefunden. Statt falsch
+                        zu raten, prüft Handzettel-Schulen.de diese Positionen
+                        persönlich.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {manualReviewItems.map((item, index) => {
+                      const displayLineature = getDisplayLineature(item);
+
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                        >
+                          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                                Prüfposition {index + 1}
+                              </p>
+
+                              <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                                {getRequestItemTitle(item)}
+                              </h3>
+
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-[#52616F]">
+                                <span className="rounded-full bg-white px-3 py-1">
+                                  Menge: {toNumber(item.quantity, 1)}
+                                </span>
+
+                                {item.format ? (
+                                  <span className="rounded-full bg-white px-3 py-1">
+                                    Format: {item.format}
+                                  </span>
+                                ) : null}
+
+                                {displayLineature &&
+                                displayLineature !== "unknown" ? (
+                                  <span className="rounded-full bg-white px-3 py-1">
+                                    Lineatur: {displayLineature}
+                                  </span>
+                                ) : null}
+
+                                {item.color ? (
+                                  <span className="rounded-full bg-white px-3 py-1">
+                                    Farbe: {item.color}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
+                                Du musst hier nichts weiter tun. Diese Position
+                                wird persönlich geprüft und sauber ergänzt.
+                              </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#A75B28]">
+                              Persönliche Prüfung
+                            </div>
+                          </div>
+
+                          <CustomerProductSearch
+                            token={token}
+                            requestItemId={item.id}
+                            defaultQuery={getCustomerSearchDefaultQuery(item)}
+                            excludedProductIds={[]}
+                            excludedProductSkus={[]}
+                          />
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               ) : null}
             </div>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-6 text-center">
-              <p className="font-black text-[#102A43]">
-                Noch keine Produkte ausgewählt.
-              </p>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                {isConfirmed
-                  ? "Aktuell sind keine Produkte im Paketwunsch hinterlegt."
-                  : "Wähle oben passende Produktvorschläge aus oder nutze die Produktsuche. Unsichere Positionen kannst Du trotzdem absenden – unser Team prüft sie persönlich."}
-              </p>
-            </div>
-          )}
-        </section>
+
+            <aside className="sticky top-6 space-y-4">
+              <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                    <ShoppingBasket className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                      Dein Paket
+                    </p>
+                    <h2 className="font-black text-[#102A43]">
+                      Aktueller Stand
+                    </h2>
+                  </div>
+                </div>
+
+                {selectedOfferItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedOfferItems.slice(0, 7).map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3"
+                      >
+                        <p className="font-black leading-5 text-[#102A43]">
+                          {item.product_name}
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                          Menge: {toNumber(item.quantity, 1)}
+                          {item.unit ? ` ${item.unit}` : ""}
+                        </p>
+
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <span className="text-xs font-bold text-[#52616F]">
+                            {getOfferItemSourceLabel(item.source)}
+                          </span>
+                          <span className="text-sm font-black text-[#102A43]">
+                            {formatMoney(
+                              toNumber(item.quantity, 1) *
+                                toNumber(item.product_price, 0)
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {selectedOfferItems.length > 7 ? (
+                      <p className="text-center text-xs font-bold text-[#52616F]">
+                        + {selectedOfferItems.length - 7} weitere Positionen
+                      </p>
+                    ) : null}
+
+                    <div className="rounded-2xl bg-[#102A43] p-4 text-white">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold opacity-80">
+                          Zwischensumme
+                        </span>
+                        <span className="text-xl font-black">
+                          {formatMoney(totalPrice)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {!isConfirmed ? <ConfirmOfferButton token={token} /> : null}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-4 text-sm font-semibold text-[#52616F]">
+                    Noch keine Produkte im Paket.
+                  </div>
+                )}
+              </section>
+
+              {!isConfirmed ? (
+                <section className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+                  <p className="text-sm font-black text-[#102A43]">
+                    Keine Sorge bei offenen Positionen.
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                    Wenn etwas unklar ist, prüft Handzettel-Schulen.de die
+                    Position persönlich, bevor Dein Paket final vorbereitet
+                    wird.
+                  </p>
+                </section>
+              ) : null}
+            </aside>
+          </section>
+        ) : null}
       </section>
 
       <LegalFooter />

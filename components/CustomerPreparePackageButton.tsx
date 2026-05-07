@@ -20,15 +20,16 @@ type PrepareResponse = {
   ok?: boolean;
   itemCount?: number;
   matchCount?: number;
+  preselectedCount?: number;
   message?: string;
 };
 
 const TIMELINE_STEPS = [
   { min: 0, label: "Liste wird geprüft" },
   { min: 22, label: "Schulmaterialien werden erkannt" },
-  { min: 48, label: "Produkte werden zugeordnet" },
-  { min: 72, label: "Schultasche wird gepackt" },
-  { min: 96, label: "Paketvorschlag wird finalisiert" },
+  { min: 48, label: "Sichere Treffer werden gesucht" },
+  { min: 72, label: "Paketwunsch wird vorbereitet" },
+  { min: 96, label: "Offene Positionen werden markiert" },
 ];
 
 function getCurrentStep(progress: number) {
@@ -121,7 +122,7 @@ export default function CustomerPreparePackageButton({
       setProgress(100);
       setFeedbackMessage(
         payload.message ||
-          "Deine Liste wurde ausgewertet. Du kannst jetzt passende Produkte auswählen."
+          "Deine Liste wurde ausgewertet. Sichere Treffer wurden bereits für Dich ins Paket gelegt."
       );
 
       await new Promise((resolve) => window.setTimeout(resolve, 700));
@@ -144,17 +145,18 @@ export default function CustomerPreparePackageButton({
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               <Sparkles className="h-3.5 w-3.5" />
-              Automatischer Paketvorschlag
+              Automatische Paketvorbereitung
             </div>
 
             <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
-              Deine Liste wird gerade ausgewertet.
+              Dein Paketwunsch wird vorbereitet.
             </h2>
 
             <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
-              Währenddessen packen wir sinnbildlich die Schultasche aus Deinem
-              Logo und ordnen passende Produkte zu. Gleich siehst Du die
-              erkannten Positionen und passende Vorschläge.
+              Wir prüfen Deine Schulmaterialliste, erkennen passende Produkte
+              und legen sichere Treffer automatisch für Dich ins Paket. Alles,
+              was nicht eindeutig ist, bleibt zur Auswahl offen oder wird
+              persönlich geprüft.
             </p>
 
             <div className="mt-6 rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
@@ -164,7 +166,7 @@ export default function CustomerPreparePackageButton({
                     {currentStepLabel}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                    Fortschritt der Analyse
+                    Fortschritt der Paketvorbereitung
                   </p>
                 </div>
 
@@ -211,9 +213,7 @@ export default function CustomerPreparePackageButton({
                       {state === "done" ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : (
-                        <span className="text-xs font-black">
-                          {index + 1}
-                        </span>
+                        <span className="text-xs font-black">{index + 1}</span>
                       )}
                     </div>
 
@@ -273,10 +273,10 @@ export default function CustomerPreparePackageButton({
 
               <div className="absolute bottom-5 left-1/2 z-10 w-[80%] -translate-x-1/2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-center">
                 <p className="text-sm font-black text-[#102A43]">
-                  Schultasche wird gepackt
+                  Schulpaket wird vorbereitet
                 </p>
                 <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                  Hefte, Stifte und Zubehör werden zugeordnet
+                  Sichere Treffer kommen direkt ins Paket
                 </p>
               </div>
             </div>
@@ -438,7 +438,7 @@ export default function CustomerPreparePackageButton({
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
             <Sparkles className="h-3.5 w-3.5" />
-            Automatischer Paketvorschlag
+            Automatische Paketvorbereitung
           </div>
 
           <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
@@ -446,11 +446,40 @@ export default function CustomerPreparePackageButton({
           </h2>
 
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
-            Starte jetzt die Auswertung. Das System erkennt Deine
-            Schulmaterialien und erstellt daraus passende Produktvorschläge.
-            Danach kannst Du selbst auswählen, was in Deinen Paketwunsch
-            übernommen werden soll.
+            Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt
+            für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer
+            Übereinstimmung kannst Du danach selbst auswählen. Unsichere
+            Positionen prüfen wir persönlich.
           </p>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+                Sicher
+              </p>
+              <p className="mt-1 text-sm font-bold leading-5 text-[#2F7D50]">
+                Treffer ab 85 % werden vorausgewählt.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                Offen
+              </p>
+              <p className="mt-1 text-sm font-bold leading-5 text-[#A75B28]">
+                Unsichere Vorschläge kannst Du aktiv wählen.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
+                Prüfung
+              </p>
+              <p className="mt-1 text-sm font-bold leading-5 text-[#52616F]">
+                Fehlende Artikel prüfen wir persönlich.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col items-stretch gap-3 lg:items-end">
@@ -459,13 +488,13 @@ export default function CustomerPreparePackageButton({
             onClick={handlePrepare}
             className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] bg-[#C6282D] px-8 py-5 text-center text-2xl font-black text-white shadow-[0_18px_50px_rgba(198,40,45,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 lg:max-w-[420px]"
           >
-            <span>Liste jetzt auswerten</span>
+            <span>Paket jetzt vorbereiten</span>
             <ArrowRight className="h-7 w-7" />
           </button>
 
           <p className="max-w-[420px] text-center text-sm font-semibold leading-6 text-[#52616F]">
-            Danach siehst Du direkt die erkannten Positionen und passende
-            Produktvorschläge.
+            Danach siehst Du sofort, was bereits im Paket liegt und was noch
+            offen ist.
           </p>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, ShoppingBasket } from "lucide-react";
 
 type CustomerSelectProductButtonProps = {
   token: string;
@@ -49,13 +49,13 @@ export default function CustomerSelectProductButton({
 
   async function handleSelect() {
     if (alreadySelected) {
-      setFeedback("Dieses Produkt ist bereits ausgewählt.");
+      setFeedback("Dieses Produkt liegt bereits in Deinem Paket.");
       return;
     }
 
     try {
       setIsSaving(true);
-      setFeedback("Produkt wird übernommen ...");
+      setFeedback("Produkt wird in Dein Paket gelegt ...");
 
       const response = await fetch(`/api/offer/${token}/items/from-match`, {
         method: "POST",
@@ -76,7 +76,7 @@ export default function CustomerSelectProductButton({
         );
       }
 
-      setFeedback("Produkt wurde übernommen.");
+      setFeedback(result.message || "Produkt wurde in Dein Paket gelegt.");
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -104,21 +104,23 @@ export default function CustomerSelectProductButton({
       >
         {isSaving ? (
           <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
+        ) : alreadySelected ? (
           <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <ShoppingBasket className="h-4 w-4" />
         )}
+
         {isSaving
           ? "Wird übernommen ..."
           : alreadySelected
-          ? "Ausgewählt"
-          : "Dieses Produkt wählen"}
+          ? "Liegt im Paket"
+          : "In Paket übernehmen"}
       </button>
 
       {feedback ? (
         <div
           className={`rounded-2xl px-4 py-3 text-xs font-bold leading-5 ring-1 ${
-            feedback.includes("übernommen") ||
-            feedback.includes("ausgewählt")
+            feedback.includes("Paket") || feedback.includes("übernommen")
               ? "bg-[#EAF7EE] text-[#2F7D50] ring-[#CDE8D4]"
               : feedback.includes("wird")
               ? "bg-[#EAF2FA] text-[#12395F] ring-[#CCDDEA]"
