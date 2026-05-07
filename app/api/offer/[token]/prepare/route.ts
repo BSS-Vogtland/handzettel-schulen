@@ -151,7 +151,8 @@ function getShortRawText(rawText: string) {
 }
 
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
-  const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
+  const scoreDifference =
+    toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
   if (scoreDifference !== 0) return scoreDifference;
 
@@ -299,7 +300,6 @@ async function autoPreselectSafeMatches(params: {
       return true;
     })
     .map((match) => {
-      const quantity = 1;
       const productPrice = toNumber(match.product_price, 0);
 
       return {
@@ -310,9 +310,8 @@ async function autoPreselectSafeMatches(params: {
         product_name: cleanText(match.product_name, "Produkt"),
         product_sku: cleanText(match.product_sku, "") || null,
         product_price: productPrice,
-        quantity,
+        quantity: 1,
         unit: "Stk.",
-        total_price: quantity * productPrice,
         source: "auto_preselected",
         status: "preselected",
         notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
