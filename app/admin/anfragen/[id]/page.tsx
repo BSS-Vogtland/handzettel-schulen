@@ -22,6 +22,7 @@ import AdminManualOfferItemForm from "@/components/AdminManualOfferItemForm";
 import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton";
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
+import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
 
 export const dynamic = "force-dynamic";
 
@@ -456,7 +457,10 @@ export default async function AdminRequestDetailPage({ params }: Params) {
     return sum + toNumber(item.quantity, 1) * toNumber(item.product_price, 0);
   }, 0);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://www.handzettel-schulen.de";
+
   const customerOfferUrl = request.offer_token
     ? `${siteUrl}/angebot/${request.offer_token}`
     : null;
@@ -539,7 +543,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Jede erkannte Position hat dauerhaft eine manuelle Bearbeitung.
                 Zusätzlich kannst Du vorhandene Paketpositionen direkt bearbeiten
-                oder entfernen.
+                oder entfernen. Nach Deiner Anpassung kannst Du dem Kunden das
+                aktualisierte Angebot erneut als PDF zusenden.
               </p>
             </div>
 
@@ -831,6 +836,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
           </aside>
 
           <section className="space-y-6">
+            <AdminSendOfferUpdateMailButton requestId={request.id} />
+
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
