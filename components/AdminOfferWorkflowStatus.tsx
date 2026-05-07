@@ -179,14 +179,19 @@ export default function AdminOfferWorkflowStatus(
   });
 
   const confirmed = isConfirmed(requestStatus, offerStatus);
-  const updateMailWasSent = Boolean(latestUpdateMailEvent);
+
+  const updateMailWasSent =
+    Boolean(latestUpdateMailEvent) || offerStatus === "offer_sent";
+
+  const updateMailDate =
+    latestUpdateMailEvent?.created_at || (offerStatus === "offer_sent" ? updatedAt : null);
 
   const confirmedAfterUpdate =
     confirmed &&
     updateMailWasSent &&
     isAfterOrSame(
       latestConfirmedEvent?.created_at || updatedAt,
-      latestUpdateMailEvent?.created_at || null
+      updateMailDate
     );
 
   const plainConfirmed = confirmed && !confirmedAfterUpdate;
@@ -204,7 +209,11 @@ export default function AdminOfferWorkflowStatus(
     requestStatus === "manual_review" ||
     requestStatus === "confirmed";
 
-  const openItemsCurrent = manualReviewItemsCount > 0;
+  const openItemsCurrent =
+    manualReviewItemsCount > 0 &&
+    !updateMailWasSent &&
+    !plainConfirmed &&
+    !confirmedAfterUpdate;
 
   const packagePreparedCurrent =
     itemsCount > 0 &&
@@ -237,9 +246,7 @@ export default function AdminOfferWorkflowStatus(
           "Das manuell geänderte Angebot wurde dem Kunden als PDF gesendet. Die offizielle Annahme steht noch aus.",
         tone: "amber" as const,
         icon: MailCheck,
-        dateLabel: `Versendet am ${formatDateTime(
-          latestUpdateMailEvent?.created_at || null
-        )}`,
+        dateLabel: `Versendet am ${formatDateTime(updateMailDate)}`,
       };
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   ImageIcon,
@@ -14,6 +14,13 @@ type CustomerProductSearchProps = {
   token: string;
   requestItemId: string;
   defaultQuery?: string | null;
+
+  /**
+   * Produkte, die oberhalb bereits als Empfehlung/Vorschlag angezeigt werden,
+   * sollen unten in der Alternativsuche nicht nochmal erscheinen.
+   */
+  excludedProductIds?: string[];
+  excludedProductSkus?: string[];
 };
 
 type ProductSearchResult = {
@@ -47,10 +54,36 @@ function formatMoney(value: number) {
   }).format(value || 0);
 }
 
+function normalizeValue(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function uniqueProducts(products: ProductSearchResult[]) {
+  const seen = new Set<string>();
+
+  return products.filter((product) => {
+    const idKey = normalizeValue(product.id);
+    const skuKey = normalizeValue(product.productSku);
+    const nameKey = normalizeValue(product.productName);
+    const combinedKey = idKey || skuKey || nameKey;
+
+    if (!combinedKey) return true;
+
+    if (seen.has(combinedKey)) {
+      return false;
+    }
+
+    seen.add(combinedKey);
+    return true;
+  });
+}
+
 export default function CustomerProductSearch({
   token,
   requestItemId,
   defaultQuery,
+  excludedProductIds = [],
+  excludedProductSkus = [],
 }: CustomerProductSearchProps) {
   const router = useRouter();
   const hasAutoSearched = useRef(false);
@@ -62,10 +95,43 @@ export default function CustomerProductSearch({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hiddenDuplicateCount, setHiddenDuplicateCount] = useState(0);
+
+  const excludedIdSet = useMemo(() => {
+    return new Set(excludedProductIds.map((id) => normalizeValue(id)));
+  }, [excludedProductIds]);
+
+  const excludedSkuSet = useMemo(() => {
+    return new Set(excludedProductSkus.map((sku) => normalizeValue(sku)));
+  }, [excludedProductSkus]);
+
+  function filterAlreadyDisplayedProducts(searchResults: ProductSearchResult[]) {
+    const uniqueResults = uniqueProducts(searchResults);
+
+    const filtered = uniqueResults.filter((product) => {
+      const productId = normalizeValue(product.id);
+      const productSku = normalizeValue(product.productSku);
+
+      if (productId && excludedIdSet.has(productId)) {
+        return false;
+      }
+
+      if (productSku && excludedSkuSet.has(productSku)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    setHiddenDuplicateCount(uniqueResults.length - filtered.length);
+
+    return filtered;
+  }
 
   async function runSearch(searchValue: string) {
     setFeedback(null);
     setErrorMessage(null);
+    setHiddenDuplicateCount(0);
 
     if (!searchValue.trim() || searchValue.trim().length < 2) {
       setErrorMessage("Bitte gib mindestens 2 Zeichen ein.");
@@ -75,10 +141,19 @@ export default function CustomerProductSearch({
     setIsSearching(true);
 
     try {
+      const params = new URLSearchParams();
+      params.set("q", searchValue.trim());
+
+      if (excludedProductIds.length > 0) {
+        params.set("excludeIds", excludedProductIds.join(","));
+      }
+
+      if (excludedProductSkus.length > 0) {
+        params.set("excludeSkus", excludedProductSkus.join(","));
+      }
+
       const response = await fetch(
-        `/api/offer/${token}/products/search?q=${encodeURIComponent(
-          searchValue.trim()
-        )}`
+        `/api/offer/${token}/products/search?${params.toString()}`
       );
 
       const rawText = await response.text();
@@ -99,12 +174,22 @@ export default function CustomerProductSearch({
         );
       }
 
-      setProducts(payload.products || []);
+      const filteredProducts = filterAlreadyDisplayedProducts(
+        payload.products || []
+      );
 
-      if (!payload.products || payload.products.length === 0) {
-        setFeedback(
-          "Keine direkten Treffer gefunden. Versuche es mit einem einfacheren Suchwort, z. B. „Heft“, „Umschlag“ oder „A5“."
-        );
+      setProducts(filteredProducts);
+
+      if (filteredProducts.length === 0) {
+        if ((payload.products || []).length > 0) {
+          setFeedback(
+            "Die gefundenen Produkte werden oben bereits als Empfehlung angezeigt. Es gibt aktuell keine zusätzlichen Alternativen zu diesem Suchbegriff."
+          );
+        } else {
+          setFeedback(
+            "Keine direkten Treffer gefunden. Versuche es mit einem einfacheren Suchwort, z. B. „Heft“, „Umschlag“ oder „A5“."
+          );
+        }
       }
     } catch (error) {
       setErrorMessage(
@@ -186,12 +271,12 @@ export default function CustomerProductSearch({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-  Optional selbst suchen
-</p>
-<p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-  Unser Team prüft diese Position im Nachgang. Wenn Du möchtest,
-  kannst Du zusätzlich selbst nach einem passenden Produkt suchen.
-</p>
+              Optional selbst suchen
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              Unser Team prüft diese Position im Nachgang. Wenn Du möchtest,
+              kannst Du zusätzlich selbst nach einem passenden Produkt suchen.
+            </p>
           </div>
 
           <button
@@ -212,11 +297,11 @@ export default function CustomerProductSearch({
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            Alternative Produkte aus dem Bestand
+            Zusätzliche Produkte aus dem Bestand
           </p>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Wir suchen automatisch nach passenden Produkten. Du kannst den
-            Suchbegriff jederzeit ändern.
+            Wir zeigen Dir hier nur zusätzliche Treffer. Produkte, die oben
+            bereits als Empfehlung erscheinen, werden in dieser Suche ausgeblendet.
           </p>
         </div>
 
@@ -260,6 +345,14 @@ export default function CustomerProductSearch({
       {isSearching ? (
         <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-bold text-[#52616F]">
           Produkte werden gesucht …
+        </div>
+      ) : null}
+
+      {!isSearching && hiddenDuplicateCount > 0 ? (
+        <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-xs font-bold text-[#52616F]">
+          {hiddenDuplicateCount === 1
+            ? "Ein Produkt wird nicht erneut angezeigt, weil es oben bereits als Empfehlung sichtbar ist."
+            : `${hiddenDuplicateCount} Produkte werden nicht erneut angezeigt, weil sie oben bereits als Empfehlungen sichtbar sind.`}
         </div>
       ) : null}
 

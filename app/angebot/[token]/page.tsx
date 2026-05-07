@@ -332,38 +332,6 @@ function isFormatCompatible(item: RequestItem, match: RequestMatch) {
   return true;
 }
 
-function productHasSpecificLineature(productText: string) {
-  const lineatures = [
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "8f",
-    "9",
-    "10",
-    "25",
-    "26",
-    "27",
-    "28",
-  ];
-
-  return lineatures.some((lineature) => {
-    return (
-      productText.includes(`lineatur ${lineature}`) ||
-      productText.includes(`lineatur${lineature}`) ||
-      productText.includes(`lin ${lineature}`) ||
-      productText.includes(`lin${lineature}`) ||
-      productText.includes(` l${lineature} `) ||
-      productText.endsWith(` l${lineature}`)
-    );
-  });
-}
-
 function isLineatureCompatible(item: RequestItem, match: RequestMatch) {
   const itemLineature = getDisplayLineature(item);
 
@@ -601,6 +569,16 @@ function getOfferItemSourceLabel(source: string | null) {
     default:
       return "Paketposition";
   }
+}
+
+function uniqueCleanStrings(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value || "").trim())
+        .filter((value) => value.length > 0)
+    )
+  );
 }
 
 function ProductImageBox({
@@ -903,6 +881,24 @@ export default async function CustomerOfferPage({ params }: Params) {
                 const itemMatches = matchesByItem.get(item.id) || [];
                 const displayLineature = getDisplayLineature(item);
 
+                const selectedOfferItemsForThisItem = selectedOfferItems.filter(
+                  (offerItem) => offerItem.request_item_id === item.id
+                );
+
+                const excludedProductIds = uniqueCleanStrings([
+                  ...itemMatches.map((match) => match.product_id),
+                  ...selectedOfferItemsForThisItem.map(
+                    (offerItem) => offerItem.product_id
+                  ),
+                ]);
+
+                const excludedProductSkus = uniqueCleanStrings([
+                  ...itemMatches.map((match) => match.product_sku),
+                  ...selectedOfferItemsForThisItem.map(
+                    (offerItem) => offerItem.product_sku
+                  ),
+                ]);
+
                 return (
                   <article
                     key={item.id}
@@ -1150,6 +1146,8 @@ export default async function CustomerOfferPage({ params }: Params) {
                       token={token}
                       requestItemId={item.id}
                       defaultQuery={getCustomerSearchDefaultQuery(item)}
+                      excludedProductIds={excludedProductIds}
+                      excludedProductSkus={excludedProductSkus}
                     />
                   </article>
                 );
