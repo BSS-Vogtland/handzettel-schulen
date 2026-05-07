@@ -1,7 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
-import PDFDocument from "pdfkit";
 import { NextResponse } from "next/server";
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 
 export const runtime = "nodejs";
 
@@ -12,6 +18,15 @@ type RouteContext = {
 };
 
 type AnyRecord = Record<string, any>;
+
+type NormalizedOfferItem = {
+  name: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+  note: string;
+};
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -131,7 +146,7 @@ function getItemUnit(item: AnyRecord) {
   return pickFirst(item, ["unit", "quantity_unit"], "Stk.");
 }
 
-function normalizeOfferItem(item: AnyRecord) {
+function normalizeOfferItem(item: AnyRecord): NormalizedOfferItem {
   const quantity = pickNumber(item, ["quantity", "qty", "amount"], 1) || 1;
 
   const unitPrice = pickNumber(item, [
@@ -165,6 +180,171 @@ function safeFilePart(value: string) {
   return value.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 60);
 }
 
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  return rgb(r, g, b);
+}
+
+function sanitizePdfText(value: string) {
+  return String(value || "")
+    .replace(/€/g, "EUR")
+    .replace(/–/g, "-")
+    .replace(/—/g, "-")
+    .replace(/„/g, '"')
+    .replace(/“/g, '"')
+    .replace(/’/g, "'")
+    .replace(/…/g, "...");
+}
+
+function drawText(params: {
+  page: PDFPage;
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  font: PDFFont;
+  color?: ReturnType<typeof rgb>;
+}) {
+  const { page, text, x, y, size, font, color = hexToRgb("#102A43") } = params;
+
+  page.drawText(sanitizePdfText(text), {
+    x,
+    y,
+    size,
+    font,
+    color,
+  });
+}
+
+function splitTextIntoLines(params: {
+  text: string;
+  font: PDFFont;
+  fontSize: number;
+  maxWidth: number;
+}) {
+  const { text, font, fontSize, maxWidth } = params;
+  const words = sanitizePdfText(text).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    const width = font.widthOfTextAtSize(test, fontSize);
+
+    if (width <= maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines;
+}
+
+function drawWrappedText(params: {
+  page: PDFPage;
+  text: string;
+  x: number;
+  y: number;
+  maxWidth: number;
+  size: number;
+  font: PDFFont;
+  color?: ReturnType<typeof rgb>;
+  lineHeight?: number;
+}) {
+  const {
+    page,
+    text,
+    x,
+    y,
+    maxWidth,
+    size,
+    font,
+    color = hexToRgb("#102A43"),
+    lineHeight = size + 4,
+  } = params;
+
+  const lines = splitTextIntoLines({
+    text,
+    font,
+    fontSize: size,
+    maxWidth,
+  });
+
+  let currentY = y;
+
+  for (const line of lines) {
+    drawText({
+      page,
+      text: line,
+      x,
+      y: currentY,
+      size,
+      font,
+      color,
+    });
+
+    currentY -= lineHeight;
+  }
+
+  return currentY;
+}
+
+function drawHeader(params: {
+  page: PDFPage;
+  boldFont: PDFFont;
+  regularFont: PDFFont;
+}) {
+  const { page, boldFont, regularFont } = params;
+  const primary = hexToRgb("#102A43");
+  const accent = hexToRgb("#8A3A2B");
+  const soft = hexToRgb("#F7EFE6");
+  const muted = hexToRgb("#5C6B73");
+
+  page.drawRectangle({
+    x: 0,
+    y: 732,
+    width: 595,
+    height: 110,
+    color: soft,
+  });
+
+  drawText({
+    page,
+    text: "Handzettel-Schulen.de",
+    x: 48,
+    y: 785,
+    size: 22,
+    font: boldFont,
+    color: primary,
+  });
+
+  drawText({
+    page,
+    text: "Aktualisiertes Schulmaterial-Angebot",
+    x: 48,
+    y: 762,
+    size: 13,
+    font: boldFont,
+    color: accent,
+  });
+
+  drawText({
+    page,
+    text: `Erstellt am ${formatDate()}`,
+    x: 430,
+    y: 785,
+    size: 9,
+    font: regularFont,
+    color: muted,
+  });
+}
+
 async function createOfferPdfBuffer(params: {
   request: AnyRecord;
   offerItems: AnyRecord[];
@@ -172,225 +352,328 @@ async function createOfferPdfBuffer(params: {
 }) {
   const { request, offerItems, acceptUrl } = params;
 
+  const pdfDoc = await PDFDocument.create();
+  const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const primary = hexToRgb("#102A43");
+  const accent = hexToRgb("#8A3A2B");
+  const muted = hexToRgb("#5C6B73");
+  const soft = hexToRgb("#FBF7F0");
+  const white = rgb(1, 1, 1);
+
+  const pageSize: [number, number] = [595.28, 841.89];
+  let page = pdfDoc.addPage(pageSize);
+
+  drawHeader({ page, boldFont, regularFont });
+
+  let y = 700;
+
+  const customerName = getCustomerName(request);
+  const customerEmail = getCustomerEmail(request);
+
+  drawText({
+    page,
+    text: "Angebot fuer:",
+    x: 48,
+    y,
+    size: 13,
+    font: boldFont,
+    color: primary,
+  });
+
+  y -= 22;
+
+  drawText({
+    page,
+    text: customerName,
+    x: 48,
+    y,
+    size: 11,
+    font: regularFont,
+    color: primary,
+  });
+
+  y -= 16;
+
+  if (customerEmail) {
+    drawText({
+      page,
+      text: customerEmail,
+      x: 48,
+      y,
+      size: 10,
+      font: regularFont,
+      color: muted,
+    });
+
+    y -= 26;
+  } else {
+    y -= 10;
+  }
+
+  y = drawWrappedText({
+    page,
+    text:
+      "Wir haben Deinen Schulmaterial-Paketwunsch geprueft und das Angebot aktualisiert. Die folgenden Positionen bilden den aktuellen Stand Deines Angebots ab.",
+    x: 48,
+    y,
+    maxWidth: 500,
+    size: 11,
+    font: regularFont,
+    color: primary,
+    lineHeight: 16,
+  });
+
+  y -= 25;
+
+  page.drawRectangle({
+    x: 48,
+    y: y - 8,
+    width: 499,
+    height: 28,
+    color: primary,
+  });
+
+  drawText({
+    page,
+    text: "Position",
+    x: 60,
+    y,
+    size: 9,
+    font: boldFont,
+    color: white,
+  });
+
+  drawText({
+    page,
+    text: "Menge",
+    x: 300,
+    y,
+    size: 9,
+    font: boldFont,
+    color: white,
+  });
+
+  drawText({
+    page,
+    text: "Einzel",
+    x: 380,
+    y,
+    size: 9,
+    font: boldFont,
+    color: white,
+  });
+
+  drawText({
+    page,
+    text: "Gesamt",
+    x: 465,
+    y,
+    size: 9,
+    font: boldFont,
+    color: white,
+  });
+
+  y -= 35;
+
   const items = offerItems.map(normalizeOfferItem);
   const total = items.reduce((sum, item) => sum + item.total, 0);
 
-  return new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({
-      size: "A4",
-      margin: 48,
-      info: {
-        Title: "Aktualisiertes Angebot Handzettel-Schulen.de",
-        Author: "Handzettel-Schulen.de",
-        Subject: "Schulmaterial-Angebot",
-      },
-    });
-
-    const chunks: Buffer[] = [];
-
-    doc.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-
-    const primary = "#102A43";
-    const accent = "#8A3A2B";
-    const muted = "#5C6B73";
-    const soft = "#F7EFE6";
-
-    doc.rect(0, 0, doc.page.width, 110).fill(soft);
-
-    doc
-      .fillColor(primary)
-      .fontSize(22)
-      .font("Helvetica-Bold")
-      .text("Handzettel-Schulen.de", 48, 38);
-
-    doc
-      .fillColor(accent)
-      .fontSize(13)
-      .font("Helvetica-Bold")
-      .text("Aktualisiertes Schulmaterial-Angebot", 48, 68);
-
-    doc
-      .fillColor(muted)
-      .fontSize(9)
-      .font("Helvetica")
-      .text(`Erstellt am ${formatDate()}`, 390, 42, {
-        align: "right",
-        width: 150,
-      });
-
-    doc.y = 135;
-
-    const customerName = getCustomerName(request);
-    const customerEmail = getCustomerEmail(request);
-
-    doc
-      .fillColor(primary)
-      .fontSize(13)
-      .font("Helvetica-Bold")
-      .text("Angebot für:");
-
-    doc.moveDown(0.35);
-
-    doc.fillColor(primary).fontSize(11).font("Helvetica").text(customerName);
-
-    if (customerEmail) {
-      doc.fillColor(muted).fontSize(10).text(customerEmail);
+  items.forEach((item, index) => {
+    if (y < 110) {
+      page = pdfDoc.addPage(pageSize);
+      drawHeader({ page, boldFont, regularFont });
+      y = 700;
     }
 
-    doc.moveDown(1.2);
+    const rowHeight = item.note ? 46 : 34;
 
-    doc
-      .fillColor(primary)
-      .fontSize(11)
-      .font("Helvetica")
-      .text(
-        "Wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot aktualisiert. Die folgenden Positionen bilden den aktuellen Stand Deines Angebots ab.",
-        {
-          width: 500,
-          lineGap: 3,
-        }
-      );
+    if (index % 2 === 0) {
+      page.drawRectangle({
+        x: 48,
+        y: y - 18,
+        width: 499,
+        height: rowHeight,
+        color: soft,
+      });
+    }
 
-    doc.moveDown(1.4);
+    const nameLines = splitTextIntoLines({
+      text: item.name,
+      font: boldFont,
+      fontSize: 9.5,
+      maxWidth: 220,
+    }).slice(0, 2);
 
-    const tableTop = doc.y;
-    const left = 48;
-    const width = 499;
+    let itemNameY = y;
 
-    doc.roundedRect(left, tableTop, width, 28, 8).fill(primary);
+    nameLines.forEach((line) => {
+      drawText({
+        page,
+        text: line,
+        x: 60,
+        y: itemNameY,
+        size: 9.5,
+        font: boldFont,
+        color: primary,
+      });
 
-    doc
-      .fillColor("#FFFFFF")
-      .fontSize(9)
-      .font("Helvetica-Bold")
-      .text("Position", left + 12, tableTop + 9, { width: 230 })
-      .text("Menge", left + 260, tableTop + 9, { width: 50, align: "right" })
-      .text("Einzel", left + 325, tableTop + 9, { width: 70, align: "right" })
-      .text("Gesamt", left + 410, tableTop + 9, { width: 75, align: "right" });
-
-    doc.y = tableTop + 42;
-
-    items.forEach((item, index) => {
-      const rowHeight = item.note ? 46 : 34;
-
-      if (doc.y + rowHeight > 730) {
-        doc.addPage();
-        doc.y = 48;
-      }
-
-      if (index % 2 === 0) {
-        doc.roundedRect(left, doc.y - 6, width, rowHeight, 6).fill("#FBF7F0");
-      }
-
-      const currentY = doc.y;
-
-      doc
-        .fillColor(primary)
-        .fontSize(9.5)
-        .font("Helvetica-Bold")
-        .text(item.name, left + 12, currentY, { width: 230 });
-
-      if (item.note) {
-        doc
-          .fillColor(muted)
-          .fontSize(8)
-          .font("Helvetica")
-          .text(item.note, left + 12, currentY + 14, { width: 230 });
-      }
-
-      doc
-        .fillColor(primary)
-        .fontSize(9)
-        .font("Helvetica")
-        .text(`${item.quantity} ${item.unit}`, left + 260, currentY, {
-          width: 50,
-          align: "right",
-        })
-        .text(formatMoney(item.unitPrice), left + 325, currentY, {
-          width: 70,
-          align: "right",
-        })
-        .font("Helvetica-Bold")
-        .text(formatMoney(item.total), left + 410, currentY, {
-          width: 75,
-          align: "right",
-        });
-
-      doc.y = currentY + rowHeight;
+      itemNameY -= 12;
     });
 
-    doc.moveDown(0.8);
+    if (item.note) {
+      const noteLines = splitTextIntoLines({
+        text: item.note,
+        font: regularFont,
+        fontSize: 8,
+        maxWidth: 220,
+      }).slice(0, 2);
 
-    const totalBoxY = doc.y;
+      let noteY = y - 24;
 
-    doc.roundedRect(330, totalBoxY, 217, 45, 10).fill(primary);
+      noteLines.forEach((line) => {
+        drawText({
+          page,
+          text: line,
+          x: 60,
+          y: noteY,
+          size: 8,
+          font: regularFont,
+          color: muted,
+        });
 
-    doc
-      .fillColor("#FFFFFF")
-      .fontSize(10)
-      .font("Helvetica")
-      .text("Gesamtbetrag", 350, totalBoxY + 10, { width: 80 });
-
-    doc
-      .fillColor("#FFFFFF")
-      .fontSize(16)
-      .font("Helvetica-Bold")
-      .text(formatMoney(total), 430, totalBoxY + 8, {
-        width: 95,
-        align: "right",
+        noteY -= 10;
       });
+    }
 
-    doc.y = totalBoxY + 70;
+    drawText({
+      page,
+      text: `${item.quantity} ${item.unit}`,
+      x: 295,
+      y,
+      size: 9,
+      font: regularFont,
+      color: primary,
+    });
 
-    doc
-      .fillColor(accent)
-      .fontSize(12)
-      .font("Helvetica-Bold")
-      .text("Angebot offiziell annehmen");
+    drawText({
+      page,
+      text: formatMoney(item.unitPrice),
+      x: 365,
+      y,
+      size: 9,
+      font: regularFont,
+      color: primary,
+    });
 
-    doc.moveDown(0.35);
+    drawText({
+      page,
+      text: formatMoney(item.total),
+      x: 455,
+      y,
+      size: 9,
+      font: boldFont,
+      color: primary,
+    });
 
-    doc
-      .fillColor(primary)
-      .fontSize(10)
-      .font("Helvetica")
-      .text(
-        "Wenn alles passt, kannst Du Dein Angebot online offiziell annehmen. Nutze dafür bitte den Button in der E-Mail oder öffne folgenden Link:",
-        {
-          width: 500,
-          lineGap: 3,
-        }
-      );
-
-    doc.moveDown(0.4);
-
-    doc
-      .fillColor(accent)
-      .fontSize(9)
-      .font("Helvetica-Bold")
-      .text(acceptUrl, {
-        width: 500,
-        underline: true,
-      });
-
-    doc.moveDown(1.4);
-
-    doc
-      .fillColor(muted)
-      .fontSize(8.5)
-      .font("Helvetica")
-      .text(
-        "Hinweis: Dieses Angebot wurde auf Basis Deiner hochgeladenen Schulmaterialliste und der aktuellen manuellen Prüfung durch Handzettel-Schulen.de erstellt. Änderungen und Rückfragen sind weiterhin möglich.",
-        {
-          width: 500,
-          lineGap: 2,
-        }
-      );
-
-    doc.end();
+    y -= rowHeight;
   });
+
+  y -= 10;
+
+  if (y < 190) {
+    page = pdfDoc.addPage(pageSize);
+    drawHeader({ page, boldFont, regularFont });
+    y = 700;
+  }
+
+  page.drawRectangle({
+    x: 330,
+    y: y - 18,
+    width: 217,
+    height: 45,
+    color: primary,
+  });
+
+  drawText({
+    page,
+    text: "Gesamtbetrag",
+    x: 350,
+    y: y + 5,
+    size: 10,
+    font: regularFont,
+    color: white,
+  });
+
+  drawText({
+    page,
+    text: formatMoney(total),
+    x: 430,
+    y: y + 3,
+    size: 15,
+    font: boldFont,
+    color: white,
+  });
+
+  y -= 70;
+
+  drawText({
+    page,
+    text: "Angebot offiziell annehmen",
+    x: 48,
+    y,
+    size: 12,
+    font: boldFont,
+    color: accent,
+  });
+
+  y -= 22;
+
+  y = drawWrappedText({
+    page,
+    text:
+      "Wenn alles passt, kannst Du Dein Angebot online offiziell annehmen. Nutze dafuer bitte den Button in der E-Mail oder oeffne folgenden Link:",
+    x: 48,
+    y,
+    maxWidth: 500,
+    size: 10,
+    font: regularFont,
+    color: primary,
+    lineHeight: 14,
+  });
+
+  y -= 10;
+
+  y = drawWrappedText({
+    page,
+    text: acceptUrl,
+    x: 48,
+    y,
+    maxWidth: 500,
+    size: 9,
+    font: boldFont,
+    color: accent,
+    lineHeight: 12,
+  });
+
+  y -= 18;
+
+  drawWrappedText({
+    page,
+    text:
+      "Hinweis: Dieses Angebot wurde auf Basis Deiner hochgeladenen Schulmaterialliste und der aktuellen manuellen Pruefung durch Handzettel-Schulen.de erstellt. Aenderungen und Rueckfragen sind weiterhin moeglich.",
+    x: 48,
+    y,
+    maxWidth: 500,
+    size: 8.5,
+    font: regularFont,
+    color: muted,
+    lineHeight: 12,
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes);
 }
 
 function createTransporter() {
