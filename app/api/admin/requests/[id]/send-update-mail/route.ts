@@ -161,6 +161,10 @@ function normalizeOfferItem(item: AnyRecord) {
   };
 }
 
+function safeFilePart(value: string) {
+  return value.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 60);
+}
+
 async function createOfferPdfBuffer(params: {
   request: AnyRecord;
   offerItems: AnyRecord[];
@@ -483,7 +487,7 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
 
 async function insertEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
-  requestId: number;
+  requestId: string;
   message: string;
 }) {
   const { supabase, requestId, message } = params;
@@ -503,9 +507,9 @@ async function insertEvent(params: {
 export async function POST(_request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const requestId = Number(id);
+    const requestId = String(id || "").trim();
 
-    if (!Number.isFinite(requestId)) {
+    if (!requestId) {
       return NextResponse.json(
         { ok: false, error: "Ungültige Anfrage-ID." },
         { status: 400 }
@@ -626,7 +630,7 @@ Dein Team von Handzettel-Schulen.de`,
       }),
       attachments: [
         {
-          filename: `aktualisiertes-angebot-handzettel-schulen-${requestId}.pdf`,
+          filename: `aktualisiertes-angebot-handzettel-schulen-${safeFilePart(requestId)}.pdf`,
           content: pdfBuffer,
           contentType: "application/pdf",
         },
