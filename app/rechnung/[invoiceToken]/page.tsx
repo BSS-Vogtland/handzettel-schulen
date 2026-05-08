@@ -1,10 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  Banknote,
   CheckCircle2,
   CreditCard,
   FileText,
-  PackageCheck,
   School,
   ShieldCheck,
   Truck,
@@ -50,6 +48,12 @@ type InvoiceRow = {
   created_at: string | null;
   sent_at: string | null;
   paid_at: string | null;
+};
+
+type RequestRow = {
+  id: string;
+  fulfillment_method: string | null;
+  cash_on_pickup_allowed: boolean | null;
 };
 
 type InvoiceItemRow = {
@@ -178,16 +182,29 @@ export default async function InvoicePaymentPage({ params }: Params) {
 
   const invoice = invoiceData as InvoiceRow;
 
-  const { data: itemsData } = await supabase
-    .from("school_request_invoice_items")
-    .select("*")
-    .eq("invoice_id", invoice.id)
-    .order("created_at", { ascending: true });
+  const [{ data: itemsData }, { data: requestData }] = await Promise.all([
+    supabase
+      .from("school_request_invoice_items")
+      .select("*")
+      .eq("invoice_id", invoice.id)
+      .order("created_at", { ascending: true }),
+
+    supabase
+      .from("school_requests")
+      .select("id, fulfillment_method, cash_on_pickup_allowed")
+      .eq("id", invoice.request_id)
+      .maybeSingle(),
+  ]);
 
   const invoiceItems = (itemsData || []) as InvoiceItemRow[];
+  const requestRow = (requestData || null) as RequestRow | null;
 
   const isPickup = invoice.fulfillment_method_snapshot === "pickup";
   const isShipping = invoice.fulfillment_method_snapshot === "shipping";
+
+  const canUseCashOnPickup =
+    isPickup && Boolean(requestRow?.cash_on_pickup_allowed);
+
   const isPaid =
     invoice.payment_status === "payment_received" ||
     invoice.payment_status === "cash_paid";
@@ -274,7 +291,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
               {getPaymentStatusLabel(invoice.payment_status)}
             </p>
             <p className="mt-1 text-xs font-semibold text-[#52616F]">
-              Zahlungsart: {getPaymentMethodLabel(invoice.selected_payment_method)}
+              Zahlungsart:{" "}
+              {getPaymentMethodLabel(invoice.selected_payment_method)}
             </p>
           </div>
         </section>
@@ -387,8 +405,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 Wie möchtest Du bezahlen?
               </h2>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                PayPal ist der bevorzugte Zahlungsweg. Die direkte
-                PayPal-Weiterleitung wird im nächsten Schritt aktiviert.
+                PayPal ist der bevorzugte Zahlungsweg. Alternativ kannst Du per
+                Überweisung bezahlen.
               </p>
             </div>
           </div>
@@ -405,7 +423,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 invoiceToken={invoice.invoice_token}
                 paymentMethod="paypal"
                 label="PayPal"
-                description="Empfohlen und am schnellsten. Die direkte PayPal-Zahlung mit Gesamtbetrag wird im nächsten Schritt angebunden."
+                description="Empfohlen und am schnellsten. Du wirst direkt zur PayPal-Zahlung mit dem Gesamtbetrag weitergeleitet."
                 recommended
               />
 
@@ -416,20 +434,21 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 description="Du überweist den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
               />
 
-              <CustomerPaymentMethodButton
-                invoiceToken={invoice.invoice_token}
-                paymentMethod="cash_on_pickup"
-                label="Barzahlung bei Abholung"
-                description="Nur bei Abholung möglich. Dein Paket wird für 14 Tage zur Abholung reserviert."
-                disabled={!isPickup}
-              />
+              {canUseCashOnPickup ? (
+                <CustomerPaymentMethodButton
+                  invoiceToken={invoice.invoice_token}
+                  paymentMethod="cash_on_pickup"
+                  label="Barzahlung bei Abholung"
+                  description="Du zahlst den Gesamtbetrag direkt bei Abholung im Laden. Dein Paket wird für die angegebene Frist reserviert."
+                />
+              ) : null}
             </div>
           )}
 
           <div className="mt-5 rounded-[26px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
-            Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach
-            Zahlungseingang weiter bearbeitet. Bei Barzahlung vor Ort ist die
-            Zahlung nur bei Abholung möglich.
+            {canUseCashOnPickup
+              ? "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
+              : "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
           </div>
         </section>
 

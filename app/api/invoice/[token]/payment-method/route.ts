@@ -27,6 +27,12 @@ type InvoiceRow = {
   total_amount: number | string | null;
 };
 
+type SchoolRequestRow = {
+  id: string;
+  fulfillment_method: string | null;
+  cash_on_pickup_allowed: boolean | null;
+};
+
 const PREPAYMENT_DUE_DAYS = 7;
 const CASH_PICKUP_DUE_DAYS = 14;
 
@@ -89,7 +95,7 @@ function getPaymentProvider(paymentMethod: PaymentMethod) {
 
 function getPaymentMessage(paymentMethod: PaymentMethod) {
   if (paymentMethod === "paypal") {
-    return "PayPal wurde ausgewählt. Die direkte PayPal-Zahlung wird im nächsten Schritt angebunden.";
+    return "PayPal wurde ausgewählt. Du wirst zur PayPal-Zahlung mit dem Gesamtbetrag weitergeleitet.";
   }
 
   if (paymentMethod === "bank_transfer") {
@@ -103,6 +109,10 @@ function getPaymentEventTitle(paymentMethod: PaymentMethod) {
   if (paymentMethod === "paypal") return "PayPal ausgewählt";
   if (paymentMethod === "bank_transfer") return "Überweisung ausgewählt";
   return "Barzahlung bei Abholung ausgewählt";
+}
+
+function isInvoicePaid(status: string | null) {
+  return status === "payment_received" || status === "cash_paid";
 }
 
 async function insertRequestEvent(params: {
@@ -235,13 +245,49 @@ export async function POST(request: Request, context: RouteContext) {
 
     const invoice = invoiceData as unknown as InvoiceRow;
 
+    if (isInvoicePaid(invoice.payment_status)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Diese Rechnung ist bereits als bezahlt markiert.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const { data: requestData, error: requestError } = await supabase
+      .from("school_requests")
+      .select("id, fulfillment_method, cash_on_pickup_allowed")
+      .eq("id", invoice.request_id)
+      .maybeSingle();
+
+    if (requestError || !requestData) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            requestError?.message ||
+            "Die zugehörige Anfrage wurde nicht gefunden.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const schoolRequest = requestData as SchoolRequestRow;
+
     if (paymentMethod === "cash_on_pickup") {
-      if (invoice.fulfillment_method_snapshot !== "pickup") {
+      const isPickup =
+        invoice.fulfillment_method_snapshot === "pickup" ||
+        schoolRequest.fulfillment_method === "pickup";
+
+      const cashAllowed = Boolean(schoolRequest.cash_on_pickup_allowed);
+
+      if (!isPickup || !cashAllowed) {
         return NextResponse.json(
           {
             ok: false,
             message:
-              "Barzahlung vor Ort ist nur möglich, wenn Abholung im Laden gewählt wurde.",
+              "Diese Zahlungsart ist für diese Rechnung nicht verfügbar. Bitte wähle PayPal oder Überweisung.",
           },
           { status: 409 }
         );
@@ -326,6 +372,7 @@ export async function POST(request: Request, context: RouteContext) {
         payment_provider: getPaymentProvider(paymentMethod),
         payment_due_at: paymentDueAt,
         cash_pickup_due_at: cashPickupDueAt,
+        cash_on_pickup_allowed: schoolRequest.cash_on_pickup_allowed,
       },
     });
 
