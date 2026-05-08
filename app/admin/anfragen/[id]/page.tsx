@@ -25,6 +25,7 @@ import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
+import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,17 @@ type SchoolRequest = {
   packed_at?: string | null;
   shipped_at?: string | null;
   picked_up_at?: string | null;
+
+  invoice_status?: string | null;
+  payment_status?: string | null;
+  selected_payment_method?: string | null;
+  latest_invoice_id?: string | null;
+  invoice_sent_at?: string | null;
+  payment_received_at?: string | null;
+  payment_due_at?: string | null;
+  cash_pickup_due_at?: string | null;
+  shipping_amount?: number | string | null;
+  invoice_total_amount?: number | string | null;
 
   created_at: string | null;
   updated_at: string | null;
@@ -887,6 +899,17 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 offerItems={offerItems}
               />
             </div>
+
+            <AdminInvoicePaymentPanel
+              requestId={request.id}
+              fulfillmentMethod={request.fulfillment_method}
+              subtotalAmount={selectedTotal}
+              currentShippingAmount={request.shipping_amount}
+              currentInvoiceTotalAmount={request.invoice_total_amount}
+              invoiceStatus={request.invoice_status}
+              paymentStatus={request.payment_status}
+              selectedPaymentMethod={request.selected_payment_method}
+            />
 
             <AdminSendOfferUpdateMailButton requestId={request.id} />
 
