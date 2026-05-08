@@ -354,6 +354,10 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Aktualisiertes Angebot versandt";
     case "offer_update_confirmed":
       return "Aktualisiertes Angebot bestätigt";
+    case "customer_pickup_requested":
+      return "Kunde möchte Abholung";
+    case "customer_shipping_requested":
+      return "Kunde möchte Versand";
     case "fulfillment_start_picking":
       return "Picking gestartet";
     case "fulfillment_mark_picked":
@@ -950,6 +954,16 @@ function RequestCard({
             Anfrage bearbeiten
             <ArrowRight className="h-4 w-4" />
           </Link>
+
+          {workflow.area === "fulfillment" ? (
+            <Link
+              href={`/admin/anfragen/${request.id}#picking-abwicklung`}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              Picking / Abwicklung
+              <PackageCheck className="h-4 w-4" />
+            </Link>
+          ) : null}
 
           {customerOfferPath && customerOfferUrl ? (
             <>
