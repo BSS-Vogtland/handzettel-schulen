@@ -6,6 +6,7 @@ import {
   Banknote,
   CheckCircle2,
   CreditCard,
+  ExternalLink,
   Loader2,
   Mail,
   PackageCheck,
@@ -145,6 +146,12 @@ export default function AdminInvoicePaymentPanel({
 
   const isPickup = fulfillmentMethod === "pickup";
   const isShipping = fulfillmentMethod === "shipping";
+  const hasPreparedInvoice =
+    invoiceStatus === "draft" ||
+    invoiceStatus === "sent" ||
+    storedTotal > 0;
+
+  const pdfUrl = `/api/admin/requests/${requestId}/invoice/pdf`;
 
   async function handleCreateInvoice() {
     if (isSaving) return;
@@ -222,8 +229,22 @@ export default function AdminInvoicePaymentPanel({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-black text-[#2F7D50]">
-          {getInvoiceStatusLabel(invoiceStatus)}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-black text-[#2F7D50]">
+            {getInvoiceStatusLabel(invoiceStatus)}
+          </div>
+
+          {hasPreparedInvoice ? (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Rechnung als PDF öffnen
+            </a>
+          ) : null}
         </div>
       </div>
 
@@ -269,7 +290,7 @@ export default function AdminInvoicePaymentPanel({
 
           <p className="mt-1 text-xs font-semibold text-[#52616F]">
             {isShipping
-              ? "Bei Versand bitte Versandkosten eintragen."
+              ? "Bei Versand wird in V1 pauschal 5,95 € angesetzt."
               : "Bei Abholung normalerweise 0,00 €."}
           </p>
         </div>
@@ -407,8 +428,9 @@ export default function AdminInvoicePaymentPanel({
             <p className="font-black text-[#8A4A1F]">Wichtig für V1:</p>
             <p className="mt-1">
               Rechnung vorbereiten friert die aktuellen Paketpositionen ein.
-              Die echte Rechnungs-Mail, PDF-Erzeugung und PayPal-Weiterleitung
-              bauen wir im nächsten Schritt darauf auf.
+              Die Rechnungs-PDF kannst Du danach direkt über den Button oben
+              öffnen. Die Rechnungs-Mail mit Zahlungslink bauen wir im nächsten
+              Schritt.
             </p>
           </div>
 
