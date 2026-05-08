@@ -8,11 +8,14 @@ import {
   CreditCard,
   ExternalLink,
   Loader2,
+  Lock,
   Mail,
   PackageCheck,
   ReceiptText,
   Send,
+  ShieldCheck,
   Truck,
+  Unlock,
 } from "lucide-react";
 
 type AdminInvoicePaymentPanelProps = {
@@ -24,6 +27,10 @@ type AdminInvoicePaymentPanelProps = {
   invoiceStatus?: string | null;
   paymentStatus?: string | null;
   selectedPaymentMethod?: string | null;
+
+  cashOnPickupAllowed?: boolean | null;
+  cashOnPickupAllowedAt?: string | null;
+  cashOnPickupAllowedNote?: string | null;
 };
 
 type ApiResponse = {
@@ -35,6 +42,7 @@ type ApiResponse = {
   paymentStatus?: string | null;
   totalAmount?: number;
   paymentUrl?: string;
+  cashOnPickupAllowed?: boolean;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -53,6 +61,18 @@ function formatMoney(value: unknown) {
     style: "currency",
     currency: "EUR",
   }).format(toNumber(value, 0));
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function getInvoiceStatusLabel(status?: string | null) {
@@ -113,7 +133,7 @@ async function readApiResponse(response: Response): Promise<ApiResponse> {
     return {
       ok: false,
       message:
-        "Die Rechnungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal.",
+        "Die Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal.",
     };
   }
 }
@@ -127,6 +147,9 @@ export default function AdminInvoicePaymentPanel({
   invoiceStatus,
   paymentStatus,
   selectedPaymentMethod,
+  cashOnPickupAllowed,
+  cashOnPickupAllowedAt,
+  cashOnPickupAllowedNote,
 }: AdminInvoicePaymentPanelProps) {
   const router = useRouter();
 
@@ -134,8 +157,14 @@ export default function AdminInvoicePaymentPanel({
     String(toNumber(currentShippingAmount, 0)).replace(".", ",")
   );
   const [adminNote, setAdminNote] = useState("");
+  const [cashNote, setCashNote] = useState(cashOnPickupAllowedNote || "");
+  const [localCashAllowed, setLocalCashAllowed] = useState(
+    Boolean(cashOnPickupAllowed)
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
+  const [isUpdatingCash, setIsUpdatingCash] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -250,6 +279,58 @@ export default function AdminInvoicePaymentPanel({
     }
   }
 
+  async function handleToggleCashOnPickup(action: "allow" | "disable") {
+    if (isUpdatingCash) return;
+
+    try {
+      setIsUpdatingCash(true);
+      setFeedback(null);
+      setIsSuccess(false);
+
+      const response = await fetch(
+        `/api/admin/requests/${requestId}/cash-on-pickup`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action,
+            note: cashNote,
+          }),
+        }
+      );
+
+      const payload = await readApiResponse(response);
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(
+          payload.message || "Barzahlung konnte nicht aktualisiert werden."
+        );
+      }
+
+      const nextAllowed =
+        typeof payload.cashOnPickupAllowed === "boolean"
+          ? payload.cashOnPickupAllowed
+          : action === "allow";
+
+      setLocalCashAllowed(nextAllowed);
+      setIsSuccess(true);
+      setFeedback(payload.message || "Barzahlung wurde aktualisiert.");
+
+      router.refresh();
+    } catch (error) {
+      setIsSuccess(false);
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Barzahlung konnte nicht aktualisiert werden."
+      );
+    } finally {
+      setIsUpdatingCash(false);
+    }
+  }
+
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -270,7 +351,9 @@ export default function AdminInvoicePaymentPanel({
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
               Hier bereitest Du die Rechnung vor, ergänzt Versandkosten und
               legst den Gesamtbetrag fest. PayPal wird als bevorzugte
-              Zahlungsart vorausgewählt.
+              Zahlungsart vorausgewählt. Barzahlung bei Abholung bleibt
+              standardmäßig intern gesperrt und kann nur pro Anfrage freigegeben
+              werden.
             </p>
           </div>
         </div>
@@ -376,7 +459,7 @@ export default function AdminInvoicePaymentPanel({
             <p className="font-black text-[#102A43]">PayPal</p>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Bevorzugter Zahlungsweg. Später direkte Weiterleitung zur
+              Bevorzugter Zahlungsweg. Direkte Weiterleitung zur
               PayPal-Zahlung mit Gesamtbetrag.
             </p>
 
@@ -399,13 +482,23 @@ export default function AdminInvoicePaymentPanel({
 
           <div
             className={`rounded-2xl border p-4 ${
-              isPickup
-                ? "border-[#E8DED2] bg-white"
-                : "border-[#E8DED2] bg-white opacity-50"
+              isPickup && localCashAllowed
+                ? "border-[#BFE3CD] bg-white"
+                : "border-[#E8DED2] bg-white opacity-60"
             }`}
           >
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-              <Banknote className="h-5 w-5" />
+            <div
+              className={`mb-3 flex h-10 w-10 items-center justify-center rounded-2xl ${
+                isPickup && localCashAllowed
+                  ? "bg-[#F0FFF6] text-[#2F7D50]"
+                  : "bg-[#FBF7F0] text-[#A75B28]"
+              }`}
+            >
+              {isPickup && localCashAllowed ? (
+                <Unlock className="h-5 w-5" />
+              ) : (
+                <Lock className="h-5 w-5" />
+              )}
             </div>
 
             <p className="font-black text-[#102A43]">
@@ -413,14 +506,118 @@ export default function AdminInvoicePaymentPanel({
             </p>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Nur bei Abholung. Paket wird später mit Frist reserviert.
+              {isPickup && localCashAllowed
+                ? "Intern für diese Anfrage freigegeben. Kunde sieht diese Option auf der Zahlungsseite."
+                : "Intern gesperrt. Kunde sieht diese Option nicht."}
+            </p>
+
+            <p
+              className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${
+                isPickup && localCashAllowed
+                  ? "bg-[#F0FFF6] text-[#2F7D50]"
+                  : "bg-[#FBF7F0] text-[#52616F]"
+              }`}
+            >
+              {isPickup && localCashAllowed ? "Freigegeben" : "Gesperrt"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Interne Barzahlungs-Freigabe
+            </p>
+
+            <h3 className="mt-1 font-black text-[#102A43]">
+              Barzahlung nur für Ausnahmekunden freigeben
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              Standardmäßig wird der Kunde auf PayPal oder Überweisung geführt.
+              Barzahlung bei Abholung wird auf der Kundenseite nur angezeigt,
+              wenn Du sie hier bewusst freigibst und die Übergabeart Abholung
+              ist.
             </p>
 
             {!isPickup ? (
-              <p className="mt-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#52616F]">
-                Nur bei Abholung
-              </p>
+              <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
+                Barzahlung kann nur sinnvoll freigegeben werden, wenn der Kunde
+                Abholung gewählt hat. Bei Versand bleibt Barzahlung
+                grundsätzlich unsichtbar.
+              </div>
             ) : null}
+
+            <label className="mt-4 block">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                Interne Notiz zur Freigabe
+              </span>
+
+              <textarea
+                value={cashNote}
+                onChange={(event) => setCashNote(event.target.value)}
+                className="mt-2 min-h-20 w-full rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#102A43] outline-none transition focus:border-[#A75B28]"
+                placeholder="Optional, z. B. Stammkunde, telefonisch abgesprochen, Sonderfall..."
+              />
+            </label>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => handleToggleCashOnPickup("allow")}
+                disabled={isUpdatingCash || !isPickup || localCashAllowed}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUpdatingCash ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Unlock className="h-4 w-4" />
+                )}
+                Barzahlung freigeben
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleToggleCashOnPickup("disable")}
+                disabled={isUpdatingCash || !localCashAllowed}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-5 py-3 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUpdatingCash ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+                Barzahlung sperren
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-[#FBF7F0] p-4 text-xs font-semibold leading-5 text-[#52616F]">
+              <p className="font-black text-[#102A43]">Aktueller Stand</p>
+              <p>
+                Barzahlung:{" "}
+                <span className="font-black">
+                  {localCashAllowed ? "freigegeben" : "gesperrt"}
+                </span>
+              </p>
+              <p>
+                Freigegeben am:{" "}
+                <span className="font-black">
+                  {localCashAllowed ? formatDateTime(cashOnPickupAllowedAt) : "—"}
+                </span>
+              </p>
+              {cashOnPickupAllowedNote ? (
+                <p>
+                  Letzte Notiz:{" "}
+                  <span className="font-black">{cashOnPickupAllowedNote}</span>
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -451,11 +648,7 @@ export default function AdminInvoicePaymentPanel({
             <p className="text-xs font-bold text-[#52616F]">Übergabe</p>
 
             <p className="mt-1 font-black text-[#102A43]">
-              {isPickup
-                ? "Abholung"
-                : isShipping
-                ? "Versand"
-                : "Noch offen"}
+              {isPickup ? "Abholung" : isShipping ? "Versand" : "Noch offen"}
             </p>
           </div>
         </div>
