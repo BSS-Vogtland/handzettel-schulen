@@ -1,10 +1,17 @@
 import nodemailer from "nodemailer";
 
+type MailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+};
+
 type SendMailInput = {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  attachments?: MailAttachment[];
 };
 
 function getRequiredEnv(name: string) {
@@ -17,7 +24,13 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
-export async function sendMail({ to, subject, text, html }: SendMailInput) {
+export async function sendMail({
+  to,
+  subject,
+  text,
+  html,
+  attachments,
+}: SendMailInput) {
   const host = getRequiredEnv("SMTP_HOST");
   const port = Number(process.env.SMTP_PORT || 587);
   const user = getRequiredEnv("SMTP_USER");
@@ -40,6 +53,7 @@ export async function sendMail({ to, subject, text, html }: SendMailInput) {
     subject,
     text,
     html,
+    attachments,
   });
 
   return result;
