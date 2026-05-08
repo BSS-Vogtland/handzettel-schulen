@@ -866,25 +866,27 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               updatedAt={request.updated_at}
             />
 
-            <AdminFulfillmentPanel
-              requestId={request.id}
-              requestStatus={request.status}
-              offerStatus={request.offer_status}
-              fulfillmentMethod={request.fulfillment_method}
-              fulfillmentStatus={request.fulfillment_status}
-              pickingStatus={request.picking_status}
-              shippingCostStatus={request.shipping_cost_status}
-              pickupLocationLabel={request.pickup_location_label}
-              pickupAddressSnapshot={request.pickup_address_snapshot}
-              pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
-              confirmedAt={request.confirmed_at}
-              pickingStartedAt={request.picking_started_at}
-              pickedAt={request.picked_at}
-              packedAt={request.packed_at}
-              shippedAt={request.shipped_at}
-              pickedUpAt={request.picked_up_at}
-              offerItems={offerItems}
-            />
+            <div id="picking-abwicklung" className="scroll-mt-8">
+              <AdminFulfillmentPanel
+                requestId={request.id}
+                requestStatus={request.status}
+                offerStatus={request.offer_status}
+                fulfillmentMethod={request.fulfillment_method}
+                fulfillmentStatus={request.fulfillment_status}
+                pickingStatus={request.picking_status}
+                shippingCostStatus={request.shipping_cost_status}
+                pickupLocationLabel={request.pickup_location_label}
+                pickupAddressSnapshot={request.pickup_address_snapshot}
+                pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
+                confirmedAt={request.confirmed_at}
+                pickingStartedAt={request.picking_started_at}
+                pickedAt={request.picked_at}
+                packedAt={request.packed_at}
+                shippedAt={request.shipped_at}
+                pickedUpAt={request.picked_up_at}
+                offerItems={offerItems}
+              />
+            </div>
 
             <AdminSendOfferUpdateMailButton requestId={request.id} />
 
