@@ -11,6 +11,7 @@ import {
   Mail,
   PackageCheck,
   ReceiptText,
+  Send,
   Truck,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ type ApiResponse = {
   invoiceStatus?: string | null;
   paymentStatus?: string | null;
   totalAmount?: number;
+  paymentUrl?: string;
 };
 
 function toNumber(value: unknown, fallback = 0) {
@@ -133,6 +135,7 @@ export default function AdminInvoicePaymentPanel({
   );
   const [adminNote, setAdminNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingMail, setIsSendingMail] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -146,6 +149,7 @@ export default function AdminInvoicePaymentPanel({
 
   const isPickup = fulfillmentMethod === "pickup";
   const isShipping = fulfillmentMethod === "shipping";
+
   const hasPreparedInvoice =
     invoiceStatus === "draft" ||
     invoiceStatus === "sent" ||
@@ -204,6 +208,48 @@ export default function AdminInvoicePaymentPanel({
     }
   }
 
+  async function handleSendInvoiceMail() {
+    if (isSendingMail || !hasPreparedInvoice) return;
+
+    try {
+      setIsSendingMail(true);
+      setFeedback(null);
+      setIsSuccess(false);
+
+      const response = await fetch(
+        `/api/admin/requests/${requestId}/invoice/send-mail`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const payload = await readApiResponse(response);
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(
+          payload.message || "Die Rechnungs-Mail konnte nicht gesendet werden."
+        );
+      }
+
+      setIsSuccess(true);
+      setFeedback(payload.message || "Die Rechnungs-Mail wurde gesendet.");
+
+      router.refresh();
+    } catch (error) {
+      setIsSuccess(false);
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Die Rechnungs-Mail konnte nicht gesendet werden."
+      );
+    } finally {
+      setIsSendingMail(false);
+    }
+  }
+
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -223,7 +269,7 @@ export default function AdminInvoicePaymentPanel({
 
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
               Hier bereitest Du die Rechnung vor, ergänzt Versandkosten und
-              legst den Gesamtbetrag fest. PayPal wird später als bevorzugte
+              legst den Gesamtbetrag fest. PayPal wird als bevorzugte
               Zahlungsart vorausgewählt.
             </p>
           </div>
@@ -328,6 +374,7 @@ export default function AdminInvoicePaymentPanel({
             </div>
 
             <p className="font-black text-[#102A43]">PayPal</p>
+
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
               Bevorzugter Zahlungsweg. Später direkte Weiterleitung zur
               PayPal-Zahlung mit Gesamtbetrag.
@@ -344,6 +391,7 @@ export default function AdminInvoicePaymentPanel({
             </div>
 
             <p className="font-black text-[#102A43]">Überweisung Vorkasse</p>
+
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
               Bearbeitung startet nach Zahlungseingang.
             </p>
@@ -363,6 +411,7 @@ export default function AdminInvoicePaymentPanel({
             <p className="font-black text-[#102A43]">
               Barzahlung bei Abholung
             </p>
+
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
               Nur bei Abholung. Paket wird später mit Frist reserviert.
             </p>
@@ -384,6 +433,7 @@ export default function AdminInvoicePaymentPanel({
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-[#FBF7F0] p-3">
             <p className="text-xs font-bold text-[#52616F]">Zahlungsstatus</p>
+
             <p className="mt-1 font-black text-[#102A43]">
               {getPaymentStatusLabel(paymentStatus)}
             </p>
@@ -391,6 +441,7 @@ export default function AdminInvoicePaymentPanel({
 
           <div className="rounded-2xl bg-[#FBF7F0] p-3">
             <p className="text-xs font-bold text-[#52616F]">Zahlungsart</p>
+
             <p className="mt-1 font-black text-[#102A43]">
               {getPaymentMethodLabel(selectedPaymentMethod)}
             </p>
@@ -398,6 +449,7 @@ export default function AdminInvoicePaymentPanel({
 
           <div className="rounded-2xl bg-[#FBF7F0] p-3">
             <p className="text-xs font-bold text-[#52616F]">Übergabe</p>
+
             <p className="mt-1 font-black text-[#102A43]">
               {isPickup
                 ? "Abholung"
@@ -426,27 +478,45 @@ export default function AdminInvoicePaymentPanel({
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_260px] md:items-start">
           <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
             <p className="font-black text-[#8A4A1F]">Wichtig für V1:</p>
+
             <p className="mt-1">
               Rechnung vorbereiten friert die aktuellen Paketpositionen ein.
-              Die Rechnungs-PDF kannst Du danach direkt über den Button oben
-              öffnen. Die Rechnungs-Mail mit Zahlungslink bauen wir im nächsten
-              Schritt.
+              Danach kannst Du die PDF öffnen oder die Rechnung direkt per Mail
+              mit Zahlungslink an den Kunden senden.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCreateInvoice}
-            disabled={isSaving}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ReceiptText className="h-4 w-4" />
-            )}
-            {isSaving ? "Wird vorbereitet..." : "Rechnung vorbereiten"}
-          </button>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={handleCreateInvoice}
+              disabled={isSaving}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ReceiptText className="h-4 w-4" />
+              )}
+              {isSaving ? "Wird vorbereitet..." : "Rechnung vorbereiten"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSendInvoiceMail}
+              disabled={isSendingMail || !hasPreparedInvoice}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSendingMail ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {isSendingMail
+                ? "Wird gesendet..."
+                : "Rechnung per Mail senden"}
+            </button>
+          </div>
         </div>
 
         {feedback ? (
@@ -463,7 +533,7 @@ export default function AdminInvoicePaymentPanel({
 
         <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-[#52616F]">
           <Mail className="h-4 w-4" />
-          Rechnungs-Mail mit PDF und Zahlungslink folgt im nächsten Schritt.
+          Die Mail enthält PDF-Anhang, Kurzübersicht und Zahlungslink.
         </div>
       </div>
     </section>
