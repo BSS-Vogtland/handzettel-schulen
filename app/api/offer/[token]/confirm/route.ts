@@ -46,6 +46,16 @@ type OfferItemRow = {
   request_item_id: string | null;
 };
 
+type InvoiceCreateResponse = {
+  ok?: boolean;
+  message?: string;
+  invoiceId?: string;
+  invoiceNumber?: string | null;
+  totalAmount?: number;
+};
+
+const SHIPPING_FLAT_RATE_AMOUNT = 5.95;
+
 function cleanString(value: unknown) {
   if (value === null || value === undefined) return null;
 
@@ -126,8 +136,13 @@ function getFulfillmentStatus(method: FulfillmentMethod) {
 }
 
 function getShippingCostStatus(method: FulfillmentMethod) {
-  if (method === "shipping") return "pending_calculation";
+  if (method === "shipping") return "flat_rate_applied";
   return "not_required";
+}
+
+function getShippingAmount(method: FulfillmentMethod) {
+  if (method === "shipping") return SHIPPING_FLAT_RATE_AMOUNT;
+  return 0;
 }
 
 function getFulfillmentLabel(method: FulfillmentMethod) {
@@ -140,7 +155,9 @@ function getFulfillmentMessage(method: FulfillmentMethod) {
     return "Der Kunde möchte das Schulpaket im Laden abholen.";
   }
 
-  return "Der Kunde möchte das Schulpaket zugesendet bekommen. Die Versandkosten werden im Nachgang berechnet.";
+  return `Der Kunde möchte das Schulpaket zugesendet bekommen. Es wird automatisch eine Versandpauschale von ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
+    2
+  ).replace(".", ",")} € berechnet.`;
 }
 
 async function insertRequestEvent(params: {
@@ -192,6 +209,102 @@ async function insertRequestEvent(params: {
   }
 }
 
+async function readApiResponse(response: Response): Promise<InvoiceCreateResponse> {
+  const rawText = await response.text();
+
+  try {
+    return rawText ? (JSON.parse(rawText) as InvoiceCreateResponse) : {};
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Die Rechnungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal.",
+    };
+  }
+}
+
+async function createInvoiceAfterConfirmation(params: {
+  request: Request;
+  requestId: string;
+  fulfillmentMethod: FulfillmentMethod;
+  mode: "automatic_complete" | "updated_offer_confirmed";
+}) {
+  const { request, requestId, fulfillmentMethod, mode } = params;
+
+  const origin = new URL(request.url).origin;
+  const shippingAmount = getShippingAmount(fulfillmentMethod);
+
+  const response = await fetch(
+    `${origin}/api/admin/requests/${requestId}/invoice/create`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shippingAmount,
+        adminNote:
+          mode === "updated_offer_confirmed"
+            ? "Rechnung automatisch nach Bestätigung des aktualisierten Angebots vorbereitet."
+            : "Rechnung automatisch nach vollständiger Angebotsbestätigung vorbereitet.",
+      }),
+    }
+  );
+
+  const payload = await readApiResponse(response);
+
+  if (!response.ok || !payload.ok) {
+    await insertRequestEvent({
+      requestId,
+      eventType: "invoice_auto_create_failed",
+      title: "Automatische Rechnung fehlgeschlagen",
+      message:
+        payload.message ||
+        "Die Rechnung konnte nach Angebotsbestätigung nicht automatisch vorbereitet werden.",
+      metadata: {
+        fulfillment_method: fulfillmentMethod,
+        shipping_amount: shippingAmount,
+        mode,
+        status: response.status,
+      },
+    });
+
+    return {
+      ok: false,
+      message:
+        payload.message ||
+        "Die Rechnung konnte nach Angebotsbestätigung nicht automatisch vorbereitet werden.",
+    };
+  }
+
+  await insertRequestEvent({
+    requestId,
+    eventType: "invoice_auto_created_after_confirmation",
+    title: "Rechnung automatisch vorbereitet",
+    message: `Die Rechnung ${
+      payload.invoiceNumber || ""
+    } wurde nach Angebotsbestätigung automatisch vorbereitet.`,
+    metadata: {
+      invoice_id: payload.invoiceId,
+      invoice_number: payload.invoiceNumber,
+      total_amount: payload.totalAmount,
+      fulfillment_method: fulfillmentMethod,
+      shipping_amount: shippingAmount,
+      mode,
+    },
+  });
+
+  return {
+    ok: true,
+    invoiceId: payload.invoiceId,
+    invoiceNumber: payload.invoiceNumber,
+    totalAmount: payload.totalAmount,
+    message:
+      payload.message ||
+      "Die Rechnung wurde nach Angebotsbestätigung automatisch vorbereitet.",
+  };
+}
+
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { token } = await context.params;
@@ -206,10 +319,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const fulfillmentMethod = body.fulfillmentMethod || null;
 
-    if (
-      fulfillmentMethod !== "pickup" &&
-      fulfillmentMethod !== "shipping"
-    ) {
+    if (fulfillmentMethod !== "pickup" && fulfillmentMethod !== "shipping") {
       return NextResponse.json(
         {
           ok: false,
@@ -234,8 +344,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message:
-            requestError?.message || "Das Angebot wurde nicht gefunden.",
+          message: requestError?.message || "Das Angebot wurde nicht gefunden.",
         },
         { status: 404 }
       );
@@ -333,10 +442,13 @@ export async function POST(request: Request, context: RouteContext) {
     const hasOpenManualReviewItems =
       requestItems.length > 0 && openRequestItems.length > 0;
 
+    const shippingAmount = getShippingAmount(fulfillmentMethod);
+
     const fulfillmentUpdate = {
       fulfillment_method: fulfillmentMethod,
       fulfillment_status: getFulfillmentStatus(fulfillmentMethod),
       shipping_cost_status: getShippingCostStatus(fulfillmentMethod),
+      shipping_amount: shippingAmount,
       pickup_location_label:
         fulfillmentMethod === "pickup" ? pickupLocationLabel : null,
       pickup_address_snapshot:
@@ -381,6 +493,7 @@ export async function POST(request: Request, context: RouteContext) {
           pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
           pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
           shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          shipping_amount: shippingAmount,
           open_request_items_count: openRequestItems.length,
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
@@ -401,14 +514,29 @@ export async function POST(request: Request, context: RouteContext) {
           pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
           pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
           shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          shipping_amount: shippingAmount,
         },
+      });
+
+      const invoiceResult = await createInvoiceAfterConfirmation({
+        request,
+        requestId: requestRow.id,
+        fulfillmentMethod,
+        mode: "updated_offer_confirmed",
       });
 
       return NextResponse.json({
         ok: true,
         mode: "updated_offer_confirmed",
         fulfillmentMethod,
-        message: "Das aktualisierte Angebot wurde offiziell bestätigt.",
+        shippingAmount,
+        invoicePrepared: invoiceResult.ok,
+        invoiceId: invoiceResult.invoiceId,
+        invoiceNumber: invoiceResult.invoiceNumber,
+        invoiceTotalAmount: invoiceResult.totalAmount,
+        message: invoiceResult.ok
+          ? "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung wurde automatisch vorbereitet."
+          : "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung konnte jedoch nicht automatisch vorbereitet werden und muss im Admin geprüft werden.",
       });
     }
 
@@ -446,6 +574,7 @@ export async function POST(request: Request, context: RouteContext) {
           pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
           pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
           shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          shipping_amount: shippingAmount,
           open_request_items_count: openRequestItems.length,
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
@@ -466,6 +595,7 @@ export async function POST(request: Request, context: RouteContext) {
           pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
           pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
           shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+          shipping_amount: shippingAmount,
         },
       });
 
@@ -473,10 +603,14 @@ export async function POST(request: Request, context: RouteContext) {
         ok: true,
         mode: "manual_review_required",
         fulfillmentMethod,
+        shippingAmount,
+        invoicePrepared: false,
         message:
           fulfillmentMethod === "pickup"
             ? "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Abholung im Laden ausgewählt."
-            : "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Versand ausgewählt; die Versandkosten werden im Nachgang berechnet.",
+            : `Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Versand ausgewählt; die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
+                2
+              ).replace(".", ",")} €.`,
       });
     }
 
@@ -504,7 +638,7 @@ export async function POST(request: Request, context: RouteContext) {
       eventType: "offer_confirmed_complete_customer_selection",
       title: "Angebot bestätigt",
       message:
-        "Der Kunde hat alle erkannten Positionen selbst ausgewählt und das Schulpaket-Angebot offiziell bestätigt.",
+        "Der Kunde hat alle erkannten Positionen bestätigt und das Schulpaket-Angebot offiziell angenommen.",
       metadata: {
         fulfillment_method: fulfillmentMethod,
         fulfillment_label: getFulfillmentLabel(fulfillmentMethod),
@@ -513,6 +647,7 @@ export async function POST(request: Request, context: RouteContext) {
         pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
         pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
         shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+        shipping_amount: shippingAmount,
         open_request_items_count: openRequestItems.length,
         offer_items_count: offerItems.length,
         request_items_count: requestItems.length,
@@ -533,17 +668,37 @@ export async function POST(request: Request, context: RouteContext) {
         pickup_address_snapshot: fulfillmentUpdate.pickup_address_snapshot,
         pickup_maps_url_snapshot: fulfillmentUpdate.pickup_maps_url_snapshot,
         shipping_cost_status: fulfillmentUpdate.shipping_cost_status,
+        shipping_amount: shippingAmount,
       },
+    });
+
+    const invoiceResult = await createInvoiceAfterConfirmation({
+      request,
+      requestId: requestRow.id,
+      fulfillmentMethod,
+      mode: "automatic_complete",
     });
 
     return NextResponse.json({
       ok: true,
       mode: "offer_confirmed",
       fulfillmentMethod,
-      message:
-        fulfillmentMethod === "pickup"
-          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt."
-          : "Das Angebot wurde bestätigt. Du hast Versand ausgewählt; die Versandkosten werden im Nachgang berechnet.",
+      shippingAmount,
+      invoicePrepared: invoiceResult.ok,
+      invoiceId: invoiceResult.invoiceId,
+      invoiceNumber: invoiceResult.invoiceNumber,
+      invoiceTotalAmount: invoiceResult.totalAmount,
+      message: invoiceResult.ok
+        ? fulfillmentMethod === "pickup"
+          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung wurde automatisch vorbereitet."
+          : `Das Angebot wurde bestätigt. Du hast Versand ausgewählt. Die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
+              2
+            ).replace(".", ",")} €. Die Rechnung wurde automatisch vorbereitet.`
+        : fulfillmentMethod === "pickup"
+        ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung muss im Admin geprüft werden."
+        : `Das Angebot wurde bestätigt. Du hast Versand ausgewählt. Die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
+            2
+          ).replace(".", ",")} €. Die Rechnung muss im Admin geprüft werden.`,
     });
   } catch (error) {
     console.error("Fehler beim Bestätigen des Angebots:", error);
