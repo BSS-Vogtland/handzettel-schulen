@@ -3,13 +3,16 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
+  Banknote,
   CheckCircle2,
   ClipboardList,
+  CreditCard,
   Eye,
   FileText,
   MailCheck,
   MapPin,
   PackageCheck,
+  ReceiptText,
   RefreshCw,
   School,
   ShoppingBasket,
@@ -64,6 +67,17 @@ type SchoolRequest = {
   packed_at?: string | null;
   shipped_at?: string | null;
   picked_up_at?: string | null;
+
+  latest_invoice_id?: string | null;
+  invoice_status?: string | null;
+  invoice_sent_at?: string | null;
+  invoice_total_amount?: number | string | null;
+  shipping_amount?: number | string | null;
+  payment_status?: string | null;
+  selected_payment_method?: string | null;
+  payment_due_at?: string | null;
+  cash_pickup_due_at?: string | null;
+  payment_received_at?: string | null;
 
   created_at: string | null;
   updated_at: string | null;
@@ -322,6 +336,165 @@ function getFulfillmentStatusLabel(status?: string | null) {
   }
 }
 
+function getPaymentMethodLabel(method?: string | null) {
+  switch (method) {
+    case "paypal":
+      return "PayPal";
+    case "bank_transfer":
+      return "Überweisung";
+    case "cash_on_pickup":
+      return "Bar bei Abholung";
+    default:
+      return "Noch nicht gewählt";
+  }
+}
+
+function getPaymentStatusLabel(status?: string | null) {
+  switch (status) {
+    case "not_selected":
+      return "Zahlungsart offen";
+    case "waiting_for_payment":
+      return "Wartet auf Zahlung";
+    case "payment_received":
+      return "Bezahlt";
+    case "cash_on_pickup":
+      return "Barzahlung bei Abholung";
+    case "cash_paid":
+      return "Bar bezahlt";
+    case "overdue":
+      return "Überfällig";
+    case "payment_failed":
+      return "Zahlung fehlgeschlagen";
+    case "payment_refunded":
+      return "Erstattet";
+    case "payment_reversed":
+      return "Zurückgebucht";
+    case "cancelled":
+      return "Zahlung abgebrochen";
+    default:
+      return status || "Noch keine Rechnung";
+  }
+}
+
+function getPaymentSubtitle(request: SchoolRequest) {
+  const method = getPaymentMethodLabel(request.selected_payment_method);
+  const amount =
+    request.invoice_total_amount !== null &&
+    request.invoice_total_amount !== undefined &&
+    request.invoice_total_amount !== ""
+      ? formatMoney(request.invoice_total_amount)
+      : null;
+
+  switch (request.payment_status) {
+    case "payment_received":
+      return `Bezahlt per ${method}${amount ? ` · ${amount}` : ""}`;
+    case "cash_paid":
+      return `Barzahlung erhalten${amount ? ` · ${amount}` : ""}`;
+    case "waiting_for_payment":
+      return `${method} gewählt${amount ? ` · ${amount}` : ""}`;
+    case "cash_on_pickup":
+      return `Barzahlung bei Abholung${amount ? ` · ${amount}` : ""}`;
+    case "not_selected":
+      return `Rechnung versendet · Zahlungsart noch offen${
+        amount ? ` · ${amount}` : ""
+      }`;
+    case "overdue":
+      return `Zahlung überfällig${amount ? ` · ${amount}` : ""}`;
+    case "payment_failed":
+      return `PayPal/Online-Zahlung fehlgeschlagen${
+        amount ? ` · ${amount}` : ""
+      }`;
+    case "payment_refunded":
+      return `Zahlung wurde erstattet${amount ? ` · ${amount}` : ""}`;
+    case "payment_reversed":
+      return `Zahlung wurde zurückgebucht${amount ? ` · ${amount}` : ""}`;
+    case "cancelled":
+      return `Zahlung wurde abgebrochen${amount ? ` · ${amount}` : ""}`;
+    default:
+      if (request.invoice_status === "sent") {
+        return `Rechnung versendet${amount ? ` · ${amount}` : ""}`;
+      }
+
+      if (request.invoice_status === "draft") {
+        return `Rechnung vorbereitet${amount ? ` · ${amount}` : ""}`;
+      }
+
+      return "Noch keine Rechnung vorbereitet";
+  }
+}
+
+function getPaymentBoxClasses(status?: string | null) {
+  switch (status) {
+    case "payment_received":
+    case "cash_paid":
+      return {
+        wrap: "border-[#BFE3CD] bg-[#F0FFF6]",
+        icon: "bg-white text-[#2F7D50]",
+        title: "text-[#1F5D3A]",
+        badge: "bg-white text-[#2F7D50] border-[#BFE3CD]",
+      };
+    case "waiting_for_payment":
+    case "not_selected":
+    case "cash_on_pickup":
+      return {
+        wrap: "border-[#F1D1A8] bg-[#FFF8EE]",
+        icon: "bg-white text-[#A75B28]",
+        title: "text-[#8A4A1F]",
+        badge: "bg-white text-[#A75B28] border-[#F1D1A8]",
+      };
+    case "overdue":
+    case "payment_failed":
+    case "payment_refunded":
+    case "payment_reversed":
+    case "cancelled":
+      return {
+        wrap: "border-[#F2B8B8] bg-[#FFF1F1]",
+        icon: "bg-white text-[#B5282D]",
+        title: "text-[#B5282D]",
+        badge: "bg-white text-[#B5282D] border-[#F2B8B8]",
+      };
+    default:
+      return {
+        wrap: "border-[#E8DED2] bg-[#FBF7F0]",
+        icon: "bg-white text-[#52616F]",
+        title: "text-[#102A43]",
+        badge: "bg-white text-[#52616F] border-[#E8DED2]",
+      };
+  }
+}
+
+function getPaymentIcon(request: SchoolRequest) {
+  if (request.selected_payment_method === "paypal") return CreditCard;
+  if (request.selected_payment_method === "bank_transfer") return Banknote;
+  if (request.selected_payment_method === "cash_on_pickup") return Banknote;
+  return ReceiptText;
+}
+
+function isPaidRequest(overview: RequestOverview) {
+  return (
+    overview.request.payment_status === "payment_received" ||
+    overview.request.payment_status === "cash_paid"
+  );
+}
+
+function isWaitingPaymentRequest(overview: RequestOverview) {
+  return (
+    overview.request.payment_status === "waiting_for_payment" ||
+    overview.request.payment_status === "not_selected" ||
+    overview.request.payment_status === "cash_on_pickup"
+  );
+}
+
+function isProblemPaymentRequest(overview: RequestOverview) {
+  return (
+    overview.request.payment_status === "overdue" ||
+    overview.request.payment_status === "payment_failed" ||
+    overview.request.payment_status === "payment_refunded" ||
+    overview.request.payment_status === "payment_reversed" ||
+    overview.request.payment_status === "cancelled"
+  );
+}
+
 function getEventTypeLabel(event: EventRow | null) {
   if (!event) return "Noch kein Verlauf";
 
@@ -354,10 +527,18 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Aktualisiertes Angebot versandt";
     case "offer_update_confirmed":
       return "Aktualisiertes Angebot bestätigt";
-    case "customer_pickup_requested":
-      return "Kunde möchte Abholung";
-    case "customer_shipping_requested":
-      return "Kunde möchte Versand";
+    case "invoice_mail_sent":
+      return "Rechnung per Mail versendet";
+    case "payment_method_selected":
+      return "Zahlungsart gewählt";
+    case "paypal_payment_started":
+      return "PayPal-Zahlung gestartet";
+    case "paypal_payment_completed":
+      return "PayPal-Zahlung abgeschlossen";
+    case "paypal_webhook_payment_completed":
+      return "PayPal-Zahlung per Webhook bestätigt";
+    case "paypal_payment_cancelled":
+      return "PayPal-Zahlung abgebrochen";
     case "fulfillment_start_picking":
       return "Picking gestartet";
     case "fulfillment_mark_picked":
@@ -495,7 +676,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Angebot bestätigt · Versand",
         subtitle:
-          "Der Kunde möchte Versand. Versandkosten prüfen, Pickingliste abarbeiten und Paket versenden.",
+          "Der Kunde möchte Versand. Zahlung prüfen, Pickingliste abarbeiten und Paket versenden.",
         badge: "Versand",
         tone: "green",
         icon: Truck,
@@ -506,7 +687,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
       area: "fulfillment",
       title: "Angebot bestätigt",
       subtitle:
-        "Der Kunde hat das Angebot offiziell angenommen. Übergabeart, Picking und Abwicklung können jetzt bearbeitet werden.",
+        "Der Kunde hat das Angebot offiziell angenommen. Zahlung, Picking und Abwicklung können jetzt bearbeitet werden.",
       badge: "Bestätigt",
       tone: "green",
       icon: CheckCircle2,
@@ -679,6 +860,38 @@ function getSmallInfoBadges(overview: RequestOverview) {
     });
   }
 
+  if (request.payment_status) {
+    const isPaid =
+      request.payment_status === "payment_received" ||
+      request.payment_status === "cash_paid";
+
+    const isProblem =
+      request.payment_status === "overdue" ||
+      request.payment_status === "payment_failed" ||
+      request.payment_status === "payment_refunded" ||
+      request.payment_status === "payment_reversed" ||
+      request.payment_status === "cancelled";
+
+    badges.push({
+      label: getPaymentStatusLabel(request.payment_status),
+      className: isPaid
+        ? "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]"
+        : isProblem
+        ? "border-[#F2B8B8] bg-[#FFF1F1] text-[#B5282D]"
+        : "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    });
+  }
+
+  if (request.selected_payment_method) {
+    badges.push({
+      label: getPaymentMethodLabel(request.selected_payment_method),
+      className:
+        request.selected_payment_method === "paypal"
+          ? "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]"
+          : "border-[#E8DED2] bg-white text-[#52616F]",
+    });
+  }
+
   if (request.fulfillment_method) {
     badges.push({
       label: getFulfillmentMethodLabel(request.fulfillment_method),
@@ -744,6 +957,61 @@ function getSmallInfoBadges(overview: RequestOverview) {
   return badges;
 }
 
+function PaymentStatusCard({ request }: { request: SchoolRequest }) {
+  const paymentClasses = getPaymentBoxClasses(request.payment_status);
+  const PaymentIcon = getPaymentIcon(request);
+
+  return (
+    <div className={`rounded-[24px] border p-4 ${paymentClasses.wrap}`}>
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${paymentClasses.icon}`}
+        >
+          <PaymentIcon className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+              Zahlung
+            </p>
+
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${paymentClasses.badge}`}
+            >
+              {getPaymentStatusLabel(request.payment_status)}
+            </span>
+          </div>
+
+          <p className={`mt-2 font-black ${paymentClasses.title}`}>
+            {getPaymentSubtitle(request)}
+          </p>
+
+          <div className="mt-2 grid gap-1 text-xs font-semibold text-[#52616F]">
+            {request.payment_received_at ? (
+              <p>Bezahlt am: {formatDateTime(request.payment_received_at)}</p>
+            ) : null}
+
+            {request.payment_due_at &&
+            request.payment_status === "waiting_for_payment" ? (
+              <p>Zahlungsfrist: {formatDate(request.payment_due_at)}</p>
+            ) : null}
+
+            {request.cash_pickup_due_at &&
+            request.payment_status === "cash_on_pickup" ? (
+              <p>Abholfrist: {formatDate(request.cash_pickup_due_at)}</p>
+            ) : null}
+
+            {request.invoice_sent_at ? (
+              <p>Rechnung gesendet: {formatDateTime(request.invoice_sent_at)}</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RequestCard({
   overview,
   siteUrl,
@@ -768,7 +1036,7 @@ function RequestCard({
 
   return (
     <article className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm transition hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-6">
-      <div className="grid gap-5 lg:grid-cols-[1fr_280px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[1fr_300px] lg:items-start">
         <div>
           <div className={`mb-4 rounded-[26px] border p-4 ${toneClasses.wrap}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -947,6 +1215,8 @@ function RequestCard({
             </p>
           </div>
 
+          <PaymentStatusCard request={request} />
+
           <Link
             href={`/admin/anfragen/${request.id}`}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
@@ -954,16 +1224,6 @@ function RequestCard({
             Anfrage bearbeiten
             <ArrowRight className="h-4 w-4" />
           </Link>
-
-          {workflow.area === "fulfillment" ? (
-            <Link
-              href={`/admin/anfragen/${request.id}#picking-abwicklung`}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-            >
-              Picking / Abwicklung
-              <PackageCheck className="h-4 w-4" />
-            </Link>
-          ) : null}
 
           {customerOfferPath && customerOfferUrl ? (
             <>
@@ -1221,6 +1481,10 @@ export default async function AdminRequestsPage() {
     (overview) => overview.request.fulfillment_method === "pickup"
   ).length;
 
+  const paidCount = overviews.filter(isPaidRequest).length;
+  const waitingPaymentCount = overviews.filter(isWaitingPaymentRequest).length;
+  const problemPaymentCount = overviews.filter(isProblemPaymentRequest).length;
+
   const refreshedAt = new Date().toISOString();
 
   return (
@@ -1240,8 +1504,9 @@ export default async function AdminRequestsPage() {
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Die Übersicht trennt offene Anfragen von bestätigten Angeboten
-                in der Abwicklung. Sobald ein Kunde bestätigt hat, landet der
-                Vorgang im Bereich „Angebot bestätigt / Abwicklung“.
+                in der Abwicklung. Zusätzlich siehst Du jetzt sofort, ob eine
+                Rechnung bezahlt wurde, ob eine Zahlung noch offen ist oder ob
+                es ein Zahlungsproblem gibt.
               </p>
             </div>
 
@@ -1269,7 +1534,7 @@ export default async function AdminRequestsPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-5">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               Gesamt
@@ -1286,9 +1551,23 @@ export default async function AdminRequestsPage() {
 
           <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Bestätigt / Abwicklung
+              Abwicklung
             </p>
             <p className="mt-2 text-3xl font-black">{fulfillmentCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              Bezahlt
+            </p>
+            <p className="mt-2 text-3xl font-black">{paidCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Zahlung offen
+            </p>
+            <p className="mt-2 text-3xl font-black">{waitingPaymentCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
@@ -1298,11 +1577,21 @@ export default async function AdminRequestsPage() {
             <p className="mt-2 text-3xl font-black">{shippingCount}</p>
           </div>
 
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Abholung
+          <div
+            className={`rounded-[28px] border p-5 shadow-sm ${
+              problemPaymentCount > 0
+                ? "border-[#F2B8B8] bg-[#FFF1F1]"
+                : "border-[#E8DED2] bg-white"
+            }`}
+          >
+            <p
+              className={`text-xs font-black uppercase tracking-[0.16em] ${
+                problemPaymentCount > 0 ? "text-[#B5282D]" : "text-[#2F7D50]"
+              }`}
+            >
+              Problem
             </p>
-            <p className="mt-2 text-3xl font-black">{pickupCount}</p>
+            <p className="mt-2 text-3xl font-black">{problemPaymentCount}</p>
           </div>
         </section>
 
@@ -1364,8 +1653,8 @@ export default async function AdminRequestsPage() {
                       Angebot bestätigt / Abwicklung
                     </h2>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                      Bestätigte Angebote, Pickingliste, Abholung, Versand,
-                      abholbereit, versendet oder abgeholt.
+                      Bestätigte Angebote, Zahlungsstatus, Pickingliste,
+                      Abholung, Versand, abholbereit, versendet oder abgeholt.
                     </p>
                   </div>
 
@@ -1392,7 +1681,7 @@ export default async function AdminRequestsPage() {
                   </h3>
                   <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
                     Sobald ein Kunde ein Angebot bestätigt, erscheint der Vorgang
-                    hier für Picking, Abholung oder Versand.
+                    hier für Zahlung, Picking, Abholung oder Versand.
                   </p>
                 </div>
               )}
