@@ -20,6 +20,7 @@ type ApiResponse = {
   message?: string;
   paymentStatus?: string | null;
   selectedPaymentMethod?: string | null;
+  approvalUrl?: string;
 };
 
 async function readApiResponse(response: Response): Promise<ApiResponse> {
@@ -64,6 +65,31 @@ export default function CustomerPaymentMethodButton({
       setIsSaving(true);
       setFeedback(null);
       setIsSuccess(false);
+
+      if (paymentMethod === "paypal") {
+        const response = await fetch(
+          `/api/invoice/${invoiceToken}/paypal/create-order`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const payload = await readApiResponse(response);
+
+        if (!response.ok || !payload.ok || !payload.approvalUrl) {
+          throw new Error(
+            payload.message || "PayPal-Zahlung konnte nicht gestartet werden."
+          );
+        }
+
+        setIsSuccess(true);
+        setFeedback("Du wirst jetzt zu PayPal weitergeleitet ...");
+        window.location.href = payload.approvalUrl;
+        return;
+      }
 
       const response = await fetch(`/api/invoice/${invoiceToken}/payment-method`, {
         method: "POST",
@@ -160,7 +186,14 @@ export default function CustomerPaymentMethodButton({
           ) : (
             <Icon className="h-4 w-4" />
           )}
-          {isSaving ? "Speichert..." : "Auswählen"}
+
+          {isSaving
+            ? paymentMethod === "paypal"
+              ? "Weiterleitung ..."
+              : "Speichert..."
+            : paymentMethod === "paypal"
+            ? "Mit PayPal bezahlen"
+            : "Auswählen"}
         </button>
       </div>
 
