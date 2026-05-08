@@ -2,6 +2,8 @@ type PayPalAccessTokenResponse = {
   access_token?: string;
   token_type?: string;
   expires_in?: number;
+  error?: string;
+  error_description?: string;
 };
 
 type PayPalLink = {
@@ -14,11 +16,21 @@ type PayPalCreateOrderResponse = {
   id?: string;
   status?: string;
   links?: PayPalLink[];
+  message?: string;
+  details?: Array<{
+    issue?: string;
+    description?: string;
+  }>;
 };
 
 type PayPalCaptureResponse = {
   id?: string;
   status?: string;
+  message?: string;
+  details?: Array<{
+    issue?: string;
+    description?: string;
+  }>;
   payer?: {
     email_address?: string;
     payer_id?: string;
@@ -39,6 +51,13 @@ type PayPalCaptureResponse = {
       }>;
     };
   }>;
+};
+
+type PayPalVerifyWebhookResponse = {
+  verification_status?: "SUCCESS" | "FAILURE" | string;
+  message?: string;
+  name?: string;
+  debug_id?: string;
 };
 
 export type PayPalOrderResult = {
@@ -100,16 +119,12 @@ async function getPayPalAccessToken() {
     cache: "no-store",
   });
 
-  const payload = (await response.json().catch(() => ({}))) as
-    | PayPalAccessTokenResponse
-    | { error?: string; error_description?: string };
+  const payload = (await response.json().catch(() => ({}))) as PayPalAccessTokenResponse;
 
-  if (!response.ok || !("access_token" in payload) || !payload.access_token) {
+  if (!response.ok || !payload.access_token) {
     throw new Error(
       `PayPal Access Token konnte nicht geladen werden: ${
-        "error_description" in payload
-          ? payload.error_description || payload.error
-          : response.statusText
+        payload.error_description || payload.error || response.statusText
       }`
     );
   }
@@ -164,10 +179,7 @@ export async function createPayPalOrder(params: {
     cache: "no-store",
   });
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalCreateOrderResponse & {
-    message?: string;
-    details?: Array<{ issue?: string; description?: string }>;
-  };
+  const payload = (await response.json().catch(() => ({}))) as PayPalCreateOrderResponse;
 
   if (!response.ok || !payload.id) {
     const detailMessage = payload.details?.[0]?.description || payload.message;
@@ -211,10 +223,7 @@ export async function capturePayPalOrder(params: {
     }
   );
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalCaptureResponse & {
-    message?: string;
-    details?: Array<{ issue?: string; description?: string }>;
-  };
+  const payload = (await response.json().catch(() => ({}))) as PayPalCaptureResponse;
 
   if (!response.ok) {
     const detailMessage = payload.details?.[0]?.description || payload.message;
@@ -236,5 +245,78 @@ export async function capturePayPalOrder(params: {
     amountValue: capture?.amount?.value || null,
     currencyCode: capture?.amount?.currency_code || null,
     raw: payload,
+  };
+}
+
+export async function verifyPayPalWebhookSignature(params: {
+  headers: Headers;
+  webhookEvent: unknown;
+}) {
+  const webhookId = getRequiredEnv("PAYPAL_WEBHOOK_ID");
+  const accessToken = await getPayPalAccessToken();
+  const baseUrl = getPayPalBaseUrl();
+
+  const transmissionId = params.headers.get("paypal-transmission-id");
+  const transmissionTime = params.headers.get("paypal-transmission-time");
+  const certUrl = params.headers.get("paypal-cert-url");
+  const authAlgo = params.headers.get("paypal-auth-algo");
+  const transmissionSig = params.headers.get("paypal-transmission-sig");
+
+  if (
+    !transmissionId ||
+    !transmissionTime ||
+    !certUrl ||
+    !authAlgo ||
+    !transmissionSig
+  ) {
+    return {
+      ok: false,
+      status: null,
+      message: "PayPal Webhook Header unvollständig.",
+    };
+  }
+
+  const response = await fetch(
+    `${baseUrl}/v1/notifications/verify-webhook-signature`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        transmission_id: transmissionId,
+        transmission_time: transmissionTime,
+        cert_url: certUrl,
+        auth_algo: authAlgo,
+        transmission_sig: transmissionSig,
+        webhook_id: webhookId,
+        webhook_event: params.webhookEvent,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  const payload = (await response.json().catch(() => ({}))) as PayPalVerifyWebhookResponse;
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: payload.verification_status || null,
+      message:
+        payload.message ||
+        "PayPal Webhook konnte nicht verifiziert werden.",
+    };
+  }
+
+  const verificationStatus = payload.verification_status || null;
+  const isVerified = verificationStatus === "SUCCESS";
+
+  return {
+    ok: isVerified,
+    status: verificationStatus,
+    message: isVerified
+      ? "PayPal Webhook verifiziert."
+      : "PayPal Webhook-Verifizierung fehlgeschlagen.",
   };
 }
