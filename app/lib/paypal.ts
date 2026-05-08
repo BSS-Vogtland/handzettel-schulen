@@ -100,6 +100,25 @@ function toMoneyString(value: number) {
   return value.toFixed(2);
 }
 
+function cleanPayPalInvoiceId(value: string) {
+  return value
+    .replace(/[^a-zA-Z0-9\-_]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 127);
+}
+
+function buildUniquePayPalInvoiceId(params: {
+  invoiceNumber: string;
+  invoiceToken: string;
+}) {
+  const shortToken = params.invoiceToken.slice(0, 8);
+  const timestamp = Date.now();
+
+  return cleanPayPalInvoiceId(
+    `${params.invoiceNumber}-${shortToken}-${timestamp}`
+  );
+}
+
 async function getPayPalAccessToken() {
   const clientId = getRequiredEnv("PAYPAL_CLIENT_ID");
   const clientSecret = getRequiredEnv("PAYPAL_CLIENT_SECRET");
@@ -119,7 +138,9 @@ async function getPayPalAccessToken() {
     cache: "no-store",
   });
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalAccessTokenResponse;
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as PayPalAccessTokenResponse;
 
   if (!response.ok || !payload.access_token) {
     throw new Error(
@@ -146,6 +167,11 @@ export async function createPayPalOrder(params: {
   const baseUrl = getPayPalBaseUrl();
   const currency = params.currency || "EUR";
 
+  const paypalInvoiceId = buildUniquePayPalInvoiceId({
+    invoiceNumber: params.invoiceNumber,
+    invoiceToken: params.invoiceToken,
+  });
+
   const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: "POST",
     headers: {
@@ -159,7 +185,7 @@ export async function createPayPalOrder(params: {
       purchase_units: [
         {
           reference_id: params.invoiceToken,
-          invoice_id: params.invoiceNumber,
+          invoice_id: paypalInvoiceId,
           custom_id: params.invoiceToken,
           description: params.description.slice(0, 127),
           amount: {
@@ -179,7 +205,9 @@ export async function createPayPalOrder(params: {
     cache: "no-store",
   });
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalCreateOrderResponse;
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as PayPalCreateOrderResponse;
 
   if (!response.ok || !payload.id) {
     const detailMessage = payload.details?.[0]?.description || payload.message;
@@ -223,7 +251,9 @@ export async function capturePayPalOrder(params: {
     }
   );
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalCaptureResponse;
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as PayPalCaptureResponse;
 
   if (!response.ok) {
     const detailMessage = payload.details?.[0]?.description || payload.message;
@@ -297,15 +327,16 @@ export async function verifyPayPalWebhookSignature(params: {
     }
   );
 
-  const payload = (await response.json().catch(() => ({}))) as PayPalVerifyWebhookResponse;
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as PayPalVerifyWebhookResponse;
 
   if (!response.ok) {
     return {
       ok: false,
       status: payload.verification_status || null,
       message:
-        payload.message ||
-        "PayPal Webhook konnte nicht verifiziert werden.",
+        payload.message || "PayPal Webhook konnte nicht verifiziert werden.",
     };
   }
 
