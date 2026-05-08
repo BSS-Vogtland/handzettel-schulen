@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  ClipboardList,
   Clock,
   MapPin,
   PackageCheck,
@@ -102,11 +103,22 @@ function getPickingStatusLabel(status?: string | null) {
     case "picking":
       return "Picking läuft";
     case "picked":
-      return "Gepickt";
+      return "Artikel gepickt";
     case "packed":
-      return "Gepackt";
+      return "Paket gepackt";
     default:
       return "Picking offen";
+  }
+}
+
+function getShippingCostLabel(status?: string | null) {
+  switch (status) {
+    case "pending_calculation":
+      return "Versandkosten müssen noch berechnet werden";
+    case "not_required":
+      return "Keine Versandkosten nötig";
+    default:
+      return "Noch nicht gesetzt";
   }
 }
 
@@ -127,6 +139,40 @@ function getSourceLabel(source: string | null) {
     default:
       return "Paketposition";
   }
+}
+
+function getCurrentStep(
+  pickingStatus?: string | null,
+  fulfillmentStatus?: string | null
+) {
+  if (fulfillmentStatus === "picked_up" || fulfillmentStatus === "shipped") {
+    return 5;
+  }
+
+  if (
+    fulfillmentStatus === "ready_for_pickup" ||
+    fulfillmentStatus === "shipping_ready"
+  ) {
+    return 4;
+  }
+
+  if (pickingStatus === "packed") return 3;
+  if (pickingStatus === "picked") return 2;
+  if (pickingStatus === "picking") return 1;
+
+  return 0;
+}
+
+function getStepClass(active: boolean, completed: boolean) {
+  if (completed) {
+    return "border-[#2F7D50] bg-[#2F7D50] text-white";
+  }
+
+  if (active) {
+    return "border-[#A75B28] bg-[#FFF8EE] text-[#A75B28]";
+  }
+
+  return "border-[#E8DED2] bg-white text-[#52616F]";
 }
 
 export default function AdminFulfillmentPanel({
@@ -155,14 +201,71 @@ export default function AdminFulfillmentPanel({
     return sum + toNumber(item.quantity, 1) * toNumber(item.product_price, 0);
   }, 0);
 
+  const totalQuantity = offerItems.reduce((sum, item) => {
+    return sum + toNumber(item.quantity, 1);
+  }, 0);
+
   const isPickup = fulfillmentMethod === "pickup";
   const isShipping = fulfillmentMethod === "shipping";
 
+  const currentStep = getCurrentStep(pickingStatus, fulfillmentStatus);
+
+  const workflowSteps = [
+    {
+      label: "Offen",
+      description: "Noch nicht gestartet",
+    },
+    {
+      label: "Picking",
+      description: "Artikel werden gesucht",
+    },
+    {
+      label: "Gepickt",
+      description: "Artikel liegen bereit",
+    },
+    {
+      label: "Gepackt",
+      description: "Paket ist gepackt",
+    },
+    {
+      label: isShipping ? "Versandbereit" : "Abholbereit",
+      description: isShipping ? "Bereit zum Versand" : "Bereit zur Abholung",
+    },
+    {
+      label: isShipping ? "Versendet" : "Abgeholt",
+      description: "Abgeschlossen",
+    },
+  ];
+
   return (
-    <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6 print:border-0 print:bg-white print:p-0 print:shadow-none">
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+          }
+
+          header,
+          nav,
+          aside,
+          footer,
+          .print-hidden {
+            display: none !important;
+          }
+
+          .print-page-break {
+            page-break-before: always;
+          }
+
+          .print-avoid-break {
+            break-inside: avoid;
+          }
+        }
+      `}</style>
+
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between print:mb-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2F7D50] print:hidden">
             <PackageCheck className="h-6 w-6" />
           </div>
 
@@ -175,7 +278,7 @@ export default function AdminFulfillmentPanel({
               Pickingliste & Übergabe-Workflow
             </h2>
 
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] print:text-xs">
               Sobald das Angebot bestätigt wurde, beginnt hier die operative
               Bearbeitung: Produkte picken, Paket packen und je nach
               Kundenwunsch zur Abholung oder zum Versand vorbereiten.
@@ -188,7 +291,7 @@ export default function AdminFulfillmentPanel({
           onClick={() => {
             if (typeof window !== "undefined") window.print();
           }}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#BFE3CD] bg-white px-4 py-3 text-sm font-black text-[#2F7D50] shadow-sm transition hover:brightness-105"
+          className="print-hidden inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#BFE3CD] bg-white px-4 py-3 text-sm font-black text-[#2F7D50] shadow-sm transition hover:brightness-105"
         >
           <Printer className="h-4 w-4" />
           Pickingliste drucken
@@ -196,15 +299,15 @@ export default function AdminFulfillmentPanel({
       </div>
 
       {!isConfirmed ? (
-        <div className="rounded-3xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
+        <div className="mb-5 rounded-3xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28] print:hidden">
           Dieser Bereich wird vollständig relevant, sobald der Kunde das Angebot
           verbindlich bestätigt hat.
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-4 md:grid-cols-4">
-        <div className="rounded-[24px] border border-[#BFE3CD] bg-white p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
+      <div className="grid gap-4 md:grid-cols-4 print:grid-cols-4 print:gap-2">
+        <div className="rounded-[24px] border border-[#BFE3CD] bg-white p-4 print:rounded-xl print:p-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50] print:hidden">
             <CheckCircle2 className="h-5 w-5" />
           </div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
@@ -218,8 +321,8 @@ export default function AdminFulfillmentPanel({
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28] print:hidden">
             <ShoppingBasket className="h-5 w-5" />
           </div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
@@ -233,8 +336,8 @@ export default function AdminFulfillmentPanel({
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#12395F]">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#12395F] print:hidden">
             {isShipping ? (
               <Truck className="h-5 w-5" />
             ) : (
@@ -252,25 +355,53 @@ export default function AdminFulfillmentPanel({
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#52616F]">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#52616F] print:hidden">
             <Clock className="h-5 w-5" />
           </div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
-            Summe
+            Paketwert
           </p>
           <p className="mt-2 font-black text-[#102A43]">
             {formatMoney(total)}
           </p>
           <p className="mt-1 text-xs font-semibold text-[#52616F]">
             {offerItems.length} Position
-            {offerItems.length === 1 ? "" : "en"}
+            {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
           </p>
         </div>
       </div>
 
+      <div className="print-hidden mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+          Abwicklungsstand
+        </p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-6">
+          {workflowSteps.map((step, index) => {
+            const active = index === currentStep;
+            const completed = index < currentStep;
+
+            return (
+              <div
+                key={step.label}
+                className={`rounded-2xl border p-3 ${getStepClass(
+                  active,
+                  completed
+                )}`}
+              >
+                <p className="text-sm font-black">{step.label}</p>
+                <p className="mt-1 text-xs font-semibold opacity-80">
+                  {step.description}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {isPickup ? (
-        <div className="mt-5 rounded-[26px] border border-[#BFE3CD] bg-white p-4">
+        <div className="mt-5 rounded-[26px] border border-[#BFE3CD] bg-white p-4 print:rounded-xl print:p-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
@@ -289,18 +420,24 @@ export default function AdminFulfillmentPanel({
                 href={pickupMapsUrlSnapshot}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                className="print-hidden inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
                 <MapPin className="h-4 w-4" />
                 Route öffnen
               </a>
             ) : null}
           </div>
+
+          {pickupMapsUrlSnapshot ? (
+            <p className="mt-3 hidden text-xs font-semibold text-[#52616F] print:block">
+              Route: {pickupMapsUrlSnapshot}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
       {isShipping ? (
-        <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4">
+        <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4 print:rounded-xl print:p-3">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
             Versand
           </p>
@@ -308,36 +445,41 @@ export default function AdminFulfillmentPanel({
             Versand vom Kunden gewünscht
           </h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Versandkostenstatus:{" "}
-            {shippingCostStatus === "pending_calculation"
-              ? "Versandkosten müssen noch berechnet werden"
-              : "Keine Versandkostenberechnung nötig"}
+            Versandkostenstatus: {getShippingCostLabel(shippingCostStatus)}
           </p>
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
-        <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-            <ClipboardListIcon />
+      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-0 print:border-0">
+        <div className="mb-4 flex items-start justify-between gap-3 print:mb-2">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28] print:hidden">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Pickingliste
+              </p>
+              <h3 className="font-black text-[#102A43]">
+                Diese Positionen müssen gepackt werden
+              </h3>
+            </div>
           </div>
 
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Pickingliste
-            </p>
-            <h3 className="font-black text-[#102A43]">
-              Diese Positionen müssen gepackt werden
-            </h3>
+          <div className="hidden text-right text-xs font-bold text-[#52616F] print:block">
+            <p>Erstellt: {formatDateTime(new Date().toISOString())}</p>
+            <p>Positionen: {offerItems.length}</p>
           </div>
         </div>
 
         {offerItems.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-[#E8DED2]">
-            <div className="grid grid-cols-[72px_1fr_110px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[80px_1fr_150px_120px]">
+          <div className="overflow-hidden rounded-2xl border border-[#E8DED2] print:rounded-none">
+            <div className="grid grid-cols-[44px_72px_1fr_100px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:bg-white print:text-[#102A43] print:border-b print:border-[#102A43]">
+              <div>OK</div>
               <div>Menge</div>
               <div>Artikel</div>
-              <div className="hidden md:block">Art.-Nr.</div>
+              <div className="hidden md:block print:block">Art.-Nr.</div>
               <div className="text-right">Wert</div>
             </div>
 
@@ -349,10 +491,14 @@ export default function AdminFulfillmentPanel({
               return (
                 <div
                   key={item.id}
-                  className={`grid grid-cols-[72px_1fr_110px] gap-3 px-4 py-4 text-sm md:grid-cols-[80px_1fr_150px_120px] ${
+                  className={`print-avoid-break grid grid-cols-[44px_72px_1fr_100px] gap-3 px-4 py-4 text-sm md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:gap-2 print:border-b print:border-[#E8DED2] print:px-0 print:py-3 ${
                     index % 2 === 0 ? "bg-[#FBF7F0]" : "bg-white"
-                  }`}
+                  } print:bg-white`}
                 >
+                  <div>
+                    <div className="h-6 w-6 rounded-md border-2 border-[#102A43] bg-white print:h-5 print:w-5" />
+                  </div>
+
                   <div className="font-black text-[#102A43]">
                     {quantity}
                     {item.unit ? ` ${item.unit}` : ""}
@@ -363,22 +509,22 @@ export default function AdminFulfillmentPanel({
                       {item.product_name}
                     </p>
 
-                    <p className="mt-1 text-xs font-semibold text-[#52616F] md:hidden">
+                    <p className="mt-1 text-xs font-semibold text-[#52616F] md:hidden print:hidden">
                       {item.product_sku || "Ohne Art.-Nr."}
                     </p>
 
-                    <p className="mt-1 inline-flex rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#A75B28]">
+                    <p className="mt-1 inline-flex rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#A75B28] print:hidden">
                       {getSourceLabel(item.source)}
                     </p>
 
                     {item.notes ? (
-                      <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+                      <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F] print:mt-1">
                         Hinweis: {item.notes}
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="hidden text-sm font-semibold text-[#52616F] md:block">
+                  <div className="hidden text-sm font-semibold text-[#52616F] md:block print:block">
                     {item.product_sku || "—"}
                   </div>
 
@@ -388,6 +534,16 @@ export default function AdminFulfillmentPanel({
                 </div>
               );
             })}
+
+            <div className="grid grid-cols-[1fr_140px] bg-white px-4 py-4 text-sm print:px-0">
+              <div className="font-black text-[#102A43]">
+                Gesamt: {offerItems.length} Position
+                {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
+              </div>
+              <div className="text-right text-lg font-black text-[#102A43]">
+                {formatMoney(total)}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-5 text-sm font-semibold text-[#52616F]">
@@ -396,7 +552,7 @@ export default function AdminFulfillmentPanel({
         )}
       </div>
 
-      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
+      <div className="print-hidden mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
           Workflow-Aktionen
         </p>
@@ -488,8 +644,4 @@ export default function AdminFulfillmentPanel({
       </div>
     </section>
   );
-}
-
-function ClipboardListIcon() {
-  return <ShoppingBasket className="h-4 w-4" />;
 }
