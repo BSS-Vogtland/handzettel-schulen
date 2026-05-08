@@ -26,6 +26,11 @@ type RequestRow = {
   fulfillment_method: string | null;
   fulfillment_status: string | null;
   picking_status: string | null;
+  picking_started_at: string | null;
+  picked_at: string | null;
+  packed_at: string | null;
+  shipped_at: string | null;
+  picked_up_at: string | null;
 };
 
 type UpdatePayload = {
@@ -73,6 +78,18 @@ async function readBodySafely(request: NextRequest) {
   }
 }
 
+function isValidAction(value: unknown): value is FulfillmentAction {
+  return (
+    value === "start_picking" ||
+    value === "mark_picked" ||
+    value === "mark_packed" ||
+    value === "ready_for_pickup" ||
+    value === "mark_picked_up" ||
+    value === "ready_for_shipping" ||
+    value === "mark_shipped"
+  );
+}
+
 function getActionLabel(action: FulfillmentAction) {
   switch (action) {
     case "start_picking":
@@ -117,78 +134,120 @@ function getActionMessage(action: FulfillmentAction, requestRow: RequestRow) {
   }
 }
 
-function getUpdatePayload(action: FulfillmentAction, now: string): UpdatePayload {
+function getEventType(action: FulfillmentAction) {
   switch (action) {
     case "start_picking":
-      return {
-        picking_status: "picking",
-        picking_started_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_start_picking";
     case "mark_picked":
-      return {
-        picking_status: "picked",
-        picked_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_mark_picked";
     case "mark_packed":
-      return {
-        picking_status: "packed",
-        packed_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_mark_packed";
     case "ready_for_pickup":
-      return {
-        picking_status: "packed",
-        fulfillment_status: "ready_for_pickup",
-        packed_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_ready_for_pickup";
     case "mark_picked_up":
-      return {
-        picking_status: "packed",
-        fulfillment_status: "picked_up",
-        picked_up_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_mark_picked_up";
     case "ready_for_shipping":
-      return {
-        picking_status: "packed",
-        fulfillment_status: "shipping_ready",
-        packed_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_ready_for_shipping";
     case "mark_shipped":
-      return {
-        picking_status: "packed",
-        fulfillment_status: "shipped",
-        shipped_at: now,
-        updated_at: now,
-      };
-
+      return "fulfillment_mark_shipped";
     default:
-      return {
-        updated_at: now,
-      };
+      return `fulfillment_${action}`;
   }
 }
 
-function isValidAction(value: unknown): value is FulfillmentAction {
-  return (
-    value === "start_picking" ||
-    value === "mark_picked" ||
-    value === "mark_packed" ||
-    value === "ready_for_pickup" ||
-    value === "mark_picked_up" ||
-    value === "ready_for_shipping" ||
-    value === "mark_shipped"
-  );
+function getUpdatePayload(
+  action: FulfillmentAction,
+  requestRow: RequestRow,
+  now: string
+): UpdatePayload {
+  const payload: UpdatePayload = {
+    updated_at: now,
+  };
+
+  switch (action) {
+    case "start_picking":
+      payload.picking_status = "picking";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      return payload;
+
+    case "mark_picked":
+      payload.picking_status = "picked";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      return payload;
+
+    case "mark_packed":
+      payload.picking_status = "packed";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      payload.packed_at = requestRow.packed_at || now;
+      return payload;
+
+    case "ready_for_pickup":
+      payload.picking_status = "packed";
+      payload.fulfillment_status = "ready_for_pickup";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      payload.packed_at = requestRow.packed_at || now;
+      return payload;
+
+    case "mark_picked_up":
+      payload.picking_status = "packed";
+      payload.fulfillment_status = "picked_up";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      payload.packed_at = requestRow.packed_at || now;
+      payload.picked_up_at = requestRow.picked_up_at || now;
+      return payload;
+
+    case "ready_for_shipping":
+      payload.picking_status = "packed";
+      payload.fulfillment_status = "shipping_ready";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      payload.packed_at = requestRow.packed_at || now;
+      return payload;
+
+    case "mark_shipped":
+      payload.picking_status = "packed";
+      payload.fulfillment_status = "shipped";
+      payload.picking_started_at = requestRow.picking_started_at || now;
+      payload.picked_at = requestRow.picked_at || now;
+      payload.packed_at = requestRow.packed_at || now;
+      payload.shipped_at = requestRow.shipped_at || now;
+      return payload;
+
+    default:
+      return payload;
+  }
+}
+
+function getMethodGuardError(action: FulfillmentAction, requestRow: RequestRow) {
+  const pickupActions: FulfillmentAction[] = [
+    "ready_for_pickup",
+    "mark_picked_up",
+  ];
+
+  const shippingActions: FulfillmentAction[] = [
+    "ready_for_shipping",
+    "mark_shipped",
+  ];
+
+  if (
+    pickupActions.includes(action) &&
+    requestRow.fulfillment_method !== "pickup"
+  ) {
+    return "Diese Aktion ist nur möglich, wenn der Kunde Abholung gewählt hat.";
+  }
+
+  if (
+    shippingActions.includes(action) &&
+    requestRow.fulfillment_method !== "shipping"
+  ) {
+    return "Diese Aktion ist nur möglich, wenn der Kunde Versand gewählt hat.";
+  }
+
+  return null;
 }
 
 async function insertEvent(params: {
@@ -196,11 +255,12 @@ async function insertEvent(params: {
   requestId: string;
   action: FulfillmentAction;
   requestRow: RequestRow;
+  nextPayload: UpdatePayload;
 }) {
-  const { supabase, requestId, action, requestRow } = params;
+  const { supabase, requestId, action, requestRow, nextPayload } = params;
   const now = new Date().toISOString();
 
-  const eventType = `fulfillment_${action}`;
+  const eventType = getEventType(action);
   const title = getActionLabel(action);
   const message = getActionMessage(action, requestRow);
 
@@ -216,6 +276,26 @@ async function insertEvent(params: {
         fulfillment_method: requestRow.fulfillment_method,
         previous_fulfillment_status: requestRow.fulfillment_status,
         previous_picking_status: requestRow.picking_status,
+        next_fulfillment_status:
+          nextPayload.fulfillment_status || requestRow.fulfillment_status,
+        next_picking_status:
+          nextPayload.picking_status || requestRow.picking_status,
+      },
+      created_at: now,
+    },
+    {
+      request_id: requestId,
+      event_type: eventType,
+      message,
+      metadata: {
+        action,
+        fulfillment_method: requestRow.fulfillment_method,
+        previous_fulfillment_status: requestRow.fulfillment_status,
+        previous_picking_status: requestRow.picking_status,
+        next_fulfillment_status:
+          nextPayload.fulfillment_status || requestRow.fulfillment_status,
+        next_picking_status:
+          nextPayload.picking_status || requestRow.picking_status,
       },
       created_at: now,
     },
@@ -273,7 +353,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: requestData, error: requestError } = await supabase
       .from("school_requests")
       .select(
-        "id, status, offer_status, fulfillment_method, fulfillment_status, picking_status"
+        [
+          "id",
+          "status",
+          "offer_status",
+          "fulfillment_method",
+          "fulfillment_status",
+          "picking_status",
+          "picking_started_at",
+          "picked_at",
+          "packed_at",
+          "shipped_at",
+          "picked_up_at",
+        ].join(", ")
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -282,14 +374,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message:
-            requestError?.message || "Die Anfrage wurde nicht gefunden.",
+          message: requestError?.message || "Die Anfrage wurde nicht gefunden.",
         },
         { status: 404 }
       );
     }
 
-    const requestRow = requestData as RequestRow;
+    const requestRow = requestData as unknown as RequestRow;
 
     const isConfirmed =
       requestRow.status === "confirmed" ||
@@ -306,40 +397,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if (
-      action === "ready_for_pickup" ||
-      action === "mark_picked_up"
-    ) {
-      if (requestRow.fulfillment_method !== "pickup") {
-        return NextResponse.json(
-          {
-            ok: false,
-            message:
-              "Diese Aktion ist nur möglich, wenn der Kunde Abholung gewählt hat.",
-          },
-          { status: 409 }
-        );
-      }
-    }
+    const methodGuardError = getMethodGuardError(action, requestRow);
 
-    if (
-      action === "ready_for_shipping" ||
-      action === "mark_shipped"
-    ) {
-      if (requestRow.fulfillment_method !== "shipping") {
-        return NextResponse.json(
-          {
-            ok: false,
-            message:
-              "Diese Aktion ist nur möglich, wenn der Kunde Versand gewählt hat.",
-          },
-          { status: 409 }
-        );
-      }
+    if (methodGuardError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: methodGuardError,
+        },
+        { status: 409 }
+      );
     }
 
     const now = new Date().toISOString();
-    const updatePayload = getUpdatePayload(action, now);
+    const updatePayload = getUpdatePayload(action, requestRow, now);
 
     const { error: updateError } = await supabase
       .from("school_requests")
@@ -361,6 +432,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       requestId,
       action,
       requestRow,
+      nextPayload: updatePayload,
     });
 
     return NextResponse.json({
