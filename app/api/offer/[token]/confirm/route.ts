@@ -46,12 +46,22 @@ type OfferItemRow = {
   request_item_id: string | null;
 };
 
-type InvoiceCreateResponse = {
+type ApiResponse = {
   ok?: boolean;
   message?: string;
   invoiceId?: string;
   invoiceNumber?: string | null;
   totalAmount?: number;
+};
+
+type InvoiceWorkflowResult = {
+  invoicePrepared: boolean;
+  invoiceMailSent: boolean;
+  invoiceId?: string;
+  invoiceNumber?: string | null;
+  invoiceTotalAmount?: number;
+  invoiceMessage?: string;
+  invoiceMailMessage?: string;
 };
 
 const SHIPPING_FLAT_RATE_AMOUNT = 5.95;
@@ -209,16 +219,16 @@ async function insertRequestEvent(params: {
   }
 }
 
-async function readApiResponse(response: Response): Promise<InvoiceCreateResponse> {
+async function readApiResponse(response: Response): Promise<ApiResponse> {
   const rawText = await response.text();
 
   try {
-    return rawText ? (JSON.parse(rawText) as InvoiceCreateResponse) : {};
+    return rawText ? (JSON.parse(rawText) as ApiResponse) : {};
   } catch {
     return {
       ok: false,
       message:
-        "Die Rechnungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal.",
+        "Die interne Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal.",
     };
   }
 }
@@ -302,6 +312,128 @@ async function createInvoiceAfterConfirmation(params: {
     message:
       payload.message ||
       "Die Rechnung wurde nach Angebotsbestätigung automatisch vorbereitet.",
+  };
+}
+
+async function sendInvoiceMailAfterConfirmation(params: {
+  request: Request;
+  requestId: string;
+  invoiceId?: string;
+  invoiceNumber?: string | null;
+  fulfillmentMethod: FulfillmentMethod;
+  mode: "automatic_complete" | "updated_offer_confirmed";
+}) {
+  const { request, requestId, invoiceId, invoiceNumber, fulfillmentMethod, mode } =
+    params;
+
+  const origin = new URL(request.url).origin;
+
+  const response = await fetch(
+    `${origin}/api/admin/requests/${requestId}/invoice/send-mail`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        invoiceId,
+        invoiceNumber,
+        trigger: "auto_after_offer_confirmation",
+        mode,
+      }),
+    }
+  );
+
+  const payload = await readApiResponse(response);
+
+  if (!response.ok || !payload.ok) {
+    await insertRequestEvent({
+      requestId,
+      eventType: "invoice_auto_mail_failed",
+      title: "Automatische Rechnungs-Mail fehlgeschlagen",
+      message:
+        payload.message ||
+        "Die Rechnungs-Mail konnte nach Angebotsbestätigung nicht automatisch versendet werden.",
+      metadata: {
+        invoice_id: invoiceId,
+        invoice_number: invoiceNumber,
+        fulfillment_method: fulfillmentMethod,
+        mode,
+        status: response.status,
+      },
+    });
+
+    return {
+      ok: false,
+      message:
+        payload.message ||
+        "Die Rechnungs-Mail konnte nach Angebotsbestätigung nicht automatisch versendet werden.",
+    };
+  }
+
+  await insertRequestEvent({
+    requestId,
+    eventType: "invoice_auto_mail_sent_after_confirmation",
+    title: "Rechnung automatisch per Mail versendet",
+    message: `Die Rechnung ${
+      invoiceNumber || payload.invoiceNumber || ""
+    } wurde nach Angebotsbestätigung automatisch per E-Mail an den Kunden gesendet.`,
+    metadata: {
+      invoice_id: invoiceId || payload.invoiceId,
+      invoice_number: invoiceNumber || payload.invoiceNumber,
+      fulfillment_method: fulfillmentMethod,
+      mode,
+    },
+  });
+
+  return {
+    ok: true,
+    message:
+      payload.message ||
+      "Die Rechnungs-Mail wurde nach Angebotsbestätigung automatisch versendet.",
+  };
+}
+
+async function runInvoiceWorkflowAfterConfirmation(params: {
+  request: Request;
+  requestId: string;
+  fulfillmentMethod: FulfillmentMethod;
+  mode: "automatic_complete" | "updated_offer_confirmed";
+}): Promise<InvoiceWorkflowResult> {
+  const { request, requestId, fulfillmentMethod, mode } = params;
+
+  const invoiceResult = await createInvoiceAfterConfirmation({
+    request,
+    requestId,
+    fulfillmentMethod,
+    mode,
+  });
+
+  if (!invoiceResult.ok) {
+    return {
+      invoicePrepared: false,
+      invoiceMailSent: false,
+      invoiceMessage: invoiceResult.message,
+    };
+  }
+
+  const mailResult = await sendInvoiceMailAfterConfirmation({
+    request,
+    requestId,
+    invoiceId: invoiceResult.invoiceId,
+    invoiceNumber: invoiceResult.invoiceNumber,
+    fulfillmentMethod,
+    mode,
+  });
+
+  return {
+    invoicePrepared: true,
+    invoiceMailSent: mailResult.ok,
+    invoiceId: invoiceResult.invoiceId,
+    invoiceNumber: invoiceResult.invoiceNumber,
+    invoiceTotalAmount: invoiceResult.totalAmount,
+    invoiceMessage: invoiceResult.message,
+    invoiceMailMessage: mailResult.message,
   };
 }
 
@@ -518,7 +650,7 @@ export async function POST(request: Request, context: RouteContext) {
         },
       });
 
-      const invoiceResult = await createInvoiceAfterConfirmation({
+      const invoiceWorkflow = await runInvoiceWorkflowAfterConfirmation({
         request,
         requestId: requestRow.id,
         fulfillmentMethod,
@@ -530,12 +662,15 @@ export async function POST(request: Request, context: RouteContext) {
         mode: "updated_offer_confirmed",
         fulfillmentMethod,
         shippingAmount,
-        invoicePrepared: invoiceResult.ok,
-        invoiceId: invoiceResult.invoiceId,
-        invoiceNumber: invoiceResult.invoiceNumber,
-        invoiceTotalAmount: invoiceResult.totalAmount,
-        message: invoiceResult.ok
-          ? "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung wurde automatisch vorbereitet."
+        invoicePrepared: invoiceWorkflow.invoicePrepared,
+        invoiceMailSent: invoiceWorkflow.invoiceMailSent,
+        invoiceId: invoiceWorkflow.invoiceId,
+        invoiceNumber: invoiceWorkflow.invoiceNumber,
+        invoiceTotalAmount: invoiceWorkflow.invoiceTotalAmount,
+        message: invoiceWorkflow.invoiceMailSent
+          ? "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung wurde automatisch vorbereitet und per Mail versendet."
+          : invoiceWorkflow.invoicePrepared
+          ? "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung wurde automatisch vorbereitet, aber die Rechnungs-Mail muss im Admin geprüft werden."
           : "Das aktualisierte Angebot wurde offiziell bestätigt. Die Rechnung konnte jedoch nicht automatisch vorbereitet werden und muss im Admin geprüft werden.",
       });
     }
@@ -605,6 +740,7 @@ export async function POST(request: Request, context: RouteContext) {
         fulfillmentMethod,
         shippingAmount,
         invoicePrepared: false,
+        invoiceMailSent: false,
         message:
           fulfillmentMethod === "pickup"
             ? "Dein Paketwunsch wurde abgesendet. Einzelne Positionen werden noch persönlich geprüft. Du hast Abholung im Laden ausgewählt."
@@ -672,7 +808,7 @@ export async function POST(request: Request, context: RouteContext) {
       },
     });
 
-    const invoiceResult = await createInvoiceAfterConfirmation({
+    const invoiceWorkflow = await runInvoiceWorkflowAfterConfirmation({
       request,
       requestId: requestRow.id,
       fulfillmentMethod,
@@ -684,16 +820,23 @@ export async function POST(request: Request, context: RouteContext) {
       mode: "offer_confirmed",
       fulfillmentMethod,
       shippingAmount,
-      invoicePrepared: invoiceResult.ok,
-      invoiceId: invoiceResult.invoiceId,
-      invoiceNumber: invoiceResult.invoiceNumber,
-      invoiceTotalAmount: invoiceResult.totalAmount,
-      message: invoiceResult.ok
+      invoicePrepared: invoiceWorkflow.invoicePrepared,
+      invoiceMailSent: invoiceWorkflow.invoiceMailSent,
+      invoiceId: invoiceWorkflow.invoiceId,
+      invoiceNumber: invoiceWorkflow.invoiceNumber,
+      invoiceTotalAmount: invoiceWorkflow.invoiceTotalAmount,
+      message: invoiceWorkflow.invoiceMailSent
         ? fulfillmentMethod === "pickup"
-          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung wurde automatisch vorbereitet."
+          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung wurde automatisch vorbereitet und per Mail versendet."
           : `Das Angebot wurde bestätigt. Du hast Versand ausgewählt. Die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
               2
-            ).replace(".", ",")} €. Die Rechnung wurde automatisch vorbereitet.`
+            ).replace(".", ",")} €. Die Rechnung wurde automatisch vorbereitet und per Mail versendet.`
+        : invoiceWorkflow.invoicePrepared
+        ? fulfillmentMethod === "pickup"
+          ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung wurde automatisch vorbereitet, aber die Rechnungs-Mail muss im Admin geprüft werden."
+          : `Das Angebot wurde bestätigt. Du hast Versand ausgewählt. Die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
+              2
+            ).replace(".", ",")} €. Die Rechnung wurde automatisch vorbereitet, aber die Rechnungs-Mail muss im Admin geprüft werden.`
         : fulfillmentMethod === "pickup"
         ? "Das Angebot wurde bestätigt. Du hast Abholung im Laden ausgewählt. Die Rechnung muss im Admin geprüft werden."
         : `Das Angebot wurde bestätigt. Du hast Versand ausgewählt. Die Versandpauschale beträgt ${SHIPPING_FLAT_RATE_AMOUNT.toFixed(
