@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   MessageCircle,
+  PackageCheck,
   ScanSearch,
   Send,
   UploadCloud,
@@ -22,6 +23,23 @@ type ImportResponse = {
   redirectUrl?: string;
   emailSent?: boolean;
   emailMessage?: string | null;
+  insertedItemCount?: number;
+  nextStep?: string;
+};
+
+type PrepareResponse = {
+  ok?: boolean;
+  message?: string;
+  redirectUrl?: string;
+  offerUrl?: string | null;
+  analyzeRan?: boolean;
+  analyzeMessage?: string | null;
+  matchMessage?: string | null;
+  itemCount?: number;
+  matchCount?: number;
+  safeMatchCount?: number;
+  autoPreselectedCount?: number;
+  needsManualReview?: boolean;
 };
 
 type ExtractedWhatsappData = {
@@ -99,7 +117,11 @@ function extractLabeledValue(lines: string[], labels: string[]) {
           return valueAfterColon;
         }
 
-        for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+        for (
+          let nextIndex = index + 1;
+          nextIndex < lines.length;
+          nextIndex += 1
+        ) {
           const nextLine = cleanExtractedValue(lines[nextIndex] || "");
 
           if (!nextLine) continue;
@@ -120,7 +142,11 @@ function extractLabeledValue(lines: string[], labels: string[]) {
       const label = normalizeLabel(looseMatch[1]);
       const value = cleanExtractedValue(looseMatch[2] || "");
 
-      if (normalizedLabels.includes(label) && value && !isProbablyPlaceholder(value)) {
+      if (
+        normalizedLabels.includes(label) &&
+        value &&
+        !isProbablyPlaceholder(value)
+      ) {
         return value;
       }
     }
@@ -222,7 +248,13 @@ export default function AdminWhatsappImportPage() {
   const [file, setFile] = useState<File | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
+
   const [result, setResult] = useState<ImportResponse | null>(null);
+  const [prepareResult, setPrepareResult] = useState<PrepareResponse | null>(
+    null
+  );
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [extractMessage, setExtractMessage] = useState<string | null>(null);
   const [detectedData, setDetectedData] = useState<ExtractedWhatsappData | null>(
@@ -231,6 +263,7 @@ export default function AdminWhatsappImportPage() {
 
   function resetMessages() {
     setResult(null);
+    setPrepareResult(null);
     setErrorMessage(null);
   }
 
@@ -245,6 +278,7 @@ export default function AdminWhatsappImportPage() {
     setInternalNote("");
     setFile(null);
     setResult(null);
+    setPrepareResult(null);
     setErrorMessage(null);
     setExtractMessage(null);
     setDetectedData(null);
@@ -288,6 +322,52 @@ export default function AdminWhatsappImportPage() {
         detectedSummary.length === 1 ? "" : "n"
       } erkannt und in leere Felder übernommen. Bitte prüfe die Daten vor dem Speichern.`
     );
+  }
+
+  async function handlePrepareWhatsappRequest() {
+    if (!result?.requestId || isPreparing) return;
+
+    setIsPreparing(true);
+    setErrorMessage(null);
+    setPrepareResult(null);
+
+    try {
+      const response = await fetch(
+        `/api/admin/requests/${result.requestId}/prepare-whatsapp`,
+        {
+          method: "POST",
+        }
+      );
+
+      const rawText = await response.text();
+
+      let payload: PrepareResponse | null = null;
+
+      try {
+        payload = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        throw new Error(
+          "Die Vorbereitungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+        );
+      }
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.message ||
+            "Die WhatsApp-Anfrage konnte nicht vorbereitet werden."
+        );
+      }
+
+      setPrepareResult(payload);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Die WhatsApp-Anfrage konnte nicht vorbereitet werden."
+      );
+    } finally {
+      setIsPreparing(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -400,9 +480,9 @@ export default function AdminWhatsappImportPage() {
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Nutze diese Seite, wenn ein Kunde seine Schulmaterialliste per
-                WhatsApp geschickt hat. Du kannst den WhatsApp-Text einfügen,
-                Daten daraus übernehmen, ein Foto/PDF hochladen und daraus eine
-                normale Anfrage im System erzeugen.
+                WhatsApp geschickt hat. Nach dem Import wird der Kundenlink noch
+                nicht automatisch versendet. Erst bereitest Du die Liste und den
+                Paketwunsch vor.
               </p>
             </div>
           </div>
@@ -444,8 +524,8 @@ export default function AdminWhatsappImportPage() {
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
                   />
                   <p className="mt-2 text-xs font-semibold text-[#52616F]">
-                    Wenn eine E-Mail vorhanden ist, wird der Angebotslink direkt
-                    dorthin gesendet.
+                    Der Link wird nicht sofort beim Import versendet. Erst nach
+                    Vorbereitung des Paketwunsches.
                   </p>
                 </div>
 
@@ -645,7 +725,7 @@ Klasse: 1a
               <div className="rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50]">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-black">
                       WhatsApp-Anfrage wurde angelegt.
                     </p>
@@ -660,6 +740,76 @@ Klasse: 1a
                       <p className="mt-1 text-sm font-semibold leading-6">
                         {result.emailMessage}
                       </p>
+                    ) : null}
+
+                    <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-white p-4 text-[#102A43]">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                        Nächster Schritt
+                      </p>
+                      <p className="mt-1 text-sm font-bold leading-6 text-[#52616F]">
+                        Jetzt die Liste auswerten, Produktvorschläge erzeugen
+                        und sichere Treffer automatisch in den Paketwunsch legen.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={handlePrepareWhatsappRequest}
+                        disabled={isPreparing || Boolean(prepareResult?.ok)}
+                        className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                      >
+                        {isPreparing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Liste wird vorbereitet …
+                          </>
+                        ) : prepareResult?.ok ? (
+                          <>
+                            <CheckCircle2 className="h-4 w-4" />
+                            Paketwunsch vorbereitet
+                          </>
+                        ) : (
+                          <>
+                            <PackageCheck className="h-4 w-4" />
+                            Liste auswerten & Paketwunsch vorbereiten
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {prepareResult?.ok ? (
+                      <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-white p-4 text-sm font-semibold leading-6 text-[#52616F]">
+                        <p className="font-black text-[#2F7D50]">
+                          {prepareResult.message ||
+                            "Die WhatsApp-Liste wurde vorbereitet."}
+                        </p>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <p>
+                            Erkannte Positionen:{" "}
+                            <span className="font-black text-[#102A43]">
+                              {prepareResult.itemCount ?? "—"}
+                            </span>
+                          </p>
+                          <p>
+                            Produktvorschläge:{" "}
+                            <span className="font-black text-[#102A43]">
+                              {prepareResult.matchCount ?? "—"}
+                            </span>
+                          </p>
+                          <p>
+                            Sichere Treffer:{" "}
+                            <span className="font-black text-[#102A43]">
+                              {prepareResult.safeMatchCount ?? "—"}
+                            </span>
+                          </p>
+                          <p>
+                            Im Paket vorausgewählt:{" "}
+                            <span className="font-black text-[#102A43]">
+                              {prepareResult.autoPreselectedCount ?? "—"}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
                     ) : null}
 
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -689,13 +839,18 @@ Klasse: 1a
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || Boolean(result?.ok)}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Anfrage wird angelegt …
+                  </>
+                ) : result?.ok ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Anfrage angelegt
                   </>
                 ) : (
                   <>
@@ -708,7 +863,7 @@ Klasse: 1a
               <button
                 type="button"
                 onClick={resetForm}
-                disabled={isSaving}
+                disabled={isSaving || isPreparing}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-5 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Felder leeren
