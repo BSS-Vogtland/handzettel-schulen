@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   MessageCircle,
+  ScanSearch,
   Send,
   UploadCloud,
 } from "lucide-react";
@@ -23,6 +24,192 @@ type ImportResponse = {
   emailMessage?: string | null;
 };
 
+type ExtractedWhatsappData = {
+  customerName: string;
+  email: string;
+  phone: string;
+  childName: string;
+  schoolName: string;
+  className: string;
+};
+
+const FIELD_LABELS: Record<keyof ExtractedWhatsappData, string> = {
+  customerName: "Name",
+  email: "E-Mail",
+  phone: "Telefon",
+  childName: "Kind",
+  schoolName: "Schule",
+  className: "Klasse",
+};
+
+function normalizeLabel(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function cleanExtractedValue(value: string) {
+  return value
+    .replace(/^[\s:：\-–—]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isProbablyPlaceholder(value: string) {
+  const text = value.toLowerCase().trim();
+
+  if (!text) return true;
+
+  return (
+    text === "name" ||
+    text === "e-mail" ||
+    text === "email" ||
+    text === "telefon" ||
+    text === "kind" ||
+    text === "schule" ||
+    text === "klasse" ||
+    text.includes("ich sende die liste") ||
+    text.includes("foto/pdf") ||
+    text.includes("schreibe sie direkt")
+  );
+}
+
+function extractLabeledValue(lines: string[], labels: string[]) {
+  const normalizedLabels = labels.map(normalizeLabel);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index] || "";
+    const line = rawLine.trim();
+
+    if (!line) continue;
+
+    const colonMatch = line.match(/^([^:：]{2,40})[:：](.*)$/);
+
+    if (colonMatch) {
+      const label = normalizeLabel(colonMatch[1]);
+      const valueAfterColon = cleanExtractedValue(colonMatch[2] || "");
+
+      if (normalizedLabels.includes(label)) {
+        if (valueAfterColon && !isProbablyPlaceholder(valueAfterColon)) {
+          return valueAfterColon;
+        }
+
+        for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+          const nextLine = cleanExtractedValue(lines[nextIndex] || "");
+
+          if (!nextLine) continue;
+
+          const nextLineLooksLikeField = /^([^:：]{2,40})[:：]/.test(nextLine);
+          if (nextLineLooksLikeField) break;
+
+          if (!isProbablyPlaceholder(nextLine)) {
+            return nextLine;
+          }
+        }
+      }
+    }
+
+    const looseMatch = line.match(/^([A-Za-zÄÖÜäöüß\-\s]{2,40})\s+(.*)$/);
+
+    if (looseMatch) {
+      const label = normalizeLabel(looseMatch[1]);
+      const value = cleanExtractedValue(looseMatch[2] || "");
+
+      if (normalizedLabels.includes(label) && value && !isProbablyPlaceholder(value)) {
+        return value;
+      }
+    }
+  }
+
+  return "";
+}
+
+function extractWhatsappData(text: string): ExtractedWhatsappData {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+
+  const phoneMatch =
+    text.match(/(?:\+49|0049|0)\s?(?:\(?\d+\)?[\s./-]?){6,}/) ||
+    text.match(/\+\d{8,16}/);
+
+  const customerName = extractLabeledValue(lines, [
+    "Name",
+    "Kundenname",
+    "Mutter",
+    "Vater",
+    "Elternteil",
+    "Ansprechpartner",
+  ]);
+
+  const labeledEmail = extractLabeledValue(lines, [
+    "E-Mail",
+    "Email",
+    "Mail",
+    "E Mail",
+    "E-Mail-Adresse",
+    "Email-Adresse",
+  ]);
+
+  const labeledPhone = extractLabeledValue(lines, [
+    "Telefon",
+    "Telefonnummer",
+    "WhatsApp",
+    "Whatsapp",
+    "Handy",
+    "Mobil",
+    "Mobile",
+  ]);
+
+  const childName = extractLabeledValue(lines, [
+    "Kind",
+    "Name des Kindes",
+    "Kindname",
+    "Schueler",
+    "Schülerin",
+    "Schüler",
+    "Schuelerin",
+  ]);
+
+  const schoolName = extractLabeledValue(lines, [
+    "Schule",
+    "Schulname",
+    "Grundschule",
+  ]);
+
+  const className = extractLabeledValue(lines, [
+    "Klasse",
+    "Klassenstufe",
+    "Klasse/Stufe",
+  ]);
+
+  return {
+    customerName,
+    email: labeledEmail || emailMatch?.[0]?.trim() || "",
+    phone: labeledPhone || phoneMatch?.[0]?.trim() || "",
+    childName,
+    schoolName,
+    className,
+  };
+}
+
+function getDetectedSummary(data: ExtractedWhatsappData) {
+  return Object.entries(data)
+    .filter(([, value]) => String(value || "").trim().length > 0)
+    .map(([key, value]) => ({
+      label: FIELD_LABELS[key as keyof ExtractedWhatsappData],
+      value,
+    }));
+}
+
 export default function AdminWhatsappImportPage() {
   const [customerName, setCustomerName] = useState("");
   const [email, setEmail] = useState("");
@@ -37,6 +224,10 @@ export default function AdminWhatsappImportPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [extractMessage, setExtractMessage] = useState<string | null>(null);
+  const [detectedData, setDetectedData] = useState<ExtractedWhatsappData | null>(
+    null
+  );
 
   function resetMessages() {
     setResult(null);
@@ -55,6 +246,48 @@ export default function AdminWhatsappImportPage() {
     setFile(null);
     setResult(null);
     setErrorMessage(null);
+    setExtractMessage(null);
+    setDetectedData(null);
+  }
+
+  function handleExtractFromText() {
+    resetMessages();
+
+    if (!whatsappText.trim()) {
+      setDetectedData(null);
+      setExtractMessage(null);
+      setErrorMessage(
+        "Bitte füge zuerst den WhatsApp-Text ein. Danach können die Kundendaten daraus übernommen werden."
+      );
+      return;
+    }
+
+    const extracted = extractWhatsappData(whatsappText);
+    const detectedSummary = getDetectedSummary(extracted);
+
+    if (detectedSummary.length === 0) {
+      setDetectedData(extracted);
+      setExtractMessage(null);
+      setErrorMessage(
+        "Es wurden keine Kundendaten erkannt. Prüfe, ob im WhatsApp-Text Angaben wie Name:, E-Mail:, Telefon:, Kind:, Schule: und Klasse: enthalten sind."
+      );
+      return;
+    }
+
+    setCustomerName((current) => current.trim() || extracted.customerName);
+    setEmail((current) => current.trim() || extracted.email);
+    setPhone((current) => current.trim() || extracted.phone);
+    setChildName((current) => current.trim() || extracted.childName);
+    setSchoolName((current) => current.trim() || extracted.schoolName);
+    setClassName((current) => current.trim() || extracted.className);
+
+    setDetectedData(extracted);
+    setErrorMessage(null);
+    setExtractMessage(
+      `${detectedSummary.length} Angabe${
+        detectedSummary.length === 1 ? "" : "n"
+      } erkannt und in leere Felder übernommen. Bitte prüfe die Daten vor dem Speichern.`
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -127,6 +360,8 @@ export default function AdminWhatsappImportPage() {
     }
   }
 
+  const detectedSummary = detectedData ? getDetectedSummary(detectedData) : [];
+
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -166,8 +401,8 @@ export default function AdminWhatsappImportPage() {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Nutze diese Seite, wenn ein Kunde seine Schulmaterialliste per
                 WhatsApp geschickt hat. Du kannst den WhatsApp-Text einfügen,
-                ein Foto/PDF hochladen und daraus eine normale Anfrage im System
-                erzeugen.
+                Daten daraus übernehmen, ein Foto/PDF hochladen und daraus eine
+                normale Anfrage im System erzeugen.
               </p>
             </div>
           </div>
@@ -275,21 +510,89 @@ export default function AdminWhatsappImportPage() {
 
               <div className="mt-4 grid gap-4">
                 <div>
-                  <label className="mb-2 block text-sm font-black text-[#102A43]">
-                    WhatsApp-Text / geschriebene Liste
-                  </label>
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="block text-sm font-black text-[#102A43]">
+                      WhatsApp-Text / geschriebene Liste
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleExtractFromText}
+                      className="inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-2 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                    >
+                      <ScanSearch className="h-4 w-4" />
+                      Daten aus Text übernehmen
+                    </button>
+                  </div>
+
                   <textarea
                     value={whatsappText}
-                    onChange={(event) => setWhatsappText(event.target.value)}
+                    onChange={(event) => {
+                      setWhatsappText(event.target.value);
+                      setExtractMessage(null);
+                      setDetectedData(null);
+                    }}
                     rows={9}
-                    placeholder={`Hier den WhatsApp-Text einfügen, z. B.\n\nHallo, hier ist die Liste für Mia.\n1x Schreibheft A5 Lineatur 1\n2x Umschlag A5 rot\n1x Schnellhefter blau`}
+                    placeholder={`Hier den WhatsApp-Text einfügen, z. B.
+
+Name: Maria Müller
+E-Mail: maria@example.de
+Telefon: +49 173 3157671
+Kind: Mia
+Schule: Grundschule Beispiel
+Klasse: 1a
+
+1x Schreibheft A5 Lineatur 1
+2x Umschlag A5 rot
+1x Schnellhefter blau`}
                     className="w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
                   />
-                  <p className="mt-2 text-xs font-semibold text-[#52616F]">
-                    Wenn keine Datei vorhanden ist, wird der Text als erkannte
-                    Listenpositionen übernommen.
-                  </p>
+
+                  <div className="mt-2 grid gap-2">
+                    <p className="text-xs font-semibold text-[#52616F]">
+                      Wenn keine Datei vorhanden ist, wird der Text als erkannte
+                      Listenpositionen übernommen.
+                    </p>
+
+                    <p className="text-xs font-semibold text-[#52616F]">
+                      Tipp: Erst WhatsApp-Text einfügen, dann{" "}
+                      <span className="font-black text-[#1FA855]">
+                        „Daten aus Text übernehmen“
+                      </span>{" "}
+                      klicken und die Felder oben prüfen.
+                    </p>
+                  </div>
                 </div>
+
+                {extractMessage ? (
+                  <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-bold text-[#2F7D50]">
+                    {extractMessage}
+                  </div>
+                ) : null}
+
+                {detectedSummary.length > 0 ? (
+                  <div className="rounded-[24px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                      Erkannte Angaben
+                    </p>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {detectedSummary.map((item) => (
+                        <div
+                          key={item.label}
+                          className="rounded-2xl bg-white px-4 py-3 text-sm"
+                        >
+                          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2F7D50]">
+                            {item.label}
+                          </p>
+                          <p className="mt-1 font-black text-[#102A43]">
+                            {item.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="rounded-[26px] border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-4">
                   <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
