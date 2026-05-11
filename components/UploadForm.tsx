@@ -38,6 +38,10 @@ function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export default function UploadForm() {
   const router = useRouter();
 
@@ -45,7 +49,8 @@ export default function UploadForm() {
   const [childName, setChildName] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [className, setClassName] = useState("");
-  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -130,12 +135,18 @@ export default function UploadForm() {
       return;
     }
 
-    if (!contact.trim()) {
-      setErrorMessage(
-        "Bitte gib eine E-Mail-Adresse oder Telefonnummer an, damit wir Dich erreichen können."
-      );
+    if (!email.trim()) {
+      setErrorMessage("Bitte gib Deine E-Mail-Adresse ein.");
       return;
     }
+
+    if (!isValidEmail(email)) {
+      setErrorMessage("Bitte gib eine gültige E-Mail-Adresse ein.");
+      return;
+    }
+
+    const cleanEmail = email.trim();
+    const cleanPhone = phone.trim();
 
     const formData = new FormData();
 
@@ -148,9 +159,14 @@ export default function UploadForm() {
     formData.append("school_name", schoolName.trim());
     formData.append("className", className.trim());
     formData.append("class_name", className.trim());
-    formData.append("contact", contact.trim());
-    formData.append("email", contact.trim());
-    formData.append("phone", contact.trim());
+
+    formData.append("email", cleanEmail);
+    formData.append("customer_email", cleanEmail);
+    formData.append("contact", cleanEmail);
+
+    formData.append("phone", cleanPhone);
+    formData.append("customer_phone", cleanPhone);
+
     formData.append("message", message.trim());
     formData.append("source", "website_upload");
 
@@ -386,18 +402,45 @@ export default function UploadForm() {
 
         <div>
           <label
-            htmlFor="contact"
+            htmlFor="email"
             className="mb-2 block text-sm font-black text-[#102A43]"
           >
-            E-Mail oder Telefonnummer*
+            E-Mail-Adresse*
           </label>
           <input
-            id="contact"
-            name="contact"
-            type="text"
-            value={contact}
-            onChange={(event) => setContact(event.target.value)}
-            placeholder="Damit wir Dich erreichen können"
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="z. B. name@email.de"
+            className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+          />
+          <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+            An diese Adresse senden wir später den Angebots- oder
+            Rechnungslink.
+          </p>
+        </div>
+
+        <div>
+          <label
+            htmlFor="phone"
+            className="mb-2 block text-sm font-black text-[#102A43]"
+          >
+            Telefonnummer
+            <span className="font-semibold text-[#52616F]"> optional</span>
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="Optional für Rückfragen"
             className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
         </div>
