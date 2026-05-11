@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { sendMail } from "@/lib/sendMail";
 
 export const runtime = "nodejs";
 
@@ -112,108 +111,6 @@ function buildItemsFromWhatsappText(text: string) {
     .slice(0, 80);
 }
 
-function buildOfferEmail(input: {
-  customerName: string | null;
-  childName: string | null;
-  schoolName: string | null;
-  requestNumber: string | null;
-  offerUrl: string;
-}) {
-  const greeting = input.customerName ? `Hallo ${input.customerName},` : "Hallo,";
-
-  const childLine = input.childName
-    ? `für ${input.childName}`
-    : "für Deine Schulmaterialliste";
-
-  const schoolLine = input.schoolName
-    ? `Schule: ${input.schoolName}`
-    : null;
-
-  const requestLine = input.requestNumber
-    ? `Anfrage: ${input.requestNumber}`
-    : null;
-
-  const text = [
-    greeting,
-    "",
-    `vielen Dank für Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
-    "",
-    schoolLine,
-    requestLine,
-    "",
-    "Über den folgenden persönlichen Link kannst Du Deine Schulmaterialliste auswerten lassen, Produkte auswählen und Deinen Paketwunsch jederzeit wieder öffnen:",
-    "",
-    input.offerUrl,
-    "",
-    "Bitte bewahre diesen Link auf. Darüber kommst Du jederzeit wieder zu Deinem persönlichen Paketwunsch.",
-    "",
-    "Viele Grüße",
-    "Dein Team von Handzettel-Schulen.de",
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
-
-  const html = `
-    <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.6; max-width: 640px;">
-      <h2 style="color: #102A43; margin-bottom: 12px;">Dein persönlicher Link zu Deiner Schulmaterialliste</h2>
-
-      <p>${greeting}</p>
-
-      <p>
-        vielen Dank für Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
-        ${childLine}.
-      </p>
-
-      ${
-        schoolLine || requestLine
-          ? `
-            <div style="background: #FBF7F0; border: 1px solid #E8DED2; border-radius: 16px; padding: 14px 16px; margin: 18px 0;">
-              ${schoolLine ? `<p style="margin: 0;"><strong>${schoolLine}</strong></p>` : ""}
-              ${requestLine ? `<p style="margin: 4px 0 0 0;">${requestLine}</p>` : ""}
-            </div>
-          `
-          : ""
-      }
-
-      <p>
-        Über den folgenden persönlichen Link kannst Du Deine Schulmaterialliste
-        auswerten lassen, Produkte auswählen und Deinen Paketwunsch jederzeit
-        wieder öffnen:
-      </p>
-
-      <p style="margin: 24px 0;">
-        <a
-          href="${input.offerUrl}"
-          style="background: #B5282D; color: #ffffff; text-decoration: none; padding: 14px 20px; border-radius: 14px; font-weight: bold; display: inline-block;"
-        >
-          Persönlichen Paketwunsch öffnen
-        </a>
-      </p>
-
-      <p style="font-size: 14px; color: #52616F;">
-        Falls der Button nicht funktioniert, kopiere diesen Link in Deinen Browser:<br />
-        <a href="${input.offerUrl}" style="color: #12395F;">${input.offerUrl}</a>
-      </p>
-
-      <p>
-        Bitte bewahre diesen Link auf. Darüber kommst Du jederzeit wieder zu
-        Deinem persönlichen Paketwunsch.
-      </p>
-
-      <p>
-        Viele Grüße<br />
-        <strong>Dein Team von Handzettel-Schulen.de</strong>
-      </p>
-    </div>
-  `;
-
-  return {
-    subject: "Dein persönlicher Link zu Deiner Schulmaterialliste",
-    text,
-    html,
-  };
-}
-
 async function saveRequestEvent(input: {
   requestId: string;
   eventType: string;
@@ -303,8 +200,7 @@ async function createTextFileForRequest(input: {
     type: "text/plain",
   });
 
-  const extension = "txt";
-  const safeFileName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const safeFileName = `${Date.now()}-${crypto.randomUUID()}.txt`;
   const storagePath = `${input.requestId}/${safeFileName}`;
   const arrayBuffer = await file.arrayBuffer();
 
@@ -399,7 +295,6 @@ export async function POST(request: Request) {
       .join("\n\n");
 
     const textItems = whatsappText ? buildItemsFromWhatsappText(whatsappText) : [];
-
     const hasOnlyText = Boolean(whatsappText) && !file;
 
     const { data: createdRequest, error: requestError } = await supabaseServer
@@ -415,7 +310,7 @@ export async function POST(request: Request) {
         phone,
         message: combinedMessage || null,
         ai_status: hasOnlyText ? "done" : "pending",
-        offer_status: hasOnlyText ? "matching_done" : "not_created",
+        offer_status: "not_created",
       })
       .select("id, request_number, offer_token")
       .single();
@@ -491,7 +386,8 @@ export async function POST(request: Request) {
       requestId: createdRequest.id,
       eventType: "whatsapp_manual_import_created",
       title: "WhatsApp-Anfrage manuell importiert",
-      description: "Die Anfrage wurde manuell aus einer WhatsApp-Nachricht angelegt.",
+      description:
+        "Die Anfrage wurde manuell aus einer WhatsApp-Nachricht angelegt. Der Kundenlink wurde noch nicht automatisch versendet.",
       metadata: {
         customerName,
         childName,
@@ -504,98 +400,28 @@ export async function POST(request: Request) {
         insertedItemCount,
         storedPaths,
         source: "whatsapp_manual",
+        customerMailSentImmediately: false,
       },
     });
 
     const siteUrl = getSiteUrl();
     const offerUrl = `${siteUrl}/angebot/${createdRequest.offer_token}`;
 
-    let emailSent = false;
-    let emailMessage: string | null = null;
-
-    if (email) {
-      try {
-        const emailContent = buildOfferEmail({
-          customerName,
-          childName,
-          schoolName,
-          requestNumber: createdRequest.request_number,
-          offerUrl,
-        });
-
-        await sendMail({
-          to: email,
-          subject: emailContent.subject,
-          text: emailContent.text,
-          html: emailContent.html,
-        });
-
-        emailSent = true;
-        emailMessage = "Der Angebotslink wurde automatisch per E-Mail gesendet.";
-
-        await saveRequestEvent({
-          requestId: createdRequest.id,
-          eventType: "offer_link_email_sent",
-          title: "Angebotslink per E-Mail gesendet",
-          description: `Der persönliche Angebotslink wurde automatisch an ${email} gesendet.`,
-          metadata: {
-            email,
-            offerUrl,
-            source: "whatsapp_manual",
-          },
-        });
-      } catch (emailError) {
-        console.error("whatsapp offer link email error:", emailError);
-
-        emailSent = false;
-        emailMessage =
-          "Die Anfrage wurde gespeichert, aber die E-Mail konnte nicht automatisch gesendet werden.";
-
-        await saveRequestEvent({
-          requestId: createdRequest.id,
-          eventType: "offer_link_email_failed",
-          title: "E-Mail-Versand fehlgeschlagen",
-          description:
-            emailError instanceof Error
-              ? emailError.message
-              : "Der Angebotslink konnte nicht automatisch per E-Mail gesendet werden.",
-          metadata: {
-            email,
-            offerUrl,
-            source: "whatsapp_manual",
-          },
-        });
-      }
-    } else {
-      emailMessage =
-        "Es wurde keine gültige E-Mail-Adresse angegeben. Der Angebotslink wurde daher nicht automatisch versendet.";
-
-      await saveRequestEvent({
-        requestId: createdRequest.id,
-        eventType: "offer_link_email_skipped",
-        title: "E-Mail-Versand übersprungen",
-        description:
-          "Es wurde keine gültige E-Mail-Adresse angegeben. Der Angebotslink wurde nicht automatisch versendet.",
-        metadata: {
-          phone,
-          offerUrl,
-          source: "whatsapp_manual",
-        },
-      });
-    }
-
     return NextResponse.json({
       ok: true,
-      message: "WhatsApp-Anfrage wurde angelegt.",
+      message:
+        "WhatsApp-Anfrage wurde angelegt. Bitte als nächsten Schritt die Liste auswerten und den Paketwunsch vorbereiten.",
       requestId: createdRequest.id,
       requestNumber: createdRequest.request_number,
       offerToken: createdRequest.offer_token,
       token: createdRequest.offer_token,
       offerUrl,
       redirectUrl: `/admin/anfragen/${createdRequest.id}`,
-      emailSent,
-      emailMessage,
+      emailSent: false,
+      emailMessage:
+        "Der Kundenlink wurde noch nicht automatisch versendet. Erst Liste auswerten und Paketwunsch vorbereiten.",
       insertedItemCount,
+      nextStep: "prepare_whatsapp",
     });
   } catch (error) {
     console.error("whatsapp import route error:", error);
