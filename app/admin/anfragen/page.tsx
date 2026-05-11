@@ -10,7 +10,7 @@ import {
   CreditCard,
   Eye,
   FileText,
-    MailCheck,
+  MailCheck,
   MapPin,
   MessageCircle,
   PackageCheck,
@@ -225,6 +225,7 @@ function formatDateTime(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -237,6 +238,7 @@ function formatDate(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -726,6 +728,8 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Admin hat Position gelöscht";
     case "admin_offer_item_updated":
       return "Admin hat Position bearbeitet";
+    case "whatsapp_manual_import_created":
+      return "WhatsApp-Anfrage importiert";
     default:
       return type || "Ereignis";
   }
@@ -968,12 +972,14 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
 
   return {
     area: "open",
-    title: "Neu eingegangen",
+    title: request.source === "whatsapp_manual" ? "WhatsApp-Anfrage" : "Neu eingegangen",
     subtitle:
-      "Die Anfrage ist neu und muss noch ausgewertet oder bearbeitet werden.",
-    badge: "Neu",
-    tone: "neutral",
-    icon: ClipboardList,
+      request.source === "whatsapp_manual"
+        ? "Diese Anfrage wurde manuell aus WhatsApp übernommen und kann jetzt weiter bearbeitet werden."
+        : "Die Anfrage ist neu und muss noch ausgewertet oder bearbeitet werden.",
+    badge: request.source === "whatsapp_manual" ? "WhatsApp" : "Neu",
+    tone: request.source === "whatsapp_manual" ? "green" : "neutral",
+    icon: request.source === "whatsapp_manual" ? MessageCircle : ClipboardList,
   };
 }
 
@@ -1052,6 +1058,13 @@ function getSmallInfoBadges(overview: RequestOverview) {
     label: getAiStatusLabel(request.ai_status),
     className: "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]",
   });
+
+  if (request.source === "whatsapp_manual") {
+    badges.push({
+      label: "WhatsApp-Import",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    });
+  }
 
   if (request.invoice_status) {
     badges.push({
@@ -1660,11 +1673,15 @@ export default async function AdminRequestsPage({
     ]);
 
     if (filesError) {
-      throw new Error(`Dateien konnten nicht geladen werden: ${filesError.message}`);
+      throw new Error(
+        `Dateien konnten nicht geladen werden: ${filesError.message}`
+      );
     }
 
     if (itemsError) {
-      throw new Error(`Positionen konnten nicht geladen werden: ${itemsError.message}`);
+      throw new Error(
+        `Positionen konnten nicht geladen werden: ${itemsError.message}`
+      );
     }
 
     if (offerItemsError) {
@@ -1674,7 +1691,9 @@ export default async function AdminRequestsPage({
     }
 
     if (eventsError) {
-      throw new Error(`Verlauf konnte nicht geladen werden: ${eventsError.message}`);
+      throw new Error(
+        `Verlauf konnte nicht geladen werden: ${eventsError.message}`
+      );
     }
 
     files = (filesData || []) as RequestFile[];
@@ -1747,7 +1766,8 @@ export default async function AdminRequestsPage({
     for (const offerItem of requestOfferItems) {
       if (!offerItem.request_item_id) continue;
 
-      const current = offerItemsByRequestItem.get(offerItem.request_item_id) || [];
+      const current =
+        offerItemsByRequestItem.get(offerItem.request_item_id) || [];
       current.push(offerItem);
       offerItemsByRequestItem.set(offerItem.request_item_id, current);
     }
@@ -1840,32 +1860,32 @@ export default async function AdminRequestsPage({
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <Link
-    href="/admin"
-    className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA]"
-  >
-    <ArrowLeft className="h-4 w-4" />
-    Zurück zum Admin-Bereich
-  </Link>
+          <Link
+            href="/admin"
+            className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Zurück zum Admin-Bereich
+          </Link>
 
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <Link
-      href="/admin/whatsapp-import"
-      className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-    >
-      <MessageCircle className="h-4 w-4" />
-      WhatsApp-Import
-    </Link>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/admin/whatsapp-import"
+              className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp-Import
+            </Link>
 
-    <Link
-      href="/admin/produkte/mobile"
-      className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-    >
-      <PackageCheck className="h-4 w-4" />
-      Mobile Produkterfassung
-    </Link>
-  </div>
-</div>
+            <Link
+              href="/admin/produkte/mobile"
+              className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              <PackageCheck className="h-4 w-4" />
+              Mobile Produkterfassung
+            </Link>
+          </div>
+        </div>
 
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
           <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
