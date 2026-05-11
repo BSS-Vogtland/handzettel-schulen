@@ -1,15 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ImagePlus,
   Loader2,
   Pencil,
   Save,
+  X,
 } from "lucide-react";
 
 type AdminEditProductFormProps = {
@@ -70,6 +73,9 @@ export default function AdminEditProductForm({
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
 
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     productName,
     productSku: productSku || "",
@@ -84,11 +90,71 @@ export default function AdminEditProductForm({
     aliases: aliases.join(", "),
   });
 
+  useEffect(() => {
+    if (!productImage) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(productImage);
+    setPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [productImage]);
+
   function updateField(field: keyof typeof formData, value: string | boolean) {
     setFormData((current) => ({
       ...current,
       [field]: value,
     }));
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+
+    setFeedback(null);
+
+    if (!file) {
+      setProductImage(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setFeedback({
+        type: "error",
+        message: "Bitte wähle eine Bilddatei aus.",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    const maxSize = 8 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setFeedback({
+        type: "error",
+        message: "Das Produktbild darf maximal 8 MB groß sein.",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    setProductImage(file);
+  }
+
+  function removeSelectedImage() {
+    setProductImage(null);
+    setPreviewUrl(null);
+
+    const input = document.getElementById(
+      `product-image-${productId}`
+    ) as HTMLInputElement | null;
+
+    if (input) {
+      input.value = "";
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -108,24 +174,27 @@ export default function AdminEditProductForm({
       setIsSaving(true);
       setFeedback(null);
 
+      const submitData = new FormData();
+
+      submitData.append("productName", formData.productName);
+      submitData.append("productSku", formData.productSku);
+      submitData.append("productPrice", formData.productPrice);
+      submitData.append("category", formData.category);
+      submitData.append("productType", formData.productType);
+      submitData.append("format", formData.format);
+      submitData.append("color", formData.color);
+      submitData.append("lineature", formData.lineature);
+      submitData.append("imageUrl", formData.imageUrl);
+      submitData.append("active", String(formData.active));
+      submitData.append("aliases", formData.aliases);
+
+      if (productImage) {
+        submitData.append("productImage", productImage);
+      }
+
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productName: formData.productName,
-          productSku: formData.productSku,
-          productPrice: formData.productPrice,
-          category: formData.category,
-          productType: formData.productType,
-          format: formData.format,
-          color: formData.color,
-          lineature: formData.lineature,
-          imageUrl: formData.imageUrl,
-          active: formData.active,
-          aliases: formData.aliases,
-        }),
+        body: submitData,
       });
 
       const payload = await readJsonSafely(response);
@@ -139,6 +208,16 @@ export default function AdminEditProductForm({
         setIsSaving(false);
         return;
       }
+
+      if (payload?.imageUrl) {
+        setFormData((current) => ({
+          ...current,
+          imageUrl: payload.imageUrl,
+        }));
+      }
+
+      setProductImage(null);
+      setPreviewUrl(null);
 
       setFeedback({
         type: "success",
@@ -158,6 +237,8 @@ export default function AdminEditProductForm({
       setIsSaving(false);
     }
   }
+
+  const visibleImageUrl = previewUrl || formData.imageUrl || null;
 
   return (
     <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-white p-3">
@@ -298,17 +379,93 @@ export default function AdminEditProductForm({
             </label>
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-              Bild-URL
-            </span>
-            <input
-              value={formData.imageUrl}
-              onChange={(event) => updateField("imageUrl", event.target.value)}
-              placeholder="Optional: Produktbild-URL"
-              className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </label>
+          <section className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Produktbild
+                </div>
+
+                <h3 className="font-black text-[#102A43]">
+                  Bild nachträglich ändern
+                </h3>
+
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                  Am Handy kannst Du direkt die Kamera öffnen und das Produktfoto
+                  sofort speichern.
+                </p>
+              </div>
+
+              <label
+                htmlFor={`product-image-${productId}`}
+                className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-2 text-xs font-black text-white transition hover:brightness-110"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Foto aufnehmen / hochladen
+              </label>
+
+              <input
+                id={`product-image-${productId}`}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[160px_1fr] md:items-start">
+              <div className="overflow-hidden rounded-2xl border border-[#E8DED2] bg-white">
+                {visibleImageUrl ? (
+                  <div className="relative">
+                    <img
+                      src={visibleImageUrl}
+                      alt={formData.productName || "Produktbild"}
+                      className="h-40 w-full object-contain p-2"
+                    />
+
+                    {productImage ? (
+                      <button
+                        type="button"
+                        onClick={removeSelectedImage}
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#B5282D] shadow-sm"
+                        aria-label="Ausgewähltes Bild entfernen"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="flex h-40 flex-col items-center justify-center p-4 text-center text-[#A75B28]">
+                    <ImagePlus className="h-7 w-7" />
+                    <p className="mt-2 text-xs font-black">Noch kein Bild</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                    Bild-URL
+                  </span>
+                  <input
+                    value={formData.imageUrl}
+                    onChange={(event) =>
+                      updateField("imageUrl", event.target.value)
+                    }
+                    placeholder="Optional: Produktbild-URL"
+                    className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+                  />
+                </label>
+
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+                  Wenn Du ein neues Foto auswählst, wird es beim Speichern
+                  hochgeladen und ersetzt die aktuelle Bild-URL automatisch.
+                </p>
+              </div>
+            </div>
+          </section>
 
           <label className="block">
             <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
