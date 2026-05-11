@@ -1,13 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
-import {
-  PDFDocument,
-  StandardFonts,
-  rgb,
-  type PDFFont,
-  type PDFPage,
-} from "pdf-lib";
 
 export const runtime = "nodejs";
 
@@ -18,15 +11,6 @@ type RouteContext = {
 };
 
 type AnyRecord = Record<string, any>;
-
-type NormalizedOfferItem = {
-  name: string;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
-  total: number;
-  note: string;
-};
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -76,19 +60,9 @@ function pickNumber(row: AnyRecord | null | undefined, keys: string[], fallback 
 }
 
 function formatMoney(value: number) {
-  const formatted = new Intl.NumberFormat("de-DE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-
-  return `${formatted} EUR`;
-}
-
-function formatDate(value = new Date()) {
-  return new Intl.DateTimeFormat("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
   }).format(value);
 }
 
@@ -113,8 +87,20 @@ function getCustomerName(request: AnyRecord) {
   return pickFirst(
     request,
     ["customer_name", "parent_name", "guardian_name", "name", "contact_name"],
-    "Hallo"
+    ""
   );
+}
+
+function getChildName(request: AnyRecord) {
+  return pickFirst(request, ["child_name", "child", "student_name"], "");
+}
+
+function getSchoolName(request: AnyRecord) {
+  return pickFirst(request, ["school_name", "school"], "");
+}
+
+function getClassName(request: AnyRecord) {
+  return pickFirst(request, ["class_name", "class"], "");
 }
 
 function getRequestToken(request: AnyRecord) {
@@ -144,21 +130,29 @@ function getItemName(item: AnyRecord) {
   );
 }
 
+function getItemSku(item: AnyRecord) {
+  return pickFirst(item, ["product_sku", "sku", "article_number"], "");
+}
+
 function getItemUnit(item: AnyRecord) {
   return pickFirst(item, ["unit", "quantity_unit"], "Stk.");
 }
 
-function normalizeOfferItem(item: AnyRecord): NormalizedOfferItem {
-  const quantity = pickNumber(item, ["quantity", "qty", "amount"], 1) || 1;
+function getItemQuantity(item: AnyRecord) {
+  return pickNumber(item, ["quantity", "qty", "amount"], 1) || 1;
+}
 
-  const unitPrice = pickNumber(item, [
+function getItemPrice(item: AnyRecord) {
+  return pickNumber(item, [
     "product_price",
     "unit_price",
     "price",
     "price_gross",
     "sale_price_gross",
   ]);
+}
 
+function getItemTotal(item: AnyRecord) {
   const existingTotal = pickNumber(item, [
     "total_price",
     "line_total",
@@ -166,571 +160,9 @@ function normalizeOfferItem(item: AnyRecord): NormalizedOfferItem {
     "subtotal",
   ]);
 
-  const total = existingTotal > 0 ? existingTotal : quantity * unitPrice;
+  if (existingTotal > 0) return existingTotal;
 
-  return {
-    name: getItemName(item),
-    quantity,
-    unit: getItemUnit(item),
-    unitPrice,
-    total,
-    note: pickFirst(item, ["notes", "note", "comment"], ""),
-  };
-}
-
-function safeFilePart(value: string) {
-  return value.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 60);
-}
-
-function hexToRgb(hex: string) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16) / 255;
-  const g = parseInt(clean.slice(2, 4), 16) / 255;
-  const b = parseInt(clean.slice(4, 6), 16) / 255;
-  return rgb(r, g, b);
-}
-
-function restoreGermanUmlauts(value: string) {
-  return String(value || "")
-    .replace(/\bAngebot fuer\b/g, "Angebot für")
-    .replace(/\bfuer\b/g, "für")
-    .replace(/\bFuer\b/g, "Für")
-    .replace(/\bdafuer\b/g, "dafür")
-    .replace(/\bDafuer\b/g, "Dafür")
-    .replace(/\bueber\b/g, "über")
-    .replace(/\bUeber\b/g, "Über")
-    .replace(/\bzurueck\b/g, "zurück")
-    .replace(/\bZurueck\b/g, "Zurück")
-    .replace(/\boeffne\b/g, "öffne")
-    .replace(/\bOeffne\b/g, "Öffne")
-    .replace(/\bmoeglich\b/g, "möglich")
-    .replace(/\bMoeglich\b/g, "Möglich")
-    .replace(/\bgeprueft\b/g, "geprüft")
-    .replace(/\bGeprueft\b/g, "Geprüft")
-    .replace(/\bpruefen\b/g, "prüfen")
-    .replace(/\bPruefen\b/g, "Prüfen")
-    .replace(/\bPruefung\b/g, "Prüfung")
-    .replace(/\bpruefung\b/g, "prüfung")
-    .replace(/\bAenderungen\b/g, "Änderungen")
-    .replace(/\baenderungen\b/g, "änderungen")
-    .replace(/\bRueckfragen\b/g, "Rückfragen")
-    .replace(/\brueckfragen\b/g, "rückfragen")
-    .replace(/\bkoennen\b/g, "können")
-    .replace(/\bKoennen\b/g, "Können")
-    .replace(/\bmuessen\b/g, "müssen")
-    .replace(/\bMuessen\b/g, "Müssen")
-    .replace(/\bwuenschen\b/g, "wünschen")
-    .replace(/\bWuenschen\b/g, "Wünschen")
-    .replace(/\bSchueler\b/g, "Schüler")
-    .replace(/\bschueler\b/g, "schüler")
-    .replace(/\bSchuelerin\b/g, "Schülerin")
-    .replace(/\bschuelerin\b/g, "schülerin")
-    .replace(/\bSchuelerinnen\b/g, "Schülerinnen")
-    .replace(/\bschuelerinnen\b/g, "schülerinnen")
-    .replace(/\bUmschlaege\b/g, "Umschläge")
-    .replace(/\bumschlaege\b/g, "umschläge")
-    .replace(/\bHuelle\b/g, "Hülle")
-    .replace(/\bhuelle\b/g, "hülle")
-    .replace(/\bHeftehuelle\b/g, "Heftehülle")
-    .replace(/\bheftehuelle\b/g, "heftehülle")
-    .replace(/\bKaeufer\b/g, "Käufer")
-    .replace(/\bkaeufer\b/g, "käufer")
-    .replace(/\bMaedchen\b/g, "Mädchen")
-    .replace(/\bmaedchen\b/g, "mädchen")
-    .replace(/\bgroesse\b/g, "größe")
-    .replace(/\bGroesse\b/g, "Größe")
-    .replace(/\bgroesser\b/g, "größer")
-    .replace(/\bGroesser\b/g, "Größer")
-    .replace(/\bweiss\b/g, "weiß")
-    .replace(/\bWeiss\b/g, "Weiß");
-}
-
-function sanitizePdfText(value: string) {
-  return restoreGermanUmlauts(String(value || ""))
-    .replace(/€/g, "EUR")
-    .replace(/–/g, "-")
-    .replace(/—/g, "-")
-    .replace(/„/g, '"')
-    .replace(/“/g, '"')
-    .replace(/’/g, "'")
-    .replace(/…/g, "...");
-}
-
-function drawText(params: {
-  page: PDFPage;
-  text: string;
-  x: number;
-  y: number;
-  size: number;
-  font: PDFFont;
-  color?: ReturnType<typeof rgb>;
-}) {
-  const { page, text, x, y, size, font, color = hexToRgb("#102A43") } = params;
-
-  page.drawText(sanitizePdfText(text), {
-    x,
-    y,
-    size,
-    font,
-    color,
-  });
-}
-
-function splitTextIntoLines(params: {
-  text: string;
-  font: PDFFont;
-  fontSize: number;
-  maxWidth: number;
-}) {
-  const { text, font, fontSize, maxWidth } = params;
-  const words = sanitizePdfText(text).split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    const width = font.widthOfTextAtSize(test, fontSize);
-
-    if (width <= maxWidth) {
-      current = test;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-
-  if (current) lines.push(current);
-  return lines;
-}
-
-function drawWrappedText(params: {
-  page: PDFPage;
-  text: string;
-  x: number;
-  y: number;
-  maxWidth: number;
-  size: number;
-  font: PDFFont;
-  color?: ReturnType<typeof rgb>;
-  lineHeight?: number;
-}) {
-  const {
-    page,
-    text,
-    x,
-    y,
-    maxWidth,
-    size,
-    font,
-    color = hexToRgb("#102A43"),
-    lineHeight = size + 4,
-  } = params;
-
-  const lines = splitTextIntoLines({
-    text,
-    font,
-    fontSize: size,
-    maxWidth,
-  });
-
-  let currentY = y;
-
-  for (const line of lines) {
-    drawText({
-      page,
-      text: line,
-      x,
-      y: currentY,
-      size,
-      font,
-      color,
-    });
-
-    currentY -= lineHeight;
-  }
-
-  return currentY;
-}
-
-function drawHeader(params: {
-  page: PDFPage;
-  boldFont: PDFFont;
-  regularFont: PDFFont;
-}) {
-  const { page, boldFont, regularFont } = params;
-  const primary = hexToRgb("#102A43");
-  const accent = hexToRgb("#8A3A2B");
-  const soft = hexToRgb("#F7EFE6");
-  const muted = hexToRgb("#5C6B73");
-
-  page.drawRectangle({
-    x: 0,
-    y: 732,
-    width: 595,
-    height: 110,
-    color: soft,
-  });
-
-  drawText({
-    page,
-    text: "Handzettel-Schulen.de",
-    x: 48,
-    y: 785,
-    size: 22,
-    font: boldFont,
-    color: primary,
-  });
-
-  drawText({
-    page,
-    text: "Aktualisiertes Schulmaterial-Angebot",
-    x: 48,
-    y: 762,
-    size: 13,
-    font: boldFont,
-    color: accent,
-  });
-
-  drawText({
-    page,
-    text: `Erstellt am ${formatDate()}`,
-    x: 430,
-    y: 785,
-    size: 9,
-    font: regularFont,
-    color: muted,
-  });
-}
-
-async function createOfferPdfBuffer(params: {
-  request: AnyRecord;
-  offerItems: AnyRecord[];
-  acceptUrl: string;
-}) {
-  const { request, offerItems, acceptUrl } = params;
-
-  const pdfDoc = await PDFDocument.create();
-  const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  const primary = hexToRgb("#102A43");
-  const accent = hexToRgb("#8A3A2B");
-  const muted = hexToRgb("#5C6B73");
-  const soft = hexToRgb("#FBF7F0");
-  const white = rgb(1, 1, 1);
-
-  const pageSize: [number, number] = [595.28, 841.89];
-  let page = pdfDoc.addPage(pageSize);
-
-  drawHeader({ page, boldFont, regularFont });
-
-  let y = 700;
-
-  const customerName = getCustomerName(request);
-  const customerEmail = getCustomerEmail(request);
-
-  drawText({
-    page,
-    text: "Angebot für:",
-    x: 48,
-    y,
-    size: 13,
-    font: boldFont,
-    color: primary,
-  });
-
-  y -= 22;
-
-  drawText({
-    page,
-    text: customerName,
-    x: 48,
-    y,
-    size: 11,
-    font: regularFont,
-    color: primary,
-  });
-
-  y -= 16;
-
-  if (customerEmail) {
-    drawText({
-      page,
-      text: customerEmail,
-      x: 48,
-      y,
-      size: 10,
-      font: regularFont,
-      color: muted,
-    });
-
-    y -= 26;
-  } else {
-    y -= 10;
-  }
-
-  y = drawWrappedText({
-    page,
-    text:
-      "Wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot aktualisiert. Die folgenden Positionen bilden den aktuellen Stand Deines Angebots ab.",
-    x: 48,
-    y,
-    maxWidth: 500,
-    size: 11,
-    font: regularFont,
-    color: primary,
-    lineHeight: 16,
-  });
-
-  y -= 25;
-
-  page.drawRectangle({
-    x: 48,
-    y: y - 8,
-    width: 499,
-    height: 28,
-    color: primary,
-  });
-
-  drawText({
-    page,
-    text: "Position",
-    x: 60,
-    y,
-    size: 9,
-    font: boldFont,
-    color: white,
-  });
-
-  drawText({
-    page,
-    text: "Menge",
-    x: 300,
-    y,
-    size: 9,
-    font: boldFont,
-    color: white,
-  });
-
-  drawText({
-    page,
-    text: "Einzel",
-    x: 380,
-    y,
-    size: 9,
-    font: boldFont,
-    color: white,
-  });
-
-  drawText({
-    page,
-    text: "Gesamt",
-    x: 465,
-    y,
-    size: 9,
-    font: boldFont,
-    color: white,
-  });
-
-  y -= 35;
-
-  const items = offerItems.map(normalizeOfferItem);
-  const total = items.reduce((sum, item) => sum + item.total, 0);
-
-  items.forEach((item, index) => {
-    if (y < 110) {
-      page = pdfDoc.addPage(pageSize);
-      drawHeader({ page, boldFont, regularFont });
-      y = 700;
-    }
-
-    const rowHeight = item.note ? 46 : 34;
-
-    if (index % 2 === 0) {
-      page.drawRectangle({
-        x: 48,
-        y: y - 18,
-        width: 499,
-        height: rowHeight,
-        color: soft,
-      });
-    }
-
-    const nameLines = splitTextIntoLines({
-      text: item.name,
-      font: boldFont,
-      fontSize: 9.5,
-      maxWidth: 220,
-    }).slice(0, 2);
-
-    let itemNameY = y;
-
-    nameLines.forEach((line) => {
-      drawText({
-        page,
-        text: line,
-        x: 60,
-        y: itemNameY,
-        size: 9.5,
-        font: boldFont,
-        color: primary,
-      });
-
-      itemNameY -= 12;
-    });
-
-    if (item.note) {
-      const noteLines = splitTextIntoLines({
-        text: item.note,
-        font: regularFont,
-        fontSize: 8,
-        maxWidth: 220,
-      }).slice(0, 2);
-
-      let noteY = y - 24;
-
-      noteLines.forEach((line) => {
-        drawText({
-          page,
-          text: line,
-          x: 60,
-          y: noteY,
-          size: 8,
-          font: regularFont,
-          color: muted,
-        });
-
-        noteY -= 10;
-      });
-    }
-
-    drawText({
-      page,
-      text: `${item.quantity} ${item.unit}`,
-      x: 295,
-      y,
-      size: 9,
-      font: regularFont,
-      color: primary,
-    });
-
-    drawText({
-      page,
-      text: formatMoney(item.unitPrice),
-      x: 365,
-      y,
-      size: 9,
-      font: regularFont,
-      color: primary,
-    });
-
-    drawText({
-      page,
-      text: formatMoney(item.total),
-      x: 455,
-      y,
-      size: 9,
-      font: boldFont,
-      color: primary,
-    });
-
-    y -= rowHeight;
-  });
-
-  y -= 10;
-
-  if (y < 190) {
-    page = pdfDoc.addPage(pageSize);
-    drawHeader({ page, boldFont, regularFont });
-    y = 700;
-  }
-
-  page.drawRectangle({
-    x: 330,
-    y: y - 18,
-    width: 217,
-    height: 45,
-    color: primary,
-  });
-
-  drawText({
-    page,
-    text: "Gesamtbetrag",
-    x: 350,
-    y: y + 5,
-    size: 10,
-    font: regularFont,
-    color: white,
-  });
-
-  drawText({
-    page,
-    text: formatMoney(total),
-    x: 430,
-    y: y + 3,
-    size: 15,
-    font: boldFont,
-    color: white,
-  });
-
-  y -= 70;
-
-  drawText({
-    page,
-    text: "Angebot direkt offiziell annehmen",
-    x: 48,
-    y,
-    size: 12,
-    font: boldFont,
-    color: accent,
-  });
-
-  y -= 22;
-
-  y = drawWrappedText({
-    page,
-    text:
-      "Wenn alles passt, kannst Du Dein Angebot direkt über den Button in der E-Mail offiziell annehmen. Danach wirst Du automatisch zur Angebotsübersicht weitergeleitet.",
-    x: 48,
-    y,
-    maxWidth: 500,
-    size: 10,
-    font: regularFont,
-    color: primary,
-    lineHeight: 14,
-  });
-
-  y -= 10;
-
-  y = drawWrappedText({
-    page,
-    text: acceptUrl,
-    x: 48,
-    y,
-    maxWidth: 500,
-    size: 9,
-    font: boldFont,
-    color: accent,
-    lineHeight: 12,
-  });
-
-  y -= 18;
-
-  drawWrappedText({
-    page,
-    text:
-      "Hinweis: Dieses Angebot wurde auf Basis Deiner hochgeladenen Schulmaterialliste und der aktuellen manuellen Prüfung durch Handzettel-Schulen.de erstellt. Änderungen und Rückfragen sind weiterhin möglich.",
-    x: 48,
-    y,
-    maxWidth: 500,
-    size: 8.5,
-    font: regularFont,
-    color: muted,
-    lineHeight: 12,
-  });
-
-  const pdfBytes = await pdfDoc.save();
-  return Buffer.from(pdfBytes);
+  return getItemQuantity(item) * getItemPrice(item);
 }
 
 function createTransporter() {
@@ -754,27 +186,90 @@ function createTransporter() {
   });
 }
 
-function createMailHtml(params: { customerName: string; acceptUrl: string }) {
-  const { customerName, acceptUrl } = params;
+function escapeHtml(value: string) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-  const greeting = customerName === "Hallo" ? "Hallo," : `Hallo ${customerName},`;
+function createOfferItemsHtml(offerItems: AnyRecord[]) {
+  const visibleItems = offerItems.slice(0, 8);
+
+  return visibleItems
+    .map((item) => {
+      const name = getItemName(item);
+      const sku = getItemSku(item);
+      const quantity = getItemQuantity(item);
+      const unit = getItemUnit(item);
+      const total = getItemTotal(item);
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid #E8DED2;">
+            <div style="font-weight:800;color:#102A43;">${escapeHtml(name)}</div>
+            ${
+              sku
+                ? `<div style="margin-top:3px;font-size:12px;color:#52616F;">Art.-Nr.: ${escapeHtml(
+                    sku
+                  )}</div>`
+                : ""
+            }
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8DED2;text-align:center;color:#52616F;font-weight:700;">
+            ${quantity} ${escapeHtml(unit)}
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #E8DED2;text-align:right;font-weight:800;color:#102A43;">
+            ${formatMoney(total)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function createMailHtml(params: {
+  customerName: string;
+  childName: string;
+  schoolName: string;
+  className: string;
+  requestNumber: string;
+  offerUrl: string;
+  offerItems: AnyRecord[];
+  total: number;
+}) {
+  const {
+    customerName,
+    childName,
+    schoolName,
+    className,
+    requestNumber,
+    offerUrl,
+    offerItems,
+    total,
+  } = params;
+
+  const greeting = customerName ? `Hallo ${escapeHtml(customerName)},` : "Hallo,";
+
+  const hasSchoolInfo = Boolean(childName || schoolName || className);
 
   return `
 <!doctype html>
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>Aktualisiertes Angebot</title>
+    <title>Dein vorbereiteter Paketwunsch</title>
   </head>
   <body style="margin:0;padding:0;background:#FBF7F0;font-family:Arial,Helvetica,sans-serif;color:#102A43;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FBF7F0;padding:28px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #eadfce;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #eadfce;">
             <tr>
               <td style="background:#102A43;padding:28px 30px;color:#ffffff;">
                 <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;">Handzettel-Schulen.de</div>
-                <div style="margin-top:6px;font-size:14px;color:#F7EFE6;">Dein aktualisiertes Schulmaterial-Angebot</div>
+                <div style="margin-top:6px;font-size:14px;color:#F7EFE6;">Dein vorbereiteter Schulmaterial-Paketwunsch</div>
               </td>
             </tr>
 
@@ -783,30 +278,102 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">${greeting}</p>
 
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
-                  wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot für Dich aktualisiert.
+                  Deine Schulmaterialliste wurde ausgewertet und Dein Paketwunsch wurde vorbereitet.
                 </p>
 
-                <p style="margin:0 0 22px;font-size:16px;line-height:1.55;">
-                  Im Anhang findest Du das aktuelle Angebot noch einmal als PDF. Wenn alles passt, kannst Du es über den folgenden Button direkt offiziell annehmen.
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
+                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen.
                 </p>
+
+                ${
+                  hasSchoolInfo || requestNumber
+                    ? `
+                    <div style="background:#FBF7F0;border:1px solid #E8DED2;border-radius:18px;padding:16px;margin:20px 0;">
+                      ${
+                        requestNumber
+                          ? `<p style="margin:0 0 6px;font-size:14px;"><strong>Anfrage:</strong> ${escapeHtml(
+                              requestNumber
+                            )}</p>`
+                          : ""
+                      }
+                      ${
+                        childName
+                          ? `<p style="margin:0 0 6px;font-size:14px;"><strong>Kind:</strong> ${escapeHtml(
+                              childName
+                            )}</p>`
+                          : ""
+                      }
+                      ${
+                        schoolName
+                          ? `<p style="margin:0 0 6px;font-size:14px;"><strong>Schule:</strong> ${escapeHtml(
+                              schoolName
+                            )}</p>`
+                          : ""
+                      }
+                      ${
+                        className
+                          ? `<p style="margin:0;font-size:14px;"><strong>Klasse:</strong> ${escapeHtml(
+                              className
+                            )}</p>`
+                          : ""
+                      }
+                    </div>
+                  `
+                    : ""
+                }
+
+                <div style="border:1px solid #E8DED2;border-radius:18px;padding:16px;margin:22px 0;">
+                  <div style="font-size:13px;font-weight:800;color:#A75B28;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">
+                    Kurzübersicht
+                  </div>
+
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                    <thead>
+                      <tr>
+                        <th align="left" style="font-size:12px;color:#52616F;padding-bottom:8px;">Artikel</th>
+                        <th align="center" style="font-size:12px;color:#52616F;padding-bottom:8px;">Menge</th>
+                        <th align="right" style="font-size:12px;color:#52616F;padding-bottom:8px;">Summe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${createOfferItemsHtml(offerItems)}
+                    </tbody>
+                  </table>
+
+                  ${
+                    offerItems.length > 8
+                      ? `<p style="margin:12px 0 0;font-size:13px;color:#52616F;">+ ${
+                          offerItems.length - 8
+                        } weitere Positionen im Paketwunsch.</p>`
+                      : ""
+                  }
+
+                  <div style="margin-top:16px;background:#102A43;border-radius:16px;padding:16px;color:#ffffff;">
+                    <span style="font-size:14px;color:#F7EFE6;">Aktueller Paketwert</span>
+                    <strong style="float:right;font-size:20px;">${formatMoney(total)}</strong>
+                    <div style="clear:both;"></div>
+                  </div>
+                </div>
 
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0;">
                   <tr>
-                    <td style="border-radius:999px;background:#8A3A2B;">
-                      <a href="${acceptUrl}" style="display:inline-block;padding:15px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;border-radius:999px;">
-                        Angebot offiziell annehmen
+                    <td style="border-radius:16px;background:#B5282D;">
+                      <a href="${offerUrl}" style="display:inline-block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;border-radius:16px;">
+                        Paketwunsch prüfen
                       </a>
                     </td>
                   </tr>
                 </table>
 
-                <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#5C6B73;">
-                  Mit Klick auf den Button wird Dein aktualisiertes Angebot offiziell bestätigt. Danach wirst Du automatisch zur Angebotsübersicht weitergeleitet.
-                </p>
+                <div style="background:#FFF8EE;border:1px solid #F1D1A8;border-radius:18px;padding:16px;margin:24px 0;color:#8A4A1F;">
+                  <p style="margin:0;font-size:14px;line-height:1.55;font-weight:700;">
+                    Wichtig: Mit dem Öffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns übermittelt.
+                  </p>
+                </div>
 
                 <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#5C6B73;">
                   Falls der Button nicht funktioniert, kopiere diesen Link in Deinen Browser:<br />
-                  <a href="${acceptUrl}" style="color:#8A3A2B;word-break:break-all;">${acceptUrl}</a>
+                  <a href="${offerUrl}" style="color:#8A3A2B;word-break:break-all;">${offerUrl}</a>
                 </p>
 
                 <p style="margin:26px 0 0;font-size:16px;line-height:1.55;">
@@ -818,7 +385,7 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
 
             <tr>
               <td style="padding:18px 30px;background:#FBF7F0;color:#5C6B73;font-size:12px;line-height:1.45;">
-                Diese E-Mail wurde gesendet, weil Du über Handzettel-Schulen.de eine Schulmaterialliste hochgeladen hast.
+                Diese E-Mail wurde gesendet, weil Du über Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
               </td>
             </tr>
           </table>
@@ -829,38 +396,116 @@ function createMailHtml(params: { customerName: string; acceptUrl: string }) {
 </html>`;
 }
 
+function createMailText(params: {
+  customerName: string;
+  childName: string;
+  schoolName: string;
+  className: string;
+  requestNumber: string;
+  offerUrl: string;
+  offerItems: AnyRecord[];
+  total: number;
+}) {
+  const {
+    customerName,
+    childName,
+    schoolName,
+    className,
+    requestNumber,
+    offerUrl,
+    offerItems,
+    total,
+  } = params;
+
+  const greeting = customerName ? `Hallo ${customerName},` : "Hallo,";
+
+  const itemLines = offerItems
+    .slice(0, 10)
+    .map((item) => {
+      const name = getItemName(item);
+      const quantity = getItemQuantity(item);
+      const unit = getItemUnit(item);
+      const totalPrice = getItemTotal(item);
+
+      return `- ${quantity} ${unit} ${name} · ${formatMoney(totalPrice)}`;
+    })
+    .join("\n");
+
+  const moreLine =
+    offerItems.length > 10
+      ? `\n+ ${offerItems.length - 10} weitere Positionen im Paketwunsch.`
+      : "";
+
+  return `${greeting}
+
+Deine Schulmaterialliste wurde ausgewertet und Dein Paketwunsch wurde vorbereitet.
+
+Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen.
+
+${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
+    childName ? `Kind: ${childName}\n` : ""
+  }${schoolName ? `Schule: ${schoolName}\n` : ""}${
+    className ? `Klasse: ${className}\n` : ""
+  }
+
+Kurzübersicht:
+${itemLines}${moreLine}
+
+Aktueller Paketwert: ${formatMoney(total)}
+
+Paketwunsch prüfen:
+${offerUrl}
+
+Wichtig:
+Mit dem Öffnen des Links bestellst Du noch nichts automatisch.
+Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns übermittelt.
+
+Viele Grüße
+Dein Team von Handzettel-Schulen.de`;
+}
+
 async function insertEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   message: string;
-  acceptUrl: string;
+  offerUrl: string;
+  customerEmail: string;
 }) {
-  const { supabase, requestId, message, acceptUrl } = params;
+  const { supabase, requestId, message, offerUrl, customerEmail } = params;
 
-  try {
-    await supabase.from("school_request_events").insert({
+  const payloads = [
+    {
       request_id: requestId,
-      event_type: "offer_update_mail_sent",
-      title: "Aktualisiertes Angebot versandt",
+      event_type: "package_wishlist_mail_sent",
+      title: "Paketwunsch-Mail versendet",
       message,
       description: message,
       metadata: {
-        accept_url_type: "direct_confirm_link",
-        accept_url: acceptUrl,
+        offer_url_type: "customer_package_review_link",
+        offer_url: offerUrl,
+        email: customerEmail,
       },
       created_at: new Date().toISOString(),
-    });
-  } catch {
-    try {
-      await supabase.from("school_request_events").insert({
-        request_id: requestId,
-        event_type: "offer_update_mail_sent",
-        message,
-        created_at: new Date().toISOString(),
-      });
-    } catch {
-      // Der Verlauf darf den Mailversand nicht blockieren.
-    }
+    },
+    {
+      request_id: requestId,
+      event_type: "offer_link_email_sent",
+      title: "Paketwunsch-Link per E-Mail gesendet",
+      message,
+      description: message,
+      metadata: {
+        offer_url_type: "customer_package_review_link",
+        offer_url: offerUrl,
+        email: customerEmail,
+      },
+      created_at: new Date().toISOString(),
+    },
+  ];
+
+  for (const payload of payloads) {
+    const { error } = await supabase.from("school_request_events").insert(payload);
+
+    if (!error) return;
   }
 }
 
@@ -897,6 +542,9 @@ export async function POST(_request: Request, context: RouteContext) {
 
     const customerEmail = getCustomerEmail(schoolRequest);
     const customerName = getCustomerName(schoolRequest);
+    const childName = getChildName(schoolRequest);
+    const schoolName = getSchoolName(schoolRequest);
+    const className = getClassName(schoolRequest);
     const token = getRequestToken(schoolRequest);
 
     if (!customerEmail) {
@@ -915,7 +563,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Für diese Anfrage wurde kein Angebots-Token gefunden. Der Annahmelink kann nicht erstellt werden.",
+            "Für diese Anfrage wurde kein Angebots-Token gefunden. Der Paketwunsch-Link kann nicht erstellt werden.",
         },
         { status: 400 }
       );
@@ -931,7 +579,7 @@ export async function POST(_request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Angebotspositionen konnten nicht geladen werden.",
+          error: "Paketpositionen konnten nicht geladen werden.",
           details: offerItemsError.message,
         },
         { status: 500 }
@@ -943,23 +591,18 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Es sind noch keine Angebotspositionen vorhanden. Bitte erst das Angebot manuell ergänzen oder Produkte übernehmen.",
+            "Es sind noch keine Paketpositionen vorhanden. Bitte erst Liste auswerten, Produkte übernehmen oder manuell ergänzen.",
         },
         { status: 400 }
       );
     }
 
     const encodedToken = encodeURIComponent(token);
+    const offerUrl = `${getSiteUrl()}/angebot/${encodedToken}`;
 
-    const acceptUrl = `${getSiteUrl()}/api/offer/${encodedToken}/confirm?via=update-mail`;
-
-    const overviewUrl = `${getSiteUrl()}/angebot/${encodedToken}`;
-
-    const pdfBuffer = await createOfferPdfBuffer({
-      request: schoolRequest,
-      offerItems,
-      acceptUrl,
-    });
+    const total = offerItems.reduce((sum, item) => {
+      return sum + getItemTotal(item);
+    }, 0);
 
     const transporter = createTransporter();
 
@@ -968,50 +611,35 @@ export async function POST(_request: Request, context: RouteContext) {
       process.env.SMTP_USER ||
       "Handzettel-Schulen.de";
 
-    const subject = "Dein aktualisiertes Angebot von Handzettel-Schulen.de";
+    const requestNumber = pickFirst(schoolRequest, ["request_number"], "");
 
-    const greeting = customerName === "Hallo" ? "Hallo," : `Hallo ${customerName},`;
+    const subject = "Dein vorbereiteter Paketwunsch von Handzettel-Schulen.de";
+
+    const mailParams = {
+      customerName,
+      childName,
+      schoolName,
+      className,
+      requestNumber,
+      offerUrl,
+      offerItems,
+      total,
+    };
 
     await transporter.sendMail({
       from,
       to: customerEmail,
       subject,
-      text: `${greeting}
-
-wir haben Deinen Schulmaterial-Paketwunsch geprüft und das Angebot für Dich aktualisiert.
-
-Im Anhang findest Du das aktuelle Angebot noch einmal als PDF.
-
-Wenn alles passt, kannst Du das Angebot über diesen Link direkt offiziell annehmen:
-
-${acceptUrl}
-
-Nach der Bestätigung wirst Du automatisch zur Angebotsübersicht weitergeleitet.
-
-Falls Du das Angebot nur ansehen möchtest, nutze diese Übersicht:
-
-${overviewUrl}
-
-Viele Grüße
-Dein Team von Handzettel-Schulen.de`,
-      html: createMailHtml({
-        customerName,
-        acceptUrl,
-      }),
-      attachments: [
-        {
-          filename: `aktualisiertes-angebot-handzettel-schulen-${safeFilePart(requestId)}.pdf`,
-          content: pdfBuffer,
-          contentType: "application/pdf",
-        },
-      ],
+      text: createMailText(mailParams),
+      html: createMailHtml(mailParams),
     });
 
     await insertEvent({
       supabase,
       requestId,
-      acceptUrl,
-      message: `Aktualisierungsmail mit PDF-Angebot und direktem Bestätigungslink wurde an ${customerEmail} gesendet.`,
+      offerUrl,
+      customerEmail,
+      message: `Paketwunsch-Mail mit Prüflink wurde an ${customerEmail} gesendet.`,
     });
 
     await supabase
@@ -1024,16 +652,15 @@ Dein Team von Handzettel-Schulen.de`,
 
     return NextResponse.json({
       ok: true,
-      message: "Aktualisierungsmail wurde erfolgreich gesendet.",
+      message: "Paketwunsch-Mail wurde erfolgreich gesendet.",
       sentTo: customerEmail,
-      acceptUrl,
-      overviewUrl,
+      offerUrl,
     });
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
-        : "Unbekannter Fehler beim Senden der Aktualisierungsmail.";
+        : "Unbekannter Fehler beim Senden der Paketwunsch-Mail.";
 
     return NextResponse.json(
       {
