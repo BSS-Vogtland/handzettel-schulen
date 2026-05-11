@@ -941,8 +941,10 @@ export default async function CustomerOfferPage({ params }: Params) {
   const isConfirmed =
     request.status === "confirmed" || request.offer_status === "confirmed";
 
+  const hasNoRecognizedItems = items.length === 0;
+
   const shouldShowPrepareButton =
-    !isConfirmed && (items.length === 0 || matches.length === 0);
+    !isConfirmed && !hasNoRecognizedItems && matches.length === 0;
 
   const totalPrice = selectedOfferItems.reduce((sum, item) => {
     const quantity = toNumber(item.quantity, 1);
@@ -1010,18 +1012,22 @@ export default async function CustomerOfferPage({ params }: Params) {
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
                       ? "Dein Schulpaket ist bestätigt"
-                      : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
+                      : hasNoRecognizedItems
+                        ? "Deine Liste wird persönlich geprüft"
+                        : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
                       ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor."
-                      : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
+                      : hasNoRecognizedItems
+                        ? "Deine Anfrage ist angekommen. Wir konnten aus der Liste noch keine eindeutigen Materialpositionen erkennen. Deshalb prüfen wir sie persönlich und bereiten Deinen Paketwunsch manuell vor."
+                        : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
               </div>
 
-              {!isConfirmed ? (
+              {!isConfirmed && !hasNoRecognizedItems ? (
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
@@ -1052,6 +1058,42 @@ export default async function CustomerOfferPage({ params }: Params) {
                     </p>
                     <p className="mt-1 text-sm font-semibold leading-6">
                       Erst danach wird Dein Paketwunsch verbindlich übermittelt.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {!isConfirmed && hasNoRecognizedItems ? (
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[22px] border border-[#F1B8B8] bg-[#FFF4F4] p-4 text-[#C82632]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Status
+                    </p>
+                    <p className="mt-1 font-black">Manuelle Prüfung</p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Deine Liste wird von uns persönlich geprüft.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-[#A75B28]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Wichtig
+                    </p>
+                    <p className="mt-1 font-black">Du musst nichts tun</p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Wir melden uns, sobald Dein Paketwunsch vorbereitet ist.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#52616F]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Service
+                    </p>
+                    <p className="mt-1 font-black text-[#102A43]">
+                      Persönliche Bearbeitung
+                    </p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Unsichere Listen werden nicht automatisch geraten.
                     </p>
                   </div>
                 </div>
@@ -1090,7 +1132,9 @@ export default async function CustomerOfferPage({ params }: Params) {
                 <div className="flex justify-between gap-3">
                   <span>Persönliche Prüfung</span>
                   <span className="font-black text-[#52616F]">
-                    {manualReviewItems.length}
+                    {hasNoRecognizedItems
+                      ? 1
+                      : manualReviewItems.length}
                   </span>
                 </div>
               </div>
@@ -1101,11 +1145,23 @@ export default async function CustomerOfferPage({ params }: Params) {
                 </div>
               ) : null}
 
-              {!isConfirmed ? (
+              {!isConfirmed && !hasNoRecognizedItems ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
                   Du sendest erst mit dem Bestätigungsbutton Deinen Paketwunsch
                   ab. Vorher kannst Du Artikel entfernen oder ergänzen.
                 </p>
+              ) : null}
+
+              {!isConfirmed && hasNoRecognizedItems ? (
+                <div className="mt-5 rounded-2xl border border-[#F1B8B8] bg-white p-4 text-[#C82632]">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p className="text-sm font-black">
+                      Automatische Paketvorbereitung nicht möglich. Wir prüfen
+                      die Liste persönlich.
+                    </p>
+                  </div>
+                </div>
               ) : null}
 
               {isConfirmed ? (
@@ -1151,7 +1207,7 @@ export default async function CustomerOfferPage({ params }: Params) {
               Wir prüfen für Dich
             </p>
             <p className="mt-2 text-3xl font-black text-[#102A43]">
-              {manualReviewItems.length}
+              {hasNoRecognizedItems ? 1 : manualReviewItems.length}
             </p>
           </div>
         </section>
@@ -1196,13 +1252,53 @@ export default async function CustomerOfferPage({ params }: Params) {
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed ? "Abgesendet" : "Noch prüfbar"}
+              {isConfirmed
+                ? "Abgesendet"
+                : hasNoRecognizedItems
+                  ? "Manuelle Prüfung"
+                  : "Noch prüfbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
-              {handledItemCount} von {items.length} Positionen im Paket
+              {hasNoRecognizedItems
+                ? "Keine eindeutigen Positionen erkannt"
+                : `${handledItemCount} von ${items.length} Positionen im Paket`}
             </p>
           </div>
         </section>
+
+        {hasNoRecognizedItems && !isConfirmed ? (
+          <section className="rounded-[32px] border border-[#F1B8B8] bg-[#FFF4F4] p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#C82632]">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#C82632]">
+                    Manuelle Prüfung erforderlich
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                    Wir konnten aus Deiner Liste keine eindeutigen Positionen
+                    erkennen.
+                  </h2>
+
+                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                    Deine Anfrage ist trotzdem angekommen. Bitte starte hier
+                    keine automatische Paketvorbereitung mehr. Wir prüfen Deine
+                    Liste persönlich und melden uns, sobald Dein Paketwunsch
+                    vorbereitet ist.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#F1B8B8] bg-white px-4 py-3 text-sm font-black text-[#C82632]">
+                Wird persönlich geprüft
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {shouldShowPrepareButton ? (
           <CustomerPreparePackageButton token={token} />
