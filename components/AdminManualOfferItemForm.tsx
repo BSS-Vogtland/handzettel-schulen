@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ImageIcon,
@@ -14,7 +14,7 @@ import {
 
 type AdminManualOfferItemFormProps = {
   requestId: string;
-  requestItemId: string;
+  requestItemId?: string | null;
   defaultProductName?: string | null;
   defaultQuantity?: number | string | null;
   buttonLabel?: string;
@@ -61,12 +61,17 @@ function formatMoney(value: number) {
 
 export default function AdminManualOfferItemForm({
   requestId,
-  requestItemId,
+  requestItemId = null,
   defaultProductName,
   defaultQuantity,
   buttonLabel = "Manuell Produkt ergänzen",
 }: AdminManualOfferItemFormProps) {
   const router = useRouter();
+
+  const fieldKey = useMemo(
+    () => requestItemId || "global-manual-offer-item",
+    [requestItemId]
+  );
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -229,7 +234,7 @@ export default function AdminManualOfferItemForm({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            requestItemId,
+            requestItemId: requestItemId || null,
             productName: productName.trim(),
             productSku: productSku.trim(),
             productPrice: productPrice.trim(),
@@ -466,13 +471,13 @@ export default function AdminManualOfferItemForm({
       <div className="grid gap-4">
         <div>
           <label
-            htmlFor={`manual-product-name-${requestItemId}`}
+            htmlFor={`manual-product-name-${fieldKey}`}
             className="mb-2 block text-sm font-black text-[#102A43]"
           >
             Produktname*
           </label>
           <input
-            id={`manual-product-name-${requestItemId}`}
+            id={`manual-product-name-${fieldKey}`}
             type="text"
             value={productName}
             onChange={(event) => {
@@ -487,13 +492,13 @@ export default function AdminManualOfferItemForm({
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label
-              htmlFor={`manual-product-sku-${requestItemId}`}
+              htmlFor={`manual-product-sku-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
               Art.-Nr.
             </label>
             <input
-              id={`manual-product-sku-${requestItemId}`}
+              id={`manual-product-sku-${fieldKey}`}
               type="text"
               value={productSku}
               onChange={(event) => {
@@ -507,13 +512,13 @@ export default function AdminManualOfferItemForm({
 
           <div>
             <label
-              htmlFor={`manual-product-price-${requestItemId}`}
+              htmlFor={`manual-product-price-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
               Einzelpreis
             </label>
             <input
-              id={`manual-product-price-${requestItemId}`}
+              id={`manual-product-price-${fieldKey}`}
               type="text"
               value={productPrice}
               onChange={(event) => {
@@ -527,13 +532,13 @@ export default function AdminManualOfferItemForm({
 
           <div>
             <label
-              htmlFor={`manual-quantity-${requestItemId}`}
+              htmlFor={`manual-quantity-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
               Menge*
             </label>
             <input
-              id={`manual-quantity-${requestItemId}`}
+              id={`manual-quantity-${fieldKey}`}
               type="text"
               value={quantity}
               onChange={(event) => setQuantity(event.target.value)}
@@ -546,13 +551,13 @@ export default function AdminManualOfferItemForm({
         <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
           <div>
             <label
-              htmlFor={`manual-unit-${requestItemId}`}
+              htmlFor={`manual-unit-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
               Einheit
             </label>
             <input
-              id={`manual-unit-${requestItemId}`}
+              id={`manual-unit-${fieldKey}`}
               type="text"
               value={unit}
               onChange={(event) => setUnit(event.target.value)}
@@ -563,13 +568,13 @@ export default function AdminManualOfferItemForm({
 
           <div>
             <label
-              htmlFor={`manual-notes-${requestItemId}`}
+              htmlFor={`manual-notes-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
               Notiz
             </label>
             <input
-              id={`manual-notes-${requestItemId}`}
+              id={`manual-notes-${fieldKey}`}
               type="text"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -598,7 +603,8 @@ export default function AdminManualOfferItemForm({
               <span className="mt-1 block text-xs font-semibold leading-5 text-[#52616F]">
                 Speichert die erkannte Listenposition als Alias zum gewählten
                 Produkt. Dadurch wird dieses Produkt bei ähnlichen Listen künftig
-                besser vorgeschlagen.
+                besser vorgeschlagen. Bei Ergänzungen ohne erkannte Position wird
+                der angegebene Alias/Suchbegriff verwendet.
               </span>
             </span>
           </label>

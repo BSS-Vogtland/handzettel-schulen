@@ -265,6 +265,8 @@ function getOfferStatusLabel(status: string | null) {
       return "Angebot gesendet";
     case "customer_selection":
       return "Kundenauswahl";
+    case "manual_review":
+      return "Manuelle Prüfung";
     case "confirmed":
       return "Bestätigt";
     default:
@@ -282,6 +284,10 @@ function getAiStatusLabel(status: string | null) {
       return "Fertig";
     case "error":
       return "Fehler";
+    case "manual_review":
+      return "Manuelle Prüfung";
+    case "missing_file":
+      return "Datei fehlt";
     case "unsupported_file_type":
       return "Dateityp nicht unterstützt";
     case "no_items_detected":
@@ -491,6 +497,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
     return selected.length === 0 && itemMatches.length === 0;
   });
 
+  const manualReviewCount =
+    manualReviewItems.length + (items.length === 0 ? 1 : 0);
+
   const selectedTotal = offerItems.reduce((sum, item) => {
     return sum + toNumber(item.quantity, 1) * toNumber(item.product_price, 0);
   }, 0);
@@ -581,8 +590,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Jede erkannte Position hat dauerhaft eine manuelle Bearbeitung.
                 Zusätzlich kannst Du vorhandene Paketpositionen direkt bearbeiten
-                oder entfernen. Nach der Vorbereitung kannst Du dem Kunden den
-                Paketwunsch-Link sauber per Mail senden.
+                oder entfernen. Wenn keine Positionen erkannt wurden, kannst Du
+                trotzdem direkt Produkte in den Paketwunsch legen.
               </p>
             </div>
 
@@ -667,7 +676,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               Manuell prüfen
             </p>
-            <p className="mt-2 text-3xl font-black">{manualReviewItems.length}</p>
+            <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
           </div>
         </section>
 
@@ -880,7 +889,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               aiStatus={request.ai_status}
               itemsCount={items.length}
               offerItemsCount={offerItems.length}
-              manualReviewItemsCount={manualReviewItems.length}
+              manualReviewItemsCount={manualReviewCount}
               events={events}
               updatedAt={request.updated_at}
             />
@@ -969,8 +978,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
                   <p className="mt-1 text-sm leading-6 text-[#52616F]">
                     Unter jeder Position findest Du dauerhaft den Bereich
-                    „Manuelle Bearbeitung“. Bereits übernommene Paketpositionen
-                    kannst Du bearbeiten oder löschen.
+                    „Manuelle Bearbeitung“. Wenn keine Positionen erkannt
+                    wurden, kannst Du trotzdem direkt Produkte in den
+                    Paketwunsch übernehmen.
                   </p>
                 </div>
               </div>
@@ -1201,15 +1211,38 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   })}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-6 text-center">
-                  <p className="font-black text-[#102A43]">
-                    Noch keine Positionen erkannt.
-                  </p>
+                <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
 
-                  <p className="mt-2 text-sm text-[#52616F]">
-                    Sobald die Kundenseite ausgewertet wurde, erscheinen hier die
-                    erkannten Listenpositionen.
-                  </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Manuelle Bearbeitung
+                      </p>
+
+                      <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                        Noch keine Positionen erkannt.
+                      </h3>
+
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                        Die automatische Erkennung konnte keine eindeutigen
+                        Listenpositionen erstellen. Du kannst trotzdem direkt
+                        Produkte in den Paketwunsch legen. Diese Produkte
+                        erscheinen anschließend auf der Kundenseite und können
+                        dem Kunden per Paketwunsch-Mail geschickt werden.
+                      </p>
+
+                      <AdminManualOfferItemForm
+                        requestId={request.id}
+                        requestItemId={null}
+                        defaultProductName=""
+                        defaultQuantity={1}
+                        buttonLabel="Produkt ohne erkannte Position hinzufügen"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
