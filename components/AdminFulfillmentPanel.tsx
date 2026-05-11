@@ -263,7 +263,8 @@ export default function AdminFulfillmentPanel({
     paymentStatus === "cash_on_pickup" &&
     isPickup;
 
-  const canPrepareFulfillment = isConfirmed && (paymentIsPaid || cashOnPickupPending);
+  const canPrepareFulfillment =
+    isConfirmed && (paymentIsPaid || cashOnPickupPending);
   const canFinishPickup = isConfirmed && paymentIsPaid;
   const canShip = isConfirmed && paymentIsPaid;
 
@@ -324,6 +325,11 @@ export default function AdminFulfillmentPanel({
     <section className="rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm sm:p-6 print:border-0 print:bg-white print:p-0 print:shadow-none">
       <style jsx global>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+
           body {
             background: white !important;
           }
@@ -342,9 +348,49 @@ export default function AdminFulfillmentPanel({
 
           .print-avoid-break {
             break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .print-only {
+            display: block !important;
+          }
+
+          .print-table {
+            border: 1px solid #102a43 !important;
+          }
+
+          .print-table-header {
+            background: #ffffff !important;
+            color: #102a43 !important;
+            border-bottom: 1px solid #102a43 !important;
+          }
+
+          .print-row {
+            background: #ffffff !important;
+            border-bottom: 1px solid #d8c8b8 !important;
+          }
+
+          .print-box {
+            border: 1px solid #102a43 !important;
+            background: #ffffff !important;
+            color: #102a43 !important;
           }
         }
       `}</style>
+
+      <div className="hidden print-only mb-4 border-b border-[#102A43] pb-3">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#102A43]">
+          Handzettel-Schulen.de · Interne Packliste
+        </p>
+        <h1 className="mt-1 text-2xl font-black text-[#102A43]">
+          Pickingliste & Packkontrolle
+        </h1>
+        <div className="mt-2 grid grid-cols-3 gap-3 text-xs font-bold text-[#102A43]">
+          <p>Gedruckt: {formatDateTime(new Date().toISOString())}</p>
+          <p>Positionen: {offerItems.length}</p>
+          <p>Artikel gesamt: {totalQuantity}</p>
+        </div>
+      </div>
 
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between print:mb-4">
         <div className="flex items-start gap-3">
@@ -353,7 +399,7 @@ export default function AdminFulfillmentPanel({
           </div>
 
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50] print:text-[#102A43]">
               Angebot bestätigt · Abwicklung
             </p>
 
@@ -361,7 +407,7 @@ export default function AdminFulfillmentPanel({
               Pickingliste & Übergabe-Workflow
             </h2>
 
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] print:text-xs">
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] print:text-xs print:text-[#102A43]">
               Sobald das Angebot bestätigt wurde, beginnt hier die operative
               Bearbeitung: Produkte picken, Paket packen und je nach
               Kundenwunsch zur Abholung oder zum Versand vorbereiten.
@@ -427,37 +473,37 @@ export default function AdminFulfillmentPanel({
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-5 print:grid-cols-5 print:gap-2">
-        <div className="rounded-[24px] border border-[#BFE3CD] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="rounded-[24px] border border-[#BFE3CD] bg-white p-4 print-box print:rounded-none print:p-2">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50] print:hidden">
             <CheckCircle2 className="h-5 w-5" />
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50] print:text-[#102A43]">
             Bestätigung
           </p>
-          <p className="mt-2 font-black text-[#102A43]">
+          <p className="mt-2 font-black text-[#102A43] print:mt-1">
             {isConfirmed ? "Bestätigt" : "Noch nicht bestätigt"}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          <p className="mt-1 text-xs font-semibold text-[#52616F] print:text-[#102A43]">
             {formatDateTime(confirmedAt)}
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print-box print:rounded-none print:p-2">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28] print:hidden">
             <ShoppingBasket className="h-5 w-5" />
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28] print:text-[#102A43]">
             Picking
           </p>
-          <p className="mt-2 font-black text-[#102A43]">
+          <p className="mt-2 font-black text-[#102A43] print:mt-1">
             {getPickingStatusLabel(pickingStatus)}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          <p className="mt-1 text-xs font-semibold text-[#52616F] print:text-[#102A43]">
             Start: {formatDateTime(pickingStartedAt)}
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print-box print:rounded-none print:p-2">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#12395F] print:hidden">
             {isShipping ? (
               <Truck className="h-5 w-5" />
@@ -465,47 +511,47 @@ export default function AdminFulfillmentPanel({
               <MapPin className="h-5 w-5" />
             )}
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F] print:text-[#102A43]">
             Übergabe
           </p>
-          <p className="mt-2 font-black text-[#102A43]">
+          <p className="mt-2 font-black text-[#102A43] print:mt-1">
             {getFulfillmentMethodLabel(fulfillmentMethod)}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          <p className="mt-1 text-xs font-semibold text-[#52616F] print:text-[#102A43]">
             {getFulfillmentStatusLabel(fulfillmentStatus)}
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print-box print:rounded-none print:p-2">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#52616F] print:hidden">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F] print:text-[#102A43]">
             Zahlung
           </p>
-          <p className="mt-2 font-black text-[#102A43]">
+          <p className="mt-2 font-black text-[#102A43] print:mt-1">
             {paymentIsPaid
               ? "Bezahlt"
               : cashOnPickupPending
               ? "Bar bei Abholung"
               : "Noch offen"}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          <p className="mt-1 text-xs font-semibold text-[#52616F] print:text-[#102A43]">
             {getPaymentMethodLabel(selectedPaymentMethod)}
           </p>
         </div>
 
-        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print-box print:rounded-none print:p-2">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#52616F] print:hidden">
             <Clock className="h-5 w-5" />
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F] print:text-[#102A43]">
             Paketwert
           </p>
-          <p className="mt-2 font-black text-[#102A43]">
+          <p className="mt-2 font-black text-[#102A43] print:mt-1">
             {formatMoney(total)}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          <p className="mt-1 text-xs font-semibold text-[#52616F] print:text-[#102A43]">
             {offerItems.length} Position
             {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
           </p>
@@ -541,16 +587,16 @@ export default function AdminFulfillmentPanel({
       </div>
 
       {isPickup ? (
-        <div className="mt-5 rounded-[26px] border border-[#BFE3CD] bg-white p-4 print:rounded-xl print:p-3">
+        <div className="mt-5 rounded-[26px] border border-[#BFE3CD] bg-white p-4 print-box print:rounded-none print:p-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50] print:text-[#102A43]">
                 Abholung
               </p>
               <h3 className="mt-1 font-black text-[#102A43]">
                 {pickupLocationLabel || "Abholung im Laden"}
               </h3>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F] print:text-[#102A43]">
                 {pickupAddressSnapshot || "Keine Abholadresse gespeichert."}
               </p>
             </div>
@@ -569,7 +615,7 @@ export default function AdminFulfillmentPanel({
           </div>
 
           {pickupMapsUrlSnapshot ? (
-            <p className="mt-3 hidden text-xs font-semibold text-[#52616F] print:block">
+            <p className="mt-3 hidden text-xs font-semibold text-[#52616F] print:block print:text-[#102A43]">
               Route: {pickupMapsUrlSnapshot}
             </p>
           ) : null}
@@ -577,20 +623,20 @@ export default function AdminFulfillmentPanel({
       ) : null}
 
       {isShipping ? (
-        <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4 print:rounded-xl print:p-3">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+        <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4 print-box print:rounded-none print:p-3">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F] print:text-[#102A43]">
             Versand
           </p>
           <h3 className="mt-1 font-black text-[#102A43]">
             Versand vom Kunden gewünscht
           </h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F] print:text-[#102A43]">
             Versandkostenstatus: {getShippingCostLabel(shippingCostStatus)}
           </p>
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-0 print:border-0">
+      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4 print:rounded-none print:border-0 print:p-0">
         <div className="mb-4 flex items-start justify-between gap-3 print:mb-2">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28] print:hidden">
@@ -598,7 +644,7 @@ export default function AdminFulfillmentPanel({
             </div>
 
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28] print:text-[#102A43]">
                 Pickingliste
               </p>
               <h3 className="font-black text-[#102A43]">
@@ -607,19 +653,22 @@ export default function AdminFulfillmentPanel({
             </div>
           </div>
 
-          <div className="hidden text-right text-xs font-bold text-[#52616F] print:block">
+          <div className="hidden text-right text-xs font-bold text-[#52616F] print:block print:text-[#102A43]">
             <p>Erstellt: {formatDateTime(new Date().toISOString())}</p>
             <p>Positionen: {offerItems.length}</p>
           </div>
         </div>
 
         {offerItems.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-[#E8DED2] print:rounded-none">
-            <div className="grid grid-cols-[44px_72px_1fr_100px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:border-b print:border-[#102A43] print:bg-white print:text-[#102A43]">
+          <div className="overflow-hidden rounded-2xl border border-[#E8DED2] print-table print:rounded-none">
+            <div className="print-table-header grid grid-cols-[44px_72px_1fr_100px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[52px_80px_1fr_150px_120px_90px] print:grid-cols-[38px_58px_1fr_90px_70px_70px] print:px-2 print:py-2">
               <div>OK</div>
               <div>Menge</div>
               <div>Artikel</div>
               <div className="hidden md:block print:block">Art.-Nr.</div>
+              <div className="hidden text-center md:block print:block">
+                Gepickt
+              </div>
               <div className="text-right">Wert</div>
             </div>
 
@@ -631,7 +680,7 @@ export default function AdminFulfillmentPanel({
               return (
                 <div
                   key={item.id}
-                  className={`print-avoid-break grid grid-cols-[44px_72px_1fr_100px] gap-3 px-4 py-4 text-sm md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:gap-2 print:border-b print:border-[#E8DED2] print:px-0 print:py-3 ${
+                  className={`print-row print-avoid-break grid grid-cols-[44px_72px_1fr_100px] gap-3 px-4 py-4 text-sm md:grid-cols-[52px_80px_1fr_150px_120px_90px] print:grid-cols-[38px_58px_1fr_90px_70px_70px] print:gap-2 print:px-2 print:py-2 ${
                     index % 2 === 0 ? "bg-[#FBF7F0]" : "bg-white"
                   } print:bg-white`}
                 >
@@ -658,14 +707,25 @@ export default function AdminFulfillmentPanel({
                     </p>
 
                     {item.notes ? (
-                      <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F] print:mt-1">
+                      <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F] print:mt-1 print:text-[#102A43]">
                         Hinweis: {item.notes}
                       </p>
                     ) : null}
+
+                    <div className="mt-2 hidden print:block">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#102A43]">
+                        Ersatzartikel / Bemerkung
+                      </p>
+                      <div className="mt-3 h-px bg-[#102A43]" />
+                    </div>
                   </div>
 
-                  <div className="hidden text-sm font-semibold text-[#52616F] md:block print:block">
+                  <div className="hidden text-sm font-semibold text-[#52616F] md:block print:block print:text-[#102A43]">
                     {item.product_sku || "—"}
+                  </div>
+
+                  <div className="hidden justify-center md:flex print:flex">
+                    <div className="h-6 w-6 rounded-md border-2 border-[#102A43] bg-white" />
                   </div>
 
                   <div className="text-right font-black text-[#102A43]">
@@ -675,12 +735,12 @@ export default function AdminFulfillmentPanel({
               );
             })}
 
-            <div className="grid grid-cols-[1fr_140px] bg-white px-4 py-4 text-sm print:px-0">
+            <div className="grid grid-cols-[1fr_140px] bg-white px-4 py-4 text-sm print:px-2 print:py-2">
               <div className="font-black text-[#102A43]">
                 Gesamt: {offerItems.length} Position
                 {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
               </div>
-              <div className="text-right text-lg font-black text-[#102A43]">
+              <div className="text-right text-lg font-black text-[#102A43] print:text-base">
                 {formatMoney(total)}
               </div>
             </div>
@@ -690,6 +750,41 @@ export default function AdminFulfillmentPanel({
             Noch keine Paketpositionen vorhanden.
           </div>
         )}
+      </div>
+
+      <div className="mt-5 hidden print:block">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="print-box p-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#102A43]">
+              Kontrolle
+            </p>
+            <div className="mt-3 space-y-2 text-xs font-bold text-[#102A43]">
+              <p>☐ Alle Artikel gepickt</p>
+              <p>☐ Alle Artikel gepackt</p>
+              <p>☐ Zahlung / Barzahlung geprüft</p>
+            </div>
+          </div>
+
+          <div className="print-box p-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#102A43]">
+              Packende Person
+            </p>
+            <div className="mt-10 border-b border-[#102A43]" />
+            <p className="mt-1 text-xs font-bold text-[#102A43]">
+              Name / Kürzel
+            </p>
+          </div>
+
+          <div className="print-box p-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#102A43]">
+              Abschluss
+            </p>
+            <div className="mt-10 border-b border-[#102A43]" />
+            <p className="mt-1 text-xs font-bold text-[#102A43]">
+              Datum / Unterschrift
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="print-hidden mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
