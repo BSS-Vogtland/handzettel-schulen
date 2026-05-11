@@ -2,10 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Camera,
   ImageIcon,
   PackagePlus,
   Search,
   ShoppingBasket,
+  Smartphone,
   Sparkles,
 } from "lucide-react";
 import AdminQuickProductForm from "@/components/AdminQuickProductForm";
@@ -173,10 +175,18 @@ export default async function AdminProductsPage() {
             <ArrowLeft className="h-4 w-4" />
             Zurück zum Admin-Bereich
           </Link>
+
+          <Link
+            href="/admin/produkte/mobile"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+          >
+            <Smartphone className="h-4 w-4" />
+            Mobile Produkterfassung
+          </Link>
         </div>
 
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
+          <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
                 <PackagePlus className="h-3.5 w-3.5" />
@@ -192,6 +202,21 @@ export default async function AdminProductsPage() {
                 direkt im Bestand. Änderungen wirken sich auf Produktsuche,
                 Matching und Kundenseite aus.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Link
+                  href="/admin/produkte/mobile"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                >
+                  <Camera className="h-4 w-4" />
+                  Schnell per Handy erfassen
+                </Link>
+
+                <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
+                  Ideal für Laden/Lager: Produkt fotografieren, Name und Preis
+                  eintragen, speichern, nächstes Produkt.
+                </div>
+              </div>
             </div>
 
             <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
@@ -204,6 +229,14 @@ export default async function AdminProductsPage() {
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
                 geladene Produkte
               </p>
+
+              <Link
+                href="/admin/produkte/mobile"
+                className="mt-4 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
+              >
+                <Smartphone className="h-4 w-4" />
+                Mobile Erfassung öffnen
+              </Link>
             </div>
           </div>
         </header>
@@ -224,14 +257,24 @@ export default async function AdminProductsPage() {
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
                 Öffne bei einem Produkt den Bearbeiten-Bereich, um Stammdaten,
-                Preis, Aliase oder den Aktivstatus zu ändern.
+                Preis, Aliase, Produktbild oder den Aktivstatus zu ändern.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-[#FBF7F0] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-black text-[#12395F]">
-                <Search className="h-4 w-4" />
-                Suche folgt im nächsten Feinschliff
+            <div className="flex flex-col gap-2 sm:items-end">
+              <Link
+                href="/admin/produkte/mobile"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <Camera className="h-4 w-4" />
+                Neues Produkt per Kamera
+              </Link>
+
+              <div className="rounded-2xl bg-[#FBF7F0] px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-black text-[#12395F]">
+                  <Search className="h-4 w-4" />
+                  Suche folgt im nächsten Feinschliff
+                </div>
               </div>
             </div>
           </div>
@@ -389,9 +432,18 @@ export default async function AdminProductsPage() {
               </h3>
 
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                Lege oben Dein erstes Produkt an. Danach kann es in Kundenlisten
+                Lege oben Dein erstes Produkt an oder nutze die mobile
+                Produkterfassung mit Kamera. Danach kann es in Kundenlisten
                 gefunden und manuell übernommen werden.
               </p>
+
+              <Link
+                href="/admin/produkte/mobile"
+                className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <Camera className="h-4 w-4" />
+                Erstes Produkt per Kamera erfassen
+              </Link>
             </div>
           )}
         </section>
