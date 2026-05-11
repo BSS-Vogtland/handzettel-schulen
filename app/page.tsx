@@ -16,7 +16,6 @@ import {
   School,
   ShieldCheck,
   Sparkles,
-  UploadCloud,
   UsersRound,
   Video,
 } from "lucide-react";
@@ -89,6 +88,14 @@ const structuredData = {
   },
 };
 
+const cardBackgrounds = {
+  upload: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82)), radial-gradient(circle at 82% 22%, rgba(18,57,95,0.20), transparent 32%), radial-gradient(circle at 86% 84%, rgba(181,40,45,0.16), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23fff7ec'/%3E%3Cg opacity='0.70'%3E%3Crect x='232' y='38' width='118' height='154' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M256 76h70M256 102h54M256 128h68M256 154h42' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.65'/%3E%3Cpath d='M196 184c26-42 60-42 86 0' fill='none' stroke='%23b5282d' stroke-width='10' stroke-linecap='round'/%3E%3Cpath d='M238 116v60M210 146h56' stroke='%232f7d50' stroke-width='11' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
+  products: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 84% 18%, rgba(47,125,80,0.18), transparent 34%), radial-gradient(circle at 88% 84%, rgba(167,91,40,0.18), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23eef8f1'/%3E%3Cg opacity='0.76'%3E%3Crect x='218' y='62' width='58' height='112' rx='12' fill='%23ffffff' stroke='%2312395f' stroke-width='4'/%3E%3Crect x='286' y='78' width='58' height='96' rx='12' fill='%23ffffff' stroke='%23b5282d' stroke-width='4'/%3E%3Crect x='250' y='184' width='112' height='28' rx='14' fill='%23a75b28' opacity='0.25'/%3E%3Cpath d='M234 96h24M234 120h24M234 144h18M302 110h24M302 136h18' stroke='%23102a43' stroke-width='6' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='190' cy='130' r='34' fill='%232f7d50' opacity='0.25'/%3E%3Cpath d='M176 130l10 10 22-25' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E")`,
+  review: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 82% 18%, rgba(181,40,45,0.15), transparent 33%), radial-gradient(circle at 88% 82%, rgba(18,57,95,0.17), transparent 32%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23f7f1e9'/%3E%3Cg opacity='0.76'%3E%3Crect x='230' y='70' width='126' height='96' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M252 110h76M252 136h52' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='210' cy='116' r='38' fill='%23fff' stroke='%232f7d50' stroke-width='5'/%3E%3Cpath d='M192 116l13 13 27-32' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='276' y='178' width='88' height='34' rx='17' fill='%23b5282d' opacity='0.20'/%3E%3C/g%3E%3C/svg%3E")`,
+} as const;
+
+type CardBackground = keyof typeof cardBackgrounds;
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
@@ -134,19 +141,7 @@ export default function Home() {
             <a href="#faq" className="transition hover:text-[#B5282D]">
               Fragen
             </a>
-            <a href="#upload" className="transition hover:text-[#B5282D]">
-              Upload
-            </a>
           </nav>
-
-          <div className="hidden items-center gap-3 lg:flex">
-            <a
-              href="#upload"
-              className="rounded-xl bg-[#12395F] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0D2D4C]"
-            >
-              Liste hochladen
-            </a>
-          </div>
 
           <button
             type="button"
@@ -191,16 +186,8 @@ export default function Home() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
-              href="#upload"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[#12395F]/15 transition hover:-translate-y-0.5 hover:bg-[#0D2D4C]"
-            >
-              <UploadCloud className="h-5 w-5" />
-              Liste jetzt hochladen
-            </a>
-
-            <a
               href="#ablauf"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
             >
               So funktioniert es
               <ArrowRight className="h-5 w-5" />
@@ -251,16 +238,19 @@ export default function Home() {
             icon={<BookOpenCheck className="h-6 w-6" />}
             title="Handzettel einfach hochladen"
             text="Ob Schulhandzettel, Materialliste, Screenshot oder PDF — Du reichst Deine Liste bequem online ein."
+            background="upload"
           />
           <TrustCard
             icon={<Sparkles className="h-6 w-6" />}
             title="Passende Produkte vorbereiten"
             text="Sichere Treffer werden in Deinen Paketwunsch gelegt. Unklare Artikel werden nicht geraten, sondern geprüft."
+            background="products"
           />
           <TrustCard
             icon={<School className="h-6 w-6" />}
             title="Erst prüfen, dann absenden"
             text="Du entscheidest selbst, wann Du Deinen Paketwunsch absendest. Vorher ist nichts automatisch bestellt."
+            background="review"
           />
         </div>
       </section>
@@ -321,16 +311,19 @@ export default function Home() {
               number="1"
               title="Liste hochladen"
               text="Du lädst die Schulmaterialliste als PDF, Foto oder Screenshot hoch. Mit dem Upload bestellst Du noch nichts."
+              background="upload"
             />
             <Step
               number="2"
               title="Paketwunsch prüfen"
               text="Sichere Produkte werden vorbereitet. Offene oder unklare Positionen kannst Du ergänzen oder persönlich prüfen lassen."
+              background="products"
             />
             <Step
               number="3"
               title="Bewusst absenden"
               text="Erst wenn Du Deinen Paketwunsch absendest, geht er zur finalen Prüfung und weiteren Bearbeitung an uns."
+              background="review"
             />
           </div>
         </div>
@@ -548,16 +541,6 @@ export default function Home() {
       </section>
 
       <LegalFooter />
-
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#E8DED2] bg-white p-3 lg:hidden">
-        <a
-          href="#upload"
-          className="flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-4 text-base font-black text-white"
-        >
-          <UploadCloud className="h-5 w-5" />
-          Materialliste hochladen
-        </a>
-      </div>
     </main>
   );
 }
@@ -566,18 +549,27 @@ function TrustCard({
   icon,
   title,
   text,
+  background,
 }: {
   icon: ReactNode;
   title: string;
   text: string;
+  background: CardBackground;
 }) {
   return (
-    <div className="rounded-3xl border border-[#E8DED2] bg-white p-5 shadow-sm">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+    <div
+      className="min-h-[190px] overflow-hidden rounded-3xl border border-[#E8DED2] bg-white bg-cover bg-center p-5 shadow-sm"
+      style={{ backgroundImage: cardBackgrounds[background] }}
+    >
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/85 text-[#A75B28] shadow-sm ring-1 ring-[#E8DED2] backdrop-blur">
         {icon}
       </div>
-      <h2 className="text-lg font-black text-[#102A43]">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-[#40566D]">{text}</p>
+      <h2 className="max-w-[20rem] text-lg font-black text-[#102A43]">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-[22rem] text-sm font-medium leading-6 text-[#40566D]">
+        {text}
+      </p>
     </div>
   );
 }
@@ -586,20 +578,27 @@ function Step({
   number,
   title,
   text,
+  background,
 }: {
   number: string;
   title: string;
   text: string;
+  background: CardBackground;
 }) {
   return (
-    <div className="rounded-3xl bg-[#FBF7F0] p-6 ring-1 ring-[#E8DED2]">
+    <div
+      className="min-h-[178px] overflow-hidden rounded-3xl bg-[#FBF7F0] bg-cover bg-center p-6 ring-1 ring-[#E8DED2]"
+      style={{ backgroundImage: cardBackgrounds[background] }}
+    >
       <div className="flex items-center gap-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#12395F] text-sm font-black text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#12395F] text-sm font-black text-white shadow-sm">
           {number}
         </div>
         <h3 className="text-xl font-black text-[#102A43]">{title}</h3>
       </div>
-      <p className="mt-4 text-sm leading-6 text-[#40566D]">{text}</p>
+      <p className="mt-4 max-w-[22rem] text-sm font-medium leading-6 text-[#40566D]">
+        {text}
+      </p>
     </div>
   );
 }
