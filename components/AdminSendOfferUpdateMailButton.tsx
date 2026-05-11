@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 
 type AdminSendOfferUpdateMailButtonProps = {
   requestId: number | string;
@@ -16,7 +16,7 @@ export default function AdminSendOfferUpdateMailButton({
 
   async function handleSend() {
     const confirmed = window.confirm(
-      "Aktualisierungsmail senden?\n\nDer Kunde erhält das aktuelle Angebot als PDF und einen Button zur offiziellen Annahme."
+      "Paketwunsch-Mail senden?\n\nDer Kunde erhält den Link zur Kundenseite, kann den vorbereiteten Paketwunsch prüfen, Produkte entfernen oder ergänzen und den Paketwunsch anschließend bewusst absenden."
     );
 
     if (!confirmed) return;
@@ -37,19 +37,20 @@ export default function AdminSendOfferUpdateMailButton({
 
       if (!response.ok || !result?.ok) {
         throw new Error(
-          result?.error ||
-            "Die Aktualisierungsmail konnte nicht gesendet werden."
+          result?.error || "Die Paketwunsch-Mail konnte nicht gesendet werden."
         );
       }
 
       setVariant("success");
-      setMessage("Aktualisierungsmail wurde erfolgreich gesendet.");
+      setMessage(
+        result?.message || "Paketwunsch-Mail wurde erfolgreich gesendet."
+      );
     } catch (error) {
       setVariant("error");
       setMessage(
         error instanceof Error
           ? error.message
-          : "Die Aktualisierungsmail konnte nicht gesendet werden."
+          : "Die Paketwunsch-Mail konnte nicht gesendet werden."
       );
     } finally {
       setIsSending(false);
@@ -57,37 +58,52 @@ export default function AdminSendOfferUpdateMailButton({
   }
 
   return (
-    <div className="rounded-3xl border border-[#E8DCCB] bg-white p-5 shadow-sm">
+    <div className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-[#8A3A2B]">
-            Aktualisiertes Angebot
-          </p>
-          <h3 className="mt-1 text-xl font-black text-[#102A43]">
-            Angebot erneut per Mail senden
-          </h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5C6B73]">
-            Sendet dem Kunden das aktuelle manuell angepasste Angebot als PDF.
-            In der Mail befindet sich ein Button, über den der Kunde das Angebot
-            offiziell annehmen kann.
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+            <Mail className="h-5 w-5" />
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Paketwunsch-Mail
+            </p>
+
+            <h3 className="mt-1 text-xl font-black text-[#102A43]">
+              Kundenlink zum Paketwunsch senden
+            </h3>
+
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#52616F]">
+              Sendet dem Kunden den Link zur vorbereiteten Kundenseite. Dort
+              kann der Kunde den Paketwunsch prüfen, vorgeschlagene Produkte
+              entfernen, offene Positionen ergänzen und den Paketwunsch bewusst
+              absenden.
+            </p>
+
+            <div className="mt-3 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-sm font-bold leading-6 text-[#A75B28]">
+              Wichtig: Diese Mail ist keine direkte Angebotsannahme und enthält
+              keine PDF-Annahme mehr. Der Kunde bestätigt erst auf der
+              Kundenseite aktiv seinen Paketwunsch.
+            </div>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={handleSend}
           disabled={isSending}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#163A5C] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Wird gesendet...
+              Wird gesendet …
             </>
           ) : (
             <>
               <Mail className="h-4 w-4" />
-              Aktualisierungsmail senden
+              Paketwunsch-Mail senden
             </>
           )}
         </button>
@@ -97,11 +113,14 @@ export default function AdminSendOfferUpdateMailButton({
         <div
           className={
             variant === "success"
-              ? "mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"
-              : "mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800"
+              ? "mt-4 flex items-start gap-2 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-bold text-[#2F7D50]"
+              : "mt-4 rounded-2xl border border-[#F2B8B8] bg-[#FFF1F1] px-4 py-3 text-sm font-bold text-[#B5282D]"
           }
         >
-          {message}
+          {variant === "success" ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : null}
+          <span>{message}</span>
         </div>
       ) : null}
     </div>
