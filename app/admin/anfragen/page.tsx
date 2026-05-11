@@ -10,8 +10,9 @@ import {
   CreditCard,
   Eye,
   FileText,
-  MailCheck,
+    MailCheck,
   MapPin,
+  MessageCircle,
   PackageCheck,
   ReceiptText,
   RefreshCw,
@@ -1839,22 +1840,32 @@ export default async function AdminRequestsPage({
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Link
-            href="/admin"
-            className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Zurück zum Admin-Bereich
-          </Link>
+  <Link
+    href="/admin"
+    className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA]"
+  >
+    <ArrowLeft className="h-4 w-4" />
+    Zurück zum Admin-Bereich
+  </Link>
 
-          <Link
-            href="/admin/produkte/mobile"
-            className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-          >
-            <PackageCheck className="h-4 w-4" />
-            Mobile Produkterfassung
-          </Link>
-        </div>
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <Link
+      href="/admin/whatsapp-import"
+      className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+    >
+      <MessageCircle className="h-4 w-4" />
+      WhatsApp-Import
+    </Link>
+
+    <Link
+      href="/admin/produkte/mobile"
+      className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+    >
+      <PackageCheck className="h-4 w-4" />
+      Mobile Produkterfassung
+    </Link>
+  </div>
+</div>
 
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
           <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
