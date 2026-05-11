@@ -731,15 +731,99 @@ export default function AdminFulfillmentPanel({
           </div>
 
           <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.print();
-            }}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#BFE3CD] bg-white px-4 py-3 text-sm font-black text-[#2F7D50] shadow-sm transition hover:brightness-105"
-          >
-            <Printer className="h-4 w-4" />
-            Pickingliste drucken
-          </button>
+  type="button"
+  onClick={() => {
+    if (typeof window === "undefined") return;
+
+    const printContent = document.querySelector(".picking-print-only");
+
+    if (!printContent) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Pickingliste</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 9mm;
+            }
+
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #111827;
+              font-family: Arial, sans-serif;
+            }
+
+            body {
+              padding: 0;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+
+            th,
+            td {
+              border: 1px solid #111827;
+              padding: 6px;
+              vertical-align: top;
+            }
+
+            th {
+              font-size: 11px;
+              text-align: left;
+              font-weight: 800;
+            }
+
+            td {
+              font-size: 11px;
+            }
+
+            .print-row {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+          <script>
+            window.onload = function () {
+              window.focus();
+              window.print();
+              window.onafterprint = function () {
+                window.close();
+              };
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }}
+  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#BFE3CD] bg-white px-4 py-3 text-sm font-black text-[#2F7D50] shadow-sm transition hover:brightness-105"
+>
+  <Printer className="h-4 w-4" />
+  Pickingliste drucken
+</button>
         </div>
 
         {!isConfirmed ? (
