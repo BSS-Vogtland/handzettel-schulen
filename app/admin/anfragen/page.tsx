@@ -158,9 +158,25 @@ type WorkflowStatus = {
   title: string;
   subtitle: string;
   badge: string;
-  tone: "neutral" | "blue" | "amber" | "green";
+  tone: "neutral" | "blue" | "amber" | "green" | "red";
   icon: typeof ClipboardList;
 };
+
+type AdminRequestsPageProps = {
+  searchParams?: Promise<{
+    filter?: string | string[];
+  }>;
+};
+
+type AdminFilter =
+  | "all"
+  | "manual"
+  | "payment-open"
+  | "paid"
+  | "packable"
+  | "shipping"
+  | "pickup"
+  | "completed";
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -336,6 +352,21 @@ function getFulfillmentStatusLabel(status?: string | null) {
   }
 }
 
+function getInvoiceStatusLabel(status?: string | null) {
+  switch (status) {
+    case "draft":
+      return "Rechnung vorbereitet";
+    case "sent":
+      return "Rechnung gesendet";
+    case "paid":
+      return "Rechnung bezahlt";
+    case "cancelled":
+      return "Rechnung storniert";
+    default:
+      return "Rechnung offen";
+  }
+}
+
 function getPaymentMethodLabel(method?: string | null) {
   switch (method) {
     case "paypal":
@@ -470,6 +501,14 @@ function getPaymentIcon(request: SchoolRequest) {
   return ReceiptText;
 }
 
+function isConfirmedRequest(overview: RequestOverview) {
+  return (
+    overview.request.status === "confirmed" ||
+    overview.request.offer_status === "confirmed" ||
+    hasEvent(overview, isUpdatedOfferConfirmedEvent)
+  );
+}
+
 function isPaidRequest(overview: RequestOverview) {
   return (
     overview.request.payment_status === "payment_received" ||
@@ -493,6 +532,122 @@ function isProblemPaymentRequest(overview: RequestOverview) {
     overview.request.payment_status === "payment_reversed" ||
     overview.request.payment_status === "cancelled"
   );
+}
+
+function isCompletedRequest(overview: RequestOverview) {
+  return (
+    overview.request.fulfillment_status === "shipped" ||
+    overview.request.fulfillment_status === "picked_up"
+  );
+}
+
+function isManualReviewRequest(overview: RequestOverview) {
+  return overview.manualReviewCount > 0 || overview.request.status === "manual_review";
+}
+
+function isPackableRequest(overview: RequestOverview) {
+  const request = overview.request;
+
+  if (!isConfirmedRequest(overview)) return false;
+  if (isCompletedRequest(overview)) return false;
+
+  const paid = isPaidRequest(overview);
+  const cashAllowedForPickup =
+    request.selected_payment_method === "cash_on_pickup" &&
+    request.payment_status === "cash_on_pickup" &&
+    request.fulfillment_method === "pickup";
+
+  return paid || cashAllowedForPickup;
+}
+
+function isShippingRequest(overview: RequestOverview) {
+  return overview.request.fulfillment_method === "shipping";
+}
+
+function isPickupRequest(overview: RequestOverview) {
+  return overview.request.fulfillment_method === "pickup";
+}
+
+function getOperationalHint(overview: RequestOverview) {
+  const request = overview.request;
+
+  if (isManualReviewRequest(overview)) {
+    return {
+      label: "Manuelle Prüfung",
+      text: "Es gibt offene Listenpositionen ohne sicheren Produktvorschlag.",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    };
+  }
+
+  if (isProblemPaymentRequest(overview)) {
+    return {
+      label: "Zahlungsproblem",
+      text: "Bitte Zahlungsstatus prüfen, bevor weiter gepackt oder übergeben wird.",
+      className: "border-[#F2B8B8] bg-[#FFF1F1] text-[#B5282D]",
+    };
+  }
+
+  if (isCompletedRequest(overview)) {
+    return {
+      label: "Abgeschlossen",
+      text: "Der Vorgang wurde bereits versendet oder abgeholt.",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    };
+  }
+
+  if (isPackableRequest(overview)) {
+    if (request.picking_status === "packed") {
+      return {
+        label: "Bereit zur Übergabe",
+        text: "Das Paket ist gepackt. Jetzt Abholung oder Versand final abschließen.",
+        className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+      };
+    }
+
+    return {
+      label: "Packen möglich",
+      text: "Zahlung/Freigabe passt. Picking und Packen können bearbeitet werden.",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    };
+  }
+
+  if (isConfirmedRequest(overview) && isWaitingPaymentRequest(overview)) {
+    return {
+      label: "Wartet auf Zahlung",
+      text: "Nicht packen/versenden, bevor Zahlungseingang oder Barfreigabe passt.",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    };
+  }
+
+  if (request.invoice_status === "sent" && !request.payment_status) {
+    return {
+      label: "Rechnung gesendet",
+      text: "Rechnung ist raus. Zahlungsstatus ist noch nicht gesetzt.",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    };
+  }
+
+  if (request.invoice_status === "draft") {
+    return {
+      label: "Rechnung vorbereitet",
+      text: "Rechnung ist vorbereitet, aber noch nicht final versendet.",
+      className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    };
+  }
+
+  if (overview.offerItemCount > 0) {
+    return {
+      label: "Paket in Bearbeitung",
+      text: "Es gibt Paketpositionen. Bitte final prüfen oder Kundenbestätigung abwarten.",
+      className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    };
+  }
+
+  return {
+    label: "Neu / offen",
+    text: "Der Vorgang wartet auf Auswertung, Kundenauswahl oder Admin-Bearbeitung.",
+    className: "border-[#E8DED2] bg-white text-[#52616F]",
+  };
 }
 
 function getEventTypeLabel(event: EventRow | null) {
@@ -527,6 +682,8 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Aktualisiertes Angebot versandt";
     case "offer_update_confirmed":
       return "Aktualisiertes Angebot bestätigt";
+    case "invoice_created":
+      return "Rechnung erstellt";
     case "invoice_mail_sent":
       return "Rechnung per Mail versendet";
     case "payment_method_selected":
@@ -539,6 +696,12 @@ function getEventTypeLabel(event: EventRow | null) {
       return "PayPal-Zahlung per Webhook bestätigt";
     case "paypal_payment_cancelled":
       return "PayPal-Zahlung abgebrochen";
+    case "admin_payment_marked_paid":
+      return "Zahlung manuell als bezahlt markiert";
+    case "admin_cash_payment_marked_paid":
+      return "Barzahlung erhalten markiert";
+    case "cash_on_pickup_allowed":
+      return "Barzahlung bei Abholung freigegeben";
     case "fulfillment_start_picking":
       return "Picking gestartet";
     case "fulfillment_mark_picked":
@@ -566,22 +729,32 @@ function getEventTypeLabel(event: EventRow | null) {
 
 function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
   const request = overview.request;
-  const isConfirmed =
-    request.status === "confirmed" || request.offer_status === "confirmed";
+  const isConfirmed = isConfirmedRequest(overview);
 
-  const hasUpdatedConfirmation = hasEvent(overview, isUpdatedOfferConfirmedEvent);
   const hasUpdateMail =
     hasEvent(overview, isUpdateMailEvent) ||
     request.offer_status === "offer_sent";
 
-  if (isConfirmed || hasUpdatedConfirmation) {
+  if (isProblemPaymentRequest(overview)) {
+    return {
+      area: isConfirmed ? "fulfillment" : "open",
+      title: "Zahlungsproblem prüfen",
+      subtitle:
+        "Der Zahlungsstatus ist auffällig. Bitte prüfen, bevor dieser Vorgang weiter bearbeitet wird.",
+      badge: getPaymentStatusLabel(request.payment_status),
+      tone: "red",
+      icon: AlertTriangle,
+    };
+  }
+
+  if (isConfirmed) {
     if (request.fulfillment_status === "picked_up") {
       return {
         area: "fulfillment",
         title: "Abgeholt",
         subtitle:
           "Der Kunde hat Abholung gewählt und das Schulpaket wurde als abgeholt markiert.",
-        badge: "Abgeholt",
+        badge: "Abgeschlossen",
         tone: "green",
         icon: CheckCircle2,
       };
@@ -593,9 +766,21 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         title: "Versendet",
         subtitle:
           "Der Kunde hat Versand gewählt und das Schulpaket wurde als versendet markiert.",
-        badge: "Versendet",
+        badge: "Abgeschlossen",
         tone: "green",
         icon: Truck,
+      };
+    }
+
+    if (isWaitingPaymentRequest(overview) && !isPackableRequest(overview)) {
+      return {
+        area: "fulfillment",
+        title: "Wartet auf Zahlung",
+        subtitle:
+          "Das Angebot ist bestätigt, aber Picking/Versand bleiben bis Zahlungseingang gesperrt.",
+        badge: getPaymentStatusLabel(request.payment_status),
+        tone: "amber",
+        icon: ReceiptText,
       };
     }
 
@@ -811,6 +996,13 @@ function getStatusToneClasses(tone: WorkflowStatus["tone"]) {
         label: "bg-white text-[#12395F] border-[#C8D8E8]",
         title: "text-[#12395F]",
       };
+    case "red":
+      return {
+        wrap: "border-[#F2B8B8] bg-[#FFF1F1]",
+        icon: "bg-white text-[#B5282D]",
+        label: "bg-white text-[#B5282D] border-[#F2B8B8]",
+        title: "text-[#B5282D]",
+      };
     default:
       return {
         wrap: "border-[#E8DED2] bg-[#FBF7F0]",
@@ -852,6 +1044,16 @@ function getSmallInfoBadges(overview: RequestOverview) {
     label: getAiStatusLabel(request.ai_status),
     className: "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]",
   });
+
+  if (request.invoice_status) {
+    badges.push({
+      label: getInvoiceStatusLabel(request.invoice_status),
+      className:
+        request.invoice_status === "sent" || request.invoice_status === "paid"
+          ? "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]"
+          : "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    });
+  }
 
   if (request.status === "confirmed" || request.offer_status === "confirmed") {
     badges.push({
@@ -912,7 +1114,9 @@ function getSmallInfoBadges(overview: RequestOverview) {
   if (request.fulfillment_status) {
     badges.push({
       label: getFulfillmentStatusLabel(request.fulfillment_status),
-      className: "border-[#E8DED2] bg-white text-[#52616F]",
+      className: isCompletedStatus(request.fulfillment_status)
+        ? "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]"
+        : "border-[#E8DED2] bg-white text-[#52616F]",
     });
   }
 
@@ -955,6 +1159,94 @@ function getSmallInfoBadges(overview: RequestOverview) {
   }
 
   return badges;
+}
+
+function isCompletedStatus(status?: string | null) {
+  return status === "shipped" || status === "picked_up";
+}
+
+function getFilterValue(rawFilter: string | string[] | undefined): AdminFilter {
+  const value = Array.isArray(rawFilter) ? rawFilter[0] : rawFilter;
+
+  if (
+    value === "manual" ||
+    value === "payment-open" ||
+    value === "paid" ||
+    value === "packable" ||
+    value === "shipping" ||
+    value === "pickup" ||
+    value === "completed"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function filterOverviews(overviews: RequestOverview[], filter: AdminFilter) {
+  switch (filter) {
+    case "manual":
+      return overviews.filter(isManualReviewRequest);
+    case "payment-open":
+      return overviews.filter(isWaitingPaymentRequest);
+    case "paid":
+      return overviews.filter(isPaidRequest);
+    case "packable":
+      return overviews.filter(isPackableRequest);
+    case "shipping":
+      return overviews.filter(isShippingRequest);
+    case "pickup":
+      return overviews.filter(isPickupRequest);
+    case "completed":
+      return overviews.filter(isCompletedRequest);
+    default:
+      return overviews;
+  }
+}
+
+function FilterPill({
+  href,
+  label,
+  count,
+  active,
+  tone = "neutral",
+}: {
+  href: string;
+  label: string;
+  count: number;
+  active: boolean;
+  tone?: "neutral" | "green" | "amber" | "blue" | "red";
+}) {
+  const activeClass =
+    tone === "green"
+      ? "border-[#2F7D50] bg-[#F0FFF6] text-[#1F5D3A]"
+      : tone === "amber"
+      ? "border-[#A75B28] bg-[#FFF8EE] text-[#8A4A1F]"
+      : tone === "blue"
+      ? "border-[#12395F] bg-[#EEF4FA] text-[#12395F]"
+      : tone === "red"
+      ? "border-[#B5282D] bg-[#FFF1F1] text-[#B5282D]"
+      : "border-[#102A43] bg-white text-[#102A43]";
+
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-black transition hover:brightness-105 ${
+        active
+          ? activeClass
+          : "border-[#E8DED2] bg-white text-[#52616F] hover:border-[#D8C8B8]"
+      }`}
+    >
+      {label}
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs ${
+          active ? "bg-white/80" : "bg-[#FBF7F0]"
+        }`}
+      >
+        {count}
+      </span>
+    </Link>
+  );
 }
 
 function PaymentStatusCard({ request }: { request: SchoolRequest }) {
@@ -1012,6 +1304,41 @@ function PaymentStatusCard({ request }: { request: SchoolRequest }) {
   );
 }
 
+function InvoiceFulfillmentMiniCard({ request }: { request: SchoolRequest }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-[22px] border border-[#E8DED2] bg-white p-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+          Rechnung
+        </p>
+        <p className="mt-1 font-black text-[#102A43]">
+          {getInvoiceStatusLabel(request.invoice_status)}
+        </p>
+        <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          {request.invoice_total_amount !== null &&
+          request.invoice_total_amount !== undefined &&
+          request.invoice_total_amount !== ""
+            ? formatMoney(request.invoice_total_amount)
+            : "Noch kein Betrag"}
+        </p>
+      </div>
+
+      <div className="rounded-[22px] border border-[#E8DED2] bg-white p-3">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+          Abwicklung
+        </p>
+        <p className="mt-1 font-black text-[#102A43]">
+          {getFulfillmentMethodLabel(request.fulfillment_method)}
+        </p>
+        <p className="mt-1 text-xs font-semibold text-[#52616F]">
+          {getPickingStatusLabel(request.picking_status)} ·{" "}
+          {getFulfillmentStatusLabel(request.fulfillment_status)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function RequestCard({
   overview,
   siteUrl,
@@ -1023,6 +1350,7 @@ function RequestCard({
   const workflow = getWorkflowStatus(overview);
   const toneClasses = getStatusToneClasses(workflow.tone);
   const StatusIcon = workflow.icon;
+  const operationalHint = getOperationalHint(overview);
 
   const customerOfferPath = request.offer_token
     ? `/angebot/${request.offer_token}`
@@ -1036,7 +1364,7 @@ function RequestCard({
 
   return (
     <article className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm transition hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-6">
-      <div className="grid gap-5 lg:grid-cols-[1fr_300px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
         <div>
           <div className={`mb-4 rounded-[26px] border p-4 ${toneClasses.wrap}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1068,6 +1396,17 @@ function RequestCard({
                 {workflow.badge}
               </span>
             </div>
+          </div>
+
+          <div
+            className={`mb-4 rounded-[22px] border px-4 py-3 ${operationalHint.className}`}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.14em]">
+              {operationalHint.label}
+            </p>
+            <p className="mt-1 text-sm font-bold leading-6">
+              {operationalHint.text}
+            </p>
           </div>
 
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1217,6 +1556,8 @@ function RequestCard({
 
           <PaymentStatusCard request={request} />
 
+          <InvoiceFulfillmentMiniCard request={request} />
+
           <Link
             href={`/admin/anfragen/${request.id}`}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
@@ -1250,7 +1591,12 @@ function RequestCard({
   );
 }
 
-export default async function AdminRequestsPage() {
+export default async function AdminRequestsPage({
+  searchParams,
+}: AdminRequestsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const activeFilter = getFilterValue(resolvedSearchParams.filter);
+
   const supabase = getSupabaseAdmin();
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
@@ -1474,17 +1820,16 @@ export default async function AdminRequestsPage() {
   const totalRequests = overviews.length;
   const openCount = openOverviews.length;
   const fulfillmentCount = fulfillmentOverviews.length;
-  const shippingCount = fulfillmentOverviews.filter(
-    (overview) => overview.request.fulfillment_method === "shipping"
-  ).length;
-  const pickupCount = fulfillmentOverviews.filter(
-    (overview) => overview.request.fulfillment_method === "pickup"
-  ).length;
-
+  const manualCount = overviews.filter(isManualReviewRequest).length;
+  const shippingCount = overviews.filter(isShippingRequest).length;
+  const pickupCount = overviews.filter(isPickupRequest).length;
   const paidCount = overviews.filter(isPaidRequest).length;
   const waitingPaymentCount = overviews.filter(isWaitingPaymentRequest).length;
   const problemPaymentCount = overviews.filter(isProblemPaymentRequest).length;
+  const packableCount = overviews.filter(isPackableRequest).length;
+  const completedCount = overviews.filter(isCompletedRequest).length;
 
+  const filteredOverviews = filterOverviews(overviews, activeFilter);
   const refreshedAt = new Date().toISOString();
 
   return (
@@ -1503,10 +1848,9 @@ export default async function AdminRequestsPage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Die Übersicht trennt offene Anfragen von bestätigten Angeboten
-                in der Abwicklung. Zusätzlich siehst Du jetzt sofort, ob eine
-                Rechnung bezahlt wurde, ob eine Zahlung noch offen ist oder ob
-                es ein Zahlungsproblem gibt.
+                Die Übersicht zeigt Dir jetzt schneller, was als Nächstes zu tun
+                ist: manuelle Prüfung, offene Zahlung, bezahlte Vorgänge,
+                Packfreigabe, Versand, Abholung und abgeschlossene Vorgänge.
               </p>
             </div>
 
@@ -1534,7 +1878,7 @@ export default async function AdminRequestsPage() {
           </div>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-8">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               Gesamt
@@ -1549,18 +1893,11 @@ export default async function AdminRequestsPage() {
             <p className="mt-2 text-3xl font-black">{openCount}</p>
           </div>
 
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Abwicklung
+          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Prüfung
             </p>
-            <p className="mt-2 text-3xl font-black">{fulfillmentCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Bezahlt
-            </p>
-            <p className="mt-2 text-3xl font-black">{paidCount}</p>
+            <p className="mt-2 text-3xl font-black">{manualCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
@@ -1570,11 +1907,25 @@ export default async function AdminRequestsPage() {
             <p className="mt-2 text-3xl font-black">{waitingPaymentCount}</p>
           </div>
 
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              Bezahlt
+            </p>
+            <p className="mt-2 text-3xl font-black">{paidCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              Packen
+            </p>
+            <p className="mt-2 text-3xl font-black">{packableCount}</p>
+          </div>
+
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Versand
+              Abwicklung
             </p>
-            <p className="mt-2 text-3xl font-black">{shippingCount}</p>
+            <p className="mt-2 text-3xl font-black">{fulfillmentCount}</p>
           </div>
 
           <div
@@ -1595,33 +1946,206 @@ export default async function AdminRequestsPage() {
           </div>
         </section>
 
+        <section className="rounded-[30px] border border-[#E8DED2] bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-col gap-1">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+              Arbeitsfilter
+            </p>
+            <h2 className="text-xl font-black text-[#102A43]">
+              Schnellansicht für den Tagesbetrieb
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <FilterPill
+              href="/admin/anfragen"
+              label="Alle"
+              count={totalRequests}
+              active={activeFilter === "all"}
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=manual"
+              label="Manuelle Prüfung"
+              count={manualCount}
+              active={activeFilter === "manual"}
+              tone="amber"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=payment-open"
+              label="Wartet auf Zahlung"
+              count={waitingPaymentCount}
+              active={activeFilter === "payment-open"}
+              tone="amber"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=paid"
+              label="Bezahlt"
+              count={paidCount}
+              active={activeFilter === "paid"}
+              tone="green"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=packable"
+              label="Packen möglich"
+              count={packableCount}
+              active={activeFilter === "packable"}
+              tone="green"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=shipping"
+              label="Versand"
+              count={shippingCount}
+              active={activeFilter === "shipping"}
+              tone="blue"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=pickup"
+              label="Abholung"
+              count={pickupCount}
+              active={activeFilter === "pickup"}
+              tone="green"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=completed"
+              label="Abgeschlossen"
+              count={completedCount}
+              active={activeFilter === "completed"}
+              tone="green"
+            />
+          </div>
+        </section>
+
         {overviews.length > 0 ? (
-          <section className="space-y-8">
+          activeFilter === "all" ? (
+            <section className="space-y-8">
+              <section className="space-y-4">
+                <div className="rounded-[30px] border border-[#F1D1A8] bg-[#FFF8EE] p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+                        Bereich Offen
+                      </p>
+                      <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                        Offene Anfragen
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                        Neu, in Bearbeitung, manuelle Prüfung, Paket vorbereitet
+                        oder aktualisiertes Angebot versandt.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#A75B28]">
+                      {openCount} offen
+                    </span>
+                  </div>
+                </div>
+
+                {openOverviews.length > 0 ? (
+                  <div className="space-y-4">
+                    {openOverviews.map((overview) => (
+                      <RequestCard
+                        key={overview.request.id}
+                        overview={overview}
+                        siteUrl={siteUrl}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
+                    <h3 className="text-xl font-black text-[#102A43]">
+                      Keine offenen Anfragen.
+                    </h3>
+                    <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
+                      Alles, was aktuell bearbeitet werden muss, erscheint später
+                      wieder in diesem Bereich.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="rounded-[30px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
+                        Bereich Angebot bestätigt
+                      </p>
+                      <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                        Angebot bestätigt / Abwicklung
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                        Bestätigte Angebote, Zahlungsstatus, Pickingliste,
+                        Abholung, Versand, abholbereit, versendet oder abgeholt.
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#2F7D50]">
+                      {fulfillmentCount} in Abwicklung
+                    </span>
+                  </div>
+                </div>
+
+                {fulfillmentOverviews.length > 0 ? (
+                  <div className="space-y-4">
+                    {fulfillmentOverviews.map((overview) => (
+                      <RequestCard
+                        key={overview.request.id}
+                        overview={overview}
+                        siteUrl={siteUrl}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
+                    <h3 className="text-xl font-black text-[#102A43]">
+                      Noch keine bestätigten Angebote in Abwicklung.
+                    </h3>
+                    <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
+                      Sobald ein Kunde ein Angebot bestätigt, erscheint der
+                      Vorgang hier für Zahlung, Picking, Abholung oder Versand.
+                    </p>
+                  </div>
+                )}
+              </section>
+            </section>
+          ) : (
             <section className="space-y-4">
-              <div className="rounded-[30px] border border-[#F1D1A8] bg-[#FFF8EE] p-5">
+              <div className="rounded-[30px] border border-[#E8DED2] bg-white p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-                      Bereich Offen
+                      Gefilterte Arbeitsliste
                     </p>
                     <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                      Offene Anfragen
+                      {activeFilter === "manual"
+                        ? "Manuelle Prüfung"
+                        : activeFilter === "payment-open"
+                        ? "Wartet auf Zahlung"
+                        : activeFilter === "paid"
+                        ? "Bezahlte Vorgänge"
+                        : activeFilter === "packable"
+                        ? "Packen möglich"
+                        : activeFilter === "shipping"
+                        ? "Versand"
+                        : activeFilter === "pickup"
+                        ? "Abholung"
+                        : "Abgeschlossen"}
                     </h2>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                      Neu, in Bearbeitung, manuelle Prüfung, Paket vorbereitet
-                      oder aktualisiertes Angebot versandt.
+                      Diese Ansicht zeigt nur die Vorgänge, die zum gewählten
+                      Arbeitsfilter passen.
                     </p>
                   </div>
 
-                  <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#A75B28]">
-                    {openCount} offen
+                  <span className="rounded-full bg-[#FBF7F0] px-4 py-2 text-sm font-black text-[#102A43]">
+                    {filteredOverviews.length} Treffer
                   </span>
                 </div>
               </div>
 
-              {openOverviews.length > 0 ? (
+              {filteredOverviews.length > 0 ? (
                 <div className="space-y-4">
-                  {openOverviews.map((overview) => (
+                  {filteredOverviews.map((overview) => (
                     <RequestCard
                       key={overview.request.id}
                       overview={overview}
@@ -1632,61 +2156,23 @@ export default async function AdminRequestsPage() {
               ) : (
                 <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
                   <h3 className="text-xl font-black text-[#102A43]">
-                    Keine offenen Anfragen.
+                    Keine passenden Anfragen.
                   </h3>
                   <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                    Alles, was aktuell bearbeitet werden muss, erscheint später
-                    wieder in diesem Bereich.
+                    Für diesen Filter gibt es aktuell keine Vorgänge.
                   </p>
+
+                  <Link
+                    href="/admin/anfragen"
+                    className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                  >
+                    Alle Anfragen anzeigen
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               )}
             </section>
-
-            <section className="space-y-4">
-              <div className="rounded-[30px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-                      Bereich Angebot bestätigt
-                    </p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                      Angebot bestätigt / Abwicklung
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                      Bestätigte Angebote, Zahlungsstatus, Pickingliste,
-                      Abholung, Versand, abholbereit, versendet oder abgeholt.
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#2F7D50]">
-                    {fulfillmentCount} in Abwicklung
-                  </span>
-                </div>
-              </div>
-
-              {fulfillmentOverviews.length > 0 ? (
-                <div className="space-y-4">
-                  {fulfillmentOverviews.map((overview) => (
-                    <RequestCard
-                      key={overview.request.id}
-                      overview={overview}
-                      siteUrl={siteUrl}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
-                  <h3 className="text-xl font-black text-[#102A43]">
-                    Noch keine bestätigten Angebote in Abwicklung.
-                  </h3>
-                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                    Sobald ein Kunde ein Angebot bestätigt, erscheint der Vorgang
-                    hier für Zahlung, Picking, Abholung oder Versand.
-                  </p>
-                </div>
-              )}
-            </section>
-          </section>
+          )
         ) : (
           <section className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FBF7F0] text-[#A75B28]">
