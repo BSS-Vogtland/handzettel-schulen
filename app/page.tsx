@@ -31,7 +31,7 @@ Klasse:
 
 Ich sende die Liste als Foto/PDF oder schreibe sie direkt hier in WhatsApp.`;
 
-const whatsappHref = `https://wa.me/49376516175?text=${encodeURIComponent(
+const whatsappHref = `https://wa.me/491733157671?text=${encodeURIComponent(
   whatsappMessage
 )}`;
 
