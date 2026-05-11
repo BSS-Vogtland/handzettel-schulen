@@ -12,7 +12,7 @@ type Params = {
 
 type ProductRow = Record<string, unknown>;
 
-const PRODUCT_IMAGE_BUCKET = "product-images";
+const PRODUCT_IMAGE_BUCKET = "school-product-images";
 
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
