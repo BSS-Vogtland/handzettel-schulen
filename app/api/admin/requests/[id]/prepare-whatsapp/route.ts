@@ -125,7 +125,8 @@ function isSupportedAnalyzableFile(file: RequestFile) {
 }
 
 function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
-  const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
+  const scoreDifference =
+    toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
   if (scoreDifference !== 0) return scoreDifference;
 
@@ -223,15 +224,22 @@ async function callLocalRoute(path: string) {
   return payload;
 }
 
-async function loadRequestBundle(supabase: ReturnType<typeof getSupabaseAdmin>, id: string) {
+async function loadRequestBundle(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  id: string
+) {
   const { data: requestData, error: requestError } = await supabase
     .from("school_requests")
-    .select("id, request_number, source, status, ai_status, offer_status, offer_token")
+    .select(
+      "id, request_number, source, status, ai_status, offer_status, offer_token"
+    )
     .eq("id", id)
     .maybeSingle();
 
   if (requestError) {
-    throw new Error(`Anfrage konnte nicht geladen werden: ${requestError.message}`);
+    throw new Error(
+      `Anfrage konnte nicht geladen werden: ${requestError.message}`
+    );
   }
 
   if (!requestData) {
@@ -263,11 +271,15 @@ async function loadRequestBundle(supabase: ReturnType<typeof getSupabaseAdmin>, 
   ]);
 
   if (filesError) {
-    throw new Error(`Dateien konnten nicht geladen werden: ${filesError.message}`);
+    throw new Error(
+      `Dateien konnten nicht geladen werden: ${filesError.message}`
+    );
   }
 
   if (itemsError) {
-    throw new Error(`Positionen konnten nicht geladen werden: ${itemsError.message}`);
+    throw new Error(
+      `Positionen konnten nicht geladen werden: ${itemsError.message}`
+    );
   }
 
   if (offerItemsError) {
@@ -297,7 +309,9 @@ async function insertSafeMatchesIntoOffer(input: {
     .order("created_at", { ascending: true });
 
   if (itemsError) {
-    throw new Error(`Positionen konnten nicht geladen werden: ${itemsError.message}`);
+    throw new Error(
+      `Positionen konnten nicht geladen werden: ${itemsError.message}`
+    );
   }
 
   const items = (itemsData || []) as RequestItem[];
@@ -323,10 +337,7 @@ async function insertSafeMatchesIntoOffer(input: {
       .order("request_item_id", { ascending: true })
       .order("match_score", { ascending: false }),
 
-    supabase
-      .from("school_offer_items")
-      .select("*")
-      .eq("request_id", requestId),
+    supabase.from("school_offer_items").select("*").eq("request_id", requestId),
   ]);
 
   if (matchesError) {
@@ -372,7 +383,10 @@ async function insertSafeMatchesIntoOffer(input: {
 
       const bestSafeMatch = (matchesByItem.get(item.id) || [])
         .filter((match) => {
-          return Boolean(match.product_id) && toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE;
+          return (
+            Boolean(match.product_id) &&
+            toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
+          );
         })
         .sort(compareMatchesStable)[0];
 
@@ -391,7 +405,6 @@ async function insertSafeMatchesIntoOffer(input: {
         product_price: productPrice,
         quantity,
         unit: "Stk.",
-        total_price: quantity * productPrice,
         source: "auto_preselected",
         status: "preselected",
         notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
@@ -417,7 +430,9 @@ async function insertSafeMatchesIntoOffer(input: {
   }
 
   const safeMatchCount = matches.filter(
-    (match) => Boolean(match.product_id) && toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
+    (match) =>
+      Boolean(match.product_id) &&
+      toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
   ).length;
 
   return {
@@ -517,7 +532,9 @@ export async function POST(_request: NextRequest, context: Params) {
       bundle = await loadRequestBundle(supabase, id);
 
       if (!bundle) {
-        throw new Error("Anfrage konnte nach der Analyse nicht neu geladen werden.");
+        throw new Error(
+          "Anfrage konnte nach der Analyse nicht neu geladen werden."
+        );
       }
 
       if (bundle.items.length === 0) {
@@ -555,12 +572,14 @@ export async function POST(_request: NextRequest, context: Params) {
     });
 
     const nextOfferStatus =
-      autoPreselectResult.matchCount > 0 || autoPreselectResult.insertedCount > 0
+      autoPreselectResult.matchCount > 0 ||
+      autoPreselectResult.insertedCount > 0
         ? "customer_selection"
         : "not_created";
 
     const nextStatus =
-      autoPreselectResult.insertedCount > 0 || autoPreselectResult.matchCount > 0
+      autoPreselectResult.insertedCount > 0 ||
+      autoPreselectResult.matchCount > 0
         ? "offer_created"
         : "manual_review";
 
