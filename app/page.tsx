@@ -20,6 +20,21 @@ import {
   Video,
 } from "lucide-react";
 
+const whatsappMessage = `Hallo, ich möchte meine Schulmaterialliste einreichen.
+
+Name:
+E-Mail:
+Telefon:
+Kind:
+Schule:
+Klasse:
+
+Ich sende die Liste als Foto/PDF oder schreibe sie direkt hier in WhatsApp.`;
+
+const whatsappHref = `https://wa.me/49376516175?text=${encodeURIComponent(
+  whatsappMessage
+)}`;
+
 const videos = [
   {
     title: "LernSax",
@@ -430,7 +445,7 @@ export default function Home() {
             href="#upload"
             className="inline-flex items-center gap-2 text-sm font-black text-[#B5282D]"
           >
-            Direkt Liste hochladen
+            Direkt zum Uploadformular
             <ArrowRight className="h-4 w-4" />
           </a>
         </div>
@@ -502,39 +517,64 @@ export default function Home() {
       </section>
 
       <section className="bg-[#FBF7F0] px-5 py-14 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-[36px] border border-[#E8DED2] bg-white p-6 text-center shadow-sm md:p-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FFF2E6] text-[#A75B28]">
-            <MessageCircle className="h-7 w-7" />
+        <div className="mx-auto grid max-w-7xl gap-6 rounded-[36px] border border-[#E8DED2] bg-white p-6 shadow-sm md:p-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <div className="text-center lg:text-left">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FFF2E6] text-[#A75B28] lg:mx-0">
+              <MessageCircle className="h-7 w-7" />
+            </div>
+
+            <p className="mt-5 text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
+              WhatsApp als Alternative
+            </p>
+
+            <h2 className="mt-3 font-serif text-3xl font-black text-[#102A43]">
+              Liste lieber per WhatsApp schicken?
+            </h2>
+
+            <p className="mt-4 text-sm font-semibold leading-7 text-[#40566D]">
+              Kein Problem. Bitte sende uns dabei kurz Deinen Namen, Deine
+              E-Mail, Telefonnummer, den Namen des Kindes, Schule und Klasse
+              mit. Die E-Mail brauchen wir, damit wir Dir später Deinen
+              Paketwunsch und die Rechnung zuverlässig zusenden können.
+            </p>
           </div>
 
-          <p className="mt-5 text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
-            Bereit für weniger Schulstart-Stress?
-          </p>
+          <div className="rounded-[30px] border border-[#D8C8B8] bg-[#FBF7F0] p-5 text-left">
+            <p className="text-sm font-black text-[#102A43]">
+              Bitte bei WhatsApp mitschicken:
+            </p>
 
-          <h2 className="mx-auto mt-3 max-w-2xl font-serif text-3xl font-black text-[#102A43]">
-            Lade jetzt Deine Materialliste hoch.
-          </h2>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {[
+                "Name",
+                "E-Mail",
+                "Telefon",
+                "Kind",
+                "Schule",
+                "Klasse",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#102A43] ring-1 ring-[#E8DED2]"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-[#2F7D50]" />
+                  {item}
+                </div>
+              ))}
+            </div>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#40566D]">
-            Du bestellst noch nichts automatisch. Du bekommst zuerst Deinen
-            vorbereiteten Paketwunsch und entscheidest danach bewusst weiter.
-          </p>
+            <p className="mt-4 text-sm font-semibold leading-6 text-[#52616F]">
+              Am einfachsten nutzt Du die vorbereitete WhatsApp-Nachricht. Du
+              musst dann nur noch die Angaben ausfüllen und Deine Liste als Foto,
+              PDF oder Text mitschicken.
+            </p>
 
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <a
-              href="#upload"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-6 py-4 text-base font-black text-white shadow-sm transition hover:bg-[#972126]"
-            >
-              Liste hochladen
-              <ArrowRight className="h-5 w-5" />
-            </a>
-
-            <a
-              href="https://wa.me/49376516175?text=Hallo%2C%20ich%20m%C3%B6chte%20meine%20Schulmaterialliste%20einreichen."
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-black text-[#102A43] transition hover:border-[#1FA855]"
+              href={whatsappHref}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-black text-[#102A43] transition hover:border-[#1FA855] hover:bg-[#F0FFF6]"
             >
               <span className="text-[#1FA855]">●</span>
-              Per WhatsApp senden
+              WhatsApp mit Vorlage öffnen
             </a>
           </div>
         </div>
