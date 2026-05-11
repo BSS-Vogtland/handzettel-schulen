@@ -23,6 +23,7 @@ import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton"
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
+import AdminSendRequestReceivedMailButton from "@/components/AdminSendRequestReceivedMailButton";
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
@@ -326,7 +327,8 @@ function getItemKeyFacts(item: RequestItem) {
 }
 
 function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
-  const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
+  const scoreDifference =
+    toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
   if (scoreDifference !== 0) return scoreDifference;
 
@@ -579,8 +581,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Jede erkannte Position hat dauerhaft eine manuelle Bearbeitung.
                 Zusätzlich kannst Du vorhandene Paketpositionen direkt bearbeiten
-                oder entfernen. Nach Deiner Anpassung kannst Du dem Kunden das
-                aktualisierte Angebot erneut als PDF zusenden.
+                oder entfernen. Nach der Vorbereitung kannst Du dem Kunden den
+                Paketwunsch-Link sauber per Mail senden.
               </p>
             </div>
 
@@ -921,7 +923,34 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               cashOnPickupAllowedNote={request.cash_on_pickup_allowed_note}
             />
 
-            <AdminSendOfferUpdateMailButton requestId={request.id} />
+            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                  <Mail className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                    Kundenkommunikation
+                  </p>
+
+                  <h2 className="text-xl font-black text-[#102A43]">
+                    E-Mails an den Kunden
+                  </h2>
+
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                    Sende zuerst die Eingangsmail, wenn die Liste angekommen ist.
+                    Nach der Auswertung und Vorbereitung sendest Du die
+                    Paketwunsch-Mail mit dem Link zur Kundenseite.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <AdminSendRequestReceivedMailButton requestId={request.id} />
+                <AdminSendOfferUpdateMailButton requestId={request.id} />
+              </div>
+            </section>
 
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
