@@ -73,7 +73,7 @@ export default function UploadForm() {
     if (!ACCEPTED_FILE_TYPES.includes(selectedFile.type)) {
       setFile(null);
       setErrorMessage(
-        "Bitte lade eine Schulmaterialliste als JPG, PNG, WEBP oder PDF hoch."
+        "Bitte lade Deine Schulmaterialliste als JPG, PNG, WEBP oder PDF hoch."
       );
       event.target.value = "";
       return;
@@ -182,7 +182,7 @@ export default function UploadForm() {
       }
 
       setSuccessMessage(
-        "Deine Liste wurde hochgeladen. Du wirst jetzt zur Auswertung weitergeleitet."
+        "Deine Liste wurde hochgeladen. Du wirst jetzt zu Deinem vorbereiteten Paketwunsch weitergeleitet."
       );
 
       const nextUrl =
@@ -217,17 +217,34 @@ export default function UploadForm() {
       <div className="mb-6">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
           <UploadCloud className="h-3.5 w-3.5" />
-          Liste hochladen
+          Sicherer Upload
         </div>
 
         <h2 className="text-2xl font-black tracking-tight text-[#102A43] sm:text-3xl">
-          Schulmaterialliste hochladen
+          Materialliste hochladen
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-[#52616F] sm:text-base">
-          Lade die Liste als Foto oder PDF hoch. Danach kommst Du direkt zur
-          Auswertung und kannst passende Produkte selbst auswählen.
+          Lade Deine Liste als Foto, Screenshot oder PDF hoch. Danach erhältst
+          Du einen vorbereiteten Paketwunsch, den Du erst noch prüfen kannst.
         </p>
+      </div>
+
+      <div className="mb-5 rounded-[24px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
+        <p className="font-black text-[#102A43]">
+          Mit dem Upload bestellst Du noch nichts.
+        </p>
+        <p className="mt-1">
+          Du bekommst zuerst eine Auswertung und entscheidest danach selbst, ob
+          Du Deinen Paketwunsch absendest.
+        </p>
+      </div>
+
+      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+        <TrustItem text="Deine Liste wird vertraulich behandelt." />
+        <TrustItem text="Unklare Artikel werden persönlich geprüft." />
+        <TrustItem text="Du kannst Artikel vor dem Absenden entfernen." />
+        <TrustItem text="Zahlung erfolgt erst nach Rechnung." />
       </div>
 
       <div className="grid gap-5">
@@ -428,7 +445,7 @@ export default function UploadForm() {
             </>
           ) : (
             <>
-              Liste hochladen & zur Auswertung
+              Liste hochladen & Paketwunsch vorbereiten
               <ArrowRight className="h-6 w-6 transition group-hover:translate-x-1" />
             </>
           )}
@@ -436,9 +453,18 @@ export default function UploadForm() {
 
         <div className="flex items-center justify-center gap-2 text-center text-xs font-semibold text-[#52616F]">
           <ShieldCheck className="h-4 w-4 text-[#2F7D50]" />
-          Deine Daten werden vertraulich behandelt.
+          Vertraulich. Keine automatische Bestellung durch den Upload.
         </div>
       </div>
     </form>
+  );
+}
+
+function TrustItem({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-3 py-3 text-xs font-black leading-5 text-[#102A43]">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2F7D50]" />
+      <span>{text}</span>
+    </div>
   );
 }

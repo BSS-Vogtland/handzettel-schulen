@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import UploadForm from "@/components/UploadForm";
 import LegalFooter from "@/components/LegalFooter";
 import {
@@ -37,14 +38,19 @@ const videos = [
 
 const faqs = [
   {
-    question: "Was ist Handzettel-Schulen.de?",
+    question: "Bestelle ich automatisch, wenn ich meine Liste hochlade?",
     answer:
-      "Handzettel-Schulen.de ist ein Service für Eltern, die ihre Schulmaterialliste oder den Handzettel der Schule online hochladen möchten. Aus der Liste wird ein persönlicher Schulmaterial-Paketwunsch vorbereitet.",
+      "Nein. Mit dem Upload bestellst Du noch nichts. Du erhältst zuerst einen vorbereiteten Paketwunsch, kannst alles prüfen und sendest ihn erst danach bewusst ab.",
+  },
+  {
+    question: "Was passiert mit unklaren Artikeln?",
+    answer:
+      "Unklare Artikel werden nicht einfach geraten. Wenn kein sicherer Treffer vorhanden ist, prüft Handzettel-Schulen.de die Position persönlich.",
   },
   {
     question: "Welche Dateien kann ich hochladen?",
     answer:
-      "Du kannst Deine Schulmaterialliste als Foto, Screenshot oder PDF hochladen. Auch ein fotografierter Handzettel der Schule ist möglich.",
+      "Du kannst Deine Schulmaterialliste als Foto, Screenshot, WEBP oder PDF hochladen. Auch ein fotografierter Handzettel der Schule ist möglich.",
   },
   {
     question:
@@ -53,14 +59,9 @@ const faqs = [
       "Ja. Du kannst Deine Liste aus LernSax oder dem Thüringer Schulportal speichern und anschließend bei Handzettel-Schulen.de hochladen.",
   },
   {
-    question: "Wird mein Paket automatisch bestellt?",
+    question: "Wann wird mein Schulpaket vorbereitet?",
     answer:
-      "Nein. Du sendest zuerst Deinen Paketwunsch ab. Danach wird Deine Auswahl durch Handzettel-Schulen.de persönlich geprüft und bei Bedarf sauber ergänzt oder korrigiert.",
-  },
-  {
-    question: "Für wen ist der Service gedacht?",
-    answer:
-      "Der Service ist besonders hilfreich für Eltern, Schulanfänger, Familien mit mehreren Kindern und alle, die Schulmaterial stressfreier vorbereiten möchten.",
+      "Nachdem Du Deinen Paketwunsch geprüft und abgesendet hast, wird er final geprüft. Danach erhältst Du die weiteren Informationen zur Rechnung, Zahlung und Übergabe.",
   },
 ];
 
@@ -115,7 +116,7 @@ export default function Home() {
                 Handzettel-Schulen.de
               </div>
               <div className="hidden text-sm font-semibold text-[#A75B28] sm:block">
-                Du bestellst zu Hause. Wir packen Deine Schultasche.
+                Materialliste hochladen. Schulpaket vorbereiten lassen.
               </div>
             </div>
           </div>
@@ -124,11 +125,11 @@ export default function Home() {
             <a href="#ablauf" className="transition hover:text-[#B5282D]">
               So funktioniert’s
             </a>
+            <a href="#vertrauen" className="transition hover:text-[#B5282D]">
+              Sicherheit
+            </a>
             <a href="#videos" className="transition hover:text-[#B5282D]">
               Hilfe & Videos
-            </a>
-            <a href="#zielgruppen" className="transition hover:text-[#B5282D]">
-              Für wen?
             </a>
             <a href="#faq" className="transition hover:text-[#B5282D]">
               Fragen
@@ -161,22 +162,32 @@ export default function Home() {
         <div className="flex flex-col justify-center">
           <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#A75B28] shadow-sm">
             <Heart className="h-4 w-4" />
-            Für Eltern, Lehrer & Schüler
+            Für Eltern, die Schulmaterial stressfrei vorbereiten möchten
           </div>
 
           <h1 className="max-w-3xl font-serif text-4xl font-black leading-[1.05] tracking-tight text-[#102A43] sm:text-5xl lg:text-6xl">
-            Handzettel der Schule hochladen.
+            Schulmaterialliste hochladen.
             <span className="block text-[#B5282D]">
-              Schultasche stressfrei packen lassen.
+              Schulpaket vorbereiten lassen.
             </span>
           </h1>
 
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#40566D]">
-            Lade Deine Schulmaterialliste als Foto, Screenshot oder PDF hoch.
-            Handzettel-Schulen.de erkennt die benötigten Schulsachen, bereitet
-            Deinen persönlichen Schulmaterial-Paketwunsch vor und hilft Dir,
-            den Schulstart entspannter zu organisieren.
+            Du lädst den Handzettel oder die Materialliste der Schule hoch. Wir
+            erkennen Hefte, Umschläge, Lineaturen, Farben und Formate und
+            bereiten daraus Deinen persönlichen Paketwunsch vor.
           </p>
+
+          <div className="mt-6 rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28]">
+            <p className="font-black text-[#102A43]">
+              Wichtig: Mit dem Upload bestellst Du noch nichts.
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6">
+              Du bekommst zuerst einen vorbereiteten Paketwunsch, kannst Artikel
+              prüfen, entfernen oder ergänzen und sendest ihn erst danach bewusst
+              ab.
+            </p>
+          </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
@@ -184,30 +195,30 @@ export default function Home() {
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[#12395F]/15 transition hover:-translate-y-0.5 hover:bg-[#0D2D4C]"
             >
               <UploadCloud className="h-5 w-5" />
-              Schulmaterialliste hochladen
+              Liste jetzt hochladen
             </a>
 
             <a
-              href="https://wa.me/49376516175?text=Hallo%2C%20ich%20m%C3%B6chte%20meine%20Schulmaterialliste%20einreichen."
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#1FA855]"
+              href="#ablauf"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
             >
-              <span className="text-[#1FA855]">●</span>
-              Per WhatsApp senden
+              So funktioniert es
+              <ArrowRight className="h-5 w-5" />
             </a>
           </div>
 
           <div className="mt-8 grid gap-3 text-sm font-semibold text-[#40566D] sm:grid-cols-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-[#12395F]" />
-              Sicher & vertraulich
+              Keine automatische Bestellung
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-[#2F7D50]" />
-              Schnell & einfach
+              Persönlich geprüft
             </div>
             <div className="flex items-center gap-2">
               <Heart className="h-5 w-5 text-[#B5282D]" />
-              Persönlicher Service
+              Für Eltern gemacht
             </div>
           </div>
 
@@ -218,18 +229,20 @@ export default function Home() {
               </div>
               <div>
                 <h2 className="font-black text-[#102A43]">
-                  Aus Deiner Materialliste wird ein vorbereitetes Schulpaket.
+                  Kein Rätselraten bei Lineatur, Farbe oder Format.
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-[#40566D]">
-                  Website-Upload, WhatsApp-Upload und die persönliche
-                  Produktprüfung laufen in einem System zusammen.
+                  Sichere Treffer werden vorbereitet. Unsichere Positionen
+                  werden persönlich geprüft, statt einfach falsch vorgeschlagen.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        <UploadForm />
+        <div id="upload">
+          <UploadForm />
+        </div>
       </section>
 
       <section className="border-y border-[#E8DED2] bg-white/70 px-5 py-10 lg:px-8">
@@ -241,14 +254,115 @@ export default function Home() {
           />
           <TrustCard
             icon={<Sparkles className="h-6 w-6" />}
-            title="Persönlich vorbereitet"
-            text="Handzettel-Schulen.de prüft Deine Auswahl und ergänzt passende Produkte sauber für Deinen Paketwunsch."
+            title="Passende Produkte vorbereiten"
+            text="Sichere Treffer werden in Deinen Paketwunsch gelegt. Unklare Artikel werden nicht geraten, sondern geprüft."
           />
           <TrustCard
             icon={<School className="h-6 w-6" />}
-            title="Für den Schulstart"
-            text="Ideal für Schulanfang, neue Klassen, Materiallisten aus LernSax oder dem Thüringer Schulportal."
+            title="Erst prüfen, dann absenden"
+            text="Du entscheidest selbst, wann Du Deinen Paketwunsch absendest. Vorher ist nichts automatisch bestellt."
           />
+        </div>
+      </section>
+
+      <section className="bg-[#FBF7F0] px-5 py-14 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 rounded-[36px] border border-[#E8DED2] bg-white p-6 shadow-sm md:grid-cols-[0.9fr_1.1fr] md:p-8">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
+              Kennst Du das?
+            </p>
+            <h2 className="mt-3 font-serif text-3xl font-black text-[#102A43]">
+              A5, Lineatur 1, 8f, Umschlag blau, Umschlag rot …
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-[#40566D]">
+              Viele Materiallisten wirken auf den ersten Blick einfach. Im Laden
+              wird es dann doch kompliziert: falsches Format, falsche Lineatur,
+              falsche Farbe oder ein Artikel fehlt. Genau dafür gibt es
+              Handzettel-Schulen.de.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Benefit
+              title="Weniger Fehlkäufe"
+              text="Produkte werden nach Format, Farbe, Lineatur und Bezeichnung geprüft."
+            />
+            <Benefit
+              title="Weniger Einkaufsstress"
+              text="Du musst nicht selbst jede einzelne Position im Laden suchen."
+            />
+            <Benefit
+              title="Persönliche Prüfung"
+              text="Was nicht sicher erkannt wird, landet nicht blind im Paket."
+            />
+            <Benefit
+              title="Klarer Paketwunsch"
+              text="Du prüfst online, was vorbereitet wurde, und sendest es bewusst ab."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="ablauf"
+        className="border-t border-[#E8DED2] bg-white px-5 py-14 lg:px-8"
+      >
+        <div className="mx-auto max-w-7xl">
+          <p className="text-center text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
+            So funktioniert’s
+          </p>
+
+          <h2 className="mx-auto mt-3 max-w-2xl text-center font-serif text-3xl font-black text-[#102A43]">
+            Aus Deiner Materialliste wird ein vorbereiteter Paketwunsch.
+          </h2>
+
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            <Step
+              number="1"
+              title="Liste hochladen"
+              text="Du lädst die Schulmaterialliste als PDF, Foto oder Screenshot hoch. Mit dem Upload bestellst Du noch nichts."
+            />
+            <Step
+              number="2"
+              title="Paketwunsch prüfen"
+              text="Sichere Produkte werden vorbereitet. Offene oder unklare Positionen kannst Du ergänzen oder persönlich prüfen lassen."
+            />
+            <Step
+              number="3"
+              title="Bewusst absenden"
+              text="Erst wenn Du Deinen Paketwunsch absendest, geht er zur finalen Prüfung und weiteren Bearbeitung an uns."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="vertrauen"
+        className="border-t border-[#E8DED2] bg-[#FBF7F0] px-5 py-14 lg:px-8"
+      >
+        <div className="mx-auto max-w-7xl rounded-[36px] border border-[#BFE3CD] bg-[#F0FFF6] p-6 shadow-sm md:p-8">
+          <div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-[#2F7D50]">
+                Vertrauen beim Upload
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-black text-[#102A43]">
+                Du behältst die Kontrolle.
+              </h2>
+              <p className="mt-4 text-sm font-semibold leading-7 text-[#2F7D50]">
+                Deine Liste wird genutzt, um Deinen Paketwunsch vorzubereiten.
+                Es wird nichts automatisch gekauft oder bezahlt. Du prüfst den
+                Vorschlag zuerst selbst.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TrustPoint text="Keine automatische Bestellung durch Upload" />
+              <TrustPoint text="Paketwunsch wird vor dem Absenden geprüft" />
+              <TrustPoint text="Unsichere Artikel werden persönlich geprüft" />
+              <TrustPoint text="Zahlung erfolgt erst nach Rechnung" />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -258,7 +372,7 @@ export default function Home() {
       >
         <div className="mx-auto max-w-7xl">
           <h2 className="text-center text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
-            Für Eltern, Lehrer & Schüler
+            Für Familien rund um den Schulstart
           </h2>
 
           <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-6 text-[#40566D]">
@@ -282,22 +396,22 @@ export default function Home() {
             <div className="rounded-3xl bg-[#EAF2FA] p-6 ring-1 ring-[#CCDDEA]">
               <GraduationCap className="h-9 w-9 text-[#12395F]" />
               <h3 className="mt-5 text-xl font-black text-[#102A43]">
-                Für Lehrer
+                Für Schulanfänger
               </h3>
               <p className="mt-2 text-sm leading-6 text-[#40566D]">
-                Materiallisten einfach weitergeben und Eltern im Schulalltag
-                entlasten — besonders vor dem neuen Schuljahr.
+                Besonders bei der Einschulung sind Materiallisten oft lang und
+                detailreich. Der Service hilft, den Start besser vorzubereiten.
               </p>
             </div>
 
             <div className="rounded-3xl bg-[#EAF7EE] p-6 ring-1 ring-[#CDE8D4]">
               <PackageCheck className="h-9 w-9 text-[#2F7D50]" />
               <h3 className="mt-5 text-xl font-black text-[#102A43]">
-                Für Schüler
+                Für mehrere Kinder
               </h3>
               <p className="mt-2 text-sm leading-6 text-[#40566D]">
-                Gut ausgestattet starten — mit passenden Heften, Umschlägen,
-                Blöcken und Schulmaterialien für den Schulbeginn.
+                Wenn mehrere Listen zusammenkommen, spart eine saubere
+                Vorbereitung besonders viel Zeit und Nerven.
               </p>
             </div>
           </div>
@@ -311,7 +425,7 @@ export default function Home() {
               Hilfe & Videos
             </p>
             <h2 className="mt-2 font-serif text-3xl font-black text-[#102A43]">
-              So bekommst Du Deine Schulmaterialliste zu uns.
+              Du weißt nicht, wie Du Deine Liste bekommst?
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#40566D]">
               Ob LernSax, Thüringer Schulportal oder Papierliste: Du kannst
@@ -354,77 +468,6 @@ export default function Home() {
               </div>
             </article>
           ))}
-        </div>
-      </section>
-
-      <section
-        id="ablauf"
-        className="border-t border-[#E8DED2] bg-white px-5 py-14 lg:px-8"
-      >
-        <div className="mx-auto max-w-7xl">
-          <p className="text-center text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
-            So funktioniert’s
-          </p>
-
-          <h2 className="mx-auto mt-3 max-w-2xl text-center font-serif text-3xl font-black text-[#102A43]">
-            Aus Deinem Handzettel wird ein persönlicher Schulpaket-Wunsch.
-          </h2>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            <Step
-              number="1"
-              title="Liste hochladen"
-              text="Du lädst die Schulmaterialliste als PDF, Foto oder Screenshot hoch — auch ein fotografierter Handzettel funktioniert."
-            />
-            <Step
-              number="2"
-              title="Produkte vorbereiten"
-              text="Die Liste wird ausgewertet. Passende Produkte werden vorgeschlagen oder persönlich durch Handzettel-Schulen.de geprüft."
-            />
-            <Step
-              number="3"
-              title="Paketwunsch absenden"
-              text="Du prüfst die Auswahl und sendest Deinen Paketwunsch verbindlich an Handzettel-Schulen.de ab."
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#FBF7F0] px-5 py-14 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 rounded-[36px] border border-[#E8DED2] bg-white p-6 shadow-sm md:grid-cols-[0.9fr_1.1fr] md:p-8">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
-              Schulmaterial stressfrei
-            </p>
-            <h2 className="mt-3 font-serif text-3xl font-black text-[#102A43]">
-              Warum Handzettel-Schulen.de?
-            </h2>
-            <p className="mt-4 text-sm leading-7 text-[#40566D]">
-              Viele Materiallisten enthalten spezielle Lineaturen, Formate,
-              Farben und Artikelbezeichnungen. Handzettel-Schulen.de hilft Dir,
-              daraus einen sauberen Paketwunsch zu machen — ohne Rätselraten im
-              Laden und ohne unnötigen Einkaufsstress.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Benefit
-              title="Für Fotos & PDFs"
-              text="Du kannst Deinen Handzettel fotografieren oder eine digitale Liste hochladen."
-            />
-            <Benefit
-              title="Persönliche Prüfung"
-              text="Unsichere Positionen werden nicht einfach falsch gefüllt, sondern persönlich geprüft."
-            />
-            <Benefit
-              title="Passende Produkte"
-              text="Produkte werden mit Format, Farbe, Lineatur und Suchbegriffen vorbereitet."
-            />
-            <Benefit
-              title="Einfacher Paketwunsch"
-              text="Du wählst passende Produkte aus und sendest Deinen Wunsch online ab."
-            />
-          </div>
         </div>
       </section>
 
@@ -472,37 +515,33 @@ export default function Home() {
           </div>
 
           <p className="mt-5 text-sm font-black uppercase tracking-[0.22em] text-[#A75B28]">
-            Auch auf Social Media
+            Bereit für weniger Schulstart-Stress?
           </p>
 
           <h2 className="mx-auto mt-3 max-w-2xl font-serif text-3xl font-black text-[#102A43]">
-            Tipps rund um Schulmaterial, Handzettel und entspannteren Schulstart.
+            Lade jetzt Deine Materialliste hoch.
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#40566D]">
-            Handzettel-Schulen.de findest Du auch mit Elterntipps, kurzen Videos
-            und einfachen Erklärungen rund um Schulmateriallisten.
+            Du bestellst noch nichts automatisch. Du bekommst zuerst Deinen
+            vorbereiteten Paketwunsch und entscheidest danach bewusst weiter.
           </p>
 
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <a
-              href="https://www.instagram.com/bssvogtland/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-5 py-3 text-sm font-black text-[#102A43] transition hover:border-[#B5282D]"
+              href="#upload"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-6 py-4 text-base font-black text-white shadow-sm transition hover:bg-[#972126]"
             >
-              Instagram ansehen
-              <ArrowRight className="h-4 w-4" />
+              Liste hochladen
+              <ArrowRight className="h-5 w-5" />
             </a>
 
             <a
-              href="https://www.youtube.com/results?search_query=Handzettel-Schulen"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0D2D4C]"
+              href="https://wa.me/49376516175?text=Hallo%2C%20ich%20m%C3%B6chte%20meine%20Schulmaterialliste%20einreichen."
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-black text-[#102A43] transition hover:border-[#1FA855]"
             >
-              YouTube ansehen
-              <ArrowRight className="h-4 w-4" />
+              <span className="text-[#1FA855]">●</span>
+              Per WhatsApp senden
             </a>
           </div>
         </div>
@@ -528,7 +567,7 @@ function TrustCard({
   title,
   text,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   text: string;
 }) {
@@ -571,6 +610,15 @@ function Benefit({ title, text }: { title: string; text: string }) {
       <CheckCircle2 className="h-6 w-6 text-[#2F7D50]" />
       <h3 className="mt-4 font-black text-[#102A43]">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-[#40566D]">{text}</p>
+    </div>
+  );
+}
+
+function TrustPoint({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm font-black text-[#102A43]">
+      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2F7D50]" />
+      <span>{text}</span>
     </div>
   );
 }
