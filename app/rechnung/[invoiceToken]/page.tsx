@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 type Params = {
   params: Promise<{
-    invoiceToken: string;
+    token: string;
   }>;
 };
 
@@ -144,7 +144,7 @@ function getPaymentMethodLabel(method: string | null) {
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "PayPal empfohlen";
+      return "Noch nicht gewählt";
   }
 }
 
@@ -154,14 +154,46 @@ function getFulfillmentLabel(method: string | null) {
   return "Noch nicht gewählt";
 }
 
+function getNextStepText(params: {
+  isPaid: boolean;
+  paymentStatus: string | null;
+  selectedPaymentMethod: string | null;
+  canUseCashOnPickup: boolean;
+}) {
+  const { isPaid, paymentStatus, selectedPaymentMethod, canUseCashOnPickup } =
+    params;
+
+  if (isPaid) {
+    return "Die Zahlung ist bereits verbucht. Dein Schulpaket kann nun weiter vorbereitet werden.";
+  }
+
+  if (paymentStatus === "waiting_for_payment") {
+    if (selectedPaymentMethod === "bank_transfer") {
+      return "Du hast Überweisung gewählt. Bitte überweise den Gesamtbetrag. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
+    }
+
+    if (selectedPaymentMethod === "paypal") {
+      return "Du hast PayPal gewählt. Falls die Zahlung noch nicht abgeschlossen wurde, starte die Zahlung bitte erneut über den PayPal-Button.";
+    }
+
+    return "Die Zahlungsart wurde gewählt. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
+  }
+
+  if (paymentStatus === "cash_on_pickup" && canUseCashOnPickup) {
+    return "Du zahlst direkt bei Abholung im Laden. Dein Paket wird vorbereitet und zur Abholung bereitgestellt.";
+  }
+
+  return "Wähle jetzt Deine Zahlungsart. PayPal ist der schnellste Weg, Überweisung ist ebenfalls möglich.";
+}
+
 export default async function InvoicePaymentPage({ params }: Params) {
-  const { invoiceToken } = await params;
+  const { token } = await params;
   const supabase = getSupabaseAdmin();
 
   const { data: invoiceData, error: invoiceError } = await supabase
     .from("school_request_invoices")
     .select("*")
-    .eq("invoice_token", invoiceToken)
+    .eq("invoice_token", token)
     .maybeSingle();
 
   if (invoiceError || !invoiceData) {
@@ -209,6 +241,13 @@ export default async function InvoicePaymentPage({ params }: Params) {
     invoice.payment_status === "payment_received" ||
     invoice.payment_status === "cash_paid";
 
+  const nextStepText = getNextStepText({
+    isPaid,
+    paymentStatus: invoice.payment_status,
+    selectedPaymentMethod: invoice.selected_payment_method,
+    canUseCashOnPickup,
+  });
+
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -225,21 +264,33 @@ export default async function InvoicePaymentPage({ params }: Params) {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
-                Bitte wähle Deine Zahlungsart. PayPal ist der schnellste und
-                bevorzugte Zahlungsweg. Bei PayPal oder Überweisung starten wir
-                nach Zahlungseingang mit der weiteren Bearbeitung.
+                Hier siehst Du Deine Rechnung für das vorbereitete Schulpaket
+                und kannst die passende Zahlungsart wählen. Sobald die Zahlung
+                eingegangen ist, kann Dein Paket weiter vorbereitet werden.
               </p>
+
+              <div className="mt-5 rounded-[24px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="font-black">Nächster Schritt</p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      {nextStepText}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                Gesamtbetrag
+                Zu zahlen
               </p>
               <p className="mt-2 text-3xl font-black text-[#102A43]">
                 {formatMoney(invoice.total_amount)}
               </p>
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                inkl. Versandkosten, falls Versand gewählt wurde
+                Gesamtbetrag inkl. Versandkosten, falls Versand gewählt wurde
               </p>
             </div>
           </div>
@@ -273,10 +324,10 @@ export default async function InvoicePaymentPage({ params }: Params) {
             </p>
             <p className="mt-1 text-xs font-semibold text-[#52616F]">
               {isShipping
-                ? "Versandpauschale ist im Gesamtbetrag enthalten."
+                ? "Die Versandkosten sind im Gesamtbetrag enthalten."
                 : isPickup
-                ? "Abholung im Laden."
-                : "Noch nicht gewählt."}
+                ? "Du holst Dein Paket im Laden ab."
+                : "Die Übergabeart ist noch nicht festgelegt."}
             </p>
           </div>
 
@@ -285,7 +336,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Status
+              Zahlung
             </p>
             <p className="mt-2 font-black text-[#102A43]">
               {getPaymentStatusLabel(invoice.payment_status)}
@@ -305,7 +356,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Schulpaket
+                Dein Schulpaket
               </p>
               <h2 className="text-xl font-black text-[#102A43]">
                 {invoice.child_name_snapshot || "Kind nicht angegeben"}
@@ -399,23 +450,33 @@ export default async function InvoicePaymentPage({ params }: Params) {
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                Zahlungsart wählen
+                Zahlungsart
               </p>
               <h2 className="text-xl font-black text-[#102A43]">
-                Wie möchtest Du bezahlen?
+                Wähle Deine Zahlungsart
               </h2>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                PayPal ist der bevorzugte Zahlungsweg. Alternativ kannst Du per
-                Überweisung bezahlen.
+                PayPal ist der schnellste Weg. Alternativ kannst Du per
+                Überweisung bezahlen. Barzahlung erscheint nur, wenn sie für
+                Deinen Vorgang freigegeben wurde.
               </p>
             </div>
           </div>
 
           {isPaid ? (
             <div className="rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
-              <p className="font-black text-[#2F7D50]">
-                Diese Rechnung ist bereits als bezahlt markiert.
-              </p>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2F7D50]" />
+                <div>
+                  <p className="font-black text-[#2F7D50]">
+                    Diese Rechnung ist bereits bezahlt.
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[#2F7D50]">
+                    Dein Zahlungseingang ist verbucht. Dein Paket kann weiter
+                    vorbereitet werden.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="grid gap-4">
