@@ -125,6 +125,43 @@ async function createRequestEvent(
   }
 }
 
+async function markRequestAsManualReview(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+  aiStatus?: string;
+  offerStatus?: string;
+  eventType: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const {
+    supabase,
+    requestId,
+    aiStatus = "manual_review",
+    offerStatus = "manual_review",
+    eventType,
+    message,
+    metadata,
+  } = params;
+
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("school_requests")
+    .update({
+      status: "manual_review",
+      ai_status: aiStatus,
+      offer_status: offerStatus,
+      updated_at: now,
+    })
+    .eq("id", requestId);
+
+  await createRequestEvent(supabase, requestId, eventType, message, {
+    ...(metadata || {}),
+    manualReview: true,
+  });
+}
+
 async function readJsonSafely(response: Response) {
   const rawText = await response.text();
 
@@ -436,13 +473,29 @@ export async function POST(request: NextRequest, context: Params) {
     }
 
     if (!files || files.length === 0) {
+      await markRequestAsManualReview({
+        supabase,
+        requestId,
+        aiStatus: "missing_file",
+        offerStatus: "manual_review",
+        eventType: "package_prepare_needs_manual_review",
+        message:
+          "Automatische Paketvorbereitung wurde gestoppt, weil keine Datei zur Anfrage gefunden wurde.",
+        metadata: {
+          reason: "missing_file",
+          token,
+        },
+      });
+
       return jsonResponse(
         {
           ok: false,
+          manualReview: true,
+          reason: "missing_file",
           message:
-            "Zu dieser Anfrage wurde keine Datei gefunden. Bitte lade die Liste erneut hoch.",
+            "Zu dieser Anfrage wurde keine Datei gefunden. Die Anfrage wurde zur manuellen Prüfung markiert.",
         },
-        404
+        422
       );
     }
 
@@ -488,20 +541,28 @@ export async function POST(request: NextRequest, context: Params) {
       const analyzePayload = await readJsonSafely(analyzeResponse);
 
       if (!analyzePayload.json) {
-        await supabase
-          .from("school_requests")
-          .update({
-            status: "manual_review",
-            ai_status: "error",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
+        await markRequestAsManualReview({
+          supabase,
+          requestId,
+          aiStatus: "error",
+          offerStatus: "manual_review",
+          eventType: "package_prepare_needs_manual_review",
+          message:
+            "Die automatische Analyse konnte nicht abgeschlossen werden, weil die Analyse-Route keine JSON-Antwort geliefert hat.",
+          metadata: {
+            reason: "analyze_no_json_response",
+            details: getShortRawText(analyzePayload.rawText),
+            token,
+          },
+        });
 
         return jsonResponse(
           {
             ok: false,
+            manualReview: true,
+            reason: "analyze_no_json_response",
             message:
-              "Die Analyse-Route hat keine JSON-Antwort geliefert. Prüfe bitte das Terminal.",
+              "Die Analyse-Route hat keine JSON-Antwort geliefert. Die Anfrage wurde zur manuellen Prüfung markiert.",
             details: getShortRawText(analyzePayload.rawText),
           },
           500
@@ -509,21 +570,29 @@ export async function POST(request: NextRequest, context: Params) {
       }
 
       if (!analyzeResponse.ok || analyzePayload.json.ok === false) {
-        await supabase
-          .from("school_requests")
-          .update({
-            status: "manual_review",
-            ai_status: "error",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
+        await markRequestAsManualReview({
+          supabase,
+          requestId,
+          aiStatus: "error",
+          offerStatus: "manual_review",
+          eventType: "package_prepare_needs_manual_review",
+          message:
+            "Die automatische Analyse konnte die Liste nicht auswerten. Die Anfrage wurde zur manuellen Prüfung markiert.",
+          metadata: {
+            reason: "analyze_failed",
+            details: analyzePayload.json,
+            token,
+          },
+        });
 
         return jsonResponse(
           {
             ok: false,
+            manualReview: true,
+            reason: "analyze_failed",
             message:
               analyzePayload.json.message ||
-              "Die Liste konnte nicht ausgewertet werden.",
+              "Die Liste konnte nicht automatisch ausgewertet werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
             details: analyzePayload.json,
           },
           analyzeResponse.status || 500
@@ -539,23 +608,33 @@ export async function POST(request: NextRequest, context: Params) {
     }
 
     if (itemCount === 0) {
-      await supabase
-        .from("school_requests")
-        .update({
-          status: "manual_review",
-          ai_status: "no_items_detected",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", requestId);
+      await markRequestAsManualReview({
+        supabase,
+        requestId,
+        aiStatus: "no_items_detected",
+        offerStatus: "manual_review",
+        eventType: "package_prepare_needs_manual_review",
+        message:
+          "Es konnten keine Positionen aus der Liste erkannt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
+        metadata: {
+          reason: "no_items_detected",
+          itemCount: 0,
+          matchCount: 0,
+          preselectedCount: 0,
+          token,
+        },
+      });
 
       return jsonResponse(
         {
           ok: false,
+          manualReview: true,
+          reason: "no_items_detected",
           itemCount: 0,
           matchCount: 0,
           preselectedCount: 0,
           message:
-            "Es konnten keine Positionen aus der Liste erkannt werden. Bitte prüfe die Datei oder bearbeite die Anfrage manuell.",
+            "Es konnten keine Positionen aus der Liste erkannt werden. Deine Anfrage wurde zur manuellen Prüfung markiert.",
         },
         422
       );
@@ -604,20 +683,29 @@ export async function POST(request: NextRequest, context: Params) {
       const matchPayload = await readJsonSafely(matchResponse);
 
       if (!matchPayload.json) {
-        await supabase
-          .from("school_requests")
-          .update({
-            status: "manual_review",
-            offer_status: "not_created",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
+        await markRequestAsManualReview({
+          supabase,
+          requestId,
+          aiStatus: "done",
+          offerStatus: "manual_review",
+          eventType: "package_prepare_needs_manual_review",
+          message:
+            "Die automatische Produktzuordnung konnte nicht abgeschlossen werden, weil die Matching-Route keine JSON-Antwort geliefert hat.",
+          metadata: {
+            reason: "match_no_json_response",
+            itemCount,
+            details: getShortRawText(matchPayload.rawText),
+            token,
+          },
+        });
 
         return jsonResponse(
           {
             ok: false,
+            manualReview: true,
+            reason: "match_no_json_response",
             message:
-              "Die Matching-Route hat keine JSON-Antwort geliefert. Prüfe bitte das Terminal.",
+              "Die Matching-Route hat keine JSON-Antwort geliefert. Die Anfrage wurde zur manuellen Prüfung markiert.",
             details: getShortRawText(matchPayload.rawText),
           },
           500
@@ -625,21 +713,30 @@ export async function POST(request: NextRequest, context: Params) {
       }
 
       if (!matchResponse.ok || matchPayload.json.ok === false) {
-        await supabase
-          .from("school_requests")
-          .update({
-            status: "manual_review",
-            offer_status: "not_created",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
+        await markRequestAsManualReview({
+          supabase,
+          requestId,
+          aiStatus: "done",
+          offerStatus: "manual_review",
+          eventType: "package_prepare_needs_manual_review",
+          message:
+            "Die automatische Produktzuordnung konnte nicht erstellt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
+          metadata: {
+            reason: "match_failed",
+            itemCount,
+            details: matchPayload.json,
+            token,
+          },
+        });
 
         return jsonResponse(
           {
             ok: false,
+            manualReview: true,
+            reason: "match_failed",
             message:
               matchPayload.json.message ||
-              "Die Produktvorschläge konnten nicht erstellt werden.",
+              "Die Produktvorschläge konnten nicht erstellt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
             details: matchPayload.json,
           },
           matchResponse.status || 500
@@ -705,8 +802,8 @@ export async function POST(request: NextRequest, context: Params) {
         autoPreselectResult.preselectedCount > 0
           ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`
           : matchCount > 0
-          ? "Deine Liste wurde ausgewertet. Sichere Treffer werden angezeigt, offene Positionen kannst Du aktiv auswählen."
-          : "Deine Liste wurde ausgewertet. Es wurden Positionen erkannt, aber nicht überall passende Produktvorschläge gefunden. Du kannst Produkte selbst suchen oder Handzettel-Schulen.de prüft die Positionen manuell.",
+            ? "Deine Liste wurde ausgewertet. Sichere Treffer werden angezeigt, offene Positionen kannst Du aktiv auswählen."
+            : "Deine Liste wurde ausgewertet. Es wurden Positionen erkannt, aber nicht überall passende Produktvorschläge gefunden. Du kannst Produkte selbst suchen oder Handzettel-Schulen.de prüft die Positionen manuell.",
     });
   } catch (error) {
     console.error("Customer prepare package error:", error);
