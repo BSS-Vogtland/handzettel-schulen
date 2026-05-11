@@ -294,17 +294,46 @@ function hasEvent(
   return overview.events.some(matcher);
 }
 
-function isUpdateMailEvent(event: EventRow) {
+function isPackageWishlistMailEvent(event: EventRow) {
   const type = getEventType(event);
   const text = getEventText(event);
 
   return (
+    type.includes("package_wishlist_mail_sent") ||
+    type.includes("offer_link_email_sent") ||
     type.includes("offer_update_mail_sent") ||
-    type.includes("update_mail") ||
-    text.includes("aktualisierungsmail") ||
-    text.includes("pdf-angebot") ||
-    text.includes("aktualisiertes angebot")
+    text.includes("paketwunsch-mail") ||
+    text.includes("paketwunsch-link") ||
+    text.includes("prüflink") ||
+    text.includes("prueflink") ||
+    text.includes("kundenseite")
   );
+}
+
+function isRequestReceivedMailEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
+
+  return (
+    type.includes("request_received_mail_sent") ||
+    text.includes("eingangsmail") ||
+    text.includes("liste ist angekommen")
+  );
+}
+
+function isWhatsappPrepareEvent(event: EventRow) {
+  const type = getEventType(event);
+  const text = getEventText(event);
+
+  return (
+    type.includes("whatsapp_prepare_done") ||
+    text.includes("whatsapp-liste wurde ausgewertet") ||
+    text.includes("sichere treffer wurden in den paketwunsch übernommen")
+  );
+}
+
+function isUpdateMailEvent(event: EventRow) {
+  return isPackageWishlistMailEvent(event);
 }
 
 function isUpdatedOfferConfirmedEvent(event: EventRow) {
@@ -641,10 +670,18 @@ function getOperationalHint(overview: RequestOverview) {
     };
   }
 
-  if (overview.offerItemCount > 0) {
+  if (hasEvent(overview, isPackageWishlistMailEvent)) {
     return {
-      label: "Paket in Bearbeitung",
-      text: "Es gibt Paketpositionen. Bitte final prüfen oder Kundenbestätigung abwarten.",
+      label: "Wartet auf Kunde",
+      text: "Der Paketwunsch-Link wurde gesendet. Kunde muss Paketwunsch prüfen und bestätigen.",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    };
+  }
+
+  if (hasEvent(overview, isWhatsappPrepareEvent) || overview.offerItemCount > 0) {
+    return {
+      label: "Paketwunsch vorbereitet",
+      text: "Als nächstes Paketwunsch-Mail senden oder fehlende Positionen prüfen.",
       className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
     };
   }
@@ -664,8 +701,20 @@ function getEventTypeLabel(event: EventRow | null) {
   switch (type) {
     case "request_received":
       return "Materialliste eingegangen";
+    case "request_received_mail_sent":
+      return "Eingangsmail versendet";
+    case "whatsapp_manual_import_created":
+      return "WhatsApp-Anfrage importiert";
+    case "whatsapp_prepare_started":
+      return "WhatsApp-Auswertung gestartet";
+    case "whatsapp_prepare_done":
+      return "WhatsApp-Liste vorbereitet";
+    case "whatsapp_prepare_needs_manual_review":
+      return "WhatsApp-Anfrage braucht Prüfung";
+    case "package_wishlist_mail_sent":
+      return "Paketwunsch-Mail versendet";
     case "offer_link_email_sent":
-      return "Angebotslink per E-Mail gesendet";
+      return "Paketwunsch-Link per E-Mail gesendet";
     case "offer_link_email_failed":
       return "E-Mail-Versand fehlgeschlagen";
     case "offer_link_email_skipped":
@@ -681,13 +730,13 @@ function getEventTypeLabel(event: EventRow | null) {
     case "customer_package_submitted_manual_review":
       return "Paketwunsch abgesendet · manuelle Prüfung nötig";
     case "offer_confirmed":
-      return "Angebot bestätigt";
+      return "Paketwunsch bestätigt";
     case "offer_confirmed_complete_customer_selection":
-      return "Angebot vollständig durch Kunde bestätigt";
+      return "Paketwunsch vollständig bestätigt";
     case "offer_update_mail_sent":
-      return "Aktualisiertes Angebot versandt";
+      return "Paketwunsch-Mail versendet";
     case "offer_update_confirmed":
-      return "Aktualisiertes Angebot bestätigt";
+      return "Paketwunsch bestätigt";
     case "invoice_created":
       return "Rechnung erstellt";
     case "invoice_mail_sent":
@@ -728,8 +777,6 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Admin hat Position gelöscht";
     case "admin_offer_item_updated":
       return "Admin hat Position bearbeitet";
-    case "whatsapp_manual_import_created":
-      return "WhatsApp-Anfrage importiert";
     default:
       return type || "Ereignis";
   }
@@ -739,8 +786,12 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
   const request = overview.request;
   const isConfirmed = isConfirmedRequest(overview);
 
-  const hasUpdateMail =
-    hasEvent(overview, isUpdateMailEvent) ||
+  const hasRequestReceivedMail = hasEvent(overview, isRequestReceivedMailEvent);
+
+  const hasPreparedWhatsappRequest = hasEvent(overview, isWhatsappPrepareEvent);
+
+  const hasPackageWishlistMail =
+    hasEvent(overview, isPackageWishlistMailEvent) ||
     request.offer_status === "offer_sent";
 
   if (isProblemPaymentRequest(overview)) {
@@ -785,7 +836,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Wartet auf Zahlung",
         subtitle:
-          "Das Angebot ist bestätigt, aber Picking/Versand bleiben bis Zahlungseingang gesperrt.",
+          "Der Paketwunsch ist bestätigt, aber Picking/Versand bleiben bis Zahlungseingang gesperrt.",
         badge: getPaymentStatusLabel(request.payment_status),
         tone: "amber",
         icon: ReceiptText,
@@ -797,7 +848,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Abholbereit",
         subtitle:
-          "Das Angebot ist bestätigt und das Paket ist zur Abholung vorbereitet.",
+          "Der Paketwunsch ist bestätigt und das Paket ist zur Abholung vorbereitet.",
         badge: "Abholbereit",
         tone: "green",
         icon: MapPin,
@@ -809,7 +860,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Versandbereit",
         subtitle:
-          "Das Angebot ist bestätigt und das Paket ist für den Versand vorbereitet.",
+          "Der Paketwunsch ist bestätigt und das Paket ist für den Versand vorbereitet.",
         badge: "Versandbereit",
         tone: "blue",
         icon: Truck,
@@ -821,7 +872,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Paket gepackt",
         subtitle:
-          "Das Angebot ist bestätigt. Die Artikel wurden gepackt und warten auf Abholung oder Versand.",
+          "Der Paketwunsch ist bestätigt. Die Artikel wurden gepackt und warten auf Abholung oder Versand.",
         badge: getFulfillmentMethodLabel(request.fulfillment_method),
         tone: "blue",
         icon: PackageCheck,
@@ -833,7 +884,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Artikel gepickt",
         subtitle:
-          "Das Angebot ist bestätigt. Die Artikel wurden gepickt und können jetzt gepackt werden.",
+          "Der Paketwunsch ist bestätigt. Die Artikel wurden gepickt und können jetzt gepackt werden.",
         badge: "Gepickt",
         tone: "blue",
         icon: ShoppingBasket,
@@ -845,7 +896,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
         area: "fulfillment",
         title: "Picking läuft",
         subtitle:
-          "Das Angebot ist bestätigt. Die Pickingliste wird gerade abgearbeitet.",
+          "Der Paketwunsch ist bestätigt. Die Pickingliste wird gerade abgearbeitet.",
         badge: "Picking",
         tone: "amber",
         icon: ShoppingBasket,
@@ -855,7 +906,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
     if (request.fulfillment_method === "pickup") {
       return {
         area: "fulfillment",
-        title: "Angebot bestätigt · Abholung",
+        title: "Paketwunsch bestätigt · Abholung",
         subtitle:
           "Der Kunde möchte im Laden abholen. Pickingliste erstellen und Paket zur Abholung vorbereiten.",
         badge: "Abholung",
@@ -867,7 +918,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
     if (request.fulfillment_method === "shipping") {
       return {
         area: "fulfillment",
-        title: "Angebot bestätigt · Versand",
+        title: "Paketwunsch bestätigt · Versand",
         subtitle:
           "Der Kunde möchte Versand. Zahlung prüfen, Pickingliste abarbeiten und Paket versenden.",
         badge: "Versand",
@@ -878,23 +929,47 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
 
     return {
       area: "fulfillment",
-      title: "Angebot bestätigt",
+      title: "Paketwunsch bestätigt",
       subtitle:
-        "Der Kunde hat das Angebot offiziell angenommen. Zahlung, Picking und Abwicklung können jetzt bearbeitet werden.",
+        "Der Kunde hat den Paketwunsch offiziell bestätigt. Rechnung, Zahlung, Picking und Abwicklung können jetzt bearbeitet werden.",
       badge: "Bestätigt",
       tone: "green",
       icon: CheckCircle2,
     };
   }
 
-  if (hasUpdateMail) {
+  if (hasPackageWishlistMail) {
     return {
       area: "open",
-      title: "Aktualisiertes Angebot versandt",
+      title: "Paketwunsch-Mail versendet",
       subtitle:
-        "Das manuell geänderte Angebot wurde gesendet. Es wartet noch auf Kundenbestätigung.",
-      badge: "Wartet auf Bestätigung",
+        "Der Kunde hat den Link zur Kundenseite erhalten. Jetzt wartet der Vorgang auf Prüfung und Bestätigung durch den Kunden.",
+      badge: "Wartet auf Kunde",
       tone: "amber",
+      icon: MailCheck,
+    };
+  }
+
+  if (hasPreparedWhatsappRequest || overview.offerItemCount > 0) {
+    return {
+      area: "open",
+      title: "Paketwunsch vorbereitet",
+      subtitle:
+        "Die Liste wurde ausgewertet und der Paketwunsch ist vorbereitet. Als nächstes die Paketwunsch-Mail an den Kunden senden.",
+      badge: "Mail senden",
+      tone: "blue",
+      icon: ShoppingBasket,
+    };
+  }
+
+  if (hasRequestReceivedMail) {
+    return {
+      area: "open",
+      title: "Eingang bestätigt",
+      subtitle:
+        "Der Kunde hat die Eingangsmail erhalten. Als nächstes Liste auswerten und Paketwunsch vorbereiten.",
+      badge: "Auswertung offen",
+      tone: "blue",
       icon: MailCheck,
     };
   }
@@ -916,22 +991,10 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
       area: "open",
       title: "Nachbearbeitet",
       subtitle:
-        "Du hast Positionen manuell angepasst. Prüfe final und sende danach das aktualisierte Angebot.",
+        "Du hast Positionen manuell angepasst. Prüfe final und sende danach die Paketwunsch-Mail.",
       badge: "Bereit zur Prüfung",
       tone: "blue",
       icon: Wrench,
-    };
-  }
-
-  if (overview.offerItemCount > 0) {
-    return {
-      area: "open",
-      title: "Paket vorbereitet",
-      subtitle:
-        "Es gibt bereits Paketpositionen. Der Paketwunsch ist noch nicht final bestätigt.",
-      badge: "In Bearbeitung",
-      tone: "blue",
-      icon: ShoppingBasket,
     };
   }
 
@@ -941,7 +1004,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
       title: "Vorschläge verfügbar",
       subtitle:
         "Die Liste wurde ausgewertet und passende Produktvorschläge sind vorhanden.",
-      badge: "Kunde kann wählen",
+      badge: "Paket vorbereiten",
       tone: "blue",
       icon: Sparkles,
     };
@@ -1066,6 +1129,30 @@ function getSmallInfoBadges(overview: RequestOverview) {
     });
   }
 
+  if (hasEvent(overview, isRequestReceivedMailEvent)) {
+    badges.push({
+      label: "Eingangsmail gesendet",
+      className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    });
+  }
+
+  if (hasEvent(overview, isWhatsappPrepareEvent)) {
+    badges.push({
+      label: "Paketwunsch vorbereitet",
+      className: "border-[#C8D8E8] bg-[#EEF4FA] text-[#12395F]",
+    });
+  }
+
+  if (
+    hasEvent(overview, isPackageWishlistMailEvent) ||
+    overview.request.offer_status === "offer_sent"
+  ) {
+    badges.push({
+      label: "Paketwunsch-Mail gesendet",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    });
+  }
+
   if (request.invoice_status) {
     badges.push({
       label: getInvoiceStatusLabel(request.invoice_status),
@@ -1078,7 +1165,7 @@ function getSmallInfoBadges(overview: RequestOverview) {
 
   if (request.status === "confirmed" || request.offer_status === "confirmed") {
     badges.push({
-      label: "Angebot bestätigt",
+      label: "Paketwunsch bestätigt",
       className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
     });
   }
@@ -1166,16 +1253,6 @@ function getSmallInfoBadges(overview: RequestOverview) {
     badges.push({
       label: `Auswahl offen: ${overview.openWithMatchesCount}`,
       className: "border-[#E8DED2] bg-white text-[#52616F]",
-    });
-  }
-
-  if (
-    hasEvent(overview, isUpdateMailEvent) ||
-    overview.request.offer_status === "offer_sent"
-  ) {
-    badges.push({
-      label: "Aktualisierungsmail versandt",
-      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
     });
   }
 
@@ -1900,9 +1977,9 @@ export default async function AdminRequestsPage({
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Die Übersicht zeigt Dir jetzt schneller, was als Nächstes zu tun
-                ist: manuelle Prüfung, offene Zahlung, bezahlte Vorgänge,
-                Packfreigabe, Versand, Abholung und abgeschlossene Vorgänge.
+                Die Übersicht zeigt Dir schneller, was als Nächstes zu tun ist:
+                Eingang, Auswertung, Paketwunsch, Kundenbestätigung, Rechnung,
+                Zahlung, Packfreigabe, Versand, Abholung und Abschluss.
               </p>
             </div>
 
@@ -2081,8 +2158,8 @@ export default async function AdminRequestsPage({
                         Offene Anfragen
                       </h2>
                       <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                        Neu, in Bearbeitung, manuelle Prüfung, Paket vorbereitet
-                        oder aktualisiertes Angebot versandt.
+                        Neu, in Bearbeitung, manuelle Prüfung, Paketwunsch
+                        vorbereitet oder Paketwunsch-Mail versandt.
                       </p>
                     </div>
 
@@ -2120,14 +2197,15 @@ export default async function AdminRequestsPage({
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-                        Bereich Angebot bestätigt
+                        Bereich Paketwunsch bestätigt
                       </p>
                       <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                        Angebot bestätigt / Abwicklung
+                        Paketwunsch bestätigt / Abwicklung
                       </h2>
                       <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                        Bestätigte Angebote, Zahlungsstatus, Pickingliste,
-                        Abholung, Versand, abholbereit, versendet oder abgeholt.
+                        Bestätigte Paketwünsche, Rechnung, Zahlungsstatus,
+                        Pickingliste, Abholung, Versand, abholbereit, versendet
+                        oder abgeholt.
                       </p>
                     </div>
 
@@ -2150,11 +2228,12 @@ export default async function AdminRequestsPage({
                 ) : (
                   <div className="rounded-[32px] border border-dashed border-[#D8C8B8] bg-white p-8 text-center shadow-sm">
                     <h3 className="text-xl font-black text-[#102A43]">
-                      Noch keine bestätigten Angebote in Abwicklung.
+                      Noch keine bestätigten Paketwünsche in Abwicklung.
                     </h3>
                     <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                      Sobald ein Kunde ein Angebot bestätigt, erscheint der
-                      Vorgang hier für Zahlung, Picking, Abholung oder Versand.
+                      Sobald ein Kunde den Paketwunsch bestätigt, erscheint der
+                      Vorgang hier für Rechnung, Zahlung, Picking, Abholung oder
+                      Versand.
                     </p>
                   </div>
                 )}
