@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createPayPalOrder } from "@/app/lib/paypal";
 
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    invoiceToken: string;
+    token: string;
   }>;
 };
 
@@ -141,9 +141,9 @@ async function insertPaymentEvent(params: {
   });
 }
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const { invoiceToken: rawInvoiceToken } = await context.params;
+    const { token: rawInvoiceToken } = await context.params;
     const invoiceToken = String(rawInvoiceToken || "").trim();
 
     if (!invoiceToken) {
