@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  AlertTriangle,
+  Banknote,
   CheckCircle2,
   ClipboardList,
   Clock,
+  Lock,
   MapPin,
   PackageCheck,
   Printer,
+  ShieldCheck,
   ShoppingBasket,
   Truck,
 } from "lucide-react";
@@ -31,6 +35,8 @@ type AdminFulfillmentPanelProps = {
   fulfillmentStatus?: string | null;
   pickingStatus?: string | null;
   shippingCostStatus?: string | null;
+  selectedPaymentMethod?: string | null;
+  paymentStatus?: string | null;
   pickupLocationLabel?: string | null;
   pickupAddressSnapshot?: string | null;
   pickupMapsUrlSnapshot?: string | null;
@@ -113,6 +119,8 @@ function getPickingStatusLabel(status?: string | null) {
 
 function getShippingCostLabel(status?: string | null) {
   switch (status) {
+    case "flat_rate_applied":
+      return "Versandpauschale angesetzt";
     case "pending_calculation":
       return "Versandkosten müssen noch berechnet werden";
     case "not_required":
@@ -139,6 +147,44 @@ function getSourceLabel(source: string | null) {
     default:
       return "Paketposition";
   }
+}
+
+function getPaymentMethodLabel(method?: string | null) {
+  switch (method) {
+    case "paypal":
+      return "PayPal";
+    case "bank_transfer":
+      return "Überweisung";
+    case "cash_on_pickup":
+      return "Barzahlung bei Abholung";
+    default:
+      return "Noch nicht gewählt";
+  }
+}
+
+function getPaymentStatusLabel(status?: string | null) {
+  switch (status) {
+    case "not_selected":
+      return "Zahlungsart noch nicht gewählt";
+    case "waiting_for_payment":
+      return "Wartet auf Zahlung";
+    case "payment_received":
+      return "Bezahlt";
+    case "cash_on_pickup":
+      return "Barzahlung bei Abholung gewählt";
+    case "cash_paid":
+      return "Bar bezahlt";
+    case "overdue":
+      return "Überfällig";
+    case "cancelled":
+      return "Zahlung abgebrochen";
+    default:
+      return status || "Zahlung offen";
+  }
+}
+
+function isPaidStatus(status?: string | null) {
+  return status === "payment_received" || status === "cash_paid";
 }
 
 function getCurrentStep(
@@ -183,6 +229,8 @@ export default function AdminFulfillmentPanel({
   fulfillmentStatus,
   pickingStatus,
   shippingCostStatus,
+  selectedPaymentMethod,
+  paymentStatus,
   pickupLocationLabel,
   pickupAddressSnapshot,
   pickupMapsUrlSnapshot,
@@ -207,6 +255,41 @@ export default function AdminFulfillmentPanel({
 
   const isPickup = fulfillmentMethod === "pickup";
   const isShipping = fulfillmentMethod === "shipping";
+
+  const paymentIsPaid = isPaidStatus(paymentStatus);
+
+  const cashOnPickupPending =
+    selectedPaymentMethod === "cash_on_pickup" &&
+    paymentStatus === "cash_on_pickup" &&
+    isPickup;
+
+  const canPrepareFulfillment = isConfirmed && (paymentIsPaid || cashOnPickupPending);
+  const canFinishPickup = isConfirmed && paymentIsPaid;
+  const canShip = isConfirmed && paymentIsPaid;
+
+  const PaymentGateIcon = paymentIsPaid
+    ? CheckCircle2
+    : cashOnPickupPending
+    ? Banknote
+    : Lock;
+
+  const paymentGateTitle = paymentIsPaid
+    ? "Abwicklung freigegeben"
+    : cashOnPickupPending
+    ? "Vorbereitung erlaubt · Abholung erst nach Barzahlung"
+    : "Abwicklung bis Zahlungseingang gesperrt";
+
+  const paymentGateText = paymentIsPaid
+    ? "Die Zahlung ist verbucht. Picking, Packen und Übergabe können fortgeführt werden."
+    : cashOnPickupPending
+    ? "Der Kunde hat Barzahlung bei Abholung gewählt. Du darfst das Paket vorbereiten und abholbereit setzen. Als abgeholt markieren bitte erst, wenn die Barzahlung im Admin als erhalten markiert wurde."
+    : "Bei PayPal oder Überweisung bitte erst nach Zahlungseingang fortfahren. Die technische Sperre verhindert zusätzlich, dass Picking oder Versand zu früh gestartet werden.";
+
+  const paymentGateClasses = paymentIsPaid
+    ? "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]"
+    : cashOnPickupPending
+    ? "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]"
+    : "border-[#F2B8B8] bg-[#FFF1F1] text-[#B5282D]";
 
   const currentStep = getCurrentStep(pickingStatus, fulfillmentStatus);
 
@@ -305,7 +388,45 @@ export default function AdminFulfillmentPanel({
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-4 print:grid-cols-4 print:gap-2">
+      {isConfirmed ? (
+        <div
+          className={`print-hidden mb-5 rounded-3xl border p-4 text-sm font-bold leading-6 ${paymentGateClasses}`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white">
+              <PaymentGateIcon className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em]">
+                Zahlungsfreigabe
+              </p>
+
+              <h3 className="mt-1 text-lg font-black">{paymentGateTitle}</h3>
+
+              <p className="mt-1">{paymentGateText}</p>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-2xl bg-white/80 px-3 py-2">
+                  <p className="text-xs font-bold opacity-80">Zahlungsart</p>
+                  <p className="font-black">
+                    {getPaymentMethodLabel(selectedPaymentMethod)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white/80 px-3 py-2">
+                  <p className="text-xs font-bold opacity-80">Status</p>
+                  <p className="font-black">
+                    {getPaymentStatusLabel(paymentStatus)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-5 print:grid-cols-5 print:gap-2">
         <div className="rounded-[24px] border border-[#BFE3CD] bg-white p-4 print:rounded-xl print:p-3">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50] print:hidden">
             <CheckCircle2 className="h-5 w-5" />
@@ -352,6 +473,25 @@ export default function AdminFulfillmentPanel({
           </p>
           <p className="mt-1 text-xs font-semibold text-[#52616F]">
             {getFulfillmentStatusLabel(fulfillmentStatus)}
+          </p>
+        </div>
+
+        <div className="rounded-[24px] border border-[#E8DED2] bg-white p-4 print:rounded-xl print:p-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#52616F] print:hidden">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
+            Zahlung
+          </p>
+          <p className="mt-2 font-black text-[#102A43]">
+            {paymentIsPaid
+              ? "Bezahlt"
+              : cashOnPickupPending
+              ? "Bar bei Abholung"
+              : "Noch offen"}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-[#52616F]">
+            {getPaymentMethodLabel(selectedPaymentMethod)}
           </p>
         </div>
 
@@ -475,7 +615,7 @@ export default function AdminFulfillmentPanel({
 
         {offerItems.length > 0 ? (
           <div className="overflow-hidden rounded-2xl border border-[#E8DED2] print:rounded-none">
-            <div className="grid grid-cols-[44px_72px_1fr_100px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:bg-white print:text-[#102A43] print:border-b print:border-[#102A43]">
+            <div className="grid grid-cols-[44px_72px_1fr_100px] bg-[#102A43] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-white md:grid-cols-[52px_80px_1fr_150px_120px] print:grid-cols-[44px_70px_1fr_110px_90px] print:border-b print:border-[#102A43] print:bg-white print:text-[#102A43]">
               <div>OK</div>
               <div>Menge</div>
               <div>Artikel</div>
@@ -561,13 +701,36 @@ export default function AdminFulfillmentPanel({
           Status für Picking, Abholung oder Versand setzen
         </h3>
 
+        <div className="mt-3 rounded-2xl bg-[#FBF7F0] p-4 text-sm font-bold leading-6 text-[#52616F]">
+          {paymentIsPaid ? (
+            <div className="flex items-start gap-2 text-[#2F7D50]">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              Zahlung verbucht. Alle passenden Abwicklungsschritte sind
+              freigegeben.
+            </div>
+          ) : cashOnPickupPending ? (
+            <div className="flex items-start gap-2 text-[#A75B28]">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              Barzahlung bei Abholung gewählt. Picking, Packen und Abholbereit
+              sind erlaubt. „Abgeholt“ bleibt bis zur Barzahlungsbuchung
+              gesperrt.
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 text-[#B5282D]">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              Abwicklung ist gesperrt, bis die Zahlung eingegangen und verbucht
+              ist.
+            </div>
+          )}
+        </div>
+
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <AdminFulfillmentActionButton
             requestId={requestId}
             action="start_picking"
             label="Picking starten"
             variant="blue"
-            disabled={!isConfirmed}
+            disabled={!canPrepareFulfillment}
           />
 
           <AdminFulfillmentActionButton
@@ -575,7 +738,7 @@ export default function AdminFulfillmentPanel({
             action="mark_picked"
             label="Als gepickt markieren"
             variant="neutral"
-            disabled={!isConfirmed}
+            disabled={!canPrepareFulfillment}
           />
 
           <AdminFulfillmentActionButton
@@ -583,7 +746,7 @@ export default function AdminFulfillmentPanel({
             action="mark_packed"
             label="Als gepackt markieren"
             variant="green"
-            disabled={!isConfirmed}
+            disabled={!canPrepareFulfillment}
           />
 
           {isPickup ? (
@@ -593,7 +756,7 @@ export default function AdminFulfillmentPanel({
                 action="ready_for_pickup"
                 label="Abholbereit"
                 variant="green"
-                disabled={!isConfirmed}
+                disabled={!canPrepareFulfillment}
               />
 
               <AdminFulfillmentActionButton
@@ -601,7 +764,7 @@ export default function AdminFulfillmentPanel({
                 action="mark_picked_up"
                 label="Abgeholt"
                 variant="green"
-                disabled={!isConfirmed}
+                disabled={!canFinishPickup}
               />
             </>
           ) : null}
@@ -613,7 +776,7 @@ export default function AdminFulfillmentPanel({
                 action="ready_for_shipping"
                 label="Versandbereit"
                 variant="blue"
-                disabled={!isConfirmed}
+                disabled={!canShip}
               />
 
               <AdminFulfillmentActionButton
@@ -621,7 +784,7 @@ export default function AdminFulfillmentPanel({
                 action="mark_shipped"
                 label="Versendet"
                 variant="green"
-                disabled={!isConfirmed}
+                disabled={!canShip}
               />
             </>
           ) : null}

@@ -76,6 +76,11 @@ type SchoolRequest = {
   shipping_amount?: number | string | null;
   invoice_total_amount?: number | string | null;
 
+  cash_on_pickup_allowed?: boolean | null;
+  cash_on_pickup_allowed_at?: string | null;
+  cash_on_pickup_allowed_note?: string | null;
+  cash_on_pickup_allowed_by?: string | null;
+
   created_at: string | null;
   updated_at: string | null;
 };
@@ -887,6 +892,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 fulfillmentStatus={request.fulfillment_status}
                 pickingStatus={request.picking_status}
                 shippingCostStatus={request.shipping_cost_status}
+                selectedPaymentMethod={request.selected_payment_method}
+                paymentStatus={request.payment_status}
                 pickupLocationLabel={request.pickup_location_label}
                 pickupAddressSnapshot={request.pickup_address_snapshot}
                 pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
@@ -909,6 +916,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               invoiceStatus={request.invoice_status}
               paymentStatus={request.payment_status}
               selectedPaymentMethod={request.selected_payment_method}
+              cashOnPickupAllowed={request.cash_on_pickup_allowed}
+              cashOnPickupAllowedAt={request.cash_on_pickup_allowed_at}
+              cashOnPickupAllowedNote={request.cash_on_pickup_allowed_note}
             />
 
             <AdminSendOfferUpdateMailButton requestId={request.id} />

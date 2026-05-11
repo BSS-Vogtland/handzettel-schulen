@@ -13,8 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.handzettel-schulen.de";
+const siteUrl = "https://www.handzettel-schulen.de";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -58,7 +57,7 @@ export const metadata: Metadata = {
       "Schulmaterialliste hochladen, passende Produkte vorbereiten lassen und den persönlichen Paketwunsch bequem online absenden.",
     images: [
       {
-        url: "/handzettel-logo.png",
+        url: `${siteUrl}/handzettel-logo.png`,
         width: 1200,
         height: 630,
         alt: "Handzettel-Schulen.de",
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
       "Handzettel-Schulen.de | Schulmaterialliste hochladen & Schulpaket vorbereiten lassen",
     description:
       "Lade Deine Schulmaterialliste online hoch und lass Deinen Schulmaterial-Paketwunsch vorbereiten.",
-    images: ["/handzettel-logo.png"],
+    images: [`${siteUrl}/handzettel-logo.png`],
   },
   robots: {
     index: true,
