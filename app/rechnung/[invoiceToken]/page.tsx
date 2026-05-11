@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 type Params = {
   params: Promise<{
-    token: string;
+    invoiceToken: string;
   }>;
 };
 
@@ -187,7 +187,9 @@ function getNextStepText(params: {
 }
 
 export default async function InvoicePaymentPage({ params }: Params) {
-  const { token } = await params;
+  const { invoiceToken } = await params;
+  const token = decodeURIComponent(invoiceToken || "").trim();
+
   const supabase = getSupabaseAdmin();
 
   const { data: invoiceData, error: invoiceError } = await supabase
