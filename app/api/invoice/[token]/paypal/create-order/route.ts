@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
-    token: string;
+    invoiceToken: string;
   }>;
 };
 
@@ -143,8 +143,8 @@ async function insertPaymentEvent(params: {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const { token } = await context.params;
-    const invoiceToken = String(token || "").trim();
+    const { invoiceToken: rawInvoiceToken } = await context.params;
+    const invoiceToken = String(rawInvoiceToken || "").trim();
 
     if (!invoiceToken) {
       return NextResponse.json(
