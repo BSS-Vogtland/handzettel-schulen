@@ -42,6 +42,20 @@ function getIcon(paymentMethod: PaymentMethod) {
   return Banknote;
 }
 
+function getLoadingText(paymentMethod: PaymentMethod) {
+  if (paymentMethod === "paypal") return "Weiterleitung ...";
+  if (paymentMethod === "bank_transfer") return "Überweisung wird vorbereitet...";
+  if (paymentMethod === "cash_on_pickup") return "Barzahlung wird gespeichert...";
+  return "Speichert...";
+}
+
+function getButtonText(paymentMethod: PaymentMethod) {
+  if (paymentMethod === "paypal") return "Mit PayPal bezahlen";
+  if (paymentMethod === "bank_transfer") return "Überweisung auswählen";
+  if (paymentMethod === "cash_on_pickup") return "Barzahlung auswählen";
+  return "Auswählen";
+}
+
 export default function CustomerPaymentMethodButton({
   invoiceToken,
   paymentMethod,
@@ -110,8 +124,20 @@ export default function CustomerPaymentMethodButton({
       }
 
       setIsSuccess(true);
-      setFeedback(payload.message || "Deine Zahlungsart wurde gespeichert.");
-      router.refresh();
+
+      if (paymentMethod === "bank_transfer") {
+        setFeedback("Überweisung wurde ausgewählt. Du wirst zur Zahlungsübersicht weitergeleitet ...");
+      } else if (paymentMethod === "cash_on_pickup") {
+        setFeedback("Barzahlung bei Abholung wurde ausgewählt. Du wirst zur Abschlussseite weitergeleitet ...");
+      } else {
+        setFeedback(payload.message || "Deine Zahlungsart wurde gespeichert.");
+      }
+
+      router.push(
+        `/rechnung/${encodeURIComponent(invoiceToken)}/abschluss?method=${encodeURIComponent(
+          paymentMethod
+        )}`
+      );
     } catch (error) {
       setIsSuccess(false);
       setFeedback(
@@ -187,13 +213,7 @@ export default function CustomerPaymentMethodButton({
             <Icon className="h-4 w-4" />
           )}
 
-          {isSaving
-            ? paymentMethod === "paypal"
-              ? "Weiterleitung ..."
-              : "Speichert..."
-            : paymentMethod === "paypal"
-            ? "Mit PayPal bezahlen"
-            : "Auswählen"}
+          {isSaving ? getLoadingText(paymentMethod) : getButtonText(paymentMethod)}
         </button>
       </div>
 
