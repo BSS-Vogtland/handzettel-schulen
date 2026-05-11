@@ -86,8 +86,20 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
+function getPayPalEnvironment() {
+  const rawEnv = String(process.env.PAYPAL_ENV || "sandbox")
+    .trim()
+    .toLowerCase();
+
+  if (rawEnv === "live" || rawEnv === "production" || rawEnv === "prod") {
+    return "live";
+  }
+
+  return "sandbox";
+}
+
 function getPayPalBaseUrl() {
-  const env = process.env.PAYPAL_ENV || "sandbox";
+  const env = getPayPalEnvironment();
 
   if (env === "live") {
     return "https://api-m.paypal.com";
