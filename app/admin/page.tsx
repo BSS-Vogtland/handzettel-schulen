@@ -2,9 +2,11 @@ import Link from "next/link";
 import {
   ArrowRight,
   ClipboardList,
+  MessageCircle,
   PackagePlus,
   School,
   ShoppingBasket,
+  Smartphone,
   Sparkles,
 } from "lucide-react";
 
@@ -27,9 +29,9 @@ export default function AdminHomePage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Hier steuerst Du Deine Schulmaterial-Anfragen, bearbeitest
-                Paketwünsche und erfasst Produkte für zukünftige automatische
-                Vorschläge.
+                Hier steuerst Du Deine Schulmaterial-Anfragen, übernimmst
+                WhatsApp-Listen ins System, bearbeitest Paketwünsche und erfasst
+                Produkte für zukünftige automatische Vorschläge.
               </p>
             </div>
 
@@ -43,8 +45,8 @@ export default function AdminHomePage() {
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Wähle aus, ob Du Anfragen bearbeiten oder Produkte erfassen
-                möchtest.
+                Wähle aus, ob Du Anfragen bearbeiten, WhatsApp-Listen übernehmen
+                oder Produkte erfassen möchtest.
               </p>
             </div>
           </div>
@@ -69,11 +71,40 @@ export default function AdminHomePage() {
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
               Öffne eingegangene Schulmateriallisten, prüfe erkannte Positionen,
-              bearbeite Paketwünsche und korrigiere Kunden-Auswahlen.
+              bearbeite Paketwünsche, Rechnungen, Zahlung, Picking und
+              Kunden-Auswahlen.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Zu den Anfragen
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/whatsapp-import"
+            className="group rounded-[32px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
+          >
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#1FA855]">
+              <MessageCircle className="h-6 w-6" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              WhatsApp-Import
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+              WhatsApp-Liste übernehmen
+            </h2>
+
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#2F7D50]">
+              Wenn ein Kunde seine Liste per WhatsApp geschickt hat, kannst Du
+              hier Text, Foto, Screenshot oder PDF übernehmen und daraus eine
+              normale Anfrage im System anlegen.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+              WhatsApp importieren
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
@@ -97,11 +128,39 @@ export default function AdminHomePage() {
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
               Lege neue Produkte, Artikelnummern, Preise, Formate, Farben,
               Lineaturen und Suchbegriffe an. Diese Produkte stehen danach für
-              manuelle Auswahl und spätere automatische Vorschläge bereit.
+              manuelle Auswahl und automatische Vorschläge bereit.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Zu den Produkten
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/produkte/mobile"
+            className="group rounded-[32px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
+          >
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#12395F]">
+              <Smartphone className="h-6 w-6" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+              Mobile Produkterfassung
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+              Produkte mit Handyfoto erfassen
+            </h2>
+
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#12395F]">
+              Öffne die mobile Erfassung auf dem Smartphone, fotografiere
+              Produkte direkt mit der Handykamera und speichere sie schnell für
+              den Produktkatalog.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+              Mobile Erfassung öffnen
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
@@ -119,13 +178,15 @@ export default function AdminHomePage() {
               </p>
 
               <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                Produkte und Anfragen greifen zusammen
+                Upload, WhatsApp, Produkte und Anfragen greifen zusammen
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Produkte, die Du unter „Produkte schnell erfassen“ anlegst,
-                können später direkt in Anfragen gefunden, manuell übernommen
-                und durch Aliase für zukünftige Listen gemerkt werden.
+                Kunden können Listen über die Website hochladen oder per
+                WhatsApp schicken. WhatsApp-Listen übernimmst Du über den
+                WhatsApp-Import ins System. Produkte, die Du erfasst, können
+                später direkt in Anfragen gefunden, manuell übernommen und durch
+                Aliase für zukünftige Listen gemerkt werden.
               </p>
             </div>
           </div>
