@@ -454,7 +454,10 @@ function isStrictMatchVisible(item: RequestItem, match: RequestMatch) {
 }
 
 function isSafeAutoMatch(match: RequestMatch) {
-  return Boolean(match.product_id) && toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE;
+  return (
+    Boolean(match.product_id) &&
+    toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
+  );
 }
 
 function isSelectableOpenMatch(match: RequestMatch) {
@@ -540,16 +543,6 @@ function formatMoney(value: unknown) {
     style: "currency",
     currency: "EUR",
   }).format(toNumber(value, 0));
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-
-  return new Intl.DateTimeFormat("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function formatFileSize(size: number | null) {
@@ -1016,31 +1009,50 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
-                      ? "Dein finaler Paketwunsch"
-                      : "Dein vorbereiteter Paketwunsch"}
+                      ? "Dein Schulpaket ist bestätigt"
+                      : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
-                      ? "Hier siehst Du den aktuellen finalen Stand Deines Schulmaterial-Paketwunsches."
-                      : "Sichere Treffer ab 85 % wurden bereits für Dich ins Paket gelegt. Du kannst sie bei Bedarf einfach entfernen. Offene Positionen kannst Du ergänzen oder persönlich prüfen lassen."}
+                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor."
+                      : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
               </div>
 
               {!isConfirmed ? (
-                <div className="mt-6 rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-                    <div>
-                      <p className="font-black">
-                        Sicher passende Produkte sind schon vorbereitet.
-                      </p>
-                      <p className="mt-1 text-sm font-semibold leading-6">
-                        Prüfe nur kurz Dein Paket, entferne bei Bedarf einzelne
-                        Produkte und ergänze die offenen Positionen.
-                      </p>
-                    </div>
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Schritt 1
+                    </p>
+                    <p className="mt-1 font-black">Paket kurz prüfen</p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Vorausgewählte Artikel sind bereits enthalten.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-[#A75B28]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Schritt 2
+                    </p>
+                    <p className="mt-1 font-black">Offenes ergänzen</p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Unsichere Artikel kannst Du auswählen oder suchen.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#52616F]">
+                    <p className="text-xs font-black uppercase tracking-[0.14em]">
+                      Schritt 3
+                    </p>
+                    <p className="mt-1 font-black text-[#102A43]">
+                      Paket absenden
+                    </p>
+                    <p className="mt-1 text-sm font-semibold leading-6">
+                      Erst danach wird Dein Paketwunsch verbindlich übermittelt.
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -1048,7 +1060,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
             <aside className="rounded-[30px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Dein Paket
+                Aktueller Paketwert
               </p>
 
               <h2 className="mt-2 text-2xl font-black text-[#102A43]">
@@ -1062,7 +1074,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
               <div className="mt-4 space-y-2 text-sm font-semibold text-[#52616F]">
                 <div className="flex justify-between gap-3">
-                  <span>Vorausgewählt</span>
+                  <span>Schon im Paket</span>
                   <span className="font-black text-[#2F7D50]">
                     {autoPreselectedOfferItems.length}
                   </span>
@@ -1089,6 +1101,13 @@ export default async function CustomerOfferPage({ params }: Params) {
                 </div>
               ) : null}
 
+              {!isConfirmed ? (
+                <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
+                  Du sendest erst mit dem Bestätigungsbutton Deinen Paketwunsch
+                  ab. Vorher kannst Du Artikel entfernen oder ergänzen.
+                </p>
+              ) : null}
+
               {isConfirmed ? (
                 <div className="mt-5 rounded-2xl border border-[#BFE3CD] bg-white p-4 text-[#2F7D50]">
                   <div className="flex items-start gap-2">
@@ -1113,7 +1132,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
           <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em]">
-              Automatisch im Paket
+              Schon im Paket
             </p>
             <p className="mt-2 text-3xl font-black">
               {autoPreselectedOfferItems.length}
@@ -1129,7 +1148,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#52616F]">
-              Persönliche Prüfung
+              Wir prüfen für Dich
             </p>
             <p className="mt-2 text-3xl font-black text-[#102A43]">
               {manualReviewItems.length}
@@ -1159,7 +1178,7 @@ export default async function CustomerOfferPage({ params }: Params) {
               <FileText className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Hochgeladene Liste
+              Deine Liste
             </p>
             <h2 className="mt-2 text-lg font-black">
               {uploadedFiles[0]?.original_filename || "Datei vorhanden"}
@@ -1177,7 +1196,7 @@ export default async function CustomerOfferPage({ params }: Params) {
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed ? "Abgesendet" : "In Vorbereitung"}
+              {isConfirmed ? "Abgesendet" : "Noch prüfbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {handledItemCount} von {items.length} Positionen im Paket
@@ -1198,9 +1217,9 @@ export default async function CustomerOfferPage({ params }: Params) {
                   Dein Paketwunsch wurde erfolgreich abgesendet.
                 </h2>
                 <p className="mt-1 text-sm leading-6">
-                  Handzettel-Schulen.de hat Deine Auswahl erhalten. Der
-                  Paketwunsch wird final geprüft und bei Bedarf sauber ergänzt
-                  oder korrigiert.
+                  Handzettel-Schulen.de hat Deine Auswahl erhalten. Wenn noch
+                  etwas unklar ist, prüfen wir es persönlich, bevor Dein Paket
+                  final vorbereitet wird.
                 </p>
               </div>
             </div>
@@ -1218,15 +1237,15 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                      Bereits für Dich vorausgewählt
+                      Bereits erledigt
                     </p>
                     <h2 className="text-2xl font-black text-[#102A43]">
-                      Sichere Treffer liegen schon im Paket
+                      Diese Artikel liegen schon in Deinem Paket
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[#2F7D50]">
-                      Diese Produkte wurden wegen hoher Übereinstimmung direkt
-                      übernommen. Du musst sie nur entfernen, wenn Du sie nicht
-                      möchtest.
+                      Diese Produkte passen sehr sicher zu Deiner Liste. Du
+                      musst hier nichts tun – nur entfernen, falls Du einen
+                      Artikel nicht möchtest.
                     </p>
                   </div>
                 </div>
@@ -1446,14 +1465,15 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        Bitte noch auswählen
+                        Deine Entscheidung
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Hier brauchen wir Deine Entscheidung
+                        Diese Artikel brauchen noch eine Auswahl
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#A75B28]">
-                        Diese Positionen haben passende Vorschläge, aber nicht
-                        sicher genug für eine automatische Vorauswahl.
+                        Hier gibt es passende Vorschläge, aber noch keinen
+                        Treffer, den wir ohne Deine Entscheidung automatisch
+                        übernehmen möchten.
                       </p>
                     </div>
                   </div>
@@ -1557,7 +1577,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                                           {matchIndex === 0 ? (
                                             <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                              Beste offene Empfehlung
+                                              Beste Empfehlung
                                             </span>
                                           ) : (
                                             <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
@@ -1625,15 +1645,15 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        Wird persönlich geprüft
+                        Persönlicher Service
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Diese Positionen übernehmen wir für Dich
+                        Diese Positionen prüfen wir für Dich
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#52616F]">
-                        Hier wurde kein sicherer Treffer gefunden. Statt falsch
-                        zu raten, prüft Handzettel-Schulen.de diese Positionen
-                        persönlich.
+                        Wenn kein sicherer Treffer vorhanden ist, raten wir
+                        nicht einfach. Diese Artikel werden von uns persönlich
+                        geprüft und sauber ergänzt.
                       </p>
                     </div>
                   </div>
@@ -1683,13 +1703,13 @@ export default async function CustomerOfferPage({ params }: Params) {
                               </div>
 
                               <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-                                Du musst hier nichts weiter tun. Diese Position
-                                wird persönlich geprüft und sauber ergänzt.
+                                Du musst hier nichts weiter tun. Wir prüfen
+                                diese Position persönlich.
                               </p>
                             </div>
 
                             <div className="rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#A75B28]">
-                              Persönliche Prüfung
+                              Wird geprüft
                             </div>
                           </div>
 
@@ -1784,12 +1804,11 @@ export default async function CustomerOfferPage({ params }: Params) {
               {!isConfirmed ? (
                 <section className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
                   <p className="text-sm font-black text-[#102A43]">
-                    Keine Sorge bei offenen Positionen.
+                    Keine Sorge bei unklaren Artikeln.
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Wenn etwas unklar ist, prüft Handzettel-Schulen.de die
-                    Position persönlich, bevor Dein Paket final vorbereitet
-                    wird.
+                    Wenn etwas nicht eindeutig erkannt wurde, prüfen wir es
+                    persönlich, statt Dir ein falsches Produkt vorzuschlagen.
                   </p>
                 </section>
               ) : null}
