@@ -43,7 +43,10 @@ type ApiResponse = {
   totalAmount?: number;
   paymentUrl?: string;
   cashOnPickupAllowed?: boolean;
+  paidAt?: string;
 };
+
+type ManualPaymentAction = "mark_bank_transfer_paid" | "mark_cash_paid";
 
 function toNumber(value: unknown, fallback = 0) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -124,6 +127,10 @@ function getPaymentMethodLabel(method?: string | null) {
   }
 }
 
+function isPaidStatus(status?: string | null) {
+  return status === "payment_received" || status === "cash_paid";
+}
+
 async function readApiResponse(response: Response): Promise<ApiResponse> {
   const rawText = await response.text();
 
@@ -158,13 +165,18 @@ export default function AdminInvoicePaymentPanel({
   );
   const [adminNote, setAdminNote] = useState("");
   const [cashNote, setCashNote] = useState(cashOnPickupAllowedNote || "");
+  const [manualPaymentNote, setManualPaymentNote] = useState("");
   const [localCashAllowed, setLocalCashAllowed] = useState(
     Boolean(cashOnPickupAllowed)
+  );
+  const [localPaymentStatus, setLocalPaymentStatus] = useState(
+    paymentStatus || null
   );
 
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [isUpdatingCash, setIsUpdatingCash] = useState(false);
+  const [isMarkingPayment, setIsMarkingPayment] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -183,6 +195,17 @@ export default function AdminInvoicePaymentPanel({
     invoiceStatus === "draft" ||
     invoiceStatus === "sent" ||
     storedTotal > 0;
+
+  const currentPaymentStatus = localPaymentStatus || paymentStatus || null;
+  const paymentIsPaid = isPaidStatus(currentPaymentStatus);
+
+  const canMarkBankTransferPaid =
+    selectedPaymentMethod === "bank_transfer" &&
+    currentPaymentStatus === "waiting_for_payment";
+
+  const canMarkCashPaid =
+    selectedPaymentMethod === "cash_on_pickup" &&
+    currentPaymentStatus === "cash_on_pickup";
 
   const pdfUrl = `/api/admin/requests/${requestId}/invoice/pdf`;
 
@@ -331,6 +354,54 @@ export default function AdminInvoicePaymentPanel({
     }
   }
 
+  async function handleMarkPaymentPaid(action: ManualPaymentAction) {
+    if (isMarkingPayment) return;
+
+    try {
+      setIsMarkingPayment(true);
+      setFeedback(null);
+      setIsSuccess(false);
+
+      const response = await fetch(
+        `/api/admin/requests/${requestId}/payment/mark-paid`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action,
+            note: manualPaymentNote,
+          }),
+        }
+      );
+
+      const payload = await readApiResponse(response);
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(
+          payload.message || "Zahlung konnte nicht als bezahlt markiert werden."
+        );
+      }
+
+      setLocalPaymentStatus(payload.paymentStatus || null);
+      setIsSuccess(true);
+      setFeedback(payload.message || "Zahlung wurde als bezahlt markiert.");
+      setManualPaymentNote("");
+
+      router.refresh();
+    } catch (error) {
+      setIsSuccess(false);
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Zahlung konnte nicht als bezahlt markiert werden."
+      );
+    } finally {
+      setIsMarkingPayment(false);
+    }
+  }
+
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -351,9 +422,8 @@ export default function AdminInvoicePaymentPanel({
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
               Hier bereitest Du die Rechnung vor, ergänzt Versandkosten und
               legst den Gesamtbetrag fest. PayPal wird als bevorzugte
-              Zahlungsart vorausgewählt. Barzahlung bei Abholung bleibt
-              standardmäßig intern gesperrt und kann nur pro Anfrage freigegeben
-              werden.
+              Zahlungsart vorausgewählt. Überweisung und Barzahlung können hier
+              nach Eingang manuell als bezahlt gebucht werden.
             </p>
           </div>
         </div>
@@ -464,7 +534,7 @@ export default function AdminInvoicePaymentPanel({
             </p>
 
             <p className="mt-3 inline-flex rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-              Empfohlen
+              Automatisch
             </p>
           </div>
 
@@ -476,7 +546,8 @@ export default function AdminInvoicePaymentPanel({
             <p className="font-black text-[#102A43]">Überweisung Vorkasse</p>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Bearbeitung startet nach Zahlungseingang.
+              Bearbeitung startet nach Zahlungseingang. Zahlung wird hier
+              manuell bestätigt.
             </p>
           </div>
 
@@ -520,6 +591,129 @@ export default function AdminInvoicePaymentPanel({
             >
               {isPickup && localCashAllowed ? "Freigegeben" : "Gesperrt"}
             </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Zahlungseingang buchen
+            </p>
+
+            <h3 className="mt-1 font-black text-[#102A43]">
+              Überweisung oder Barzahlung manuell als bezahlt markieren
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              PayPal wird automatisch gebucht. Überweisung und Barzahlung werden
+              nach Prüfung hier manuell bestätigt.
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div
+                className={`rounded-2xl border p-4 ${
+                  paymentIsPaid
+                    ? "border-[#BFE3CD] bg-[#F0FFF6]"
+                    : "border-[#E8DED2] bg-[#FBF7F0]"
+                }`}
+              >
+                <p className="text-xs font-bold text-[#52616F]">
+                  Zahlungsstatus
+                </p>
+
+                <p className="mt-1 font-black text-[#102A43]">
+                  {getPaymentStatusLabel(currentPaymentStatus)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+                <p className="text-xs font-bold text-[#52616F]">Zahlungsart</p>
+
+                <p className="mt-1 font-black text-[#102A43]">
+                  {getPaymentMethodLabel(selectedPaymentMethod)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+                <p className="text-xs font-bold text-[#52616F]">Hinweis</p>
+
+                <p className="mt-1 text-sm font-bold leading-5 text-[#52616F]">
+                  {paymentIsPaid
+                    ? "Zahlung ist abgeschlossen."
+                    : selectedPaymentMethod === "bank_transfer"
+                    ? "Bankkonto prüfen und danach bestätigen."
+                    : selectedPaymentMethod === "cash_on_pickup"
+                    ? "Bei Abholung kassieren und danach bestätigen."
+                    : selectedPaymentMethod === "paypal"
+                    ? "PayPal wird automatisch verarbeitet."
+                    : "Kunde hat noch keine Zahlungsart gewählt."}
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                Interne Notiz zum Zahlungseingang
+              </span>
+
+              <textarea
+                value={manualPaymentNote}
+                onChange={(event) => setManualPaymentNote(event.target.value)}
+                className="mt-2 min-h-20 w-full rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#102A43] outline-none transition focus:border-[#A75B28]"
+                placeholder="Optional, z. B. Zahlung am Kontoauszug geprüft, Betrag bar erhalten, Kassennummer..."
+              />
+            </label>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => handleMarkPaymentPaid("mark_bank_transfer_paid")}
+                disabled={
+                  isMarkingPayment || paymentIsPaid || !canMarkBankTransferPaid
+                }
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isMarkingPayment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Banknote className="h-4 w-4" />
+                )}
+                Überweisung als bezahlt markieren
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMarkPaymentPaid("mark_cash_paid")}
+                disabled={isMarkingPayment || paymentIsPaid || !canMarkCashPaid}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isMarkingPayment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Barzahlung erhalten markieren
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
+              <p className="font-black text-[#8A4A1F]">
+                Wichtig für die Abwicklung:
+              </p>
+
+              <p className="mt-1">
+                Bei PayPal und Überweisung sollte erst nach Zahlungseingang
+                gepackt werden. Bei Barzahlung kann das Paket vorbereitet werden,
+                aber „abgeholt“ sollte erst nach erhaltener Barzahlung gesetzt
+                werden.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -618,38 +812,6 @@ export default function AdminInvoicePaymentPanel({
                 </p>
               ) : null}
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-white p-4">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-          Aktueller Zahlungsstatus
-        </p>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl bg-[#FBF7F0] p-3">
-            <p className="text-xs font-bold text-[#52616F]">Zahlungsstatus</p>
-
-            <p className="mt-1 font-black text-[#102A43]">
-              {getPaymentStatusLabel(paymentStatus)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-[#FBF7F0] p-3">
-            <p className="text-xs font-bold text-[#52616F]">Zahlungsart</p>
-
-            <p className="mt-1 font-black text-[#102A43]">
-              {getPaymentMethodLabel(selectedPaymentMethod)}
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-[#FBF7F0] p-3">
-            <p className="text-xs font-bold text-[#52616F]">Übergabe</p>
-
-            <p className="mt-1 font-black text-[#102A43]">
-              {isPickup ? "Abholung" : isShipping ? "Versand" : "Noch offen"}
-            </p>
           </div>
         </div>
       </div>
