@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ImagePlus,
   Loader2,
   PackagePlus,
   RotateCcw,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -25,6 +26,279 @@ type QuickCreateResponse = {
   };
 };
 
+type AliasInput = {
+  productName: string;
+  productSku: string;
+  category: string;
+  productType: string;
+  format: string;
+  color: string;
+  lineature: string;
+};
+
+function cleanValue(value: unknown) {
+  return String(value || "").trim();
+}
+
+function normalizeValue(value: unknown) {
+  return cleanValue(value)
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqueList(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const cleaned = cleanValue(value).replace(/\s+/g, " ");
+
+    if (!cleaned) continue;
+
+    const key = normalizeValue(cleaned);
+
+    if (!key || seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(cleaned);
+  }
+
+  return result;
+}
+
+function containsAny(text: string, words: string[]) {
+  return words.some((word) => text.includes(word));
+}
+
+function getBaseProductType(input: AliasInput) {
+  const combined = normalizeValue(
+    `${input.productName} ${input.category} ${input.productType}`
+  );
+
+  if (
+    containsAny(combined, [
+      "umschlag",
+      "hefthuelle",
+      "hefthuellen",
+      "huelle",
+      "huellen",
+      "schutzumschlag",
+    ])
+  ) {
+    return "umschlag";
+  }
+
+  if (
+    containsAny(combined, [
+      "hausaufgabenheft",
+      "hausaufgaben",
+      "aufgabenheft",
+    ])
+  ) {
+    return "hausaufgabenheft";
+  }
+
+  if (
+    containsAny(combined, ["schulheft", "schreibheft", "heft"]) &&
+    !containsAny(combined, ["umschlag", "huelle"])
+  ) {
+    return "heft";
+  }
+
+  if (containsAny(combined, ["schnellhefter", "hefter"])) {
+    return "schnellhefter";
+  }
+
+  if (containsAny(combined, ["block", "collegeblock", "zeichenblock"])) {
+    return "block";
+  }
+
+  if (containsAny(combined, ["mappe", "sammelmappe", "ordner"])) {
+    return "mappe";
+  }
+
+  if (
+    containsAny(combined, [
+      "bleistift",
+      "buntstift",
+      "filzstift",
+      "fineliner",
+      "kugelschreiber",
+      "fueller",
+      "filler",
+      "stift",
+    ])
+  ) {
+    return "stift";
+  }
+
+  if (containsAny(combined, ["zirkel", "lineal", "geodreieck"])) {
+    return "geometrie";
+  }
+
+  if (containsAny(combined, ["kleber", "klebestift", "schere"])) {
+    return "basteln";
+  }
+
+  return cleanValue(input.productType || input.category || "");
+}
+
+function buildPart(...parts: Array<string | null | undefined>) {
+  return parts.map(cleanValue).filter(Boolean).join(" ");
+}
+
+function generateRuleBasedAliases(input: AliasInput) {
+  const productName = cleanValue(input.productName);
+  const sku = cleanValue(input.productSku);
+  const category = cleanValue(input.category);
+  const productType = cleanValue(input.productType);
+  const format = cleanValue(input.format).toUpperCase();
+  const color = cleanValue(input.color).toLowerCase();
+  const lineatureRaw = cleanValue(input.lineature);
+  const lineature = lineatureRaw
+    .replace(/^lineatur\s*/i, "")
+    .replace(/^lin\.\s*/i, "")
+    .trim();
+
+  const baseType = getBaseProductType(input);
+  const aliases: string[] = [];
+
+  if (productName) aliases.push(productName);
+  if (sku) aliases.push(sku);
+
+  if (category && productName) aliases.push(`${category} ${productName}`);
+  if (productType && productName) aliases.push(`${productType} ${productName}`);
+
+  if (baseType === "umschlag") {
+    aliases.push(
+      buildPart("Umschlag", format, color),
+      buildPart("Heftumschlag", format, color),
+      buildPart("Hefthülle", format, color),
+      buildPart("Heft Hülle", format, color),
+      buildPart("Schutzumschlag", format, color),
+      buildPart(format, "Umschlag", color),
+      buildPart(color, "Umschlag", format)
+    );
+  }
+
+  if (baseType === "heft") {
+    aliases.push(
+      buildPart("Schulheft", format, lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart("Schreibheft", format, lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart("Heft", format, lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart("Heft", format, lineature, color),
+      buildPart(format, "Heft", lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart("Lineatur", lineature, format),
+      buildPart("Lin", lineature, format),
+      buildPart("L", lineature, format)
+    );
+
+    if (lineature === "8" || lineature.toLowerCase() === "8f") {
+      aliases.push(
+        buildPart("Schulheft", format, "Lineatur 8f", color),
+        buildPart("Schulheft", format, "Lineatur 8", color),
+        buildPart("Heft", format, "8f", color),
+        buildPart("Heft", format, "8", color)
+      );
+    }
+
+    if (lineature === "0") {
+      aliases.push(
+        buildPart("blanko Heft", format, color),
+        buildPart("unliniertes Heft", format, color),
+        buildPart("Heft ohne Lineatur", format, color),
+        buildPart("Heft", format, "Lineatur 0", color)
+      );
+    }
+  }
+
+  if (baseType === "hausaufgabenheft") {
+    aliases.push(
+      buildPart("Hausaufgabenheft", format),
+      buildPart("Hausaufgaben Heft", format),
+      buildPart("Aufgabenheft", format),
+      buildPart("Schülerkalender", format)
+    );
+  }
+
+  if (baseType === "schnellhefter") {
+    aliases.push(
+      buildPart("Schnellhefter", format, color),
+      buildPart("Hefter", format, color),
+      buildPart("Plastik Schnellhefter", format, color),
+      buildPart("Schnellhefter", color),
+      buildPart("Hefter", color),
+      buildPart("Mappe", color)
+    );
+  }
+
+  if (baseType === "block") {
+    aliases.push(
+      buildPart("Block", format, lineature ? `Lineatur ${lineature}` : ""),
+      buildPart("Schreibblock", format, lineature ? `Lineatur ${lineature}` : ""),
+      buildPart("Collegeblock", format, lineature ? `Lineatur ${lineature}` : ""),
+      buildPart("Notizblock", format),
+      buildPart(format, "Block", lineature)
+    );
+  }
+
+  if (baseType === "mappe") {
+    aliases.push(
+      buildPart("Mappe", format, color),
+      buildPart("Sammelmappe", format, color),
+      buildPart("Eckspanner", format, color),
+      buildPart("Ordner", format, color)
+    );
+  }
+
+  if (baseType === "stift") {
+    aliases.push(
+      buildPart("Stift", color),
+      buildPart("Schreibstift", color),
+      buildPart("Buntstift", color),
+      buildPart("Filzstift", color),
+      buildPart("Fineliner", color)
+    );
+  }
+
+  if (baseType === "geometrie") {
+    aliases.push(
+      buildPart("Geometrie", productName),
+      buildPart("Lineal", format),
+      buildPart("Geodreieck"),
+      buildPart("Zirkel")
+    );
+  }
+
+  if (baseType === "basteln") {
+    aliases.push(
+      buildPart("Basteln", productName),
+      buildPart("Kleber"),
+      buildPart("Klebestift"),
+      buildPart("Schere")
+    );
+  }
+
+  aliases.push(
+    buildPart(category, format, color),
+    buildPart(productType, format, color),
+    buildPart(productName, format),
+    buildPart(productName, color),
+    buildPart(productName, lineature ? `Lineatur ${lineature}` : ""),
+    buildPart(productName, format, color),
+    buildPart(productName, format, lineature ? `Lineatur ${lineature}` : "", color)
+  );
+
+  return uniqueList(aliases).slice(0, 30);
+}
+
 export default function AdminQuickProductForm() {
   const router = useRouter();
 
@@ -37,6 +311,8 @@ export default function AdminQuickProductForm() {
   const [color, setColor] = useState("");
   const [lineature, setLineature] = useState("");
   const [aliases, setAliases] = useState("");
+  const [aliasesWereManuallyEdited, setAliasesWereManuallyEdited] =
+    useState(false);
 
   const [productImage, setProductImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -44,6 +320,24 @@ export default function AdminQuickProductForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const generatedAliases = useMemo(() => {
+    return generateRuleBasedAliases({
+      productName,
+      productSku,
+      category,
+      productType,
+      format,
+      color,
+      lineature,
+    });
+  }, [productName, productSku, category, productType, format, color, lineature]);
+
+  useEffect(() => {
+    if (aliasesWereManuallyEdited) return;
+
+    setAliases(generatedAliases.join("\n"));
+  }, [generatedAliases, aliasesWereManuallyEdited]);
 
   useEffect(() => {
     if (!productImage) {
@@ -69,9 +363,17 @@ export default function AdminQuickProductForm() {
     setColor("");
     setLineature("");
     setAliases("");
+    setAliasesWereManuallyEdited(false);
     setProductImage(null);
     setPreviewUrl(null);
     setFeedback(null);
+    setErrorMessage(null);
+  }
+
+  function regenerateAliases() {
+    setAliases(generatedAliases.join("\n"));
+    setAliasesWereManuallyEdited(false);
+    setFeedback("Suchbegriffe wurden automatisch neu generiert.");
     setErrorMessage(null);
   }
 
@@ -158,7 +460,12 @@ export default function AdminQuickProductForm() {
         );
       }
 
-      setFeedback(payload.message || "Produkt wurde gespeichert.");
+      setFeedback(
+        payload.message ||
+          `Produkt wurde gespeichert. ${
+            payload.aliasCount ? `${payload.aliasCount} Suchbegriffe angelegt.` : ""
+          }`
+      );
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -188,9 +495,9 @@ export default function AdminQuickProductForm() {
           </h2>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-            Lege Produkte inklusive Bild schnell an. Suchbegriffe werden direkt
-            gespeichert, damit spätere Schulmateriallisten bessere Vorschläge
-            erhalten.
+            Lege Produkte inklusive Bild schnell an. Suchbegriffe werden
+            automatisch aus Produktname, Kategorie, Typ, Format, Farbe und
+            Lineatur erzeugt.
           </p>
         </div>
 
@@ -214,7 +521,7 @@ export default function AdminQuickProductForm() {
               type="text"
               value={productName}
               onChange={(event) => setProductName(event.target.value)}
-              placeholder="z. B. Umschlag A5 rot"
+              placeholder="z. B. Schulheft A5 Lineatur 8f rot"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
@@ -271,7 +578,7 @@ export default function AdminQuickProductForm() {
               type="text"
               value={productSku}
               onChange={(event) => setProductSku(event.target.value)}
-              placeholder="z. B. HS-UM-A5-ROT"
+              placeholder="z. B. HS-HEFT-A5-8F-ROT"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
@@ -284,7 +591,7 @@ export default function AdminQuickProductForm() {
               type="text"
               value={productPrice}
               onChange={(event) => setProductPrice(event.target.value)}
-              placeholder="z. B. 0,29"
+              placeholder="z. B. 0,89"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
@@ -297,13 +604,13 @@ export default function AdminQuickProductForm() {
               type="text"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              placeholder="z. B. Umschlag"
+              placeholder="z. B. Heft"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-4">
           <div>
             <label className="mb-2 block text-sm font-black text-[#102A43]">
               Typ
@@ -312,7 +619,7 @@ export default function AdminQuickProductForm() {
               type="text"
               value={productType}
               onChange={(event) => setProductType(event.target.value)}
-              placeholder="umschlag"
+              placeholder="heft"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
@@ -351,27 +658,65 @@ export default function AdminQuickProductForm() {
               type="text"
               value={lineature}
               onChange={(event) => setLineature(event.target.value)}
-              placeholder="z. B. 1"
+              placeholder="z. B. 8f"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
         </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-black text-[#102A43]">
-            Aliase / Suchbegriffe
-          </label>
+        <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Automatisch generiert
+              </div>
+
+              <label className="block text-sm font-black text-[#102A43]">
+                Aliase / Suchbegriffe
+              </label>
+
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                Diese Begriffe werden regelbasiert aus den Produktdaten erzeugt.
+                Du kannst sie jederzeit manuell ändern.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={regenerateAliases}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-2 text-xs font-black text-white transition hover:brightness-110"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Suchbegriffe neu generieren
+            </button>
+          </div>
+
           <textarea
             value={aliases}
-            onChange={(event) => setAliases(event.target.value)}
-            placeholder="z. B. Hefthülle A5 rot, Umschlag rot A5, Heftumschlag rot"
-            rows={4}
+            onChange={(event) => {
+              setAliases(event.target.value);
+              setAliasesWereManuallyEdited(true);
+            }}
+            placeholder="Suchbegriffe werden automatisch erzeugt, sobald Produktdaten eingetragen sind."
+            rows={7}
             className="w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
-          <p className="mt-2 text-xs font-semibold text-[#52616F]">
-            Mehrere Suchbegriffe kannst Du mit Komma, Semikolon oder neuer Zeile
-            trennen.
-          </p>
+
+          <div className="mt-3 grid gap-3 text-xs font-semibold leading-5 text-[#52616F] sm:grid-cols-2">
+            <p>
+              Aktuell vorgeschlagen:{" "}
+              <span className="font-black text-[#102A43]">
+                {generatedAliases.length}
+              </span>{" "}
+              Suchbegriffe
+            </p>
+
+            <p>
+              Hinweis: Später kann hier zusätzlich eine KI-Option ergänzt werden.
+              Aktuell läuft alles bewusst ohne KI.
+            </p>
+          </div>
         </div>
 
         {feedback ? (
