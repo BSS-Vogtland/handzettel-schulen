@@ -12,6 +12,12 @@ type RouteContext = {
 
 type AnyRecord = Record<string, any>;
 
+type MailVariant =
+  | "standard_upload"
+  | "manual_review_upload"
+  | "standard_whatsapp"
+  | "manual_review_whatsapp";
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -103,22 +109,184 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+function isWhatsappRequest(request: AnyRecord) {
+  const source = String(request.source || "").trim().toLowerCase();
+
+  return (
+    source === "whatsapp_manual" ||
+    source === "whatsapp" ||
+    source.includes("whatsapp")
+  );
+}
+
+function needsManualReview(request: AnyRecord) {
+  const status = String(request.status || "").trim().toLowerCase();
+  const aiStatus = String(request.ai_status || "").trim().toLowerCase();
+  const offerStatus = String(request.offer_status || "").trim().toLowerCase();
+
+  return (
+    status === "manual_review" ||
+    aiStatus === "manual_review" ||
+    aiStatus === "no_items_detected" ||
+    aiStatus === "missing_file" ||
+    aiStatus === "error" ||
+    offerStatus === "manual_review"
+  );
+}
+
+function getMailVariant(request: AnyRecord): MailVariant {
+  const whatsapp = isWhatsappRequest(request);
+  const manualReview = needsManualReview(request);
+
+  if (whatsapp && manualReview) return "manual_review_whatsapp";
+  if (whatsapp) return "standard_whatsapp";
+  if (manualReview) return "manual_review_upload";
+
+  return "standard_upload";
+}
+
+function getSubject(variant: MailVariant) {
+  switch (variant) {
+    case "manual_review_whatsapp":
+      return "Deine WhatsApp-Liste ist angekommen – wir prüfen sie persönlich";
+    case "standard_whatsapp":
+      return "Deine WhatsApp-Liste ist bei uns angekommen";
+    case "manual_review_upload":
+      return "Deine Schulmaterialliste ist angekommen – wir prüfen sie persönlich";
+    case "standard_upload":
+    default:
+      return "Deine Schulmaterialliste ist bei uns angekommen";
+  }
+}
+
+function getHeaderSubtitle(variant: MailVariant) {
+  switch (variant) {
+    case "manual_review_whatsapp":
+      return "Deine WhatsApp-Liste wird persönlich bearbeitet";
+    case "standard_whatsapp":
+      return "Deine WhatsApp-Liste ist angekommen";
+    case "manual_review_upload":
+      return "Deine Liste wird persönlich bearbeitet";
+    case "standard_upload":
+    default:
+      return "Deine Schulmaterialliste ist angekommen";
+  }
+}
+
+function getIntroTextHtml(variant: MailVariant) {
+  switch (variant) {
+    case "manual_review_whatsapp":
+      return `
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
+          Deine Schulmaterialliste ist über WhatsApp bei uns angekommen.
+        </p>
+
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
+          Die automatische Erkennung konnte daraus noch keinen eindeutigen Paketwunsch vorbereiten.
+          Keine Sorge: Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.
+          Du musst dafür nichts weiter tun.
+        </p>
+      `;
+
+    case "standard_whatsapp":
+      return `
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
+          Deine Schulmaterialliste ist über WhatsApp bei uns angekommen.
+        </p>
+
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
+          Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
+          Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.
+        </p>
+      `;
+
+    case "manual_review_upload":
+      return `
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
+          Deine Schulmaterialliste ist bei uns angekommen.
+        </p>
+
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
+          Die automatische Erkennung konnte Deine Liste noch nicht eindeutig auswerten.
+          Keine Sorge: Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.
+          Du musst dafür nichts weiter tun.
+        </p>
+      `;
+
+    case "standard_upload":
+    default:
+      return `
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
+          Deine Schulmaterialliste ist bei uns angekommen.
+        </p>
+
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
+          Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
+          Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.
+        </p>
+      `;
+  }
+}
+
+function getIntroTextPlain(variant: MailVariant) {
+  switch (variant) {
+    case "manual_review_whatsapp":
+      return `Deine Schulmaterialliste ist über WhatsApp bei uns angekommen.
+
+Die automatische Erkennung konnte daraus noch keinen eindeutigen Paketwunsch vorbereiten.
+Keine Sorge: Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.
+Du musst dafür nichts weiter tun.`;
+
+    case "standard_whatsapp":
+      return `Deine Schulmaterialliste ist über WhatsApp bei uns angekommen.
+
+Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
+Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.`;
+
+    case "manual_review_upload":
+      return `Deine Schulmaterialliste ist bei uns angekommen.
+
+Die automatische Erkennung konnte Deine Liste noch nicht eindeutig auswerten.
+Keine Sorge: Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.
+Du musst dafür nichts weiter tun.`;
+
+    case "standard_upload":
+    default:
+      return `Deine Schulmaterialliste ist bei uns angekommen.
+
+Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
+Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.`;
+  }
+}
+
 function createMailHtml(params: {
   customerName: string;
   childName: string;
   schoolName: string;
   className: string;
   requestNumber: string;
+  variant: MailVariant;
 }) {
-  const { customerName, childName, schoolName, className, requestNumber } = params;
+  const {
+    customerName,
+    childName,
+    schoolName,
+    className,
+    requestNumber,
+    variant,
+  } = params;
+
   const greeting = customerName ? `Hallo ${escapeHtml(customerName)},` : "Hallo,";
+  const subtitle = getHeaderSubtitle(variant);
+  const introHtml = getIntroTextHtml(variant);
+  const manualReview = variant === "manual_review_upload" || variant === "manual_review_whatsapp";
 
   return `
 <!doctype html>
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>Deine Liste ist angekommen</title>
+    <title>${escapeHtml(getSubject(variant))}</title>
   </head>
   <body style="margin:0;padding:0;background:#FBF7F0;font-family:Arial,Helvetica,sans-serif;color:#102A43;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FBF7F0;padding:28px 12px;">
@@ -128,7 +296,7 @@ function createMailHtml(params: {
             <tr>
               <td style="background:#102A43;padding:28px 30px;color:#ffffff;">
                 <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;">Handzettel-Schulen.de</div>
-                <div style="margin-top:6px;font-size:14px;color:#F7EFE6;">Deine Schulmaterialliste ist angekommen</div>
+                <div style="margin-top:6px;font-size:14px;color:#F7EFE6;">${escapeHtml(subtitle)}</div>
               </td>
             </tr>
 
@@ -136,14 +304,17 @@ function createMailHtml(params: {
               <td style="padding:30px;">
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">${greeting}</p>
 
-                <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
-                  Deine Schulmaterialliste ist bei uns angekommen.
-                </p>
+                ${introHtml}
 
-                <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
-                  Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.
-                </p>
+                ${
+                  manualReview
+                    ? `<div style="background:#FFF4F4;border:1px solid #F1B8B8;border-radius:18px;padding:16px;margin:22px 0;color:#9F1F2A;">
+                        <p style="margin:0;font-size:14px;line-height:1.55;font-weight:800;">
+                          Deine Anfrage ist bei uns in der persönlichen Bearbeitung. Es wurde dadurch noch keine Bestellung ausgelöst.
+                        </p>
+                      </div>`
+                    : ""
+                }
 
                 <div style="background:#FBF7F0;border:1px solid #E8DED2;border-radius:18px;padding:16px;margin:22px 0;">
                   <div style="font-size:13px;font-weight:800;color:#A75B28;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">
@@ -188,18 +359,26 @@ function createMailText(params: {
   schoolName: string;
   className: string;
   requestNumber: string;
+  variant: MailVariant;
 }) {
-  const { customerName, childName, schoolName, className, requestNumber } = params;
+  const {
+    customerName,
+    childName,
+    schoolName,
+    className,
+    requestNumber,
+    variant,
+  } = params;
+
   const greeting = customerName ? `Hallo ${customerName},` : "Hallo,";
+  const intro = getIntroTextPlain(variant);
+  const manualReview = variant === "manual_review_upload" || variant === "manual_review_whatsapp";
 
   return `${greeting}
 
-Deine Schulmaterialliste ist bei uns angekommen.
+${intro}
 
-Wir prüfen Deine Angaben und bereiten daraus Deinen persönlichen Paketwunsch vor.
-Sobald Dein Paketwunsch vorbereitet ist, bekommst Du eine weitere E-Mail mit einem Link zur Prüfung.
-
-${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${childName ? `Kind: ${childName}\n` : ""}${schoolName ? `Schule: ${schoolName}\n` : ""}${className ? `Klasse: ${className}\n` : ""}
+${manualReview ? "Deine Anfrage ist bei uns in der persönlichen Bearbeitung. Es wurde dadurch noch keine Bestellung ausgelöst.\n\n" : ""}${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${childName ? `Kind: ${childName}\n` : ""}${schoolName ? `Schule: ${schoolName}\n` : ""}${className ? `Klasse: ${className}\n` : ""}
 
 Wichtig:
 Diese E-Mail bestätigt nur den Eingang Deiner Liste. Es wurde dadurch noch keine Bestellung ausgelöst.
@@ -212,6 +391,7 @@ async function insertEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   customerEmail: string;
+  variant: MailVariant;
 }) {
   const message = `Eingangsmail wurde an ${params.customerEmail} gesendet.`;
 
@@ -224,6 +404,7 @@ async function insertEvent(params: {
       description: message,
       metadata: {
         email: params.customerEmail,
+        mailVariant: params.variant,
       },
       created_at: new Date().toISOString(),
     },
@@ -233,6 +414,7 @@ async function insertEvent(params: {
       message,
       metadata: {
         email: params.customerEmail,
+        mailVariant: params.variant,
       },
       created_at: new Date().toISOString(),
     },
@@ -278,6 +460,7 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
+    const variant = getMailVariant(schoolRequest);
     const customerEmail = getCustomerEmail(schoolRequest);
     const customerName = getCustomerName(schoolRequest);
     const childName = getChildName(schoolRequest);
@@ -303,7 +486,7 @@ export async function POST(_request: Request, context: RouteContext) {
       process.env.SMTP_USER ||
       "Handzettel-Schulen.de";
 
-    const subject = "Deine Schulmaterialliste ist bei uns angekommen";
+    const subject = getSubject(variant);
 
     const mailParams = {
       customerName,
@@ -311,6 +494,7 @@ export async function POST(_request: Request, context: RouteContext) {
       schoolName,
       className,
       requestNumber,
+      variant,
     };
 
     await transporter.sendMail({
@@ -325,6 +509,7 @@ export async function POST(_request: Request, context: RouteContext) {
       supabase,
       requestId,
       customerEmail,
+      variant,
     });
 
     await supabase
@@ -338,6 +523,7 @@ export async function POST(_request: Request, context: RouteContext) {
       ok: true,
       message: "Eingangsmail wurde erfolgreich gesendet.",
       sentTo: customerEmail,
+      mailVariant: variant,
     });
   } catch (error) {
     const message =
