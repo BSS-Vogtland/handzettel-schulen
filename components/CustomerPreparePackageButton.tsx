@@ -455,7 +455,7 @@ export default function CustomerPreparePackageButton({
   }
 
   const introHeadline = serviceMessage
-    ? "Alles gut – wir übernehmen jetzt."
+    ? "Wir übernehmen die persönliche Prüfung."
     : "Deine Liste ist angekommen.";
 
   const introText = serviceMessage
@@ -478,7 +478,9 @@ export default function CustomerPreparePackageButton({
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            {serviceMessage ? "Persönlicher Service" : "Automatische Paketvorbereitung"}
+            {serviceMessage
+              ? "Persönlicher Service"
+              : "Automatische Paketvorbereitung"}
           </div>
 
           <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
@@ -544,7 +546,7 @@ export default function CustomerPreparePackageButton({
                     Service
                   </p>
                   <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
-                    Fehlende Artikel suchen wir persönlich für Dich.
+                    Artikel unter 85 % prüfen wir persönlich für Dich.
                   </p>
                 </div>
               </>
