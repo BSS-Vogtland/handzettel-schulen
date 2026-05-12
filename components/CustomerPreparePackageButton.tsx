@@ -7,8 +7,11 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  Loader2,
   Pencil,
   Ruler,
+  Search,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -50,6 +53,14 @@ function getStepState(progress: number, min: number, nextMin?: number) {
   return "pending";
 }
 
+function buildFriendlyManualReviewMessage(message?: string) {
+  if (message && message.trim().length > 0) {
+    return "Automatisch konnten wir noch keine eindeutigen Treffer vorbereiten. Das ist kein Problem – genau hier beginnt unser persönlicher Service. Wir prüfen Deine Liste jetzt manuell und suchen die passenden Schulmaterialien für Dich heraus.";
+  }
+
+  return "Automatisch konnten wir noch keine eindeutigen Treffer vorbereiten. Das ist kein Problem – genau hier beginnt unser persönlicher Service. Wir prüfen Deine Liste jetzt manuell und suchen die passenden Schulmaterialien für Dich heraus.";
+}
+
 export default function CustomerPreparePackageButton({
   token,
 }: CustomerPreparePackageButtonProps) {
@@ -58,6 +69,7 @@ export default function CustomerPreparePackageButton({
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [serviceMessage, setServiceMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,6 +105,7 @@ export default function CustomerPreparePackageButton({
 
     setErrorMessage(null);
     setFeedbackMessage(null);
+    setServiceMessage(null);
     setIsLoading(true);
     setProgress(4);
 
@@ -111,6 +124,20 @@ export default function CustomerPreparePackageButton({
         throw new Error(
           "Die Auswertungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
+      }
+
+      const isManualServiceResult =
+        response.status === 422 ||
+        (!payload?.ok &&
+          /manuell|manuelle|persönlich|persoenlich|keine positionen/i.test(
+            payload?.message || ""
+          ));
+
+      if (isManualServiceResult) {
+        setIsLoading(false);
+        setProgress(0);
+        setServiceMessage(buildFriendlyManualReviewMessage(payload?.message));
+        return;
       }
 
       if (!response.ok || !payload?.ok) {
@@ -197,7 +224,7 @@ export default function CustomerPreparePackageButton({
                       state === "done"
                         ? "border-[#BFE3CD] bg-[#F0FFF6]"
                         : state === "active"
-                        ? "border-[#F4D0D2] bg-[#FFF5F5]"
+                        ? "border-[#F1D1A8] bg-[#FFF8EE]"
                         : "border-[#E8DED2] bg-white"
                     }`}
                   >
@@ -206,7 +233,7 @@ export default function CustomerPreparePackageButton({
                         state === "done"
                           ? "bg-[#2F7D50] text-white"
                           : state === "active"
-                          ? "bg-[#B5282D] text-white"
+                          ? "bg-[#A75B28] text-white"
                           : "bg-[#FBF7F0] text-[#A75B28]"
                       }`}
                     >
@@ -434,7 +461,7 @@ export default function CustomerPreparePackageButton({
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
             <Sparkles className="h-3.5 w-3.5" />
@@ -448,8 +475,8 @@ export default function CustomerPreparePackageButton({
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
             Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt
             für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer
-            Übereinstimmung kannst Du danach selbst auswählen. Unsichere
-            Positionen prüfen wir persönlich.
+            Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht
+            eindeutig ist, übernehmen wir die persönliche Prüfung für Dich.
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -471,46 +498,137 @@ export default function CustomerPreparePackageButton({
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
-                Prüfung
+            <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                Service
               </p>
-              <p className="mt-1 text-sm font-bold leading-5 text-[#52616F]">
-                Fehlende Artikel prüfen wir persönlich.
+              <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
+                Fehlende Artikel suchen wir persönlich für Dich.
+              </p>
+            </div>
+          </div>
+
+          {serviceMessage ? (
+            <div className="mt-5 rounded-[24px] border border-[#BFE3CD] bg-[#F7FBF8] p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                    Persönlicher Service läuft
+                  </p>
+
+                  <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                    Alles gut – wir übernehmen jetzt.
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-[#52616F]">
+                    {serviceMessage}
+                  </p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                        1
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#102A43]">
+                        Du musst nichts weiter tun
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                        2
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#102A43]">
+                        Wir suchen die passenden Artikel
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                        3
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-[#102A43]">
+                        Danach erhältst Du Deinen Paketwunsch
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {feedbackMessage ? (
+            <div className="mt-5 flex items-start gap-3 rounded-[24px] border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-4 text-sm font-semibold text-[#2F7D50]">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>{feedbackMessage}</span>
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="mt-5 rounded-[24px] border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-4 text-sm font-semibold text-[#A75B28]">
+              {errorMessage}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {serviceMessage ? (
+            <div className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] px-8 py-5 text-center text-xl font-black text-[#2F7D50] shadow-sm">
+              <CheckCircle2 className="h-6 w-6" />
+              <span>Wird jetzt persönlich für Dich vorbereitet</span>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handlePrepare}
+                className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] bg-[#C6282D] px-8 py-5 text-center text-2xl font-black text-white shadow-[0_18px_50px_rgba(198,40,45,0.24)] transition hover:-translate-y-0.5 hover:brightness-105"
+              >
+                <span>Paket jetzt vorbereiten</span>
+                <ArrowRight className="h-7 w-7" />
+              </button>
+
+              <p className="text-center text-sm font-semibold leading-6 text-[#52616F]">
+                Danach siehst Du sofort, was bereits im Paket liegt und was noch
+                offen ist.
+              </p>
+            </>
+          )}
+
+          <div className="overflow-hidden rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] shadow-sm">
+            <div className="relative h-[260px] w-full bg-white">
+              <Image
+                src="/service-schulheft-assistentin.png"
+                alt="Freundliche Mitarbeiterin sucht passende Schulhefte für den Kunden aus dem Regal"
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
+
+            <div className="p-5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                <Search className="h-3.5 w-3.5" />
+                Unser Service für Dich
+              </div>
+
+              <h3 className="mt-3 text-xl font-black text-[#102A43]">
+                Wir suchen nicht nur automatisch – wir prüfen auch persönlich.
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-[#52616F]">
+                Wenn ein Artikel nicht sofort automatisch erkannt wird, ist das
+                kein Problem. Unser Team schaut sich Deine Liste an und sucht
+                die passenden Schulmaterialien für Dich heraus.
               </p>
             </div>
           </div>
         </div>
-
-        <div className="flex flex-col items-stretch gap-3 lg:items-end">
-          <button
-            type="button"
-            onClick={handlePrepare}
-            className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] bg-[#C6282D] px-8 py-5 text-center text-2xl font-black text-white shadow-[0_18px_50px_rgba(198,40,45,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 lg:max-w-[420px]"
-          >
-            <span>Paket jetzt vorbereiten</span>
-            <ArrowRight className="h-7 w-7" />
-          </button>
-
-          <p className="max-w-[420px] text-center text-sm font-semibold leading-6 text-[#52616F]">
-            Danach siehst Du sofort, was bereits im Paket liegt und was noch
-            offen ist.
-          </p>
-        </div>
       </div>
-
-      {feedbackMessage ? (
-        <div className="mt-5 flex items-start gap-3 rounded-[24px] border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-4 text-sm font-semibold text-[#2F7D50]">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{feedbackMessage}</span>
-        </div>
-      ) : null}
-
-      {errorMessage ? (
-        <div className="mt-5 rounded-[24px] border border-[#F2C6C8] bg-[#FFF5F5] px-4 py-4 text-sm font-semibold text-[#B5282D]">
-          {errorMessage}
-        </div>
-      ) : null}
     </section>
   );
 }
