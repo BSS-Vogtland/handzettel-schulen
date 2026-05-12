@@ -7,7 +7,6 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  Loader2,
   Pencil,
   Ruler,
   Search,
@@ -53,12 +52,8 @@ function getStepState(progress: number, min: number, nextMin?: number) {
   return "pending";
 }
 
-function buildFriendlyManualReviewMessage(message?: string) {
-  if (message && message.trim().length > 0) {
-    return "Automatisch konnten wir noch keine eindeutigen Treffer vorbereiten. Das ist kein Problem – genau hier beginnt unser persönlicher Service. Wir prüfen Deine Liste jetzt manuell und suchen die passenden Schulmaterialien für Dich heraus.";
-  }
-
-  return "Automatisch konnten wir noch keine eindeutigen Treffer vorbereiten. Das ist kein Problem – genau hier beginnt unser persönlicher Service. Wir prüfen Deine Liste jetzt manuell und suchen die passenden Schulmaterialien für Dich heraus.";
+function buildFriendlyServiceMessage() {
+  return "Alles ist bei uns angekommen. Die automatische Vorbereitung konnte Deine Liste nicht direkt eindeutig zuordnen – das ist kein Problem. Genau dafür gibt es unseren persönlichen Service: Wir schauen uns Deine Liste jetzt manuell an und suchen die passenden Schulmaterialien für Dich heraus.";
 }
 
 export default function CustomerPreparePackageButton({
@@ -101,7 +96,7 @@ export default function CustomerPreparePackageButton({
   );
 
   async function handlePrepare() {
-    if (isLoading) return;
+    if (isLoading || serviceMessage) return;
 
     setErrorMessage(null);
     setFeedbackMessage(null);
@@ -136,7 +131,7 @@ export default function CustomerPreparePackageButton({
       if (isManualServiceResult) {
         setIsLoading(false);
         setProgress(0);
-        setServiceMessage(buildFriendlyManualReviewMessage(payload?.message));
+        setServiceMessage(buildFriendlyServiceMessage());
         return;
       }
 
@@ -224,8 +219,8 @@ export default function CustomerPreparePackageButton({
                       state === "done"
                         ? "border-[#BFE3CD] bg-[#F0FFF6]"
                         : state === "active"
-                        ? "border-[#F1D1A8] bg-[#FFF8EE]"
-                        : "border-[#E8DED2] bg-white"
+                          ? "border-[#F1D1A8] bg-[#FFF8EE]"
+                          : "border-[#E8DED2] bg-white"
                     }`}
                   >
                     <div
@@ -233,8 +228,8 @@ export default function CustomerPreparePackageButton({
                         state === "done"
                           ? "bg-[#2F7D50] text-white"
                           : state === "active"
-                          ? "bg-[#A75B28] text-white"
-                          : "bg-[#FBF7F0] text-[#A75B28]"
+                            ? "bg-[#A75B28] text-white"
+                            : "bg-[#FBF7F0] text-[#A75B28]"
                       }`}
                     >
                       {state === "done" ? (
@@ -252,8 +247,8 @@ export default function CustomerPreparePackageButton({
                         {state === "done"
                           ? "Abgeschlossen"
                           : state === "active"
-                          ? "Wird gerade ausgeführt"
-                          : "Als Nächstes"}
+                            ? "Wird gerade ausgeführt"
+                            : "Als Nächstes"}
                       </p>
                     </div>
                   </div>
@@ -459,53 +454,101 @@ export default function CustomerPreparePackageButton({
     );
   }
 
+  const introHeadline = serviceMessage
+    ? "Alles gut – wir übernehmen jetzt."
+    : "Deine Liste ist angekommen.";
+
+  const introText = serviceMessage
+    ? "Deine Liste liegt bei uns vor. Ab hier übernehmen wir persönlich und suchen die passenden Schulmaterialien für Dich heraus."
+    : "Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht eindeutig ist, übernehmen wir die persönliche Prüfung für Dich.";
+
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            <Sparkles className="h-3.5 w-3.5" />
-            Automatische Paketvorbereitung
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${
+              serviceMessage
+                ? "bg-[#F0FFF6] text-[#2F7D50]"
+                : "bg-[#FBF7F0] text-[#A75B28]"
+            }`}
+          >
+            {serviceMessage ? (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            {serviceMessage ? "Persönlicher Service" : "Automatische Paketvorbereitung"}
           </div>
 
           <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
-            Deine Liste ist angekommen.
+            {introHeadline}
           </h2>
 
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
-            Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt
-            für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer
-            Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht
-            eindeutig ist, übernehmen wir die persönliche Prüfung für Dich.
+            {introText}
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-                Sicher
-              </p>
-              <p className="mt-1 text-sm font-bold leading-5 text-[#2F7D50]">
-                Treffer ab 85 % werden vorausgewählt.
-              </p>
-            </div>
+            {serviceMessage ? (
+              <>
+                <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+                    Bestätigt
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#2F7D50]">
+                    Deine Anfrage ist angekommen.
+                  </p>
+                </div>
 
-            <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                Offen
-              </p>
-              <p className="mt-1 text-sm font-bold leading-5 text-[#A75B28]">
-                Unsichere Vorschläge kannst Du aktiv wählen.
-              </p>
-            </div>
+                <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                    Service
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#52616F]">
+                    Wir prüfen die Liste persönlich.
+                  </p>
+                </div>
 
-            <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-                Service
-              </p>
-              <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
-                Fehlende Artikel suchen wir persönlich für Dich.
-              </p>
-            </div>
+                <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                    Nächster Schritt
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
+                    Du erhältst Deinen Paketwunsch per E-Mail.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+                    Sicher
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#2F7D50]">
+                    Treffer ab 85 % werden vorausgewählt.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                    Offen
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#A75B28]">
+                    Unsichere Vorschläge kannst Du aktiv wählen.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                    Service
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
+                    Fehlende Artikel suchen wir persönlich für Dich.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {serviceMessage ? (
@@ -517,11 +560,11 @@ export default function CustomerPreparePackageButton({
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                    Persönlicher Service läuft
+                    Du bist gut aufgehoben
                   </p>
 
                   <h3 className="mt-1 text-xl font-black text-[#102A43]">
-                    Alles gut – wir übernehmen jetzt.
+                    Genau hier beginnt unser persönlicher Service.
                   </h3>
 
                   <p className="mt-2 text-sm leading-6 text-[#52616F]">
