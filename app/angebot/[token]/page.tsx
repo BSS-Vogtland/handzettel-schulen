@@ -8,6 +8,8 @@ import {
   ImageIcon,
   PackageCheck,
   School,
+  Search,
+  ShieldCheck,
   ShoppingBasket,
   Sparkles,
 } from "lucide-react";
@@ -999,6 +1001,149 @@ export default async function CustomerOfferPage({ params }: Params) {
       .filter((id): id is string => Boolean(id))
   ).size;
 
+  const isFreshBeforeAnalysis =
+    !isConfirmed &&
+    hasNoRecognizedItems &&
+    !isManualReviewState &&
+    selectedOfferItems.length === 0 &&
+    matches.length === 0;
+
+  if (isFreshBeforeAnalysis) {
+    return (
+      <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+        <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <CustomerPreparePackageButton token={token} />
+        </section>
+
+        <LegalFooter />
+      </main>
+    );
+  }
+
+  if (shouldShowManualReviewNotice) {
+    return (
+      <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+        <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <section className="overflow-hidden rounded-[34px] border border-[#E8DED2] bg-white shadow-sm">
+            <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Persönlicher Service
+                </div>
+
+                <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-5xl">
+                  Alles gut – wir übernehmen jetzt.
+                </h1>
+
+                <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-[#52616F]">
+                  Deine Liste ist bei uns angekommen. Die automatische
+                  Vorbereitung konnte Deine Liste nicht direkt eindeutig
+                  zuordnen – das ist kein Problem. Genau dafür gibt es unseren
+                  persönlichen Service: Wir schauen uns Deine Liste jetzt
+                  manuell an und suchen die passenden Schulmaterialien für Dich
+                  heraus.
+                </p>
+
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
+                      Bestätigt
+                    </p>
+                    <p className="mt-1 text-sm font-black leading-6 text-[#2F7D50]">
+                      Deine Anfrage ist angekommen.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                      Service
+                    </p>
+                    <p className="mt-1 text-sm font-black leading-6 text-[#52616F]">
+                      Wir prüfen die Liste persönlich.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                      Nächster Schritt
+                    </p>
+                    <p className="mt-1 text-sm font-black leading-6 text-[#12395F]">
+                      Du erhältst Deinen Paketwunsch per E-Mail.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-[28px] border border-[#BFE3CD] bg-[#F7FBF8] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
+                      <CheckCircle2 className="h-6 w-6" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                        Du bist gut aufgehoben
+                      </p>
+
+                      <h2 className="mt-1 text-xl font-black text-[#102A43]">
+                        Du musst jetzt nichts weiter tun.
+                      </h2>
+
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                        Unser Team sucht die passenden Artikel für Dich heraus.
+                        Sobald Dein Paketwunsch vorbereitet ist, bekommst Du
+                        eine E-Mail mit Deinem persönlichen Prüflink.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="flex flex-col gap-4">
+                <div className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] px-8 py-5 text-center text-xl font-black text-[#2F7D50] shadow-sm">
+                  <CheckCircle2 className="h-6 w-6" />
+                  <span>Wird persönlich für Dich vorbereitet</span>
+                </div>
+
+                <div className="overflow-hidden rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] shadow-sm">
+                  <div className="relative h-[280px] w-full bg-white">
+                    <Image
+                      src="/service-schulheft-assistentin.png"
+                      alt="Freundliche Mitarbeiterin sucht passende Schulhefte für den Kunden aus dem Regal"
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                  </div>
+
+                  <div className="p-5">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                      <Search className="h-3.5 w-3.5" />
+                      Unser Service für Dich
+                    </div>
+
+                    <h3 className="mt-3 text-xl font-black text-[#102A43]">
+                      Wir suchen nicht nur automatisch – wir prüfen auch
+                      persönlich.
+                    </h3>
+
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                      Wenn ein Artikel nicht sofort automatisch erkannt wird,
+                      ist das kein Problem. Genau dann schaut unser Team
+                      persönlich auf Deine Liste.
+                    </p>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+        </section>
+
+        <LegalFooter />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -1024,26 +1169,18 @@ export default async function CustomerOfferPage({ params }: Params) {
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
                       ? "Dein Schulpaket ist bestätigt"
-                      : shouldShowManualReviewNotice
-                        ? "Deine Liste wird persönlich geprüft"
-                        : hasNoRecognizedItems
-                          ? "Deine Liste ist angekommen"
-                          : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
+                      : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
                       ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor."
-                      : shouldShowManualReviewNotice
-                        ? "Deine Anfrage ist angekommen. Wir konnten aus der Liste noch keine eindeutigen Materialpositionen erkennen. Deshalb prüfen wir sie persönlich und bereiten Deinen Paketwunsch manuell vor."
-                        : hasNoRecognizedItems
-                          ? "Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Unsichere Positionen prüfen wir persönlich."
-                          : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
+                      : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
               </div>
 
-              {!isConfirmed && !shouldShowManualReviewNotice ? (
+              {!isConfirmed ? (
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
@@ -1069,42 +1206,6 @@ export default async function CustomerOfferPage({ params }: Params) {
                     </p>
                     <p className="mt-1 font-black text-[#102A43]">
                       Fehlende Artikel prüfen wir persönlich.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              {!isConfirmed && shouldShowManualReviewNotice ? (
-                <div className="mt-6 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-[22px] border border-[#F1B8B8] bg-[#FFF4F4] p-4 text-[#C82632]">
-                    <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Status
-                    </p>
-                    <p className="mt-1 font-black">Manuelle Prüfung</p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Deine Liste wird von uns persönlich geprüft.
-                    </p>
-                  </div>
-
-                  <div className="rounded-[22px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-[#A75B28]">
-                    <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Wichtig
-                    </p>
-                    <p className="mt-1 font-black">Du musst nichts tun</p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Wir melden uns, sobald Dein Paketwunsch vorbereitet ist.
-                    </p>
-                  </div>
-
-                  <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#52616F]">
-                    <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Service
-                    </p>
-                    <p className="mt-1 font-black text-[#102A43]">
-                      Persönliche Bearbeitung
-                    </p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Unsichere Listen werden nicht automatisch geraten.
                     </p>
                   </div>
                 </div>
@@ -1143,7 +1244,7 @@ export default async function CustomerOfferPage({ params }: Params) {
                 <div className="flex justify-between gap-3">
                   <span>Persönliche Prüfung</span>
                   <span className="font-black text-[#52616F]">
-                    {shouldShowManualReviewNotice ? 1 : manualReviewItems.length}
+                    {manualReviewItems.length}
                   </span>
                 </div>
               </div>
@@ -1154,23 +1255,11 @@ export default async function CustomerOfferPage({ params }: Params) {
                 </div>
               ) : null}
 
-              {!isConfirmed && !shouldShowManualReviewNotice ? (
+              {!isConfirmed ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
                   Du sendest erst mit dem Bestätigungsbutton Deinen Paketwunsch
                   ab. Vorher kannst Du Artikel entfernen oder ergänzen.
                 </p>
-              ) : null}
-
-              {!isConfirmed && shouldShowManualReviewNotice ? (
-                <div className="mt-5 rounded-2xl border border-[#F1B8B8] bg-white p-4 text-[#C82632]">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p className="text-sm font-black">
-                      Automatische Paketvorbereitung nicht möglich. Wir prüfen
-                      die Liste persönlich.
-                    </p>
-                  </div>
-                </div>
               ) : null}
 
               {isConfirmed ? (
@@ -1216,7 +1305,7 @@ export default async function CustomerOfferPage({ params }: Params) {
               Wir prüfen für Dich
             </p>
             <p className="mt-2 text-3xl font-black text-[#102A43]">
-              {shouldShowManualReviewNotice ? 1 : manualReviewItems.length}
+              {manualReviewItems.length}
             </p>
           </div>
         </section>
@@ -1261,57 +1350,13 @@ export default async function CustomerOfferPage({ params }: Params) {
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed
-                ? "Abgesendet"
-                : shouldShowManualReviewNotice
-                  ? "Manuelle Prüfung"
-                  : hasNoRecognizedItems
-                    ? "Bereit zur Auswertung"
-                    : "Noch prüfbar"}
+              {isConfirmed ? "Abgesendet" : "Noch prüfbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
-              {shouldShowManualReviewNotice
-                ? "Keine eindeutigen Positionen erkannt"
-                : hasNoRecognizedItems
-                  ? "Auswertung noch nicht gestartet"
-                  : `${handledItemCount} von ${items.length} Positionen im Paket`}
+              {handledItemCount} von {items.length} Positionen im Paket
             </p>
           </div>
         </section>
-
-        {shouldShowManualReviewNotice ? (
-          <section className="rounded-[32px] border border-[#F1B8B8] bg-[#FFF4F4] p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#C82632]">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#C82632]">
-                    Manuelle Prüfung erforderlich
-                  </p>
-
-                  <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                    Wir konnten aus Deiner Liste keine eindeutigen Positionen
-                    erkennen.
-                  </h2>
-
-                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                    Deine Anfrage ist trotzdem angekommen. Bitte starte hier
-                    keine automatische Paketvorbereitung mehr. Wir prüfen Deine
-                    Liste persönlich und melden uns, sobald Dein Paketwunsch
-                    vorbereitet ist.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#F1B8B8] bg-white px-4 py-3 text-sm font-black text-[#C82632]">
-                Wird persönlich geprüft
-              </div>
-            </div>
-          </section>
-        ) : null}
 
         {shouldShowPrepareButton ? (
           <CustomerPreparePackageButton token={token} />
