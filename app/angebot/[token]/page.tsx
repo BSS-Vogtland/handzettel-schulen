@@ -872,6 +872,26 @@ export default async function CustomerOfferPage({ params }: Params) {
     selectedOfferItemsByRequestItem.set(offerItem.request_item_id, current);
   }
 
+  const isConfirmed =
+    request.status === "confirmed" || request.offer_status === "confirmed";
+
+  const hasNoRecognizedItems = items.length === 0;
+
+  const isManualReviewState =
+    request.status === "manual_review" ||
+    request.ai_status === "manual_review" ||
+    request.ai_status === "no_items_detected" ||
+    request.ai_status === "missing_file" ||
+    request.offer_status === "manual_review";
+
+  const shouldShowManualReviewNotice =
+    !isConfirmed && hasNoRecognizedItems && isManualReviewState;
+
+  const shouldShowPrepareButton =
+    !isConfirmed &&
+    !shouldShowManualReviewNotice &&
+    (hasNoRecognizedItems || matches.length === 0);
+
   const repairedCount = await insertMissingSafeMatchesIntoOffer({
     supabase,
     request,
@@ -937,14 +957,6 @@ export default async function CustomerOfferPage({ params }: Params) {
       .map((item) => item.match_id)
       .filter((id): id is string => Boolean(id))
   );
-
-  const isConfirmed =
-    request.status === "confirmed" || request.offer_status === "confirmed";
-
-  const hasNoRecognizedItems = items.length === 0;
-
-  const shouldShowPrepareButton =
-    !isConfirmed && !hasNoRecognizedItems && matches.length === 0;
 
   const totalPrice = selectedOfferItems.reduce((sum, item) => {
     const quantity = toNumber(item.quantity, 1);
@@ -1012,58 +1024,57 @@ export default async function CustomerOfferPage({ params }: Params) {
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
                       ? "Dein Schulpaket ist bestätigt"
-                      : hasNoRecognizedItems
+                      : shouldShowManualReviewNotice
                         ? "Deine Liste wird persönlich geprüft"
-                        : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
+                        : hasNoRecognizedItems
+                          ? "Deine Liste ist angekommen"
+                          : "Prüfe jetzt Dein vorbereitetes Schulpaket"}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
                       ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor."
-                      : hasNoRecognizedItems
+                      : shouldShowManualReviewNotice
                         ? "Deine Anfrage ist angekommen. Wir konnten aus der Liste noch keine eindeutigen Materialpositionen erkennen. Deshalb prüfen wir sie persönlich und bereiten Deinen Paketwunsch manuell vor."
-                        : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
+                        : hasNoRecognizedItems
+                          ? "Starte jetzt die Auswertung. Sichere Treffer ab 85 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Unsichere Positionen prüfen wir persönlich."
+                          : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
               </div>
 
-              {!isConfirmed && !hasNoRecognizedItems ? (
+              {!isConfirmed && !shouldShowManualReviewNotice ? (
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4 text-[#2F7D50]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Schritt 1
+                      Sicher
                     </p>
-                    <p className="mt-1 font-black">Paket kurz prüfen</p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Vorausgewählte Artikel sind bereits enthalten.
+                    <p className="mt-1 font-black">
+                      Treffer ab 85 % werden vorausgewählt.
                     </p>
                   </div>
 
                   <div className="rounded-[22px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-[#A75B28]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Schritt 2
+                      Offen
                     </p>
-                    <p className="mt-1 font-black">Offenes ergänzen</p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Unsichere Artikel kannst Du auswählen oder suchen.
+                    <p className="mt-1 font-black">
+                      Unsichere Vorschläge kannst Du aktiv wählen.
                     </p>
                   </div>
 
                   <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#52616F]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
-                      Schritt 3
+                      Prüfung
                     </p>
                     <p className="mt-1 font-black text-[#102A43]">
-                      Paket absenden
-                    </p>
-                    <p className="mt-1 text-sm font-semibold leading-6">
-                      Erst danach wird Dein Paketwunsch verbindlich übermittelt.
+                      Fehlende Artikel prüfen wir persönlich.
                     </p>
                   </div>
                 </div>
               ) : null}
 
-              {!isConfirmed && hasNoRecognizedItems ? (
+              {!isConfirmed && shouldShowManualReviewNotice ? (
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#F1B8B8] bg-[#FFF4F4] p-4 text-[#C82632]">
                     <p className="text-xs font-black uppercase tracking-[0.14em]">
@@ -1132,9 +1143,7 @@ export default async function CustomerOfferPage({ params }: Params) {
                 <div className="flex justify-between gap-3">
                   <span>Persönliche Prüfung</span>
                   <span className="font-black text-[#52616F]">
-                    {hasNoRecognizedItems
-                      ? 1
-                      : manualReviewItems.length}
+                    {shouldShowManualReviewNotice ? 1 : manualReviewItems.length}
                   </span>
                 </div>
               </div>
@@ -1145,14 +1154,14 @@ export default async function CustomerOfferPage({ params }: Params) {
                 </div>
               ) : null}
 
-              {!isConfirmed && !hasNoRecognizedItems ? (
+              {!isConfirmed && !shouldShowManualReviewNotice ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
                   Du sendest erst mit dem Bestätigungsbutton Deinen Paketwunsch
                   ab. Vorher kannst Du Artikel entfernen oder ergänzen.
                 </p>
               ) : null}
 
-              {!isConfirmed && hasNoRecognizedItems ? (
+              {!isConfirmed && shouldShowManualReviewNotice ? (
                 <div className="mt-5 rounded-2xl border border-[#F1B8B8] bg-white p-4 text-[#C82632]">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1207,7 +1216,7 @@ export default async function CustomerOfferPage({ params }: Params) {
               Wir prüfen für Dich
             </p>
             <p className="mt-2 text-3xl font-black text-[#102A43]">
-              {hasNoRecognizedItems ? 1 : manualReviewItems.length}
+              {shouldShowManualReviewNotice ? 1 : manualReviewItems.length}
             </p>
           </div>
         </section>
@@ -1254,19 +1263,23 @@ export default async function CustomerOfferPage({ params }: Params) {
             <h2 className="mt-2 text-lg font-black">
               {isConfirmed
                 ? "Abgesendet"
-                : hasNoRecognizedItems
+                : shouldShowManualReviewNotice
                   ? "Manuelle Prüfung"
-                  : "Noch prüfbar"}
+                  : hasNoRecognizedItems
+                    ? "Bereit zur Auswertung"
+                    : "Noch prüfbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
-              {hasNoRecognizedItems
+              {shouldShowManualReviewNotice
                 ? "Keine eindeutigen Positionen erkannt"
-                : `${handledItemCount} von ${items.length} Positionen im Paket`}
+                : hasNoRecognizedItems
+                  ? "Auswertung noch nicht gestartet"
+                  : `${handledItemCount} von ${items.length} Positionen im Paket`}
             </p>
           </div>
         </section>
 
-        {hasNoRecognizedItems && !isConfirmed ? (
+        {shouldShowManualReviewNotice ? (
           <section className="rounded-[32px] border border-[#F1B8B8] bg-[#FFF4F4] p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="flex items-start gap-3">
