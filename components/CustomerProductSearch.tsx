@@ -21,6 +21,13 @@ type CustomerProductSearchProps = {
    */
   excludedProductIds?: string[];
   excludedProductSkus?: string[];
+
+  /**
+   * Wichtig für die Kundenseite:
+   * Standardmäßig bleibt die Suche geschlossen, damit unser Service im Vordergrund steht.
+   */
+  startOpen?: boolean;
+  autoSearchOnOpen?: boolean;
 };
 
 type ProductSearchResult = {
@@ -84,11 +91,13 @@ export default function CustomerProductSearch({
   defaultQuery,
   excludedProductIds = [],
   excludedProductSkus = [],
+  startOpen = false,
+  autoSearchOnOpen = true,
 }: CustomerProductSearchProps) {
   const router = useRouter();
   const hasAutoSearched = useRef(false);
 
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(startOpen);
   const [query, setQuery] = useState(defaultQuery || "");
   const [products, setProducts] = useState<ProductSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -187,7 +196,7 @@ export default function CustomerProductSearch({
           );
         } else {
           setFeedback(
-            "Keine direkten Treffer gefunden. Versuche es mit einem einfacheren Suchwort, z. B. „Heft“, „Umschlag“ oder „A5“."
+            "Keine direkten Treffer gefunden. Das ist kein Problem – unser Team prüft diese Position trotzdem persönlich."
           );
         }
       }
@@ -203,13 +212,15 @@ export default function CustomerProductSearch({
   }
 
   useEffect(() => {
+    if (!isOpen) return;
+    if (!autoSearchOnOpen) return;
     if (hasAutoSearched.current) return;
     if (!defaultQuery || defaultQuery.trim().length < 2) return;
 
     hasAutoSearched.current = true;
     runSearch(defaultQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultQuery]);
+  }, [isOpen, autoSearchOnOpen, defaultQuery]);
 
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -274,18 +285,23 @@ export default function CustomerProductSearch({
               Optional selbst suchen
             </p>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              Unser Team prüft diese Position im Nachgang. Wenn Du möchtest,
-              kannst Du zusätzlich selbst nach einem passenden Produkt suchen.
+              Unser Team prüft diese Position persönlich. Du musst hier nichts
+              weiter tun. Wenn Du möchtest, kannst Du zusätzlich selbst nach
+              einem passenden Produkt suchen.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              setIsOpen(true);
+              setFeedback(null);
+              setErrorMessage(null);
+            }}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
           >
             <Search className="h-4 w-4" />
-            Produkt selbst suchen
+            Ich möchte selbst suchen
           </button>
         </div>
       </div>
@@ -297,11 +313,17 @@ export default function CustomerProductSearch({
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            Zusätzliche Produkte aus dem Bestand
+            Freiwillige Produktsuche
           </p>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Wir zeigen Dir hier nur zusätzliche Treffer. Produkte, die oben
-            bereits als Empfehlung erscheinen, werden in dieser Suche ausgeblendet.
+            Unser Team prüft die Position weiterhin persönlich. Diese Suche ist
+            nur eine freiwillige Zusatzoption, falls Du selbst ein passendes
+            Produkt auswählen möchtest.
+          </p>
+
+          <p className="mt-2 text-xs font-bold leading-5 text-[#A75B28]">
+            Produkte, die oben bereits als Empfehlung erscheinen, werden in
+            dieser Suche ausgeblendet.
           </p>
         </div>
 
