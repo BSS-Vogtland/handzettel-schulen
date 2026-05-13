@@ -46,15 +46,23 @@ ${basePrompt}
 Additional fixed production requirements:
 - Vertical portrait social media image.
 - Format optimized for TikTok, Instagram Reels and Facebook stories.
-- Warm, realistic German school-desk atmosphere.
-- School supplies, notebooks, paper school material list, pens, smartphone on a table.
-- No children.
-- No extra people unless the original prompt explicitly needs adult hands only.
+- The image should primarily appeal to parents with school-age children.
+- Warm, realistic family-oriented school preparation scene.
+- Prefer a home environment instead of an office.
+- Preferred settings: kitchen table, dining table, cozy family workspace, school preparation at home.
+- Show a parent with one school-age child, or a natural parent-child situation.
+- School supplies, notebooks, paper school material list, pens, backpack, folders, smartphone on a table.
+- Emotion should feel supportive, calm, trustworthy, relatable, and family-friendly.
+- Visual tone should suggest relief, preparation, orientation, and everyday help for families.
+- No corporate office feeling.
+- Not business-like.
+- Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
+- Natural light, warm tones, premium but friendly look.
 - No real brand logos.
 - No TikTok, Instagram or Facebook logos.
-- Avoid readable text inside the image.
+- Avoid strong readable text inside the image.
 - Leave clean negative space for later overlay text.
-- Realistic lighting, premium but friendly look.
+- Realistic lighting, emotionally warm, high-quality, authentic family atmosphere.
 - No exaggerated advertising style.
 `.trim();
 }

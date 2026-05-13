@@ -68,12 +68,19 @@ Direkt, verständlich, modern, vertrauenswürdig, elternnah. Keine übertriebene
 Wichtig:
 - Schreibe auf Deutsch.
 - Duze die Zielgruppe.
-- Keine Kinder in Bildprompts erwähnen.
-- Keine echten Logos fremder Plattformen verwenden.
 - Keine Behauptung, dass automatisch bestellt wird.
 - Immer klar machen: Der Upload ist noch keine Bestellung.
 - Social Hooks dürfen neugierig sein, aber nicht unseriös.
 - Erstelle Content, der zu TikTok, Instagram und Facebook passt.
+
+Wichtige Bildsprache:
+- Die Marke soll NICHT wie Business, Büro, Agentur oder Corporate wirken.
+- Die Marke soll visuell vor allem Eltern mit Kindern ansprechen.
+- Bildideen sollen warm, familiär, alltagsnah und schulbezogen sein.
+- Bevorzugte Umgebungen: Zuhause, Küchentisch, Esstisch, familiärer Arbeitsplatz, Schulvorbereitung.
+- Bevorzugte Motive: Elternteil mit Schulkind, gemeinsames Sortieren von Schulmaterial, Fotografieren einer Materialliste, Schulranzen, Hefte, Stifte, Umschläge, Notizzettel, Smartphone.
+- Die Bildsprache soll emotional warm, glaubwürdig und entlastend wirken.
+- Vermeide sterile Büroumgebungen, Business-Looks, Anzug-/Corporate-Stimmung und typische generische Stockfoto-Ästhetik.
 `;
 }
 
@@ -108,18 +115,27 @@ Inhaltliche Themenmischung:
 Bildprompts:
 - Auf Englisch formulieren.
 - 9:16 Social-Media-Format.
-- Realistische warme Szene.
-- Schulmaterial, Papierlisten, Hefte, Stifte, Tisch, Smartphone.
-- Keine Kinder, keine zusätzlichen Personen.
-- Kein Text im Bild oder nur sehr wenig generischer Platzhaltertext.
+- Fokus auf Eltern mit Schulkindern und familiären Alltag.
+- Warme, realistische Familienszene.
+- Eher Zuhause als Büro.
+- Typische Umgebungen: kitchen table, dining table, home desk, school preparation at home.
+- Typische Objekte: school supplies, notebooks, pens, backpack, paper school list, smartphone.
+- Zeige bevorzugt einen Elternteil mit einem Schulkind oder eine Eltern-Kind-Situation.
+- Die Szene soll emotional, vertrauensvoll, hilfsbereit und alltagsnah wirken.
+- Nicht business-like.
+- No corporate office feeling.
+- No real brand logos.
+- Avoid strong readable text inside the image.
+- Hochwertig und realistisch, aber nicht geschniegelt oder stockig.
 
 Video Prompts:
 - Auf Englisch formulieren.
 - 8 Sekunden.
 - Ruhige Kamera.
-- Warme realistische Lern-/Schreibtischumgebung.
-- Eine erwachsene Person oder nur Hände/Schreibtisch.
-- Keine Kinder.
+- Warme realistische Familien-/Schulvorbereitungsumgebung.
+- Eine erwachsene Person mit Schulkind oder eine Eltern-Kind-Situation ist erlaubt.
+- Keine überfüllten Szenen.
+- Zuhause statt Büro.
 - Voice-over auf Deutsch möglich beschreiben.
 
 Antworte ausschließlich als valides JSON in dieser Struktur:
