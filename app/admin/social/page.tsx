@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  ArrowRight,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -286,19 +287,29 @@ export default async function AdminSocialPage() {
                     ) : null}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <PlatformBadge
-                      label="TikTok"
-                      icon={<Video className="h-3.5 w-3.5" />}
-                    />
-                    <PlatformBadge
-                      label="Instagram"
-                      icon={<Camera className="h-3.5 w-3.5" />}
-                    />
-                    <PlatformBadge
-                      label="Facebook"
-                      icon={<Share2 className="h-3.5 w-3.5" />}
-                    />
+                  <div className="flex flex-col gap-3 sm:items-end">
+                    <div className="flex flex-wrap gap-2">
+                      <PlatformBadge
+                        label="TikTok"
+                        icon={<Video className="h-3.5 w-3.5" />}
+                      />
+                      <PlatformBadge
+                        label="Instagram"
+                        icon={<Camera className="h-3.5 w-3.5" />}
+                      />
+                      <PlatformBadge
+                        label="Facebook"
+                        icon={<Share2 className="h-3.5 w-3.5" />}
+                      />
+                    </div>
+
+                    <Link
+                      href={`/admin/social/${post.id}`}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                    >
+                      Beitrag bearbeiten
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
                 </div>
               </div>
