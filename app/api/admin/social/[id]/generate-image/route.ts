@@ -41,7 +41,7 @@ function createDeterministicNumber(input: string) {
   let hash = 0;
 
   for (let index = 0; index < input.length; index += 1) {
-    hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
+    hash = (hash * 33 + input.charCodeAt(index)) >>> 0;
   }
 
   return hash;
@@ -53,16 +53,16 @@ function pickVariant<T>(input: string, variants: T[]) {
 }
 
 function detectTopicCategory(post: SocialPostRow) {
-  const text = `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(
-    post.caption
-  )}`.toLowerCase();
+  const text =
+    `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(post.caption)}`.toLowerCase();
 
   if (
     text.includes("fehlkauf") ||
     text.includes("fehlkäufe") ||
-    text.includes("falsche") ||
+    text.includes("falsch gekauft") ||
     text.includes("doppelt") ||
-    text.includes("falsch gekauft")
+    text.includes("unnötig gekauft") ||
+    text.includes("falsche artikel")
   ) {
     return "wrong-purchases";
   }
@@ -71,7 +71,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("stress") ||
     text.includes("schulstart") ||
     text.includes("chaos") ||
-    text.includes("zeitdruck")
+    text.includes("zeitdruck") ||
+    text.includes("überfordert")
   ) {
     return "school-start-stress";
   }
@@ -80,7 +81,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("upload") ||
     text.includes("hochladen") ||
     text.includes("foto") ||
-    text.includes("liste fotografieren")
+    text.includes("liste fotografieren") ||
+    text.includes("noch keine bestellung")
   ) {
     return "upload";
   }
@@ -101,7 +103,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("zeit sparen") ||
     text.includes("entlastung") ||
     text.includes("weniger stress") ||
-    text.includes("einfacher")
+    text.includes("einfacher") ||
+    text.includes("übersicht")
   ) {
     return "relief-and-efficiency";
   }
@@ -119,7 +122,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("lokal") ||
     text.includes("service") ||
     text.includes("vertrauen") ||
-    text.includes("nah")
+    text.includes("nah") ||
+    text.includes("vertraut")
   ) {
     return "local-service";
   }
@@ -128,129 +132,238 @@ function detectTopicCategory(post: SocialPostRow) {
 }
 
 function buildCompositionDirection(post: SocialPostRow) {
-  return pickVariant(post.id, [
+  return pickVariant(post.id + "-composition", [
     `
-- Composition style: medium shot from the side.
-- Show parent and child at a table with clear focus on the materials and the list.
-- Scene should feel natural and documentary, not staged.
+- Composition style: slightly top-down storytelling shot.
+- The situation and objects must be very readable at first glance.
+- Show enough of the scene so the practical problem is obvious.
 `,
     `
-- Composition style: over-the-shoulder view.
-- Focus on the school supply list and the objects on the table.
-- The parent is actively checking items against the list.
+- Composition style: over-the-shoulder view with strong focus on the main problem.
+- The hook meaning should be obvious through the action and visible objects.
 `,
     `
-- Composition style: slightly top-down angle.
-- Show the table surface clearly with materials, list, smartphone, folders and notebooks.
-- The action should feel practical and organized around the task.
+- Composition style: medium-wide documentary scene.
+- Show the people, the surrounding context, and the material problem clearly.
 `,
     `
-- Composition style: closer, more intimate crop.
-- Focus on hands, list, school materials and facial expressions of concentration or relief.
-- The image should still clearly show the situation, not just a portrait.
+- Composition style: close practical storytelling crop.
+- Focus strongly on hands, list, materials, and the specific action that expresses the hook.
 `,
     `
-- Composition style: wider home scene.
-- Show more environment around the table, school bag, materials and preparation mood.
-- The story should read instantly as school material preparation at home.
+- Composition style: environmental storytelling image.
+- Use the space and object layout to make the situation obvious before reading any text.
 `,
   ]).trim();
 }
 
-function buildHookSpecificDirection(post: SocialPostRow) {
-  const category = detectTopicCategory(post);
+function buildSettingDirection(post: SocialPostRow, category: string) {
+  const generalSettings = [
+    "a kitchen island during family school preparation",
+    "a dining table with school materials spread out",
+    "a living room floor with opened school bags and supplies",
+    "a child's room with school items laid out for sorting",
+    "a hallway or entry area with backpacks, papers and shopping bags",
+    "a cozy family workspace at home",
+  ];
 
+  const stressSettings = [
+    "a cluttered dining table full of school supplies and lists",
+    "a hallway floor with open backpacks, shoes, papers and school materials",
+    "a child's room floor with scattered notebooks, folders and supplies",
+    "a kitchen island with too many materials, shopping bags and a long checklist",
+    "a living room scene with visible school-preparation chaos and time pressure",
+  ];
+
+  const wrongPurchaseSettings = [
+    "a dining table where wrong and correct school materials are being compared",
+    "a family workspace with duplicate or mismatched school supplies on display",
+    "a kitchen table with a printed school list and clearly unsuitable materials nearby",
+    "a school-supply sorting scene at home with visible comparison between list and purchased items",
+  ];
+
+  const uploadSettings = [
+    "a home setting where a parent photographs a school list with a smartphone",
+    "a kitchen table where a parent reviews and uploads a printed material list",
+    "a hallway bench or family workspace where the school list is being photographed",
+    "a practical school-preparation corner at home with smartphone and list in focus",
+  ];
+
+  const detailsSettings = [
+    "a home sorting scene with multiple exercise books, folders and colored covers laid out clearly",
+    "a practical comparison setup with visible differences between A4 and A5 materials",
+    "a family workspace focused on comparing notebook types, colors and school covers",
+    "a well-lit preparation scene where material details are checked carefully",
+  ];
+
+  const reliefSettings = [
+    "a tidy and organized school-preparation scene at home",
+    "a calm family workspace with sorted materials and a clear list",
+    "a neat dining table with already organized school items and checklist",
+    "a relaxed preparation scene with visible order and overview",
+  ];
+
+  const processSettings = [
+    "a home process scene with list, smartphone and selected materials",
+    "a practical family setup showing list review and organized school materials",
+    "a clean preparation environment suggesting step-by-step school list handling",
+    "a believable school-preparation scene focused on the workflow from list to materials",
+  ];
+
+  const localServiceSettings = [
+    "a warm and believable family home setting focused on school-material support",
+    "a realistic everyday family school-preparation environment",
+    "a personal, trustworthy home scene with parent-child school list review",
+    "a supportive family setting centered around school-material organization",
+  ];
+
+  switch (category) {
+    case "school-start-stress":
+      return pickVariant(post.id + "-setting", stressSettings);
+    case "wrong-purchases":
+      return pickVariant(post.id + "-setting", wrongPurchaseSettings);
+    case "upload":
+      return pickVariant(post.id + "-setting", uploadSettings);
+    case "details-and-differences":
+      return pickVariant(post.id + "-setting", detailsSettings);
+    case "relief-and-efficiency":
+      return pickVariant(post.id + "-setting", reliefSettings);
+    case "how-it-works":
+      return pickVariant(post.id + "-setting", processSettings);
+    case "local-service":
+      return pickVariant(post.id + "-setting", localServiceSettings);
+    default:
+      return pickVariant(post.id + "-setting", generalSettings);
+  }
+}
+
+function buildHookSpecificDirection(category: string) {
   switch (category) {
     case "wrong-purchases":
       return `
 - Core scene type: avoiding wrong school-supply purchases.
-- Show a parent and child comparing a school supply list with several school materials on the table.
-- Include visible mismatches or duplicate items, for example wrong notebook size, wrong colors, duplicate pens, or unsuitable exercise books.
-- The image should communicate uncertainty turning into clarity.
-- The emotional message should be: "We want to avoid buying the wrong things."
-- Important: do not make this look like homework time.
+- Show a parent and child checking a school supply list against already bought materials.
+- Include clearly wrong, duplicate, or unsuitable items, such as wrong notebook size, wrong folder color, duplicate pens, or the wrong exercise book type.
+- The difference between suitable and unsuitable materials should be obvious.
+- The parent should actively compare items or point out the mismatch.
+- The emotional message should be: "Without clarity, families easily buy the wrong school materials."
+- The image must visually express the mistake problem, not just a general school-preparation scene.
+- Important: do not make this look like homework help.
 `.trim();
 
     case "school-start-stress":
       return `
 - Core scene type: stress before school starts.
-- Show a realistic but relatable amount of school materials spread across the table.
-- Include a school bag, notebooks, folders, pens, checklist, and a parent trying to get overview together with the child.
-- The mood should show slight pressure or overwhelm, but still feel warm and hopeful.
-- The emotional message should be: "School start creates stress, and families need orientation."
-- Important: the focus is preparation chaos, not homework help.
+- The image must clearly communicate pressure, overload or time stress.
+- Show too many school items at once: open backpack, folders, notebooks, pens, packaging, paper list, maybe shopping bags or a second pile of supplies.
+- The parent should look visibly overwhelmed, worried, concentrated or under pressure.
+- The child may also look uncertain, waiting, or involved in the hectic preparation.
+- Use object clutter, unfinished packing or visible checking pressure to communicate stress.
+- A clock, watch, or "late preparation" mood may help if subtle.
+- The emotional message should be: "School start creates stress and families need help getting control."
+- The scene should feel clearly more hectic than calm.
+- Important: do not make this look like homework help.
 `.trim();
 
     case "upload":
       return `
 - Core scene type: uploading or photographing the school supply list.
-- Show a parent using a smartphone to photograph or review a printed school list.
-- The child can be present and interested, but the main action is about capturing or checking the list.
-- Include school materials nearby so the scene feels practical and relevant.
-- The emotional message should be: "This starts with the school list upload, not with shopping."
-- Avoid checkout or buying scenes.
+- Show a parent clearly using a smartphone to photograph, review or upload the printed list.
+- The smartphone action must be central in the story.
+- Nearby school materials may be visible, but the key message is the upload/check step.
+- The scene should not feel like shopping, ordering or checkout.
+- The emotional message should be: "It starts with uploading the list, not with an immediate order."
 - Important: do not make this look like homework help.
 `.trim();
 
     case "details-and-differences":
       return `
-- Core scene type: understanding details like lineature, format and color.
-- Show a parent and child comparing different exercise books, folders or covers.
-- Differences between materials should be visually obvious: different colors, sizes, or notebook types.
-- The list should be part of the checking process.
-- The emotional message should be: "These small details are confusing, so parents need clarity."
+- Core scene type: understanding confusing material details.
+- Show school materials with clearly visible differences: notebook types, lineatures, sizes, colors, folders or covers.
+- The parent and child should actively compare or sort the materials while using the list as reference.
+- The scene should communicate that these little details are easy to misunderstand.
+- The emotional message should be: "Parents often need orientation because school materials differ in important details."
 - Important: do not make this look like tutoring or homework.
 `.trim();
 
     case "relief-and-efficiency":
       return `
-- Core scene type: saving time and reducing stress.
-- Show a parent and child in a more organized, calm situation with materials already sorted or nearly sorted.
-- The table should look clearer and more structured than chaotic.
-- Include a school list and smartphone, but show calm orientation and relief.
-- The emotional message should be: "This makes school preparation easier for families."
+- Core scene type: saving time and reducing family stress.
+- Show a noticeably more structured, sorted, or calmer preparation moment.
+- The materials should look organized or nearly finished.
+- The people should look relieved, focused or satisfied rather than chaotic.
+- The emotional message should be: "This makes school preparation easier, faster and less stressful."
 - Important: do not make this look like homework help.
 `.trim();
 
     case "how-it-works":
       return `
-- Core scene type: understanding how the process works.
-- Show a clear step-like visual situation: school list, smartphone, selected materials, organized preparation.
-- The scene should visually suggest a process from list to overview.
-- Keep it realistic and home-based.
-- The emotional message should be: "The process is simple and understandable."
+- Core scene type: explaining the process visually.
+- Show a practical sequence-like situation: printed school list, smartphone in use, selected school materials, visible order or preparation.
+- The composition should suggest a simple process from list to overview.
+- The emotional message should be: "The process is easy to understand and practical."
 - Important: do not make this look like homework help.
 `.trim();
 
     case "local-service":
       return `
-- Core scene type: trustworthy family support around school materials.
-- Show a warm, believable home preparation scene that feels personal and supportive.
-- The focus should still stay on school list, material checking and preparation.
-- The emotional message should be: "Families receive helpful, trustworthy support."
+- Core scene type: warm, trustworthy support for families.
+- Show a believable parent-child school-material preparation scene with strong emotional trust.
+- The support feeling should be more important than perfect styling.
+- The focus must still stay on school-material checking, list review or preparation.
+- The emotional message should be: "Families receive supportive, trustworthy help."
 - Important: do not make this look like homework help.
 `.trim();
 
     default:
       return `
-- Core scene type: family school material preparation at home.
-- Show a parent and child checking a school list and organizing school supplies together.
-- The materials and the list should be central in the story.
-- The emotional message should be: "Parents are getting orientation and support with school preparation."
+- Core scene type: family school-material preparation.
+- Show a parent and child dealing with a school supply list and real materials.
+- The list and materials must be central, not just the people.
+- The emotional message should be: "Parents are getting orientation and help for school preparation."
 - Important: do not make this look like homework help.
 `.trim();
   }
 }
 
-function buildImagePrompt(post: SocialPostRow) {
+function buildActionDirection(post: SocialPostRow) {
+  return pickVariant(post.id + "-action", [
+    `
+- Main action: the parent points at the school list while the child looks at the listed items.
+- Show active checking and comparison, not passive posing.
+`,
+    `
+- Main action: the parent sorts materials into "correct" and "unclear/wrong" groups.
+- The visual logic of the action should be easy to understand.
+`,
+    `
+- Main action: the parent holds or checks the list while the child helps organize or move school items.
+- The scene must feel active and purposeful.
+`,
+    `
+- Main action: the parent compares materials with the list while the child watches or assists.
+- Make the practical problem more important than the portrait feeling.
+`,
+    `
+- Main action: the parent is in the middle of preparation, reviewing materials, packing, checking or photographing.
+- Show a real task, not a generic family moment.
+`,
+  ]).trim();
+}
+
+function buildImagePlan(post: SocialPostRow) {
   const basePrompt = cleanString(post.image_prompt);
   const topic = cleanString(post.topic);
   const hook = cleanString(post.hook);
   const caption = cleanString(post.caption);
-  const compositionDirection = buildCompositionDirection(post);
-  const hookSpecificDirection = buildHookSpecificDirection(post);
 
-  return `
+  const topicCategory = detectTopicCategory(post);
+  const chosenSetting = buildSettingDirection(post, topicCategory);
+  const compositionDirection = buildCompositionDirection(post);
+  const hookSpecificDirection = buildHookSpecificDirection(topicCategory);
+  const actionDirection = buildActionDirection(post);
+
+  const finalPrompt = `
 ${basePrompt}
 
 Important social-media context:
@@ -264,44 +377,54 @@ Caption context:
 "${caption}"
 
 Very important:
-The image must not be a generic family-school scene only.
-It must clearly express the content meaning of the hook and topic.
-The scene should feel specifically connected to the post theme.
+The image must not be a generic family-school scene.
+The image must clearly express the message, tension, or practical problem of the hook.
+The setting does NOT have to be a kitchen table or a calm home desk.
+The setting may change if another environment communicates the hook better.
+Message and scene clarity are more important than a fixed environment.
+
+Scene setting:
+- Use this as the main environment direction: ${chosenSetting}
 
 ${hookSpecificDirection}
 
 ${compositionDirection}
 
+${actionDirection}
+
 Additional fixed production requirements:
 - Vertical portrait social media image.
 - Format optimized for TikTok, Instagram Reels and Facebook stories.
 - The image should primarily appeal to parents with school-age children.
-- Warm, realistic family-oriented school preparation scene.
-- Prefer a home environment instead of an office.
-- Preferred settings: kitchen table, dining table, cozy family workspace, school preparation at home.
-- Show a parent with one school-age child or a believable parent-child school preparation situation.
-- Show a visible paper school supply list, notebooks, colored folders, pens, exercise books, backpack, pencil case, smartphone on a table.
-- The action must focus on school material organization, checking, comparing, sorting, photographing the list, or preparing for school start.
-- Avoid scenes where the child is simply writing homework in a notebook.
+- The image should feel realistic, practical and emotionally believable.
+- Show a parent with one school-age child or a believable parent-child school-preparation situation.
+- Show school-related objects that fit the hook: school supply list, notebooks, folders, pens, pencil case, backpack, paper notes, smartphone, shopping bags, packaging, or sorted material piles when appropriate.
+- The action must focus on school-material organization, checking, comparing, sorting, photographing the list, packing for school, or preparing for school start.
+- Avoid scenes where the child is simply doing homework or writing in a notebook as the main story.
 - Avoid the impression of tutoring, learning support, homework help or private lesson.
-- The visual story must feel practical and clearly related to school material planning.
-- Emotion should feel supportive, calm, trustworthy, relatable, and family-friendly.
-- Visual tone should suggest relief, preparation, orientation, less shopping stress, and everyday help for families.
+- The visual story must feel strongly related to the specific post theme.
+- Emotion should feel relatable, supportive, realistic and useful.
+- Natural light or realistic everyday lighting.
+- Warm, high-quality, emotionally authentic look.
 - No corporate office feeling.
 - Not business-like.
 - Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
-- Natural light, warm tones, premium but friendly look.
 - No real brand logos.
 - No TikTok, Instagram or Facebook logos.
 - Avoid strong readable text inside the image.
-- Leave some clean negative space for later overlay text.
-- Realistic lighting, emotionally warm, high-quality, authentic family atmosphere.
+- Leave some clean negative space for later overlay text when possible.
 - No exaggerated advertising style.
 `.trim();
+
+  return {
+    finalPrompt,
+    topicCategory,
+    chosenSetting,
+  };
 }
 
 export async function POST(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -369,7 +492,7 @@ export async function POST(
     }
 
     const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
-    const finalPrompt = buildImagePrompt(post);
+    const imagePlan = buildImagePlan(post);
 
     const openAiResponse = await fetch(
       "https://api.openai.com/v1/images/generations",
@@ -381,7 +504,7 @@ export async function POST(
         },
         body: JSON.stringify({
           model,
-          prompt: finalPrompt,
+          prompt: imagePlan.finalPrompt,
           size: "1024x1536",
           quality: "low",
           n: 1,
@@ -463,7 +586,7 @@ export async function POST(
         asset_type: "image",
         provider: "openai",
         model,
-        prompt: finalPrompt,
+        prompt: imagePlan.finalPrompt,
         storage_bucket: STORAGE_BUCKET,
         storage_path: storagePath,
         public_url: publicUrl,
@@ -476,7 +599,8 @@ export async function POST(
           openai_size: "1024x1536",
           openai_quality: "low",
           revised_prompt: openAiJson.data?.[0]?.revised_prompt || null,
-          topic_category: detectTopicCategory(post),
+          topic_category: imagePlan.topicCategory,
+          chosen_setting: imagePlan.chosenSetting,
         },
       })
       .select("*")
