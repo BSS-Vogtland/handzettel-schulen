@@ -8,6 +8,23 @@ type PlatformContent = {
   caption?: string;
 };
 
+type SocialProjectRow = {
+  id: string;
+  name: string;
+  website_url: string | null;
+  industry: string | null;
+  target_audience: string | null;
+  offer_summary: string | null;
+  brand_voice: string | null;
+  image_style: string | null;
+  additional_notes: string | null;
+  content_pillars: string[] | null;
+  content_goals: string[] | null;
+  taboo_topics: string[] | null;
+  cta_examples: string[] | null;
+  platform_targets: string[] | null;
+};
+
 type SocialPostDraft = {
   topic?: string;
   content_angle?: string;
@@ -34,6 +51,51 @@ type OpenAiResponse = {
   };
 };
 
+const FALLBACK_PROJECT: SocialProjectRow = {
+  id: "",
+  name: "Handzettel-Schulen.de",
+  website_url: "https://www.handzettel-schulen.de",
+  industry: "Schulmaterial-Service / Elternservice",
+  target_audience:
+    "Eltern von Schulkindern, besonders vor dem Schulstart und bei Materiallisten",
+  offer_summary:
+    "Eltern laden ihre Schulmaterialliste hoch. Daraus wird ein vorbereiteter Paketwunsch erstellt. Die Eltern können alles prüfen und senden erst danach bewusst ab.",
+  brand_voice:
+    "Direkt, verständlich, modern, vertrauenswürdig, elternnah, hilfreich, nicht aufdringlich",
+  image_style:
+    "Familiennah, alltagsnah, Schulstart, Materialliste, Eltern-Kind-Situation, keine Business-/Büro-Optik, Bild muss klar zum Hook passen",
+  additional_notes:
+    "Upload ist noch keine Bestellung. Keine falschen Versprechen. Bilder sollen nicht wie reine Hausaufgabenhilfe wirken.",
+  content_pillars: [
+    "Fehlkäufe vermeiden",
+    "Stress vor Schulstart reduzieren",
+    "Schulmateriallisten verstehen",
+    "Lineatur, Format und Farben erklären",
+    "Upload und Paketwunsch erklären",
+    "Eltern entlasten",
+    "Vertrauen und lokaler Service",
+  ],
+  content_goals: [
+    "mehr Website-Besuche",
+    "mehr Listen-Uploads",
+    "mehr Vertrauen bei Eltern",
+    "bessere Erklärung des Angebots",
+  ],
+  taboo_topics: [
+    "keine automatische Bestellung behaupten",
+    "keine Panikmache",
+    "keine aggressiven Verkaufsversprechen",
+    "keine generische Business-Bildsprache",
+    "keine reine Hausaufgabenhilfe-Bildsprache",
+  ],
+  cta_examples: [
+    "Lade Deine Materialliste hoch und prüfe Deinen Paketwunsch.",
+    "Teste den Upload für Deine Schulmaterialliste.",
+    "Spare Dir unnötigen Schulstart-Stress.",
+  ],
+  platform_targets: ["tiktok", "instagram", "facebook"],
+};
+
 function cleanString(value: unknown, fallback = "") {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
@@ -46,54 +108,97 @@ function cleanStringArray(value: unknown) {
     .filter((item) => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, 20);
+    .slice(0, 30);
 }
 
-function buildSystemPrompt() {
+function formatList(values: string[] | null | undefined, fallback: string) {
+  const cleaned = cleanStringArray(values);
+
+  if (cleaned.length === 0) return fallback;
+
+  return cleaned.map((item) => `- ${item}`).join("\n");
+}
+
+async function loadActiveProject() {
+  const { data, error } = await supabaseServer
+    .from("social_projects")
+    .select("*")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return FALLBACK_PROJECT;
+  }
+
+  return data as SocialProjectRow;
+}
+
+function buildSystemPrompt(project: SocialProjectRow) {
   return `
-Du bist ein erfahrener deutscher Social-Media-Stratege und Creative Director für eine lokale Eltern- und Schulservice-Marke.
+Du bist ein erfahrener deutscher Social-Media-Stratege und Creative Director.
 
-Marke:
-Handzettel-Schulen.de
+Du erstellst Social-Media-Content für ein konfigurierbares Kundenprojekt.
 
-Kernnutzen:
-Eltern laden ihre Schulmaterialliste hoch. Daraus wird ein vorbereiteter Paketwunsch erstellt. Die Eltern können alles prüfen und senden erst danach bewusst ab. Es geht um weniger Einkaufsstress, weniger Fehlkäufe, weniger doppelte Wege und bessere Orientierung bei Lineatur, Heftformaten, Umschlagfarben und Schulmateriallisten.
+Projekt / Marke:
+${project.name}
+
+Website:
+${project.website_url || "Keine Website hinterlegt"}
+
+Branche:
+${project.industry || "Nicht angegeben"}
 
 Zielgruppe:
-Eltern von Schulkindern, besonders vor dem Schulstart und bei Materiallisten.
+${project.target_audience || "Nicht angegeben"}
 
-Ton:
-Direkt, verständlich, modern, vertrauenswürdig, elternnah. Keine übertriebene Werbesprache. Keine falschen Versprechen. Keine aggressive Panikmache.
+Angebot / Kernnutzen:
+${project.offer_summary || "Nicht angegeben"}
 
-Wichtig für Texte:
+Markenstimme / Tonfall:
+${project.brand_voice || "verständlich, hilfreich, modern, vertrauenswürdig"}
+
+Bildstil:
+${project.image_style || "realistisch, hochwertig, passend zur Zielgruppe"}
+
+Zusätzliche Hinweise:
+${project.additional_notes || "Keine zusätzlichen Hinweise"}
+
+Content-Ziele:
+${formatList(project.content_goals, "- Reichweite\n- Vertrauen\n- Anfragen")}
+
+Tabuthemen / Dinge, die vermieden werden müssen:
+${formatList(project.taboo_topics, "- Keine falschen Versprechen\n- Keine unseriösen Behauptungen")}
+
+CTA-Beispiele:
+${formatList(project.cta_examples, "- Mehr erfahren")}
+
+Wichtig:
 - Schreibe auf Deutsch.
-- Duze die Zielgruppe.
-- Keine Behauptung, dass automatisch bestellt wird.
-- Immer klar machen: Der Upload ist noch keine Bestellung.
+- Duze die Zielgruppe, außer das Projektprofil verlangt ausdrücklich etwas anderes.
+- Keine falschen Versprechen.
+- Keine erfundenen Garantien.
 - Social Hooks dürfen neugierig sein, aber nicht unseriös.
-- Erstelle Content, der zu TikTok, Instagram und Facebook passt.
-
-Wichtig für Bildideen:
-- Die Bildidee muss zur jeweiligen Überschrift / zum Hook passen.
-- Die Bilder dürfen nicht wie reine Hausaufgabenhilfe wirken.
-- Die Bilder sollen nicht generisch "Mutter hilft Kind beim Schreiben" zeigen.
-- Die Bilder sollen klar zeigen: Schulmaterialliste, Schulstart, Fehlkäufe, Upload, Heftformate, Lineaturen, Farben, Paketwunsch, Einkaufsentlastung oder Sortier-/Prüfsituation.
-- Die Marke soll NICHT wie Business, Büro, Agentur oder Corporate wirken.
-- Die Marke soll visuell vor allem Eltern mit Kindern ansprechen.
-- Bildideen sollen warm, familiär, alltagsnah und schulbezogen sein.
-- Bevorzugte Umgebungen: Zuhause, Küchentisch, Esstisch, familiärer Arbeitsplatz, Schulvorbereitung.
-- Bevorzugte Motive: Elternteil mit Schulkind, gemeinsames Sortieren von Schulmaterial, Fotografieren einer Materialliste, Vergleichen von Heften/Farben/Formaten, Schulranzen, Hefte, Stifte, Umschläge, Notizzettel, Smartphone.
-- Die Bildsprache soll emotional warm, glaubwürdig und entlastend wirken.
-- Vermeide sterile Büroumgebungen, Business-Looks, Anzug-/Corporate-Stimmung und typische generische Stockfoto-Ästhetik.
-
-Entscheidend:
-Jeder Bildprompt muss eine eigene visuelle Idee haben. Nicht achtmal dieselbe Mutter-Kind-am-Tisch-Szene.
+- Erstelle Content, der zu den hinterlegten Plattformen passt.
+- Bildprompts müssen zur jeweiligen Überschrift / zum Hook passen.
+- Jeder Bildprompt braucht eine eigene visuelle Idee.
+- Die Szene muss die Botschaft des Hooks ausdrücken, nicht nur schön aussehen.
 `;
 }
 
-function buildUserPrompt() {
+function buildUserPrompt(project: SocialProjectRow) {
   return `
-Erstelle 8 Social-Media-Beiträge für Handzettel-Schulen.de.
+Erstelle 8 Social-Media-Beiträge für dieses Projekt:
+
+Projekt:
+${project.name}
+
+Content-Säulen, aus denen die Beiträge entstehen sollen:
+${formatList(project.content_pillars, "- Problem-Bewusstsein\n- Fehler vermeiden\n- Vertrauen\n- Ablauf erklären\n- Kundenfragen")}
+
+Aktive Plattformen:
+${formatList(project.platform_targets, "- tiktok\n- instagram\n- facebook")}
 
 Jeder Beitrag braucht:
 - topic
@@ -109,78 +214,35 @@ Jeder Beitrag braucht:
 - instagram: { hook, caption }
 - facebook: { hook, caption }
 
-Inhaltliche Themenmischung:
-1. Fehlkäufe bei Schulmaterial
-2. Stress vor Schulstart
-3. Lineatur/Format/Farbe erklären
-4. Upload ist noch keine Bestellung
-5. Zeit sparen für Eltern
-6. Warum Materiallisten oft komplizierter sind als gedacht
-7. So funktioniert Handzettel-Schulen.de
-8. Lokaler/vertrauter Servicecharakter
+Strenge Content-Regeln:
+- Jeder Beitrag muss zu Zielgruppe, Angebot und Content-Säulen passen.
+- Die Themen dürfen sich nicht zu stark ähneln.
+- Die Hooks sollen neugierig machen, aber seriös bleiben.
+- Die Caption soll verständlich erklären, warum das Thema relevant ist.
+- Der CTA soll zu den hinterlegten CTA-Beispielen passen.
+- Hashtags sollen themennah sein, kein Spam.
 
 Strenge Bildprompt-Regeln:
 - image_prompt muss auf Englisch formuliert sein.
 - image_prompt muss exakt zum jeweiligen topic und hook passen.
 - image_prompt darf nicht allgemein bleiben.
 - image_prompt muss erklären, was im Bild konkret passiert.
-- image_prompt muss vermeiden, dass es wie Hausaufgabenhilfe aussieht.
-- image_prompt muss zeigen, dass es um Schulmaterialliste, Materialprüfung, Upload, Sortierung, Fehlkäufe oder Schulstart-Vorbereitung geht.
-- Jeder image_prompt braucht eine andere Bildkomposition.
-- Jeder image_prompt braucht eine andere konkrete Szene.
-- Nicht immer: Mutter und Kind sitzen nebeneinander am Tisch.
-- Nicht immer: Kind schreibt in ein Heft.
-- Kein Business-/Bürolook.
-
-Nutze abwechslungsreiche Bildkompositionen:
-- over-the-shoulder view auf Materialliste und Smartphone
-- top-down flatlay mit Schulmaterial, Liste, Heften, Stiften
-- Elternteil fotografiert Materialliste mit Smartphone
-- Elternteil und Kind vergleichen zwei ähnliche Hefte
-- Tisch mit falsch/doppelt gekauften Materialien und korrigierter Liste
-- leicht chaotische Schulstart-Vorbereitung
-- sortierte Vorher-Nachher-Situation
-- naher Ausschnitt auf Hände, Liste, Hefte, farbige Umschläge
-- Elternteil zeigt auf Materialliste, Kind sortiert daneben Stifte oder Hefte
-- Schulranzen und Materialliste als klares Schulstart-Signal
-
-Themenspezifische Bildlogik:
-- Bei Fehlkäufen: Zeige falsche/doppelte/unpassende Schulmaterialien, Vergleich mit Liste, Unsicherheit wird zu Klarheit.
-- Bei Stress vor Schulstart: Zeige mehr Materialien, leichtes Chaos, Checkliste, Elternteil versucht Überblick zu bekommen.
-- Bei Upload: Zeige Smartphone, das eine Materialliste fotografiert oder prüft. Kein Einkauf, keine Kasse.
-- Bei Lineatur/Format/Farbe: Zeige sichtbare Unterschiede zwischen Heften, Farben, Umschlägen, A4/A5, Lineaturen.
-- Bei Zeit sparen: Zeige sortierte, erleichterte Situation, weniger Chaos, klare Übersicht.
-- Bei So funktioniert es: Zeige Prozess von Liste → Smartphone → sortierte Materialien → Paketwunsch-Übersicht als visuelle Andeutung.
-- Bei lokal/vertraut: Zeige warme, glaubwürdige Familiensituation mit Schulmaterialprüfung, nicht Werbung/Business.
-
-Bildprompt-Stil:
+- Die Szene muss die Botschaft ausdrücken.
+- Die Umgebung darf je nach Hook variieren.
+- Nicht immer dieselbe Szene.
+- Nicht immer dieselbe Perspektive.
+- Nicht generisch, nicht austauschbar.
+- Keine echten Markenlogos.
+- Möglichst wenig lesbarer Text im Bild.
 - 9:16 vertical social media image.
-- Warm realistic family everyday life in Germany.
-- Home environment, kitchen table or dining table.
-- Parent with school-age child, but focus on school supply organization, not tutoring.
-- School supplies, paper school list, notebooks, pens, colored folders, backpack, smartphone.
-- Natural light, emotionally warm, realistic, high-quality.
-- No corporate office feeling.
-- No real brand logos.
-- Avoid readable text inside the image.
-- Leave clean negative space for later overlay text.
+- Realistic, high-quality, emotionally believable.
 
 Video Prompts:
 - Auf Englisch formulieren.
 - 8 Sekunden.
 - Ruhige Kamera.
-- Warme realistische Familien-/Schulvorbereitungsumgebung.
-- Eine erwachsene Person mit Schulkind oder eine Eltern-Kind-Situation ist erlaubt.
-- Keine überfüllten Szenen.
-- Zuhause statt Büro.
 - Die Szene muss zum Hook passen.
-- Nicht wie Hausaufgabenhilfe.
 - Voice-over auf Deutsch möglich beschreiben.
-
-Hashtags:
-- Mischung aus allgemeinen und themennahen Hashtags.
-- Nicht zu viele.
-- Kein Spam.
 
 Antworte ausschließlich als valides JSON in dieser Struktur:
 
@@ -228,6 +290,7 @@ export async function POST() {
       );
     }
 
+    const project = await loadActiveProject();
     const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
     const openAiResponse = await fetch(
@@ -245,11 +308,11 @@ export async function POST() {
           messages: [
             {
               role: "system",
-              content: buildSystemPrompt(),
+              content: buildSystemPrompt(project),
             },
             {
               role: "user",
-              content: buildUserPrompt(),
+              content: buildUserPrompt(project),
             },
           ],
         }),
@@ -308,8 +371,15 @@ export async function POST() {
       );
     }
 
+    const platformTargets = cleanStringArray(project.platform_targets);
+    const finalPlatformTargets =
+      platformTargets.length > 0
+        ? platformTargets
+        : ["tiktok", "instagram", "facebook"];
+
     const rows = drafts.map((draft) => ({
-      brand_project: "handzettel-schulen.de",
+      project_id: project.id || null,
+      brand_project: project.name,
       status: "draft",
 
       topic: cleanString(draft.topic, "Social-Beitrag"),
@@ -317,7 +387,10 @@ export async function POST() {
 
       hook: cleanString(draft.hook, "Neuer Social-Beitrag"),
       caption: cleanString(draft.caption, ""),
-      cta: cleanString(draft.cta, "Materialliste hochladen und prüfen lassen."),
+      cta: cleanString(
+        draft.cta,
+        project.cta_examples?.[0] || "Mehr erfahren."
+      ),
 
       hashtags: cleanStringArray(draft.hashtags),
       keywords: cleanStringArray(draft.keywords),
@@ -349,8 +422,11 @@ export async function POST() {
       image_prompt: cleanString(draft.image_prompt, ""),
       video_prompt: cleanString(draft.video_prompt, ""),
 
-      platform_targets: ["tiktok", "instagram", "facebook"],
-      performance_snapshot: {},
+      platform_targets: finalPlatformTargets,
+      performance_snapshot: {
+        source_project: project.name,
+        source_project_id: project.id || null,
+      },
     }));
 
     const { data, error } = await supabaseServer
@@ -370,7 +446,7 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
-      message: `${data?.length || 0} Social-Beiträge wurden erzeugt.`,
+      message: `${data?.length || 0} Social-Beiträge wurden für ${project.name} erzeugt.`,
       posts: data || [],
     });
   } catch (error) {
