@@ -7,12 +7,12 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Megaphone,
   Share2,
   Sparkles,
   Video,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
+import AdminSocialWeekPlanButton from "@/components/AdminSocialWeekPlanButton";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +46,7 @@ function formatDate(value: string | null) {
   if (!value) return "Ohne Termin";
 
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -57,6 +58,7 @@ function formatTime(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
@@ -66,6 +68,7 @@ function formatDateTime(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -114,7 +117,12 @@ function groupPostsByDate(posts: SocialPostRow[]) {
 
   for (const post of posts) {
     const key = post.scheduled_at
-      ? new Date(post.scheduled_at).toISOString().slice(0, 10)
+      ? new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Berlin",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(post.scheduled_at))
       : "without-date";
 
     const current = grouped.get(key) || [];
@@ -124,7 +132,8 @@ function groupPostsByDate(posts: SocialPostRow[]) {
 
   return Array.from(grouped.entries()).map(([key, items]) => ({
     key,
-    label: key === "without-date" ? "Ohne Termin" : formatDate(items[0].scheduled_at),
+    label:
+      key === "without-date" ? "Ohne Termin" : formatDate(items[0].scheduled_at),
     items: items.sort((a, b) => {
       if (!a.scheduled_at && !b.scheduled_at) {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -220,12 +229,17 @@ export default async function AdminSocialCalendarPage() {
               </div>
 
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Planungslogik
+                Wochenplanung
               </p>
 
               <p className="mt-2 max-w-xs text-sm font-semibold leading-6 text-[#52616F]">
-                Termin und Status stellst Du direkt im jeweiligen Beitrag ein.
+                Offene Entwürfe werden automatisch für die nächste Woche
+                geplant.
               </p>
+
+              <div className="mt-4">
+                <AdminSocialWeekPlanButton />
+              </div>
             </div>
           </div>
         </header>
