@@ -4,10 +4,13 @@ import {
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
+  ExternalLink,
+  ImageIcon,
   Megaphone,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialPostEditor from "@/components/AdminSocialPostEditor";
+import AdminSocialImageGenerateButton from "@/components/AdminSocialImageGenerateButton";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,23 @@ type SocialPostRow = {
   platform_targets: string[] | null;
 };
 
+type SocialAssetRow = {
+  id: string;
+  created_at: string;
+  post_id: string;
+  asset_type: string;
+  provider: string;
+  model: string;
+  prompt: string;
+  storage_bucket: string;
+  storage_path: string;
+  public_url: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  status: string;
+  metadata: Record<string, unknown> | null;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "—";
 
@@ -44,6 +64,16 @@ function formatDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatBytes(value: number | null) {
+  if (!value || value <= 0) return "—";
+
+  if (value < 1024 * 1024) {
+    return `${Math.round(value / 1024)} KB`;
+  }
+
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getStatusLabel(status: string) {
@@ -103,6 +133,16 @@ export default async function AdminSocialPostDetailPage({
 
   const post = data as SocialPostRow;
 
+  const { data: assetsData } = await supabaseServer
+    .from("social_assets")
+    .select("*")
+    .eq("post_id", id)
+    .eq("asset_type", "image")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false });
+
+  const assets = (assetsData || []) as SocialAssetRow[];
+
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -137,8 +177,8 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Später hängen wir an
-                diese Seite Bildgenerierung, Kalender und Auto-Posting an.
+                Keywords sowie Bild- und Video-Prompts. Bilder werden nur dann
+                erzeugt, wenn Du bewusst auf „Bild erzeugen“ klickst.
               </p>
             </div>
 
@@ -172,6 +212,113 @@ export default async function AdminSocialPostDetailPage({
             </div>
           </div>
         </header>
+
+        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
+                <ImageIcon className="h-4 w-4" />
+                Bildgenerierung
+              </div>
+
+              <h2 className="mt-4 text-2xl font-black text-[#102A43]">
+                Social-Bilder für diesen Beitrag
+              </h2>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                Erzeuge ein 9:16-Bild aus dem gespeicherten Bild-Prompt. Für
+                Entwürfe nutzen wir bewusst eine günstige Low-Quality-Version.
+                Finale Bilder können wir später zusätzlich in besserer Qualität
+                erzeugen.
+              </p>
+
+              {!post.image_prompt ? (
+                <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                  Für diesen Beitrag fehlt noch ein Bild-Prompt. Bitte unten im
+                  Editor ergänzen und speichern.
+                </p>
+              ) : null}
+            </div>
+
+            <AdminSocialImageGenerateButton
+              postId={post.id}
+              disabled={!post.image_prompt}
+            />
+          </div>
+
+          {assets.length === 0 ? (
+            <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#D9C4A8] bg-[#FFFCF7] p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#B5282D]">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+
+              <h3 className="mt-3 text-lg font-black text-[#102A43]">
+                Noch kein Bild erzeugt
+              </h3>
+
+              <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
+                Sobald Du auf „Bild erzeugen“ klickst, wird das Bild hier
+                gespeichert und angezeigt.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {assets.map((asset) => (
+                <article
+                  key={asset.id}
+                  className="overflow-hidden rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] shadow-sm"
+                >
+                  {asset.public_url ? (
+                    <a
+                      href={asset.public_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block bg-[#102A43]"
+                    >
+                      <img
+                        src={asset.public_url}
+                        alt="Generiertes Social-Media-Bild"
+                        className="aspect-[2/3] w-full object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <div className="flex aspect-[2/3] items-center justify-center bg-[#FBF7F0] text-sm font-bold text-[#627D98]">
+                      Kein Bild-Link vorhanden
+                    </div>
+                  )}
+
+                  <div className="space-y-3 p-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+                        {asset.model}
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-[#52616F]">
+                        Erstellt: {formatDateTime(asset.created_at)}
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-[#52616F]">
+                        Größe: {formatBytes(asset.file_size)}
+                      </p>
+                    </div>
+
+                    {asset.public_url ? (
+                      <a
+                        href={asset.public_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-4 py-2 text-sm font-black text-[#B5282D] transition hover:bg-[#F5E8D8]"
+                      >
+                        Bild öffnen
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <AdminSocialPostEditor post={post} />
       </div>
