@@ -11,6 +11,7 @@ import {
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialPostEditor from "@/components/AdminSocialPostEditor";
 import AdminSocialImageGenerateButton from "@/components/AdminSocialImageGenerateButton";
+import AdminSocialAssetDeleteButton from "@/components/AdminSocialAssetDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -177,8 +178,8 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Bilder werden nur dann
-                erzeugt, wenn Du bewusst auf „Bild erzeugen“ klickst.
+                Keywords sowie Bild- und Video-Prompts. Bilder sollen klar zur
+                Überschrift passen und nicht wie reine Hausaufgabenhilfe wirken.
               </p>
             </div>
 
@@ -226,10 +227,9 @@ export default async function AdminSocialPostDetailPage({
               </h2>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Erzeuge ein 9:16-Bild aus dem gespeicherten Bild-Prompt. Für
-                Entwürfe nutzen wir bewusst eine günstige Low-Quality-Version.
-                Finale Bilder können wir später zusätzlich in besserer Qualität
-                erzeugen.
+                Erzeuge ein 9:16-Bild aus dem gespeicherten Bild-Prompt. Der
+                Prompt wird zusätzlich mit Thema, Hook und Caption verknüpft,
+                damit das Bild stärker zur Überschrift passt.
               </p>
 
               {!post.image_prompt ? (
@@ -302,17 +302,21 @@ export default async function AdminSocialPostDetailPage({
                       </p>
                     </div>
 
-                    {asset.public_url ? (
-                      <a
-                        href={asset.public_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-4 py-2 text-sm font-black text-[#B5282D] transition hover:bg-[#F5E8D8]"
-                      >
-                        Bild öffnen
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    ) : null}
+                    <div className="flex flex-col gap-2">
+                      {asset.public_url ? (
+                        <a
+                          href={asset.public_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-4 py-2 text-sm font-black text-[#B5282D] transition hover:bg-[#F5E8D8]"
+                        >
+                          Bild öffnen
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+
+                      <AdminSocialAssetDeleteButton assetId={asset.id} />
+                    </div>
                   </div>
                 </article>
               ))}

@@ -39,9 +39,26 @@ function cleanString(value: unknown) {
 
 function buildImagePrompt(post: SocialPostRow) {
   const basePrompt = cleanString(post.image_prompt);
+  const topic = cleanString(post.topic);
+  const hook = cleanString(post.hook);
+  const caption = cleanString(post.caption);
 
   return `
 ${basePrompt}
+
+Important headline context:
+The image must visually support this exact social media headline:
+"${hook}"
+
+Topic:
+"${topic}"
+
+Caption context:
+"${caption}"
+
+Core visual meaning:
+This image is NOT about homework tutoring.
+This image is about parents dealing with a school supply list, checking school materials, avoiding wrong purchases, organizing notebooks, pens, folders, colors, sizes and lineatures, and preparing the school start with less stress.
 
 Additional fixed production requirements:
 - Vertical portrait social media image.
@@ -50,10 +67,13 @@ Additional fixed production requirements:
 - Warm, realistic family-oriented school preparation scene.
 - Prefer a home environment instead of an office.
 - Preferred settings: kitchen table, dining table, cozy family workspace, school preparation at home.
-- Show a parent with one school-age child, or a natural parent-child situation.
-- School supplies, notebooks, paper school material list, pens, backpack, folders, smartphone on a table.
+- Show a parent with one school-age child, but the action should focus on school material organization, not homework.
+- Show a visible paper school supply list, notebooks, colored folders, pens, exercise books, backpack, smartphone on a table.
+- The parent may point at the school supply list, compare notebooks, sort school materials, or take a photo of the list with a smartphone.
+- Avoid scenes where the child is simply writing homework in a notebook.
+- Avoid the impression of tutoring, learning support, homework help or private lesson.
 - Emotion should feel supportive, calm, trustworthy, relatable, and family-friendly.
-- Visual tone should suggest relief, preparation, orientation, and everyday help for families.
+- Visual tone should suggest relief, preparation, orientation, less shopping stress, and everyday help for families.
 - No corporate office feeling.
 - Not business-like.
 - Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
