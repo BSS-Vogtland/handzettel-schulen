@@ -9,6 +9,7 @@ import {
   Hash,
   ImageIcon,
   Megaphone,
+  Settings,
   Share2,
   Sparkles,
   Video,
@@ -162,14 +163,14 @@ export default async function AdminSocialPage() {
               </div>
 
               <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Social-Media-Entwürfe für Handzettel-Schulen.de
+                Social-Media-Entwürfe erzeugen
               </h1>
 
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#486581]">
-                Hier erzeugst Du automatisch Content-Ideen, Hooks, Captions,
-                Hashtags, Keywords sowie Bild- und Video-Prompts für TikTok,
-                Instagram und Facebook. In dieser ersten Version werden die
-                Beiträge bewusst nur als Entwürfe gespeichert.
+                Erzeuge automatisch Content-Ideen, Hooks, Captions, Hashtags,
+                Keywords sowie Bild- und Video-Prompts. Über die Einstellungen
+                kann das Projektprofil gepflegt werden — genau das ist die Basis
+                für das spätere Self-Service-Paket für Kunden.
               </p>
             </div>
 
@@ -184,11 +185,19 @@ export default async function AdminSocialPage() {
                   <CalendarClock className="h-4 w-4" />
                   Social-Kalender öffnen
                 </Link>
+
+                <Link
+                  href="/admin/social/einstellungen"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-5 py-3 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
+                >
+                  <Settings className="h-4 w-4" />
+                  Einstellungen öffnen
+                </Link>
               </div>
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
-                Empfehlung: Erst prüfen, dann freigeben und terminieren. Das
-                automatische Posten bauen wir später als nächste Ausbaustufe.
+                Empfehlung: Erst Projektprofil sauber pflegen, dann Beiträge
+                erzeugen, prüfen, terminieren und später veröffentlichen.
               </p>
             </div>
           </div>
@@ -257,10 +266,20 @@ export default async function AdminSocialPage() {
               Noch keine Social-Beiträge vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
-              Klicke oben auf „Neue Social-Beiträge erzeugen“. Danach werden
-              automatisch mehrere Entwürfe für TikTok, Instagram und Facebook
-              gespeichert.
+              Pflege zuerst optional das Projektprofil in den Einstellungen.
+              Danach kannst Du neue Social-Beiträge erzeugen und sie im Kalender
+              planen.
             </p>
+
+            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/admin/social/einstellungen"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
+              >
+                <Settings className="h-4 w-4" />
+                Projektprofil bearbeiten
+              </Link>
+            </div>
           </section>
         ) : null}
 
@@ -284,6 +303,10 @@ export default async function AdminSocialPage() {
 
                       <span className="text-xs font-semibold text-[#627D98]">
                         Erstellt: {formatDateTime(post.created_at)}
+                      </span>
+
+                      <span className="rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#486581]">
+                        {post.brand_project}
                       </span>
                     </div>
 
