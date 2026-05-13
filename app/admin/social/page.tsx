@@ -174,10 +174,21 @@ export default async function AdminSocialPage() {
             </div>
 
             <div className="flex flex-col items-start gap-3">
-              <AdminSocialGenerateButton />
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <AdminSocialGenerateButton />
+
+                <Link
+                  href="/admin/social/kalender"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  Social-Kalender öffnen
+                </Link>
+              </div>
+
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
-                Empfehlung: Erst prüfen, dann freigeben. Das automatische
-                Posten bauen wir später als nächste Ausbaustufe.
+                Empfehlung: Erst prüfen, dann freigeben und terminieren. Das
+                automatische Posten bauen wir später als nächste Ausbaustufe.
               </p>
             </div>
           </div>
