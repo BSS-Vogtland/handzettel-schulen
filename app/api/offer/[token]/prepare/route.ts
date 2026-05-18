@@ -84,6 +84,71 @@ function cleanText(value: unknown, fallback = "") {
   return text.length > 0 ? text : fallback;
 }
 
+function decodeTokenSafely(value: string) {
+  const rawToken = String(value || "").trim();
+
+  if (!rawToken) return "";
+
+  try {
+    return decodeURIComponent(rawToken).trim();
+  } catch {
+    return rawToken;
+  }
+}
+
+function getTokenVariants(value: string) {
+  const rawToken = String(value || "").trim();
+  const decodedToken = decodeTokenSafely(rawToken);
+
+  return Array.from(
+    new Set(
+      [decodedToken, rawToken]
+        .map((token) => String(token || "").trim())
+        .filter((token) => token.length > 0)
+    )
+  );
+}
+
+async function loadSchoolRequestByOfferToken(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  rawToken: string;
+}) {
+  const tokenVariants = getTokenVariants(params.rawToken);
+
+  for (const tokenVariant of tokenVariants) {
+    const { data, error } = await params.supabase
+      .from("school_requests")
+      .select("id, status, offer_status, ai_status")
+      .eq("offer_token", tokenVariant)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        data: null,
+        error,
+        usedToken: tokenVariant,
+        tokenVariants,
+      };
+    }
+
+    if (data) {
+      return {
+        data: data as SchoolRequest,
+        error: null,
+        usedToken: tokenVariant,
+        tokenVariants,
+      };
+    }
+  }
+
+  return {
+    data: null,
+    error: null,
+    usedToken: null,
+    tokenVariants,
+  };
+}
+
 async function createRequestEvent(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   requestId: string,
@@ -181,10 +246,7 @@ async function readJsonSafely(response: Response) {
 function getShortRawText(rawText: string) {
   if (!rawText) return "";
 
-  return rawText
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 500);
+  return rawText.replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
@@ -400,10 +462,12 @@ async function autoPreselectSafeMatches(params: {
 
 export async function POST(request: NextRequest, context: Params) {
   try {
-    const { token } = await context.params;
+    const { token: rawTokenFromParams } = await context.params;
+    const cleanToken = decodeTokenSafely(rawTokenFromParams);
+    const tokenVariants = getTokenVariants(rawTokenFromParams);
     const supabase = getSupabaseAdmin();
 
-    if (!token) {
+    if (!cleanToken) {
       return jsonResponse(
         {
           ok: false,
@@ -413,33 +477,39 @@ export async function POST(request: NextRequest, context: Params) {
       );
     }
 
-    const { data: requestData, error: requestError } = await supabase
-      .from("school_requests")
-      .select("id, status, offer_status, ai_status")
-      .eq("offer_token", token)
-      .maybeSingle();
+    const requestLookup = await loadSchoolRequestByOfferToken({
+      supabase,
+      rawToken: rawTokenFromParams,
+    });
 
-    if (requestError) {
+    if (requestLookup.error) {
       return jsonResponse(
         {
           ok: false,
-          message: `Anfrage konnte nicht geladen werden: ${requestError.message}`,
+          message: `Anfrage konnte nicht geladen werden: ${requestLookup.error.message}`,
         },
         500
       );
     }
 
-    if (!requestData) {
+    if (!requestLookup.data) {
       return jsonResponse(
         {
           ok: false,
-          message: "Anfrage wurde nicht gefunden.",
+          message:
+            "Wir konnten Deine Anfrage gerade nicht eindeutig laden. Bitte öffne den Link noch einmal aus Deiner E-Mail oder kontaktiere uns kurz.",
+          debug:
+            process.env.NODE_ENV === "development"
+              ? {
+                  tokenVariants,
+                }
+              : undefined,
         },
         404
       );
     }
 
-    const schoolRequest = requestData as SchoolRequest;
+    const schoolRequest = requestLookup.data as SchoolRequest;
     const requestId = schoolRequest.id;
 
     if (
@@ -483,7 +553,8 @@ export async function POST(request: NextRequest, context: Params) {
           "Automatische Paketvorbereitung wurde gestoppt, weil keine Datei zur Anfrage gefunden wurde.",
         metadata: {
           reason: "missing_file",
-          token,
+          token: cleanToken,
+          tokenVariants,
         },
       });
 
@@ -493,7 +564,7 @@ export async function POST(request: NextRequest, context: Params) {
           manualReview: true,
           reason: "missing_file",
           message:
-            "Zu dieser Anfrage wurde keine Datei gefunden. Die Anfrage wurde zur manuellen Prüfung markiert.",
+            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
         },
         422
       );
@@ -514,7 +585,8 @@ export async function POST(request: NextRequest, context: Params) {
       "customer_prepare_started",
       "Kunde hat die automatische Paketvorbereitung gestartet.",
       {
-        token,
+        token: cleanToken,
+        matchedToken: requestLookup.usedToken,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
     );
@@ -552,7 +624,7 @@ export async function POST(request: NextRequest, context: Params) {
           metadata: {
             reason: "analyze_no_json_response",
             details: getShortRawText(analyzePayload.rawText),
-            token,
+            token: cleanToken,
           },
         });
 
@@ -562,8 +634,11 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "analyze_no_json_response",
             message:
-              "Die Analyse-Route hat keine JSON-Antwort geliefert. Die Anfrage wurde zur manuellen Prüfung markiert.",
-            details: getShortRawText(analyzePayload.rawText),
+              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            details:
+              process.env.NODE_ENV === "development"
+                ? getShortRawText(analyzePayload.rawText)
+                : undefined,
           },
           500
         );
@@ -581,7 +656,7 @@ export async function POST(request: NextRequest, context: Params) {
           metadata: {
             reason: "analyze_failed",
             details: analyzePayload.json,
-            token,
+            token: cleanToken,
           },
         });
 
@@ -591,9 +666,11 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "analyze_failed",
             message:
-              analyzePayload.json.message ||
-              "Die Liste konnte nicht automatisch ausgewertet werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
-            details: analyzePayload.json,
+              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            details:
+              process.env.NODE_ENV === "development"
+                ? analyzePayload.json
+                : undefined,
           },
           analyzeResponse.status || 500
         );
@@ -621,7 +698,7 @@ export async function POST(request: NextRequest, context: Params) {
           itemCount: 0,
           matchCount: 0,
           preselectedCount: 0,
-          token,
+          token: cleanToken,
         },
       });
 
@@ -634,7 +711,7 @@ export async function POST(request: NextRequest, context: Params) {
           matchCount: 0,
           preselectedCount: 0,
           message:
-            "Es konnten keine Positionen aus der Liste erkannt werden. Deine Anfrage wurde zur manuellen Prüfung markiert.",
+            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
         },
         422
       );
@@ -695,7 +772,7 @@ export async function POST(request: NextRequest, context: Params) {
             reason: "match_no_json_response",
             itemCount,
             details: getShortRawText(matchPayload.rawText),
-            token,
+            token: cleanToken,
           },
         });
 
@@ -705,8 +782,11 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "match_no_json_response",
             message:
-              "Die Matching-Route hat keine JSON-Antwort geliefert. Die Anfrage wurde zur manuellen Prüfung markiert.",
-            details: getShortRawText(matchPayload.rawText),
+              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            details:
+              process.env.NODE_ENV === "development"
+                ? getShortRawText(matchPayload.rawText)
+                : undefined,
           },
           500
         );
@@ -725,7 +805,7 @@ export async function POST(request: NextRequest, context: Params) {
             reason: "match_failed",
             itemCount,
             details: matchPayload.json,
-            token,
+            token: cleanToken,
           },
         });
 
@@ -735,9 +815,11 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "match_failed",
             message:
-              matchPayload.json.message ||
-              "Die Produktvorschläge konnten nicht erstellt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
-            details: matchPayload.json,
+              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            details:
+              process.env.NODE_ENV === "development"
+                ? matchPayload.json
+                : undefined,
           },
           matchResponse.status || 500
         );
@@ -803,7 +885,7 @@ export async function POST(request: NextRequest, context: Params) {
           ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`
           : matchCount > 0
             ? "Deine Liste wurde ausgewertet. Sichere Treffer werden angezeigt, offene Positionen kannst Du aktiv auswählen."
-            : "Deine Liste wurde ausgewertet. Es wurden Positionen erkannt, aber nicht überall passende Produktvorschläge gefunden. Du kannst Produkte selbst suchen oder Handzettel-Schulen.de prüft die Positionen manuell.",
+            : "Deine Liste wurde ausgewertet. Artikel unter 85 % prüfen wir persönlich für Dich. Optional kannst Du selbst weitere Produkte suchen.",
     });
   } catch (error) {
     console.error("Customer prepare package error:", error);
