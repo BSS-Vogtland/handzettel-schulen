@@ -16,6 +16,7 @@ import {
 
 type CustomerPreparePackageButtonProps = {
   token: string;
+  requestId?: string | null;
 };
 
 type PrepareResponse = {
@@ -23,6 +24,8 @@ type PrepareResponse = {
   itemCount?: number;
   matchCount?: number;
   preselectedCount?: number;
+  manualReview?: boolean;
+  reason?: string;
   message?: string;
 };
 
@@ -52,12 +55,31 @@ function getStepState(progress: number, min: number, nextMin?: number) {
   return "pending";
 }
 
-function buildFriendlyServiceMessage() {
+function buildFriendlyServiceMessage(message?: string | null) {
+  if (message && message.trim().length > 0) {
+    return message.trim();
+  }
+
   return "Alles ist bei uns angekommen. Die automatische Vorbereitung konnte Deine Liste nicht direkt eindeutig zuordnen – das ist kein Problem. Genau dafür gibt es unseren persönlichen Service: Wir schauen uns Deine Liste jetzt manuell an und suchen die passenden Schulmaterialien für Dich heraus.";
+}
+
+function isManualServicePayload(
+  response: Response,
+  payload: PrepareResponse | null
+) {
+  if (payload?.manualReview) return true;
+  if (response.status === 422) return true;
+
+  const message = payload?.message || "";
+
+  return /manuell|manuelle|persönlich|persoenlich|keine positionen|nicht eindeutig|nicht gefunden/i.test(
+    message
+  );
 }
 
 export default function CustomerPreparePackageButton({
   token,
+  requestId,
 }: CustomerPreparePackageButtonProps) {
   const router = useRouter();
 
@@ -105,9 +127,18 @@ export default function CustomerPreparePackageButton({
     setProgress(4);
 
     try {
-      const response = await fetch(`/api/offer/${token}/prepare`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/offer/${encodeURIComponent(token)}/prepare`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requestId: requestId || null,
+          }),
+        }
+      );
 
       const rawText = await response.text();
 
@@ -116,29 +147,28 @@ export default function CustomerPreparePackageButton({
       try {
         payload = rawText ? (JSON.parse(rawText) as PrepareResponse) : null;
       } catch {
-        throw new Error(
-          "Die Auswertungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
-        );
-      }
-
-      const isManualServiceResult =
-        response.status === 422 ||
-        (!payload?.ok &&
-          /manuell|manuelle|persönlich|persoenlich|keine positionen/i.test(
-            payload?.message || ""
-          ));
-
-      if (isManualServiceResult) {
         setIsLoading(false);
         setProgress(0);
         setServiceMessage(buildFriendlyServiceMessage());
         return;
       }
 
+      if (isManualServicePayload(response, payload)) {
+        setIsLoading(false);
+        setProgress(0);
+        setServiceMessage(buildFriendlyServiceMessage(payload?.message));
+        return;
+      }
+
       if (!response.ok || !payload?.ok) {
-        throw new Error(
-          payload?.message || "Die Liste konnte nicht ausgewertet werden."
+        setIsLoading(false);
+        setProgress(0);
+        setServiceMessage(
+          buildFriendlyServiceMessage(
+            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor."
+          )
         );
+        return;
       }
 
       setProgress(100);
@@ -149,13 +179,13 @@ export default function CustomerPreparePackageButton({
 
       await new Promise((resolve) => window.setTimeout(resolve, 700));
       router.refresh();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
       setProgress(0);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Die Liste konnte nicht ausgewertet werden."
+      setServiceMessage(
+        buildFriendlyServiceMessage(
+          "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor."
+        )
       );
     }
   }

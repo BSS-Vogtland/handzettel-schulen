@@ -42,6 +42,10 @@ type OfferItemRow = {
   product_id: string | null;
 };
 
+type PrepareRequestBody = {
+  requestId?: string | null;
+};
+
 const AUTO_PRESELECT_MIN_SCORE = 85;
 
 function jsonResponse(data: unknown, status = 200) {
@@ -109,6 +113,41 @@ function getTokenVariants(value: string) {
   );
 }
 
+async function readBodySafely(request: NextRequest) {
+  try {
+    return (await request.json()) as PrepareRequestBody;
+  } catch {
+    return {};
+  }
+}
+
+async function loadSchoolRequestById(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+}) {
+  const cleanRequestId = String(params.requestId || "").trim();
+
+  if (!cleanRequestId) {
+    return {
+      data: null,
+      error: null,
+      usedRequestId: null,
+    };
+  }
+
+  const { data, error } = await params.supabase
+    .from("school_requests")
+    .select("id, status, offer_status, ai_status")
+    .eq("id", cleanRequestId)
+    .maybeSingle();
+
+  return {
+    data: data ? (data as SchoolRequest) : null,
+    error,
+    usedRequestId: cleanRequestId,
+  };
+}
+
 async function loadSchoolRequestByOfferToken(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   rawToken: string;
@@ -146,6 +185,55 @@ async function loadSchoolRequestByOfferToken(params: {
     error: null,
     usedToken: null,
     tokenVariants,
+  };
+}
+
+async function loadSchoolRequest(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestIdFromBody: string;
+  rawToken: string;
+}) {
+  if (params.requestIdFromBody) {
+    const requestLookupById = await loadSchoolRequestById({
+      supabase: params.supabase,
+      requestId: params.requestIdFromBody,
+    });
+
+    if (requestLookupById.error) {
+      return {
+        data: null,
+        error: requestLookupById.error,
+        usedLookup: "request_id",
+        usedRequestId: requestLookupById.usedRequestId,
+        usedToken: null,
+        tokenVariants: getTokenVariants(params.rawToken),
+      };
+    }
+
+    if (requestLookupById.data) {
+      return {
+        data: requestLookupById.data,
+        error: null,
+        usedLookup: "request_id",
+        usedRequestId: requestLookupById.usedRequestId,
+        usedToken: null,
+        tokenVariants: getTokenVariants(params.rawToken),
+      };
+    }
+  }
+
+  const requestLookupByToken = await loadSchoolRequestByOfferToken({
+    supabase: params.supabase,
+    rawToken: params.rawToken,
+  });
+
+  return {
+    data: requestLookupByToken.data,
+    error: requestLookupByToken.error,
+    usedLookup: "offer_token",
+    usedRequestId: null,
+    usedToken: requestLookupByToken.usedToken,
+    tokenVariants: requestLookupByToken.tokenVariants,
   };
 }
 
@@ -463,22 +551,26 @@ async function autoPreselectSafeMatches(params: {
 export async function POST(request: NextRequest, context: Params) {
   try {
     const { token: rawTokenFromParams } = await context.params;
+    const body = await readBodySafely(request);
+
     const cleanToken = decodeTokenSafely(rawTokenFromParams);
-    const tokenVariants = getTokenVariants(rawTokenFromParams);
+    const requestIdFromBody = String(body.requestId || "").trim();
     const supabase = getSupabaseAdmin();
 
-    if (!cleanToken) {
+    if (!cleanToken && !requestIdFromBody) {
       return jsonResponse(
         {
           ok: false,
-          message: "Kein Angebotstoken übergeben.",
+          message:
+            "Deine Anfrage konnte gerade nicht eindeutig geladen werden. Bitte öffne den Link noch einmal aus Deiner E-Mail.",
         },
         400
       );
     }
 
-    const requestLookup = await loadSchoolRequestByOfferToken({
+    const requestLookup = await loadSchoolRequest({
       supabase,
+      requestIdFromBody,
       rawToken: rawTokenFromParams,
     });
 
@@ -496,16 +588,19 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
+          manualReview: true,
+          reason: "request_not_found",
           message:
-            "Wir konnten Deine Anfrage gerade nicht eindeutig laden. Bitte öffne den Link noch einmal aus Deiner E-Mail oder kontaktiere uns kurz.",
+            "Deine Anfrage ist angekommen, konnte aber gerade nicht automatisch zugeordnet werden. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
           debug:
             process.env.NODE_ENV === "development"
               ? {
-                  tokenVariants,
+                  requestIdFromBody,
+                  tokenVariants: requestLookup.tokenVariants,
                 }
               : undefined,
         },
-        404
+        422
       );
     }
 
@@ -554,7 +649,8 @@ export async function POST(request: NextRequest, context: Params) {
         metadata: {
           reason: "missing_file",
           token: cleanToken,
-          tokenVariants,
+          requestIdFromBody,
+          usedLookup: requestLookup.usedLookup,
         },
       });
 
@@ -586,7 +682,10 @@ export async function POST(request: NextRequest, context: Params) {
       "Kunde hat die automatische Paketvorbereitung gestartet.",
       {
         token: cleanToken,
-        matchedToken: requestLookup.usedToken,
+        requestIdFromBody,
+        usedLookup: requestLookup.usedLookup,
+        usedRequestId: requestLookup.usedRequestId,
+        usedToken: requestLookup.usedToken,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
     );
@@ -625,6 +724,7 @@ export async function POST(request: NextRequest, context: Params) {
             reason: "analyze_no_json_response",
             details: getShortRawText(analyzePayload.rawText),
             token: cleanToken,
+            requestIdFromBody,
           },
         });
 
@@ -640,7 +740,7 @@ export async function POST(request: NextRequest, context: Params) {
                 ? getShortRawText(analyzePayload.rawText)
                 : undefined,
           },
-          500
+          422
         );
       }
 
@@ -657,6 +757,7 @@ export async function POST(request: NextRequest, context: Params) {
             reason: "analyze_failed",
             details: analyzePayload.json,
             token: cleanToken,
+            requestIdFromBody,
           },
         });
 
@@ -672,7 +773,7 @@ export async function POST(request: NextRequest, context: Params) {
                 ? analyzePayload.json
                 : undefined,
           },
-          analyzeResponse.status || 500
+          422
         );
       }
 
@@ -699,6 +800,7 @@ export async function POST(request: NextRequest, context: Params) {
           matchCount: 0,
           preselectedCount: 0,
           token: cleanToken,
+          requestIdFromBody,
         },
       });
 
@@ -773,6 +875,7 @@ export async function POST(request: NextRequest, context: Params) {
             itemCount,
             details: getShortRawText(matchPayload.rawText),
             token: cleanToken,
+            requestIdFromBody,
           },
         });
 
@@ -788,7 +891,7 @@ export async function POST(request: NextRequest, context: Params) {
                 ? getShortRawText(matchPayload.rawText)
                 : undefined,
           },
-          500
+          422
         );
       }
 
@@ -806,6 +909,7 @@ export async function POST(request: NextRequest, context: Params) {
             itemCount,
             details: matchPayload.json,
             token: cleanToken,
+            requestIdFromBody,
           },
         });
 
@@ -821,7 +925,7 @@ export async function POST(request: NextRequest, context: Params) {
                 ? matchPayload.json
                 : undefined,
           },
-          matchResponse.status || 500
+          422
         );
       }
 
@@ -893,12 +997,15 @@ export async function POST(request: NextRequest, context: Params) {
     return jsonResponse(
       {
         ok: false,
+        manualReview: true,
         message:
-          error instanceof Error
+          "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+        technicalMessage:
+          process.env.NODE_ENV === "development" && error instanceof Error
             ? error.message
-            : "Die Liste konnte nicht ausgewertet werden.",
+            : undefined,
       },
-      500
+      422
     );
   }
 }
