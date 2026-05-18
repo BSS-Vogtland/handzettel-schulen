@@ -7,6 +7,7 @@ import {
   ImageIcon,
   Loader2,
   Search,
+  ShieldCheck,
   ShoppingBasket,
 } from "lucide-react";
 
@@ -23,10 +24,13 @@ type CustomerProductSearchProps = {
   excludedProductSkus?: string[];
 
   /**
-   * Wichtig für die Kundenseite:
-   * Standardmäßig bleibt die Suche geschlossen, damit unser Service im Vordergrund steht.
+   * Standard: zugeklappt, damit der persönliche Service im Vordergrund bleibt.
    */
-  startOpen?: boolean;
+  initialOpen?: boolean;
+
+  /**
+   * Standard: keine automatische Suche beim Laden.
+   */
   autoSearchOnOpen?: boolean;
 };
 
@@ -91,13 +95,13 @@ export default function CustomerProductSearch({
   defaultQuery,
   excludedProductIds = [],
   excludedProductSkus = [],
-  startOpen = false,
-  autoSearchOnOpen = true,
+  initialOpen = false,
+  autoSearchOnOpen = false,
 }: CustomerProductSearchProps) {
   const router = useRouter();
   const hasAutoSearched = useRef(false);
 
-  const [isOpen, setIsOpen] = useState(startOpen);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [query, setQuery] = useState(defaultQuery || "");
   const [products, setProducts] = useState<ProductSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -173,7 +177,7 @@ export default function CustomerProductSearch({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produktsuche hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Produktsuche konnte gerade nicht sauber geladen werden."
         );
       }
 
@@ -192,11 +196,11 @@ export default function CustomerProductSearch({
       if (filteredProducts.length === 0) {
         if ((payload.products || []).length > 0) {
           setFeedback(
-            "Die gefundenen Produkte werden oben bereits als Empfehlung angezeigt. Es gibt aktuell keine zusätzlichen Alternativen zu diesem Suchbegriff."
+            "Die passenden Produkte werden oben bereits als Empfehlung angezeigt. Zusätzliche Alternativen gibt es zu diesem Suchbegriff gerade nicht."
           );
         } else {
           setFeedback(
-            "Keine direkten Treffer gefunden. Das ist kein Problem – unser Team prüft diese Position trotzdem persönlich."
+            "Zu diesem Suchbegriff wurde kein zusätzlicher Treffer gefunden. Das ist kein Problem – wir prüfen diese Position persönlich für Dich."
           );
         }
       }
@@ -204,7 +208,7 @@ export default function CustomerProductSearch({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Produkte konnten nicht gesucht werden."
+          : "Produkte konnten gerade nicht gesucht werden."
       );
     } finally {
       setIsSearching(false);
@@ -254,7 +258,7 @@ export default function CustomerProductSearch({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Auswahl-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Das Produkt konnte gerade nicht sauber übernommen werden."
         );
       }
 
@@ -278,30 +282,37 @@ export default function CustomerProductSearch({
 
   if (!isOpen) {
     return (
-      <div className="mt-4 rounded-3xl border border-[#E8DED2] bg-white p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Optional selbst suchen
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              Unser Team prüft diese Position persönlich. Du musst hier nichts
-              weiter tun. Wenn Du möchtest, kannst Du zusätzlich selbst nach
-              einem passenden Produkt suchen.
-            </p>
+      <div className="mt-4 rounded-3xl border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#12395F]">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+                Optional selbst suchen
+              </p>
+
+              <h4 className="mt-1 font-black text-[#102A43]">
+                Wir prüfen diese Position persönlich für Dich.
+              </h4>
+
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                Du musst hier nichts weiter tun. Wenn Du möchtest, kannst Du
+                ergänzend selbst im Bestand suchen – unser Service bleibt
+                trotzdem bestehen.
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              setIsOpen(true);
-              setFeedback(null);
-              setErrorMessage(null);
-            }}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            onClick={() => setIsOpen(true)}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
           >
             <Search className="h-4 w-4" />
-            Ich möchte selbst suchen
+            Optional selbst suchen
           </button>
         </div>
       </div>
@@ -309,21 +320,21 @@ export default function CustomerProductSearch({
   }
 
   return (
-    <div className="mt-4 rounded-3xl border border-[#D8C8B8] bg-white p-4">
+    <div className="mt-4 rounded-3xl border border-[#D6E7EF] bg-white p-4">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            Freiwillige Produktsuche
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Unser Team prüft die Position weiterhin persönlich. Diese Suche ist
-            nur eine freiwillige Zusatzoption, falls Du selbst ein passendes
-            Produkt auswählen möchtest.
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+            Ergänzende Selbstsuche
           </p>
 
-          <p className="mt-2 text-xs font-bold leading-5 text-[#A75B28]">
-            Produkte, die oben bereits als Empfehlung erscheinen, werden in
-            dieser Suche ausgeblendet.
+          <h4 className="mt-1 font-black text-[#102A43]">
+            Du kannst zusätzlich selbst nach einem Produkt suchen.
+          </h4>
+
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+            Wir zeigen Dir hier nur zusätzliche Treffer. Produkte, die oben
+            bereits als Empfehlung erscheinen, werden in dieser Suche
+            ausgeblendet.
           </p>
         </div>
 
@@ -332,7 +343,7 @@ export default function CustomerProductSearch({
           onClick={() => setIsOpen(false)}
           className="rounded-2xl bg-[#FBF7F0] px-4 py-2 text-xs font-black text-[#12395F]"
         >
-          Einklappen
+          Wieder einklappen
         </button>
       </div>
 
@@ -342,7 +353,7 @@ export default function CustomerProductSearch({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="z. B. Schulheft A5 Lineatur 8"
-          className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+          className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
         />
 
         <button
@@ -455,7 +466,7 @@ export default function CustomerProductSearch({
                     type="button"
                     disabled={Boolean(selectedProductId)}
                     onClick={() => handleSelect(product.id)}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {selectedProductId === product.id ? (
                       <>
@@ -484,7 +495,7 @@ export default function CustomerProductSearch({
       ) : null}
 
       {errorMessage ? (
-        <div className="mt-4 rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#B5282D]">
+        <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-sm font-semibold text-[#A75B28]">
           {errorMessage}
         </div>
       ) : null}
