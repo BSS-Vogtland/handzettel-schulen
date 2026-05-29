@@ -145,9 +145,9 @@ export default function ShopCartPage() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl bg-[#fff7ed] p-4 text-sm leading-6 text-[#7a4b18] ring-1 ring-[#f1d3a6]">
-              Checkout, Versand/Abholung und Zahlung bauen wir im nächsten
-              Schritt sauber an. Aktuell ist das bewusst nur der Warenkorb.
+            <div className="mt-5 rounded-2xl bg-[#e7f7ec] p-4 text-sm font-bold leading-6 text-[#246b3a] ring-1 ring-[#bfe7c9]">
+              Im nächsten Schritt gibst Du Deine Daten ein. Danach läuft alles
+              über die bestehende Rechnung & Zahlung.
             </div>
           </div>
         </div>
@@ -344,18 +344,17 @@ export default function ShopCartPage() {
               </div>
 
               <div className="mt-6 rounded-2xl bg-[#f7f1e8] p-4 text-sm leading-6 text-[#5b667a]">
-                Im nächsten Schritt verbinden wir diesen Warenkorb mit einer
-                einfachen Kasse: Kundendaten, Abholung/Versand und Bestellung
-                speichern.
+                Im nächsten Schritt gibst Du Kundendaten und Übergabeart ein.
+                Danach wird automatisch eine Rechnung erzeugt und Du kannst
+                PayPal oder Überweisung nutzen.
               </div>
 
-              <button
-                type="button"
-                disabled
-                className="mt-5 w-full cursor-not-allowed rounded-2xl bg-[#9aa3b3] px-5 py-4 text-sm font-black text-white"
+              <Link
+                href="/shop/kasse"
+                className="mt-5 flex w-full justify-center rounded-2xl bg-[#172033] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23]"
               >
-                Weiter zur Kasse folgt
-              </button>
+                Weiter zur Kasse
+              </Link>
 
               <button
                 type="button"
@@ -367,7 +366,7 @@ export default function ShopCartPage() {
 
               <Link
                 href="/shop"
-                className="mt-3 flex w-full justify-center rounded-2xl bg-[#172033] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23]"
+                className="mt-3 flex w-full justify-center rounded-2xl bg-white px-5 py-4 text-sm font-black text-[#172033] ring-1 ring-[#eadfce] transition hover:bg-[#f7f1e8]"
               >
                 Weiter einkaufen
               </Link>
