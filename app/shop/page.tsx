@@ -1,26 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
+import {
+  addShopCartItem,
+  formatShopPrice,
+  getShopCartCount,
+  readShopCart,
+} from "./_lib/shopCart";
 
 type ProductRow = Record<string, unknown> & {
   id?: string | number | null;
 };
-
-type CartItem = {
-  productId: string;
-  name: string;
-  sku: string | null;
-  price: number;
-  imageUrl: string | null;
-  quantity: number;
-  category: string | null;
-  format: string | null;
-  color: string | null;
-  lineature: string | null;
-};
-
-const SHOP_CART_KEY = "handzettel_schulen_shop_cart_v1";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -136,45 +128,6 @@ function getProductStatus(product: ProductRow): string | null {
   return getStringValue(product, ["status", "product_status"]);
 }
 
-function formatPrice(value: number): string {
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
-}
-
-function readCart(): CartItem[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(SHOP_CART_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed as CartItem[];
-  } catch {
-    return [];
-  }
-}
-
-function writeCart(items: CartItem[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(SHOP_CART_KEY, JSON.stringify(items));
-}
-
 export default function ShopPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,11 +140,19 @@ export default function ShopPage() {
   );
 
   useEffect(() => {
-    setCartCount(
-      readCart().reduce((sum, item) => {
-        return sum + item.quantity;
-      }, 0),
-    );
+    setCartCount(getShopCartCount(readShopCart()));
+
+    function handleCartUpdate() {
+      setCartCount(getShopCartCount(readShopCart()));
+    }
+
+    window.addEventListener("shop-cart-updated", handleCartUpdate);
+    window.addEventListener("storage", handleCartUpdate);
+
+    return () => {
+      window.removeEventListener("shop-cart-updated", handleCartUpdate);
+      window.removeEventListener("storage", handleCartUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -305,48 +266,21 @@ export default function ShopPage() {
     const color = getProductColor(product);
     const lineature = getProductLineature(product);
 
-    const existingCart = readCart();
-    const existingItem = existingCart.find((item) => item.productId === productId);
+    const nextCart = addShopCartItem({
+      productId,
+      name,
+      sku,
+      price,
+      imageUrl,
+      quantity: 1,
+      category,
+      format,
+      color,
+      lineature,
+      sourceType: "shop",
+    });
 
-    let nextCart: CartItem[];
-
-    if (existingItem) {
-      nextCart = existingCart.map((item) => {
-        if (item.productId !== productId) {
-          return item;
-        }
-
-        return {
-          ...item,
-          quantity: item.quantity + 1,
-        };
-      });
-    } else {
-      nextCart = [
-        ...existingCart,
-        {
-          productId,
-          name,
-          sku,
-          price,
-          imageUrl,
-          quantity: 1,
-          category,
-          format,
-          color,
-          lineature,
-        },
-      ];
-    }
-
-    writeCart(nextCart);
-
-    setCartCount(
-      nextCart.reduce((sum, item) => {
-        return sum + item.quantity;
-      }, 0),
-    );
-
+    setCartCount(getShopCartCount(nextCart));
     setLastAddedProductName(name);
 
     window.setTimeout(() => {
@@ -401,10 +335,12 @@ export default function ShopPage() {
                 : `${cartCount} Artikel liegen aktuell im Warenkorb.`}
             </p>
 
-            <div className="mt-5 rounded-2xl bg-[#f7f1e8] p-4 text-sm leading-6 text-[#4c5870]">
-              Die Warenkorb-Seite bauen wir im nächsten Schritt unter{" "}
-              <span className="font-bold text-[#172033]">/shop/warenkorb</span>.
-            </div>
+            <Link
+              href="/shop/warenkorb"
+              className="mt-5 flex w-full justify-center rounded-2xl bg-[#172033] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23]"
+            >
+              Warenkorb ansehen
+            </Link>
           </div>
         </div>
       </section>
@@ -579,7 +515,7 @@ export default function ShopPage() {
                           Preis
                         </p>
                         <p className="text-2xl font-black text-[#172033]">
-                          {formatPrice(price)}
+                          {formatShopPrice(price)}
                         </p>
                       </div>
 
