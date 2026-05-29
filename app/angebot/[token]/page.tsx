@@ -18,6 +18,7 @@ import CustomerSelectProductButton from "@/components/CustomerSelectProductButto
 import ConfirmOfferButton from "@/components/ConfirmOfferButton";
 import CustomerProductSearch from "@/components/CustomerProductSearch";
 import CustomerRemoveOfferItemButton from "@/components/CustomerRemoveOfferItemButton";
+import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButton";
 import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
@@ -716,11 +717,8 @@ async function insertMissingSafeMatchesIntoOffer(params: {
   await supabase.from("school_request_events").insert({
     request_id: request.id,
     event_type: "customer_auto_preselected_items_repaired",
-    message: `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt.`,
-    metadata: {
-      threshold: AUTO_PRESELECT_MIN_SCORE,
-      insertedCount: rowsToInsert.length,
-    },
+    title: "Sichere Treffer automatisch ergänzt",
+    description: `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt. Schwelle: ${AUTO_PRESELECT_MIN_SCORE} %.`,
     created_at: new Date().toISOString(),
   });
 
@@ -762,6 +760,39 @@ function ProductImageBox({
         </div>
       )}
     </div>
+  );
+}
+
+function ReorderButtonBlock({
+  item,
+  request,
+  requestItem,
+  imageUrl,
+}: {
+  item: OfferItem;
+  request: SchoolRequest;
+  requestItem: RequestItem | null | undefined;
+  imageUrl: string | null;
+}) {
+  return (
+    <CustomerReorderToCartButton
+      productId={item.product_id}
+      productName={item.product_name}
+      productSku={item.product_sku}
+      productPrice={item.product_price}
+      productImageUrl={imageUrl}
+      quantity={1}
+      category={requestItem?.category || null}
+      format={requestItem?.format || null}
+      color={requestItem?.color || null}
+      lineature={
+        requestItem ? getDisplayLineature(requestItem) || null : null
+      }
+      sourceRequestId={request.id}
+      sourceOfferItemId={item.id}
+      sourceRequestItemId={item.request_item_id}
+      buttonLabel="Artikel nachkaufen"
+    />
   );
 }
 
@@ -1174,7 +1205,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
-                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor."
+                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor. Du kannst passende Artikel später direkt nachkaufen."
                       : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
@@ -1465,6 +1496,15 @@ export default async function CustomerOfferPage({ params }: Params) {
                                     </span>
                                   ))}
                                 </div>
+
+                                {isConfirmed ? (
+                                  <ReorderButtonBlock
+                                    item={item}
+                                    request={request}
+                                    requestItem={requestItem}
+                                    imageUrl={imageUrl}
+                                  />
+                                ) : null}
                               </div>
                             </div>
 
@@ -1580,6 +1620,15 @@ export default async function CustomerOfferPage({ params }: Params) {
                                   <p className="mt-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-[#52616F]">
                                     Hinweis: {item.notes}
                                   </p>
+                                ) : null}
+
+                                {isConfirmed ? (
+                                  <ReorderButtonBlock
+                                    item={item}
+                                    request={request}
+                                    requestItem={requestItem}
+                                    imageUrl={imageUrl}
+                                  />
                                 ) : null}
                               </div>
                             </div>
