@@ -1,11 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  addShopCartItem,
-  getShopCartCount,
-} from "@/app/shop/_lib/shopCart";
+import { addShopCartItem, getShopCartCount } from "@/app/shop/_lib/shopCart";
 
 type CustomerReorderToCartButtonProps = {
   productId: string | number | null;
@@ -115,10 +113,6 @@ export default function CustomerReorderToCartButton({
     setCartCount(getShopCartCount(nextCart));
     setIsAdded(true);
 
-    window.setTimeout(() => {
-      setIsAdded(false);
-    }, 2600);
-
     if (redirectToCart) {
       router.push("/shop/warenkorb");
     }
@@ -130,13 +124,24 @@ export default function CustomerReorderToCartButton({
 
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        onClick={handleAddToCart}
-        className="inline-flex w-full items-center justify-center rounded-2xl bg-[#172033] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23] sm:w-auto"
-      >
-        {isAdded ? "In den Warenkorb gelegt" : buttonLabel}
-      </button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#172033] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23] sm:w-auto"
+        >
+          {isAdded ? "Noch einmal hinzufügen" : buttonLabel}
+        </button>
+
+        {isAdded ? (
+          <Link
+            href="/shop/warenkorb"
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-[#9b2f23] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#172033] sm:w-auto"
+          >
+            Zum Warenkorb
+          </Link>
+        ) : null}
+      </div>
 
       {isAdded ? (
         <p className="mt-2 text-sm font-bold text-[#246b3a]">
