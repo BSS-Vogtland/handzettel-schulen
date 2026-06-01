@@ -3,12 +3,12 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeEuro,
-  CheckCircle2,
   Megaphone,
   ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialAdCampaignForm from "@/components/AdminSocialAdCampaignForm";
+import AdminSocialAdDeleteButton from "@/components/AdminSocialAdDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -235,57 +235,74 @@ export default async function AdminSocialAdsPage() {
         ) : null}
 
         <section className="space-y-4">
-          {campaigns.map((campaign) => (
-            <article
-              key={campaign.id}
-              className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-6"
-            >
-              <div className="grid gap-5 lg:grid-cols-[1fr_260px] lg:items-start">
-                <div>
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
-                        campaign.status
-                      )}`}
+          {campaigns.map((campaign) => {
+            const deleteDisabled = campaign.status === "launched";
+
+            return (
+              <article
+                key={campaign.id}
+                className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-6"
+              >
+                <div className="grid gap-5 lg:grid-cols-[1fr_280px] lg:items-start">
+                  <div>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
+                          campaign.status
+                        )}`}
+                      >
+                        {getStatusLabel(campaign.status)}
+                      </span>
+
+                      <span className="inline-flex rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-3 py-1 text-xs font-black text-[#486581]">
+                        {getPlatformLabel(campaign.platform)}
+                      </span>
+
+                      <span className="inline-flex rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#486581]">
+                        Ziel: {campaign.objective}
+                      </span>
+                    </div>
+
+                    <h2 className="text-2xl font-black text-[#102A43]">
+                      {campaign.campaign_name}
+                    </h2>
+
+                    <div className="mt-4 grid gap-3 text-sm font-semibold text-[#52616F] sm:grid-cols-2">
+                      <p>Tagesbudget: {formatEuro(campaign.daily_budget_cents)}</p>
+                      <p>
+                        Gesamtbudget: {formatEuro(campaign.lifetime_budget_cents)}
+                      </p>
+                      <p>Start: {formatDateTime(campaign.start_at)}</p>
+                      <p>Ende: {formatDateTime(campaign.end_at)}</p>
+                    </div>
+
+                    {deleteDisabled ? (
+                      <p className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
+                        Gestartete Kampagnen können später nicht hart gelöscht
+                        werden. Dafür bauen wir eine Pausieren-/Beenden-Logik.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <Link
+                      href={`/admin/social/ads/${campaign.id}`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110 lg:w-auto"
                     >
-                      {getStatusLabel(campaign.status)}
-                    </span>
+                      Kampagne öffnen
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
 
-                    <span className="inline-flex rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-3 py-1 text-xs font-black text-[#486581]">
-                      {getPlatformLabel(campaign.platform)}
-                    </span>
-
-                    <span className="inline-flex rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#486581]">
-                      Ziel: {campaign.objective}
-                    </span>
-                  </div>
-
-                  <h2 className="text-2xl font-black text-[#102A43]">
-                    {campaign.campaign_name}
-                  </h2>
-
-                  <div className="mt-4 grid gap-3 text-sm font-semibold text-[#52616F] sm:grid-cols-2">
-                    <p>Tagesbudget: {formatEuro(campaign.daily_budget_cents)}</p>
-                    <p>
-                      Gesamtbudget: {formatEuro(campaign.lifetime_budget_cents)}
-                    </p>
-                    <p>Start: {formatDateTime(campaign.start_at)}</p>
-                    <p>Ende: {formatDateTime(campaign.end_at)}</p>
+                    <AdminSocialAdDeleteButton
+                      campaignId={campaign.id}
+                      campaignName={campaign.campaign_name}
+                      disabled={deleteDisabled}
+                    />
                   </div>
                 </div>
-
-                <div className="flex lg:justify-end">
-                  <Link
-                    href={`/admin/social/ads/${campaign.id}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                  >
-                    Kampagne öffnen
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
 
           {campaigns.length === 0 && !error ? (
             <section className="rounded-[2rem] border border-dashed border-[#D9C4A8] bg-white p-8 text-center shadow-sm">
