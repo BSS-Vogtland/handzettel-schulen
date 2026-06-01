@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   BadgeEuro,
+  CopyPlus,
   ExternalLink,
   ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialAdApprovalBox from "@/components/AdminSocialAdApprovalBox";
 import AdminSocialAdEditForm from "@/components/AdminSocialAdEditForm";
+import AdminSocialAdCreateVersionButton from "@/components/AdminSocialAdCreateVersionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,8 @@ type CampaignRow = {
   platform: string;
   objective: string;
   campaign_name: string;
+  parent_campaign_id: string | null;
+  version_number: number | null;
   post_id: string | null;
   asset_id: string | null;
   ad_headline: string | null;
@@ -253,6 +257,7 @@ export default async function AdminSocialAdsDetailPage({
     approvals.length > 0;
 
   const isEditable = !isApproved && ["draft", "review"].includes(campaign.status);
+  const versionNumber = campaign.version_number || 1;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -277,9 +282,16 @@ export default async function AdminSocialAdsDetailPage({
                 </Link>
               </div>
 
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
-                <BadgeEuro className="h-4 w-4" />
-                Ads-Kampagne
+              <div className="flex flex-wrap gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
+                  <BadgeEuro className="h-4 w-4" />
+                  Ads-Kampagne
+                </div>
+
+                <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-800">
+                  <CopyPlus className="h-4 w-4" />
+                  Version {versionNumber}
+                </div>
               </div>
 
               <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
@@ -288,8 +300,9 @@ export default async function AdminSocialAdsDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Kampagnendaten können vor der Freigabe bearbeitet werden. Nach
-                der Budgetfreigabe wird die Kampagne gesperrt, damit Budget,
-                Zielgruppe und Laufzeit nachvollziehbar bleiben.
+                der Budgetfreigabe wird die Kampagne gesperrt. Änderungen laufen
+                dann über eine neue Kampagnenversion, die erneut freigegeben
+                werden muss.
               </p>
             </div>
 
@@ -302,6 +315,7 @@ export default async function AdminSocialAdsDetailPage({
               </p>
 
               <div className="mt-4 space-y-2 text-sm font-semibold text-[#52616F]">
+                <p>Version: {versionNumber}</p>
                 <p>Plattform: {getPlatformLabel(campaign.platform)}</p>
                 <p>Ziel: {campaign.objective}</p>
                 <p>Erstellt: {formatDateTime(campaign.created_at)}</p>
@@ -343,22 +357,26 @@ export default async function AdminSocialAdsDetailPage({
         ) : (
           <>
             <section className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-7">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700">
-                  <ShieldCheck className="h-6 w-6" />
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700">
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-black text-emerald-950">
+                      Kampagne ist gesperrt
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-emerald-900">
+                      Diese Kampagne wurde bereits freigegeben oder befindet
+                      sich nicht mehr im bearbeitbaren Entwurfsstatus. Änderungen
+                      an Budget, Zielgruppe oder Laufzeit sollten ab jetzt nur
+                      über eine neue Kampagnenversion erfolgen.
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <h2 className="text-xl font-black text-emerald-950">
-                    Kampagne ist gesperrt
-                  </h2>
-                  <p className="mt-2 text-sm font-bold leading-6 text-emerald-900">
-                    Diese Kampagne wurde bereits freigegeben oder befindet sich
-                    nicht mehr im bearbeitbaren Entwurfsstatus. Änderungen an
-                    Budget, Zielgruppe oder Laufzeit sollten ab jetzt nur über
-                    eine neue Kampagnenversion erfolgen.
-                  </p>
-                </div>
+                <AdminSocialAdCreateVersionButton campaignId={campaign.id} />
               </div>
             </section>
 
