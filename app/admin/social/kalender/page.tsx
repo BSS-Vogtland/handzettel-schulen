@@ -1,18 +1,16 @@
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   CalendarClock,
-  Camera,
   CheckCircle2,
-  Clock,
-  FileText,
+  ImageIcon,
+  Megaphone,
   Share2,
-  Sparkles,
-  Video,
+  ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
-import AdminSocialWeekPlanButton from "@/components/AdminSocialWeekPlanButton";
+import AdminSocialSchedulePostForm from "@/components/AdminSocialSchedulePostForm";
 
 export const dynamic = "force-dynamic";
 
@@ -20,55 +18,26 @@ type SocialPostRow = {
   id: string;
   created_at: string;
   updated_at: string;
-  brand_project: string;
   status: string;
+  review_status: string | null;
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
   topic: string;
   content_angle: string | null;
   hook: string;
   caption: string;
-  cta: string | null;
-  hashtags: string[] | null;
-  keywords: string[] | null;
-  tiktok_hook: string | null;
-  tiktok_caption: string | null;
-  instagram_hook: string | null;
-  instagram_caption: string | null;
-  facebook_hook: string | null;
-  facebook_caption: string | null;
-  image_prompt: string | null;
-  video_prompt: string | null;
   scheduled_at: string | null;
   published_at: string | null;
-  platform_targets: string[] | null;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "Ohne Termin";
-
-  return new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function formatTime(value: string | null) {
-  if (!value) return "—";
-
-  return new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
+type SocialAssetRow = {
+  post_id: string;
+};
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -112,76 +81,244 @@ function getStatusClasses(status: string) {
   }
 }
 
-function groupPostsByDate(posts: SocialPostRow[]) {
-  const grouped = new Map<string, SocialPostRow[]>();
-
-  for (const post of posts) {
-    const key = post.scheduled_at
-      ? new Intl.DateTimeFormat("en-CA", {
-          timeZone: "Europe/Berlin",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date(post.scheduled_at))
-      : "without-date";
-
-    const current = grouped.get(key) || [];
-    current.push(post);
-    grouped.set(key, current);
+function getReviewLabel(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "Review freigegeben";
+    case "needs_changes":
+      return "Überarbeitung nötig";
+    case "rejected":
+      return "Review abgelehnt";
+    case "not_reviewed":
+    case null:
+    default:
+      return "Review offen";
   }
-
-  return Array.from(grouped.entries()).map(([key, items]) => ({
-    key,
-    label:
-      key === "without-date" ? "Ohne Termin" : formatDate(items[0].scheduled_at),
-    items: items.sort((a, b) => {
-      if (!a.scheduled_at && !b.scheduled_at) {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-
-      if (!a.scheduled_at) return 1;
-      if (!b.scheduled_at) return -1;
-
-      return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
-    }),
-  }));
 }
 
-function PlatformBadges() {
+function getReviewClasses(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "needs_changes":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "rejected":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "not_reviewed":
+    case null:
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+function StatCard({
+  title,
+  value,
+  description,
+  tone = "neutral",
+}: {
+  title: string;
+  value: number;
+  description: string;
+  tone?: "neutral" | "warning" | "success" | "blue";
+}) {
+  const classes = {
+    neutral: "border-[#E7D8C3] bg-white text-[#102A43]",
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    blue: "border-blue-200 bg-blue-50 text-blue-900",
+  };
+
   return (
-    <div className="flex flex-wrap gap-2">
-      <span className="inline-flex items-center gap-1 rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#27445C]">
-        <Video className="h-3.5 w-3.5" />
-        TikTok
-      </span>
-      <span className="inline-flex items-center gap-1 rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#27445C]">
-        <Camera className="h-3.5 w-3.5" />
-        Instagram
-      </span>
-      <span className="inline-flex items-center gap-1 rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#27445C]">
-        <Share2 className="h-3.5 w-3.5" />
-        Facebook
-      </span>
-    </div>
+    <article className={`rounded-[1.5rem] border p-5 shadow-sm ${classes[tone]}`}>
+      <p className="text-sm font-semibold opacity-80">{title}</p>
+      <p className="mt-1 text-3xl font-black">{value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 opacity-80">
+        {description}
+      </p>
+    </article>
+  );
+}
+
+function PostCard({
+  post,
+  hasImage,
+  mode,
+}: {
+  post: SocialPostRow;
+  hasImage: boolean;
+  mode: "ready" | "scheduled" | "blocked" | "published";
+}) {
+  const isReviewApproved = post.review_status === "approved";
+  const isPublished = post.status === "published";
+
+  const scheduleDisabledReason = isPublished
+    ? "Dieser Beitrag ist bereits veröffentlicht."
+    : !isReviewApproved
+      ? "Kalenderplanung ist blockiert, bis das Content-Review freigegeben wurde."
+      : undefined;
+
+  return (
+    <article className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
+                post.status
+              )}`}
+            >
+              {getStatusLabel(post.status)}
+            </span>
+
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-black ${getReviewClasses(
+                post.review_status
+              )}`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {getReviewLabel(post.review_status)}
+            </span>
+
+            {hasImage ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Bild vorhanden
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Bild fehlt
+              </span>
+            )}
+
+            {post.scheduled_at ? (
+              <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-black text-purple-800">
+                Geplant: {formatDateTime(post.scheduled_at)}
+              </span>
+            ) : null}
+          </div>
+
+          <h2 className="text-2xl font-black text-[#102A43]">{post.topic}</h2>
+
+          {post.content_angle ? (
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+              {post.content_angle}
+            </p>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+              <Megaphone className="h-4 w-4" />
+              Hook
+            </div>
+            <p className="text-sm font-bold leading-6 text-[#102A43]">
+              {post.hook || "—"}
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Link
+              href={`/admin/social/${post.id}/review`}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Review öffnen
+            </Link>
+
+            <Link
+              href={`/admin/social/${post.id}/posting`}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-800 transition hover:bg-blue-100"
+            >
+              <Share2 className="h-4 w-4" />
+              Posting vorbereiten
+            </Link>
+
+            <Link
+              href={`/admin/social/${post.id}`}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              Beitrag bearbeiten
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4">
+          {mode === "blocked" ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                <p>
+                  Dieser Beitrag kann noch nicht geplant werden. Erst das
+                  Content-Review freigeben.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {mode === "published" ? (
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
+              Bereits veröffentlicht: {formatDateTime(post.published_at)}
+            </div>
+          ) : null}
+
+          <AdminSocialSchedulePostForm
+            postId={post.id}
+            initialScheduledAt={post.scheduled_at}
+            disabled={Boolean(scheduleDisabledReason)}
+            disabledReason={scheduleDisabledReason}
+          />
+        </div>
+      </div>
+    </article>
   );
 }
 
 export default async function AdminSocialCalendarPage() {
-  const { data, error } = await supabaseServer
+  const { data: postsData, error } = await supabaseServer
     .from("social_posts")
-    .select("*")
+    .select(
+      "id, created_at, updated_at, status, review_status, reviewed_at, reviewed_by_name, topic, content_angle, hook, caption, scheduled_at, published_at"
+    )
     .neq("status", "archived")
-    .order("scheduled_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(100);
 
-  const posts = (data || []) as SocialPostRow[];
+  const { data: assetRows } = await supabaseServer
+    .from("social_assets")
+    .select("post_id")
+    .eq("asset_type", "image")
+    .neq("status", "archived")
+    .limit(1000);
 
-  const scheduledPosts = posts.filter((post) => post.scheduled_at);
-  const unscheduledPosts = posts.filter((post) => !post.scheduled_at);
+  const posts = (postsData || []) as SocialPostRow[];
+  const assets = (assetRows || []) as SocialAssetRow[];
+
+  const imagePostIds = new Set(assets.map((asset) => asset.post_id));
+
   const publishedPosts = posts.filter((post) => post.status === "published");
 
-  const groups = groupPostsByDate(posts);
+  const scheduledPosts = posts
+    .filter((post) => post.status !== "published" && Boolean(post.scheduled_at))
+    .sort((a, b) => {
+      const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
+      const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+      return aTime - bTime;
+    });
+
+  const readyPosts = posts.filter(
+    (post) =>
+      post.status !== "published" &&
+      !post.scheduled_at &&
+      post.review_status === "approved"
+  );
+
+  const blockedPosts = posts.filter(
+    (post) =>
+      post.status !== "published" &&
+      !post.scheduled_at &&
+      post.review_status !== "approved"
+  );
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -197,13 +334,6 @@ export default async function AdminSocialCalendarPage() {
                   <ArrowLeft className="h-4 w-4" />
                   Zurück zum SocialPilot
                 </Link>
-
-                <Link
-                  href="/admin"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-4 py-2 text-sm font-black text-[#486581] transition hover:bg-[#FFFCF7]"
-                >
-                  Zum Adminbereich
-                </Link>
               </div>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
@@ -212,87 +342,26 @@ export default async function AdminSocialCalendarPage() {
               </div>
 
               <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Veröffentlichungen planen
+                Beiträge planen
               </h1>
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
-                Hier siehst Du alle geplanten Social-Beiträge für
-                Handzettel-Schulen.de. Die Veröffentlichung passiert noch nicht
-                automatisch. Der Kalender dient jetzt als sichere Planung, bevor
-                wir später Auto-Posting anbinden.
+                Plane freigegebene Beiträge für TikTok, Instagram und Facebook.
+                Beiträge ohne freigegebenes Content-Review sind für die
+                Kalenderplanung technisch blockiert.
               </p>
             </div>
 
-            <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#B5282D]">
-                <Clock className="h-5 w-5" />
+            <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+              <div className="mb-2 flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                Review-Gate aktiv
               </div>
-
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Wochenplanung
-              </p>
-
-              <p className="mt-2 max-w-xs text-sm font-semibold leading-6 text-[#52616F]">
-                Offene Entwürfe werden automatisch für die nächste Woche
-                geplant.
-              </p>
-
-              <div className="mt-4">
-                <AdminSocialWeekPlanButton />
-              </div>
+              Nur Beiträge mit Review-Status „freigegeben“ können geplant
+              werden.
             </div>
           </div>
         </header>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-purple-50 p-3 text-purple-700">
-                <CalendarClock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[#627D98]">
-                  Mit Termin
-                </p>
-                <p className="text-3xl font-black text-[#102A43]">
-                  {scheduledPosts.length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-amber-50 p-3 text-amber-700">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[#627D98]">
-                  Ohne Termin
-                </p>
-                <p className="text-3xl font-black text-[#102A43]">
-                  {unscheduledPosts.length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[#627D98]">
-                  Veröffentlicht
-                </p>
-                <p className="text-3xl font-black text-[#102A43]">
-                  {publishedPosts.length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {error ? (
           <section className="rounded-[1.5rem] border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-800">
@@ -300,119 +369,120 @@ export default async function AdminSocialCalendarPage() {
           </section>
         ) : null}
 
-        {posts.length === 0 && !error ? (
-          <section className="rounded-[2rem] border border-dashed border-[#D9C4A8] bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFFCF7] text-[#A23A2E]">
-              <Sparkles className="h-7 w-7" />
+        <section className="grid gap-4 md:grid-cols-4">
+          <StatCard
+            title="Planbar"
+            value={readyPosts.length}
+            description="Freigegeben, aber noch nicht geplant."
+            tone={readyPosts.length > 0 ? "blue" : "neutral"}
+          />
+
+          <StatCard
+            title="Geplant"
+            value={scheduledPosts.length}
+            description="Beiträge mit Veröffentlichungszeitpunkt."
+            tone="success"
+          />
+
+          <StatCard
+            title="Blockiert"
+            value={blockedPosts.length}
+            description="Noch kein freigegebenes Review."
+            tone={blockedPosts.length > 0 ? "warning" : "success"}
+          />
+
+          <StatCard
+            title="Veröffentlicht"
+            value={publishedPosts.length}
+            description="Bereits als veröffentlicht markiert."
+            tone="neutral"
+          />
+        </section>
+
+        {scheduledPosts.length > 0 ? (
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-purple-700" />
+              <h2 className="text-2xl font-black text-[#102A43]">
+                Bereits geplante Beiträge
+              </h2>
             </div>
 
-            <h2 className="mt-4 text-xl font-black text-[#102A43]">
-              Noch keine Beiträge vorhanden
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
-              Erzeuge zuerst im SocialPilot neue Beiträge. Danach kannst Du sie
-              bearbeiten, terminieren und hier im Kalender sehen.
-            </p>
-
-            <Link
-              href="/admin/social"
-              className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-            >
-              Zum SocialPilot
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {scheduledPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="scheduled"
+              />
+            ))}
           </section>
         ) : null}
 
-        <section className="space-y-6">
-          {groups.map((group) => (
-            <div
-              key={group.key}
-              className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7"
-            >
-              <div className="mb-5 flex flex-col gap-3 border-b border-[#E7D8C3] pb-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
-                    Kalendertag
-                  </p>
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+            <h2 className="text-2xl font-black text-[#102A43]">
+              Planbare Beiträge
+            </h2>
+          </div>
 
-                  <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                    {group.label}
-                  </h2>
-                </div>
-
-                <span className="inline-flex w-fit rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-3 py-1 text-xs font-black text-[#486581]">
-                  {group.items.length} Beitrag
-                  {group.items.length === 1 ? "" : "e"}
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {group.items.map((post) => (
-                  <article
-                    key={post.id}
-                    className="rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4"
-                  >
-                    <div className="grid gap-4 lg:grid-cols-[140px_1fr_220px] lg:items-start">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                          Uhrzeit
-                        </p>
-
-                        <p className="mt-1 text-2xl font-black text-[#102A43]">
-                          {formatTime(post.scheduled_at)}
-                        </p>
-
-                        <p className="mt-2 text-xs font-bold text-[#627D98]">
-                          Erstellt: {formatDateTime(post.created_at)}
-                        </p>
-                      </div>
-
-                      <div>
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
-                              post.status
-                            )}`}
-                          >
-                            {getStatusLabel(post.status)}
-                          </span>
-
-                          <PlatformBadges />
-                        </div>
-
-                        <h3 className="text-xl font-black text-[#102A43]">
-                          {post.topic}
-                        </h3>
-
-                        <p className="mt-2 text-sm font-bold leading-6 text-[#102A43]">
-                          {post.hook}
-                        </p>
-
-                        {post.content_angle ? (
-                          <p className="mt-2 text-sm font-semibold leading-6 text-[#627D98]">
-                            {post.content_angle}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="flex lg:justify-end">
-                        <Link
-                          href={`/admin/social/${post.id}`}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                        >
-                          Bearbeiten
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ))}
+          {readyPosts.length > 0 ? (
+            readyPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="ready"
+              />
+            ))
+          ) : (
+            <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-6 text-sm font-bold leading-6 text-[#52616F] shadow-sm">
+              Aktuell gibt es keine freigegebenen, ungeplanten Beiträge. Öffne
+              ein Review und gib einen Beitrag frei, damit er hier planbar wird.
+            </section>
+          )}
         </section>
+
+        {blockedPosts.length > 0 ? (
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-700" />
+              <h2 className="text-2xl font-black text-[#102A43]">
+                Für Planung blockiert
+              </h2>
+            </div>
+
+            {blockedPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="blocked"
+              />
+            ))}
+          </section>
+        ) : null}
+
+        {publishedPosts.length > 0 ? (
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-2xl font-black text-[#102A43]">
+                Veröffentlichte Beiträge
+              </h2>
+            </div>
+
+            {publishedPosts.slice(0, 10).map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="published"
+              />
+            ))}
+          </section>
+        ) : null}
       </div>
     </main>
   );
