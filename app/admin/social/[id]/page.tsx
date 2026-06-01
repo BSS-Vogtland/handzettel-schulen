@@ -8,6 +8,7 @@ import {
   ImageIcon,
   Megaphone,
   Share2,
+  ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialPostEditor from "@/components/AdminSocialPostEditor";
@@ -22,6 +23,9 @@ type SocialPostRow = {
   updated_at: string;
   brand_project: string;
   status: string;
+  review_status: string | null;
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
   topic: string;
   content_angle: string | null;
   hook: string;
@@ -116,6 +120,36 @@ function getStatusClasses(status: string) {
   }
 }
 
+function getReviewLabel(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "Review freigegeben";
+    case "needs_changes":
+      return "Überarbeitung nötig";
+    case "rejected":
+      return "Review abgelehnt";
+    case "not_reviewed":
+    case null:
+    default:
+      return "Noch nicht geprüft";
+  }
+}
+
+function getReviewClasses(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "needs_changes":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "rejected":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "not_reviewed":
+    case null:
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
 export default async function AdminSocialPostDetailPage({
   params,
 }: {
@@ -168,6 +202,14 @@ export default async function AdminSocialPostDetailPage({
                 </Link>
 
                 <Link
+                  href={`/admin/social/${post.id}/review`}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Review öffnen
+                </Link>
+
+                <Link
                   href={`/admin/social/${post.id}/posting`}
                   className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-800 transition hover:bg-blue-100"
                 >
@@ -187,20 +229,31 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Über „Posting
-                vorbereiten“ erhältst Du eine saubere Veröffentlichungsmappe mit
-                Copy-Buttons für TikTok, Instagram und Facebook.
+                Keywords sowie Bild- und Video-Prompts. Über „Review öffnen“
+                prüfst Du den Beitrag vor Veröffentlichung oder Ads-Nutzung.
+                Über „Posting vorbereiten“ erhältst Du eine Veröffentlichungsmappe
+                mit Copy-Buttons für TikTok, Instagram und Facebook.
               </p>
             </div>
 
             <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4">
-              <span
-                className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
-                  post.status
-                )}`}
-              >
-                {getStatusLabel(post.status)}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
+                    post.status
+                  )}`}
+                >
+                  {getStatusLabel(post.status)}
+                </span>
+
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getReviewClasses(
+                    post.review_status
+                  )}`}
+                >
+                  {getReviewLabel(post.review_status)}
+                </span>
+              </div>
 
               <div className="mt-4 space-y-3 text-sm font-semibold text-[#52616F]">
                 <div className="flex items-center gap-2">
@@ -212,6 +265,20 @@ export default async function AdminSocialPostDetailPage({
                   <CheckCircle2 className="h-4 w-4 text-[#A23A2E]" />
                   Aktualisiert: {formatDateTime(post.updated_at)}
                 </div>
+
+                {post.reviewed_at ? (
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#A23A2E]" />
+                    Review: {formatDateTime(post.reviewed_at)}
+                  </div>
+                ) : null}
+
+                {post.reviewed_by_name ? (
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#A23A2E]" />
+                    Prüfer: {post.reviewed_by_name}
+                  </div>
+                ) : null}
 
                 {post.scheduled_at ? (
                   <div className="flex items-center gap-2">
@@ -228,13 +295,23 @@ export default async function AdminSocialPostDetailPage({
                 ) : null}
               </div>
 
-              <Link
-                href={`/admin/social/${post.id}/posting`}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-              >
-                <Share2 className="h-4 w-4" />
-                Posting vorbereiten
-              </Link>
+              <div className="mt-5 flex flex-col gap-3">
+                <Link
+                  href={`/admin/social/${post.id}/review`}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Review öffnen
+                </Link>
+
+                <Link
+                  href={`/admin/social/${post.id}/posting`}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Posting vorbereiten
+                </Link>
+              </div>
             </div>
           </div>
         </header>
@@ -272,6 +349,14 @@ export default async function AdminSocialPostDetailPage({
               />
 
               <Link
+                href={`/admin/social/${post.id}/review`}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-800 shadow-sm transition hover:bg-emerald-100"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Zum Content-Review
+              </Link>
+
+              <Link
                 href={`/admin/social/${post.id}/posting`}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
               >
@@ -293,8 +378,8 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
                 Sobald Du auf „Bild erzeugen“ klickst, wird das Bild hier
-                gespeichert und angezeigt. Danach kannst Du es in der
-                Posting-Vorbereitung direkt nutzen.
+                gespeichert und angezeigt. Danach kannst Du es im Content-Review
+                prüfen und in der Posting-Vorbereitung direkt nutzen.
               </p>
             </div>
           ) : (
