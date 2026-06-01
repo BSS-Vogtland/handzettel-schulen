@@ -346,6 +346,18 @@ export default async function AdminSocialPage() {
                       <span className="rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#486581]">
                         {post.brand_project}
                       </span>
+
+                      {post.scheduled_at ? (
+                        <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-800">
+                          Geplant: {formatDateTime(post.scheduled_at)}
+                        </span>
+                      ) : null}
+
+                      {post.published_at ? (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                          Veröffentlicht: {formatDateTime(post.published_at)}
+                        </span>
+                      ) : null}
                     </div>
 
                     <h2 className="text-2xl font-black text-[#102A43]">
@@ -375,13 +387,23 @@ export default async function AdminSocialPage() {
                       />
                     </div>
 
-                    <Link
-                      href={`/admin/social/${post.id}`}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                    >
-                      Beitrag bearbeiten
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                      <Link
+                        href={`/admin/social/${post.id}/posting`}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Posting vorbereiten
+                      </Link>
+
+                      <Link
+                        href={`/admin/social/${post.id}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                      >
+                        Beitrag bearbeiten
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
