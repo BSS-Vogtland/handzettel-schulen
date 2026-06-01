@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   BadgeEuro,
   CalendarClock,
@@ -45,6 +46,23 @@ type SocialPostRow = {
   scheduled_at: string | null;
   published_at: string | null;
   platform_targets: string[] | null;
+};
+
+type SocialAssetRow = {
+  post_id: string;
+};
+
+type SocialAdCampaignRow = {
+  id: string;
+  status: string;
+  campaign_name: string;
+};
+
+type SocialIntegrationRow = {
+  id: string;
+  status: string;
+  provider_label: string;
+  is_required: boolean;
 };
 
 function formatDateTime(value: string | null) {
@@ -129,6 +147,113 @@ function TextBlock({
   );
 }
 
+function DashboardCard({
+  title,
+  value,
+  description,
+  icon,
+  href,
+  linkLabel,
+  tone = "neutral",
+}: {
+  title: string;
+  value: number | string;
+  description: string;
+  icon: ReactNode;
+  href: string;
+  linkLabel: string;
+  tone?: "neutral" | "warning" | "success" | "blue" | "ads";
+}) {
+  const toneClasses = {
+    neutral: "border-[#E7D8C3] bg-white text-[#102A43]",
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    blue: "border-blue-200 bg-blue-50 text-blue-900",
+    ads: "border-amber-200 bg-white text-[#102A43]",
+  };
+
+  const iconClasses = {
+    neutral: "bg-[#FFFCF7] text-[#B5282D]",
+    warning: "bg-white text-amber-700",
+    success: "bg-white text-emerald-700",
+    blue: "bg-white text-blue-700",
+    ads: "bg-amber-50 text-amber-700",
+  };
+
+  return (
+    <article
+      className={`rounded-[1.5rem] border p-5 shadow-sm ${toneClasses[tone]}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className={`rounded-2xl p-3 ${iconClasses[tone]}`}>{icon}</div>
+
+        <p className="text-3xl font-black">{value}</p>
+      </div>
+
+      <h3 className="mt-4 text-lg font-black">{title}</h3>
+
+      <p className="mt-2 text-sm font-semibold leading-6 opacity-80">
+        {description}
+      </p>
+
+      <Link
+        href={href}
+        className="mt-4 inline-flex items-center gap-2 text-sm font-black text-[#B5282D] hover:underline"
+      >
+        {linkLabel}
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </article>
+  );
+}
+
+function TaskNotice({
+  title,
+  description,
+  href,
+  linkLabel,
+  icon,
+  tone = "warning",
+}: {
+  title: string;
+  description: string;
+  href: string;
+  linkLabel: string;
+  icon: ReactNode;
+  tone?: "warning" | "blue" | "success";
+}) {
+  const classes = {
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+    blue: "border-blue-200 bg-blue-50 text-blue-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  };
+
+  return (
+    <article className={`rounded-2xl border p-4 ${classes[tone]}`}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5">{icon}</div>
+
+          <div>
+            <h3 className="text-sm font-black">{title}</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 opacity-90">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href={href}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
+        >
+          {linkLabel}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 export default async function AdminSocialPage() {
   const { data, error } = await supabaseServer
     .from("social_posts")
@@ -136,7 +261,30 @@ export default async function AdminSocialPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
+  const { data: assetRows } = await supabaseServer
+    .from("social_assets")
+    .select("post_id")
+    .eq("asset_type", "image")
+    .neq("status", "archived")
+    .limit(1000);
+
+  const { data: adRows } = await supabaseServer
+    .from("social_ad_campaigns")
+    .select("id, status, campaign_name")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const { data: integrationRows } = await supabaseServer
+    .from("social_integrations")
+    .select("id, status, provider_label, is_required")
+    .limit(50);
+
   const posts = (data || []) as SocialPostRow[];
+  const assets = (assetRows || []) as SocialAssetRow[];
+  const ads = (adRows || []) as SocialAdCampaignRow[];
+  const integrations = (integrationRows || []) as SocialIntegrationRow[];
+
+  const imagePostIds = new Set(assets.map((asset) => asset.post_id));
 
   const draftCount = posts.filter((post) => post.status === "draft").length;
   const scheduledCount = posts.filter(
@@ -145,6 +293,36 @@ export default async function AdminSocialPage() {
   const publishedCount = posts.filter(
     (post) => post.status === "published"
   ).length;
+
+  const postsWithoutImage = posts.filter(
+    (post) => post.status !== "archived" && !imagePostIds.has(post.id)
+  );
+
+  const adsWaitingForApproval = ads.filter(
+    (campaign) => campaign.status === "draft" || campaign.status === "review"
+  );
+
+  const adsApproved = ads.filter(
+    (campaign) =>
+      campaign.status === "approved" || campaign.status === "ready_to_launch"
+  );
+
+  const requiredIntegrations = integrations.filter(
+    (integration) => integration.is_required
+  );
+
+  const missingRequiredIntegrations = requiredIntegrations.filter(
+    (integration) => integration.status !== "connected"
+  );
+
+  const connectedIntegrations = integrations.filter(
+    (integration) => integration.status === "connected"
+  );
+
+  const openTaskCount =
+    postsWithoutImage.length +
+    adsWaitingForApproval.length +
+    missingRequiredIntegrations.length;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -170,11 +348,9 @@ export default async function AdminSocialPage() {
 
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#486581]">
                 Erzeuge automatisch Content-Ideen, Hooks, Captions, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Über die Einstellungen
-                kann das Projektprofil gepflegt werden. Im Ads-Modul können
-                Kampagnen vorbereitet, Budgets festgelegt und aktiv freigegeben
-                werden. Unter Konten verwaltest Du die externen Kundenkonten für
-                OpenAI, Meta, Google Ads und TikTok.
+                Keywords sowie Bild- und Video-Prompts. Das Dashboard zeigt Dir,
+                welche Beiträge, Kampagnen und Konten als Nächstes geprüft
+                werden sollten.
               </p>
             </div>
 
@@ -217,13 +393,136 @@ export default async function AdminSocialPage() {
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
                 Empfehlung: Erst Projektprofil und Konten sauber pflegen, dann
-                Beiträge erzeugen, prüfen, terminieren und bei Bedarf
-                Ads-Kampagnen vorbereiten. Werbebudget wird erst nach aktiver
-                Freigabe berücksichtigt.
+                Beiträge erzeugen, Bilder erstellen, terminieren und bei Bedarf
+                Ads-Kampagnen vorbereiten.
               </p>
             </div>
           </div>
         </header>
+
+        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
+                <Sparkles className="h-4 w-4" />
+                Kunden-Dashboard
+              </div>
+
+              <h2 className="mt-4 text-2xl font-black text-[#102A43]">
+                Nächste Aufgaben
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                Dieser Bereich führt den Kunden durch die nächsten sinnvollen
+                Schritte: fehlende Bilder, offene Ads-Freigaben und fehlende
+                Pflicht-Konten.
+              </p>
+            </div>
+
+            <div
+              className={`rounded-2xl border px-5 py-4 ${
+                openTaskCount > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
+              }`}
+            >
+              <p className="text-xs font-black uppercase tracking-[0.16em]">
+                Offene Aufgaben
+              </p>
+              <p className="mt-1 text-3xl font-black">{openTaskCount}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <DashboardCard
+              title="Beiträge ohne Bild"
+              value={postsWithoutImage.length}
+              description="Diese Beiträge brauchen noch ein passendes Social-Bild."
+              icon={<ImageIcon className="h-5 w-5" />}
+              href={
+                postsWithoutImage[0]
+                  ? `/admin/social/${postsWithoutImage[0].id}`
+                  : "/admin/social"
+              }
+              linkLabel={
+                postsWithoutImage[0] ? "Ersten Beitrag öffnen" : "Beiträge ansehen"
+              }
+              tone={postsWithoutImage.length > 0 ? "warning" : "success"}
+            />
+
+            <DashboardCard
+              title="Ads ohne Freigabe"
+              value={adsWaitingForApproval.length}
+              description="Diese Kampagnen sind Entwurf oder Prüfung und brauchen vor Ausgabe eine Budgetfreigabe."
+              icon={<BadgeEuro className="h-5 w-5" />}
+              href="/admin/social/ads"
+              linkLabel="Ads prüfen"
+              tone={adsWaitingForApproval.length > 0 ? "warning" : "success"}
+            />
+
+            <DashboardCard
+              title="Pflicht-Konten offen"
+              value={`${requiredIntegrations.length - missingRequiredIntegrations.length}/${requiredIntegrations.length}`}
+              description="Zeigt, wie viele erforderliche externe Konten als verbunden markiert sind."
+              icon={<PlugZap className="h-5 w-5" />}
+              href="/admin/social/konten"
+              linkLabel="Konten verwalten"
+              tone={missingRequiredIntegrations.length > 0 ? "blue" : "success"}
+            />
+
+            <DashboardCard
+              title="Geplante Beiträge"
+              value={scheduledCount}
+              description="Beiträge, die bereits im Kalender eingeplant wurden."
+              icon={<CalendarClock className="h-5 w-5" />}
+              href="/admin/social/kalender"
+              linkLabel="Kalender öffnen"
+              tone="neutral"
+            />
+          </div>
+
+          {openTaskCount > 0 ? (
+            <div className="mt-6 space-y-3">
+              {postsWithoutImage.length > 0 ? (
+                <TaskNotice
+                  title={`${postsWithoutImage.length} Beitrag/Beiträge ohne Bild`}
+                  description="Erzeuge zuerst ein Bild, bevor der Beitrag veröffentlicht oder als Anzeige vorbereitet wird."
+                  href={`/admin/social/${postsWithoutImage[0].id}`}
+                  linkLabel="Beitrag öffnen"
+                  icon={<ImageIcon className="h-5 w-5" />}
+                  tone="warning"
+                />
+              ) : null}
+
+              {adsWaitingForApproval.length > 0 ? (
+                <TaskNotice
+                  title={`${adsWaitingForApproval.length} Ads-Kampagne(n) ohne Budgetfreigabe`}
+                  description="Prüfe Budget, Zielgruppe, Laufzeit und Landingpage. Erst danach sollte die Kampagne freigegeben werden."
+                  href="/admin/social/ads"
+                  linkLabel="Ads öffnen"
+                  icon={<BadgeEuro className="h-5 w-5" />}
+                  tone="warning"
+                />
+              ) : null}
+
+              {missingRequiredIntegrations.length > 0 ? (
+                <TaskNotice
+                  title={`${missingRequiredIntegrations.length} Pflicht-Konto/Konten nicht verbunden`}
+                  description="OpenAI, Meta oder andere Pflicht-Konten sollten sauber vorbereitet sein, bevor automatische Abläufe angebunden werden."
+                  href="/admin/social/konten"
+                  linkLabel="Konten prüfen"
+                  icon={<PlugZap className="h-5 w-5" />}
+                  tone="blue"
+                />
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
+              Aktuell sind keine dringenden Aufgaben offen. Du kannst neue
+              Beiträge erzeugen, bestehende Beiträge planen oder Ads vorbereiten.
+            </div>
+          )}
+        </section>
 
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-white p-5 shadow-sm">
@@ -346,6 +645,13 @@ export default async function AdminSocialPage() {
                       <span className="rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#486581]">
                         {post.brand_project}
                       </span>
+
+                      {!imagePostIds.has(post.id) ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Bild fehlt
+                        </span>
+                      ) : null}
 
                       {post.scheduled_at ? (
                         <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-800">
