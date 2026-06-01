@@ -10,6 +10,7 @@ import {
   Hash,
   ImageIcon,
   Megaphone,
+  PlugZap,
   Settings,
   Share2,
   Sparkles,
@@ -172,7 +173,8 @@ export default async function AdminSocialPage() {
                 Keywords sowie Bild- und Video-Prompts. Über die Einstellungen
                 kann das Projektprofil gepflegt werden. Im Ads-Modul können
                 Kampagnen vorbereitet, Budgets festgelegt und aktiv freigegeben
-                werden.
+                werden. Unter Konten verwaltest Du die externen Kundenkonten für
+                OpenAI, Meta, Google Ads und TikTok.
               </p>
             </div>
 
@@ -197,6 +199,14 @@ export default async function AdminSocialPage() {
                 </Link>
 
                 <Link
+                  href="/admin/social/konten"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
+                >
+                  <PlugZap className="h-4 w-4" />
+                  Konten verwalten
+                </Link>
+
+                <Link
                   href="/admin/social/einstellungen"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-5 py-3 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
                 >
@@ -206,10 +216,10 @@ export default async function AdminSocialPage() {
               </div>
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
-                Empfehlung: Erst Projektprofil sauber pflegen, dann Beiträge
-                erzeugen, prüfen, terminieren und bei Bedarf Ads-Kampagnen
-                vorbereiten. Werbebudget wird erst nach aktiver Freigabe
-                berücksichtigt.
+                Empfehlung: Erst Projektprofil und Konten sauber pflegen, dann
+                Beiträge erzeugen, prüfen, terminieren und bei Bedarf
+                Ads-Kampagnen vorbereiten. Werbebudget wird erst nach aktiver
+                Freigabe berücksichtigt.
               </p>
             </div>
           </div>
@@ -278,10 +288,9 @@ export default async function AdminSocialPage() {
               Noch keine Social-Beiträge vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
-              Pflege zuerst optional das Projektprofil in den Einstellungen.
-              Danach kannst Du neue Social-Beiträge erzeugen, sie im Kalender
-              planen und später als Kampagnenentwurf für bezahlte Werbung
-              vorbereiten.
+              Pflege zuerst optional das Projektprofil und die Konten. Danach
+              kannst Du neue Social-Beiträge erzeugen, sie im Kalender planen
+              und später als Kampagnenentwurf für bezahlte Werbung vorbereiten.
             </p>
 
             <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
@@ -291,6 +300,14 @@ export default async function AdminSocialPage() {
               >
                 <Settings className="h-4 w-4" />
                 Projektprofil bearbeiten
+              </Link>
+
+              <Link
+                href="/admin/social/konten"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
+              >
+                <PlugZap className="h-4 w-4" />
+                Konten verwalten
               </Link>
 
               <Link
