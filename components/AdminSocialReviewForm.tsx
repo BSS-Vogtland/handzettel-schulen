@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 
 type ReviewFormState = {
   reviewer_name: string;
@@ -83,6 +83,29 @@ export default function AdminSocialReviewForm({
     required_changes: "",
   });
 
+  const allCoreChecksOk = useMemo(() => {
+    return (
+      form.hook_ok &&
+      form.caption_ok &&
+      form.image_ok &&
+      form.cta_ok &&
+      form.platform_fit_ok &&
+      form.no_false_claims_ok
+    );
+  }, [
+    form.hook_ok,
+    form.caption_ok,
+    form.image_ok,
+    form.cta_ok,
+    form.platform_fit_ok,
+    form.no_false_claims_ok,
+  ]);
+
+  const looksLikeAccidentalNeedsChanges =
+    allCoreChecksOk &&
+    form.decision === "needs_changes" &&
+    !form.required_changes.trim();
+
   function updateField<K extends keyof ReviewFormState>(
     key: K,
     value: ReviewFormState[K]
@@ -101,21 +124,18 @@ export default function AdminSocialReviewForm({
       return;
     }
 
-    if (form.decision === "approved") {
-      const allCoreChecksOk =
-        form.hook_ok &&
-        form.caption_ok &&
-        form.image_ok &&
-        form.cta_ok &&
-        form.platform_fit_ok &&
-        form.no_false_claims_ok;
+    if (form.decision === "approved" && !allCoreChecksOk) {
+      window.alert(
+        "Für eine Freigabe müssen Hook, Caption, Bildbezug, CTA, Plattform-Fit und Faktenprüfung bestätigt sein."
+      );
+      return;
+    }
 
-      if (!allCoreChecksOk) {
-        window.alert(
-          "Für eine Freigabe müssen Hook, Caption, Bildbezug, CTA, Plattform-Fit und Faktenprüfung bestätigt sein."
-        );
-        return;
-      }
+    if (looksLikeAccidentalNeedsChanges) {
+      window.alert(
+        "Alle Pflichtchecks sind erfüllt, aber die Entscheidung steht noch auf „Überarbeitung nötig“.\n\nBitte wähle entweder „Freigeben“ oder trage konkrete Änderungswünsche ein."
+      );
+      return;
     }
 
     if (form.decision === "needs_changes" && !form.required_changes.trim()) {
@@ -176,6 +196,19 @@ export default function AdminSocialReviewForm({
           Bildbezug, CTA und Aussagen sauber geprüft sein.
         </p>
       </div>
+
+      {looksLikeAccidentalNeedsChanges ? (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>
+              Alle Pflichtchecks sind erfüllt. Die Entscheidung steht aber noch
+              auf „Überarbeitung nötig“. Wähle „Freigeben“, wenn der Beitrag
+              wirklich freigegeben werden soll.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div>
