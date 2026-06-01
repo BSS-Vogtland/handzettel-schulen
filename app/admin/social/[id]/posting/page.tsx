@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  BadgeEuro,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -16,6 +17,7 @@ import {
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialCopyButton from "@/components/AdminSocialCopyButton";
 import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishedButton";
+import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdCampaignButton";
 
 export const dynamic = "force-dynamic";
 
@@ -205,7 +207,7 @@ function PostingBlock({
           </div>
         </div>
 
-        <div className="lg:col-span-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-4">
+        <div className="rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-4 lg:col-span-2">
           <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
             <FileText className="h-4 w-4" />
             Caption
@@ -224,7 +226,7 @@ function PostingBlock({
         </div>
 
         {cta ? (
-          <div className="lg:col-span-2 rounded-2xl border border-[#E7D8C3] bg-white p-4">
+          <div className="rounded-2xl border border-[#E7D8C3] bg-white p-4 lg:col-span-2">
             <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
               <CheckCircle2 className="h-4 w-4" />
               CTA
@@ -318,8 +320,8 @@ export default async function AdminSocialPostingPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Hier findest Du alle Texte, Hashtags, Bild- und Promptdaten für
-                die manuelle Veröffentlichung. Diese Struktur nutzen wir später
-                auch für echtes Auto-Posting.
+                die manuelle Veröffentlichung. Aus dieser Vorbereitung kann
+                zusätzlich ein Ads-Kampagnenentwurf erstellt werden.
               </p>
             </div>
 
@@ -344,11 +346,13 @@ export default async function AdminSocialPostingPage({
                 </div>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-5 flex flex-col gap-3">
                 <AdminSocialMarkPublishedButton
                   postId={post.id}
                   disabled={isPublished}
                 />
+
+                <AdminSocialCreateAdCampaignButton postId={post.id} />
               </div>
             </div>
           </div>
@@ -395,6 +399,18 @@ export default async function AdminSocialPostingPage({
                     <ExternalLink className="h-4 w-4" />
                   </a>
 
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-800">
+                      <BadgeEuro className="h-4 w-4" />
+                      Ads-Weiterverwendung
+                    </div>
+                    <p className="text-sm font-bold leading-6 text-amber-900">
+                      Über „Als Ads-Kampagne vorbereiten“ wird dieser Beitrag
+                      mit dem neuesten Bild als Kampagnenentwurf angelegt. Das
+                      Budget muss danach separat geprüft und freigegeben werden.
+                    </p>
+                  </div>
+
                   <div className="rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
                       Bild-Prompt
@@ -420,7 +436,8 @@ export default async function AdminSocialPostingPage({
                 </h3>
                 <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
                   Öffne den Beitrag und erzeuge zuerst ein Social-Bild. Danach
-                  erscheint es hier in der Posting-Vorbereitung.
+                  erscheint es hier in der Posting-Vorbereitung und kann für
+                  einen Ads-Kampagnenentwurf übernommen werden.
                 </p>
 
                 <Link
@@ -447,12 +464,13 @@ export default async function AdminSocialPostingPage({
               <p>□ Plattform ausgewählt</p>
               <p>□ Veröffentlichungszeit geprüft</p>
               <p>□ Beitrag nach Veröffentlichung markieren</p>
+              <p>□ Optional: Ads-Kampagne vorbereiten</p>
             </div>
 
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
               Diese Seite postet noch nicht automatisch. Sie ist die saubere
-              Zwischenstufe für manuelle Veröffentlichung und spätere
-              API-Anbindung.
+              Zwischenstufe für manuelle Veröffentlichung, spätere
+              API-Anbindung und Ads-Vorbereitung.
             </div>
           </aside>
         </section>
