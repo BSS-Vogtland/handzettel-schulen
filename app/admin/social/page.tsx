@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BadgeEuro,
+  BellRing,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -399,6 +400,14 @@ export default async function AdminSocialPage() {
                 <AdminSocialGenerateButton />
 
                 <Link
+                  href="/admin/social/automation"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800 shadow-sm transition hover:bg-purple-100"
+                >
+                  <BellRing className="h-4 w-4" />
+                  Automation öffnen
+                </Link>
+
+                <Link
                   href="/admin/social/kalender"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
                 >
@@ -432,9 +441,9 @@ export default async function AdminSocialPage() {
               </div>
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
-                Empfehlung: Beitrag erzeugen, Bild erstellen, Review freigeben,
-                Posting vorbereiten und erst danach optional als Ads-Kampagne
-                nutzen.
+                Empfehlung: Automation einstellen, Beitrag erzeugen, Bild
+                erstellen, Review freigeben, Posting vorbereiten und erst danach
+                optional als Ads-Kampagne nutzen.
               </p>
             </div>
           </div>
@@ -569,13 +578,13 @@ export default async function AdminSocialPage() {
             />
 
             <DashboardCard
-              title="Veröffentlicht"
-              value={publishedCount}
-              description="Beiträge, die bereits als veröffentlicht markiert wurden."
-              icon={<Share2 className="h-5 w-5" />}
-              href="/admin/social"
-              linkLabel="Beiträge ansehen"
-              tone="neutral"
+              title="Automation"
+              value="V1"
+              description="Erinnerungszeiten, Arbeitstage-Logik und Vorab-Generierung verwalten."
+              icon={<BellRing className="h-5 w-5" />}
+              href="/admin/social/automation"
+              linkLabel="Automation öffnen"
+              tone="blue"
             />
           </div>
 
@@ -639,7 +648,8 @@ export default async function AdminSocialPage() {
           ) : (
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
               Aktuell sind keine dringenden Aufgaben offen. Du kannst neue
-              Beiträge erzeugen, bestehende Beiträge planen oder Ads vorbereiten.
+              Beiträge erzeugen, bestehende Beiträge planen, die Automation
+              prüfen oder Ads vorbereiten.
             </div>
           )}
         </section>
@@ -705,10 +715,28 @@ export default async function AdminSocialPage() {
               Noch keine Social-Beiträge vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
-              Pflege zuerst optional das Projektprofil und die Konten. Danach
-              kannst Du neue Social-Beiträge erzeugen, prüfen, planen und später
-              als Kampagnenentwurf für bezahlte Werbung vorbereiten.
+              Pflege zuerst das Projektprofil, die Konten und die Automation.
+              Danach kannst Du neue Social-Beiträge erzeugen, prüfen, planen und
+              später als Kampagnenentwurf für bezahlte Werbung vorbereiten.
             </p>
+
+            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href="/admin/social/automation"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800 shadow-sm transition hover:bg-purple-100"
+              >
+                <BellRing className="h-4 w-4" />
+                Automation öffnen
+              </Link>
+
+              <Link
+                href="/admin/social/einstellungen"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
+              >
+                <Settings className="h-4 w-4" />
+                Projektprofil bearbeiten
+              </Link>
+            </div>
           </section>
         ) : null}
 
