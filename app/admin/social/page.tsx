@@ -14,6 +14,7 @@ import {
   PlugZap,
   Settings,
   Share2,
+  ShieldCheck,
   Sparkles,
   Video,
 } from "lucide-react";
@@ -28,6 +29,9 @@ type SocialPostRow = {
   updated_at: string;
   brand_project: string;
   status: string;
+  review_status: string | null;
+  reviewed_at: string | null;
+  reviewed_by_name: string | null;
   topic: string;
   content_angle: string | null;
   hook: string;
@@ -112,6 +116,36 @@ function getStatusClasses(status: string) {
   }
 }
 
+function getReviewLabel(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "Review freigegeben";
+    case "needs_changes":
+      return "Überarbeitung nötig";
+    case "rejected":
+      return "Review abgelehnt";
+    case "not_reviewed":
+    case null:
+    default:
+      return "Review offen";
+  }
+}
+
+function getReviewClasses(status: string | null) {
+  switch (status) {
+    case "approved":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "needs_changes":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "rejected":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "not_reviewed":
+    case null:
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
 function PlatformBadge({
   label,
   icon,
@@ -186,7 +220,6 @@ function DashboardCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className={`rounded-2xl p-3 ${iconClasses[tone]}`}>{icon}</div>
-
         <p className="text-3xl font-black">{value}</p>
       </div>
 
@@ -298,13 +331,22 @@ export default async function AdminSocialPage() {
     (post) => post.status !== "archived" && !imagePostIds.has(post.id)
   );
 
-  const adsWaitingForApproval = ads.filter(
-    (campaign) => campaign.status === "draft" || campaign.status === "review"
+  const postsWithoutReview = posts.filter(
+    (post) =>
+      post.status !== "archived" &&
+      (!post.review_status || post.review_status === "not_reviewed")
   );
 
-  const adsApproved = ads.filter(
-    (campaign) =>
-      campaign.status === "approved" || campaign.status === "ready_to_launch"
+  const postsNeedsChanges = posts.filter(
+    (post) => post.status !== "archived" && post.review_status === "needs_changes"
+  );
+
+  const postsReviewApproved = posts.filter(
+    (post) => post.status !== "archived" && post.review_status === "approved"
+  );
+
+  const adsWaitingForApproval = ads.filter(
+    (campaign) => campaign.status === "draft" || campaign.status === "review"
   );
 
   const requiredIntegrations = integrations.filter(
@@ -315,12 +357,10 @@ export default async function AdminSocialPage() {
     (integration) => integration.status !== "connected"
   );
 
-  const connectedIntegrations = integrations.filter(
-    (integration) => integration.status === "connected"
-  );
-
   const openTaskCount =
     postsWithoutImage.length +
+    postsWithoutReview.length +
+    postsNeedsChanges.length +
     adsWaitingForApproval.length +
     missingRequiredIntegrations.length;
 
@@ -347,10 +387,10 @@ export default async function AdminSocialPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#486581]">
-                Erzeuge automatisch Content-Ideen, Hooks, Captions, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Das Dashboard zeigt Dir,
-                welche Beiträge, Kampagnen und Konten als Nächstes geprüft
-                werden sollten.
+                Erzeuge Content-Ideen, Hooks, Captions, Hashtags, Bild- und
+                Video-Prompts. Das Dashboard zeigt Dir, welche Beiträge,
+                Reviews, Kampagnen und Konten als Nächstes geprüft werden
+                sollten.
               </p>
             </div>
 
@@ -392,9 +432,9 @@ export default async function AdminSocialPage() {
               </div>
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
-                Empfehlung: Erst Projektprofil und Konten sauber pflegen, dann
-                Beiträge erzeugen, Bilder erstellen, terminieren und bei Bedarf
-                Ads-Kampagnen vorbereiten.
+                Empfehlung: Beitrag erzeugen, Bild erstellen, Review freigeben,
+                Posting vorbereiten und erst danach optional als Ads-Kampagne
+                nutzen.
               </p>
             </div>
           </div>
@@ -414,8 +454,8 @@ export default async function AdminSocialPage() {
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
                 Dieser Bereich führt den Kunden durch die nächsten sinnvollen
-                Schritte: fehlende Bilder, offene Ads-Freigaben und fehlende
-                Pflicht-Konten.
+                Schritte: fehlende Bilder, offene Reviews, offene
+                Ads-Freigaben und fehlende Pflicht-Konten.
               </p>
             </div>
 
@@ -451,6 +491,52 @@ export default async function AdminSocialPage() {
             />
 
             <DashboardCard
+              title="Review offen"
+              value={postsWithoutReview.length}
+              description="Diese Beiträge wurden noch nicht inhaltlich geprüft."
+              icon={<ShieldCheck className="h-5 w-5" />}
+              href={
+                postsWithoutReview[0]
+                  ? `/admin/social/${postsWithoutReview[0].id}/review`
+                  : "/admin/social"
+              }
+              linkLabel={
+                postsWithoutReview[0] ? "Erstes Review öffnen" : "Beiträge ansehen"
+              }
+              tone={postsWithoutReview.length > 0 ? "warning" : "success"}
+            />
+
+            <DashboardCard
+              title="Überarbeitung nötig"
+              value={postsNeedsChanges.length}
+              description="Diese Beiträge wurden geprüft, brauchen aber noch Änderungen."
+              icon={<AlertTriangle className="h-5 w-5" />}
+              href={
+                postsNeedsChanges[0]
+                  ? `/admin/social/${postsNeedsChanges[0].id}/review`
+                  : "/admin/social"
+              }
+              linkLabel={
+                postsNeedsChanges[0]
+                  ? "Überarbeitung öffnen"
+                  : "Beiträge ansehen"
+              }
+              tone={postsNeedsChanges.length > 0 ? "warning" : "success"}
+            />
+
+            <DashboardCard
+              title="Review freigegeben"
+              value={postsReviewApproved.length}
+              description="Diese Beiträge sind inhaltlich geprüft und freigegeben."
+              icon={<CheckCircle2 className="h-5 w-5" />}
+              href="/admin/social"
+              linkLabel="Beiträge ansehen"
+              tone="success"
+            />
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <DashboardCard
               title="Ads ohne Freigabe"
               value={adsWaitingForApproval.length}
               description="Diese Kampagnen sind Entwurf oder Prüfung und brauchen vor Ausgabe eine Budgetfreigabe."
@@ -461,8 +547,10 @@ export default async function AdminSocialPage() {
             />
 
             <DashboardCard
-              title="Pflicht-Konten offen"
-              value={`${requiredIntegrations.length - missingRequiredIntegrations.length}/${requiredIntegrations.length}`}
+              title="Pflicht-Konten bereit"
+              value={`${
+                requiredIntegrations.length - missingRequiredIntegrations.length
+              }/${requiredIntegrations.length}`}
               description="Zeigt, wie viele erforderliche externe Konten als verbunden markiert sind."
               icon={<PlugZap className="h-5 w-5" />}
               href="/admin/social/konten"
@@ -479,6 +567,16 @@ export default async function AdminSocialPage() {
               linkLabel="Kalender öffnen"
               tone="neutral"
             />
+
+            <DashboardCard
+              title="Veröffentlicht"
+              value={publishedCount}
+              description="Beiträge, die bereits als veröffentlicht markiert wurden."
+              icon={<Share2 className="h-5 w-5" />}
+              href="/admin/social"
+              linkLabel="Beiträge ansehen"
+              tone="neutral"
+            />
           </div>
 
           {openTaskCount > 0 ? (
@@ -490,6 +588,28 @@ export default async function AdminSocialPage() {
                   href={`/admin/social/${postsWithoutImage[0].id}`}
                   linkLabel="Beitrag öffnen"
                   icon={<ImageIcon className="h-5 w-5" />}
+                  tone="warning"
+                />
+              ) : null}
+
+              {postsWithoutReview.length > 0 ? (
+                <TaskNotice
+                  title={`${postsWithoutReview.length} Beitrag/Beiträge ohne Review`}
+                  description="Prüfe Hook, Caption, Bildbezug, CTA und Claims, bevor der Beitrag veröffentlicht oder als Anzeige genutzt wird."
+                  href={`/admin/social/${postsWithoutReview[0].id}/review`}
+                  linkLabel="Review öffnen"
+                  icon={<ShieldCheck className="h-5 w-5" />}
+                  tone="warning"
+                />
+              ) : null}
+
+              {postsNeedsChanges.length > 0 ? (
+                <TaskNotice
+                  title={`${postsNeedsChanges.length} Beitrag/Beiträge mit Änderungsbedarf`}
+                  description="Diese Beiträge wurden geprüft, aber noch nicht freigegeben. Öffne das Review und arbeite die Hinweise ab."
+                  href={`/admin/social/${postsNeedsChanges[0].id}/review`}
+                  linkLabel="Überarbeitung öffnen"
+                  icon={<AlertTriangle className="h-5 w-5" />}
                   tone="warning"
                 />
               ) : null}
@@ -531,9 +651,7 @@ export default async function AdminSocialPage() {
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#627D98]">
-                  Entwürfe
-                </p>
+                <p className="text-sm font-semibold text-[#627D98]">Entwürfe</p>
                 <p className="text-3xl font-black text-[#102A43]">
                   {draftCount}
                 </p>
@@ -588,35 +706,9 @@ export default async function AdminSocialPage() {
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
               Pflege zuerst optional das Projektprofil und die Konten. Danach
-              kannst Du neue Social-Beiträge erzeugen, sie im Kalender planen
-              und später als Kampagnenentwurf für bezahlte Werbung vorbereiten.
+              kannst Du neue Social-Beiträge erzeugen, prüfen, planen und später
+              als Kampagnenentwurf für bezahlte Werbung vorbereiten.
             </p>
-
-            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-              <Link
-                href="/admin/social/einstellungen"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
-              >
-                <Settings className="h-4 w-4" />
-                Projektprofil bearbeiten
-              </Link>
-
-              <Link
-                href="/admin/social/konten"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
-              >
-                <PlugZap className="h-4 w-4" />
-                Konten verwalten
-              </Link>
-
-              <Link
-                href="/admin/social/ads"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-black text-amber-800 shadow-sm transition hover:bg-amber-100"
-              >
-                <BadgeEuro className="h-4 w-4" />
-                Ads-Modul öffnen
-              </Link>
-            </div>
           </section>
         ) : null}
 
@@ -638,6 +730,15 @@ export default async function AdminSocialPage() {
                         {getStatusLabel(post.status)}
                       </span>
 
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-black ${getReviewClasses(
+                          post.review_status
+                        )}`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        {getReviewLabel(post.review_status)}
+                      </span>
+
                       <span className="text-xs font-semibold text-[#627D98]">
                         Erstellt: {formatDateTime(post.created_at)}
                       </span>
@@ -650,6 +751,12 @@ export default async function AdminSocialPage() {
                         <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           Bild fehlt
+                        </span>
+                      ) : null}
+
+                      {post.reviewed_at ? (
+                        <span className="rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-bold text-[#52616F]">
+                          Review: {formatDateTime(post.reviewed_at)}
                         </span>
                       ) : null}
 
@@ -694,6 +801,14 @@ export default async function AdminSocialPage() {
                     </div>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                      <Link
+                        href={`/admin/social/${post.id}/review`}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        Review öffnen
+                      </Link>
+
                       <Link
                         href={`/admin/social/${post.id}/posting`}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
