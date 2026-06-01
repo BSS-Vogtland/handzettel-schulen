@@ -30,7 +30,7 @@ type SocialAssetRow = {
 };
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
   );
 }
@@ -86,7 +86,10 @@ function buildCampaignName(post: SocialPostRow) {
 }
 
 function buildAdHeadline(post: SocialPostRow) {
-  return cleanString(post.instagram_hook, cleanString(post.facebook_hook, post.hook));
+  return cleanString(
+    post.instagram_hook,
+    cleanString(post.facebook_hook, post.hook)
+  );
 }
 
 function buildAdText(post: SocialPostRow) {
@@ -130,7 +133,8 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: postError?.message || "Social-Beitrag wurde nicht gefunden.",
+          message:
+            postError?.message || "Social-Beitrag wurde nicht gefunden.",
         },
         { status: 404 }
       );
