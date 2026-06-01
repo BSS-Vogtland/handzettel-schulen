@@ -15,15 +15,22 @@ type ApiResponse = {
 export default function AdminSocialCreateAdCampaignButton({
   postId,
   disabled,
+  disabledReason,
 }: {
   postId: string;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
 
   async function handleCreateCampaign() {
-    if (isCreating || disabled) return;
+    if (isCreating) return;
+
+    if (disabled) {
+      window.alert(disabledReason || "Diese Aktion ist aktuell gesperrt.");
+      return;
+    }
 
     const confirmed = window.confirm(
       "Soll aus diesem Beitrag ein Ads-Kampagnenentwurf erstellt werden? Es wird noch keine Werbung geschaltet und kein Budget ausgegeben."
@@ -45,7 +52,8 @@ export default function AdminSocialCreateAdCampaignButton({
 
       if (!response.ok || !json.ok) {
         window.alert(
-          json.message || "Der Ads-Kampagnenentwurf konnte nicht erstellt werden."
+          json.message ||
+            "Der Ads-Kampagnenentwurf konnte nicht erstellt werden."
         );
         return;
       }
@@ -71,18 +79,32 @@ export default function AdminSocialCreateAdCampaignButton({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleCreateCampaign}
-      disabled={disabled || isCreating}
-      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-    >
-      {isCreating ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <BadgeEuro className="h-4 w-4" />
-      )}
-      {isCreating ? "Ads-Entwurf wird erstellt ..." : "Als Ads-Kampagne vorbereiten"}
-    </button>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={handleCreateCampaign}
+        disabled={isCreating}
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
+          disabled
+            ? "bg-slate-300 text-slate-700"
+            : "bg-amber-700 text-white hover:brightness-110"
+        }`}
+      >
+        {isCreating ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <BadgeEuro className="h-4 w-4" />
+        )}
+        {isCreating
+          ? "Ads-Entwurf wird erstellt ..."
+          : "Als Ads-Kampagne vorbereiten"}
+      </button>
+
+      {disabled && disabledReason ? (
+        <p className="text-xs font-bold leading-5 text-slate-700">
+          {disabledReason}
+        </p>
+      ) : null}
+    </div>
   );
 }

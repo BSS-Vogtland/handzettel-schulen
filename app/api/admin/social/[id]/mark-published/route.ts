@@ -3,8 +3,15 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+type SocialPostRow = {
+  id: string;
+  status: string;
+  review_status: string | null;
+  topic: string;
+};
+
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
   );
 }
@@ -28,7 +35,7 @@ export async function POST(
 
     const { data: existingPost, error: existingError } = await supabaseServer
       .from("social_posts")
-      .select("id, status, topic")
+      .select("id, status, review_status, topic")
       .eq("id", id)
       .single();
 
@@ -36,9 +43,23 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: existingError?.message || "Social-Beitrag wurde nicht gefunden.",
+          message:
+            existingError?.message || "Social-Beitrag wurde nicht gefunden.",
         },
         { status: 404 }
+      );
+    }
+
+    const post = existingPost as SocialPostRow;
+
+    if (post.review_status !== "approved") {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Dieser Beitrag ist noch nicht im Content-Review freigegeben. Bitte zuerst das Review öffnen und den Beitrag freigeben, bevor er als veröffentlicht markiert wird.",
+        },
+        { status: 400 }
       );
     }
 

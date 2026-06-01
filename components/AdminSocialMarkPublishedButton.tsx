@@ -12,15 +12,22 @@ type ApiResponse = {
 export default function AdminSocialMarkPublishedButton({
   postId,
   disabled,
+  disabledReason,
 }: {
   postId: string;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleMarkPublished() {
-    if (isSaving || disabled) return;
+    if (isSaving) return;
+
+    if (disabled) {
+      window.alert(disabledReason || "Diese Aktion ist aktuell gesperrt.");
+      return;
+    }
 
     const confirmed = window.confirm(
       "Soll dieser Beitrag als veröffentlicht markiert werden? Dadurch wird der Status auf „Veröffentlicht“ gesetzt und ein Veröffentlichungsdatum gespeichert."
@@ -42,7 +49,8 @@ export default function AdminSocialMarkPublishedButton({
 
       if (!response.ok || !json.ok) {
         window.alert(
-          json.message || "Der Beitrag konnte nicht als veröffentlicht markiert werden."
+          json.message ||
+            "Der Beitrag konnte nicht als veröffentlicht markiert werden."
         );
         return;
       }
@@ -62,18 +70,30 @@ export default function AdminSocialMarkPublishedButton({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleMarkPublished}
-      disabled={disabled || isSaving}
-      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-    >
-      {isSaving ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <CheckCircle2 className="h-4 w-4" />
-      )}
-      {isSaving ? "Wird gespeichert ..." : "Als veröffentlicht markieren"}
-    </button>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={handleMarkPublished}
+        disabled={isSaving}
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
+          disabled
+            ? "bg-slate-300 text-slate-700"
+            : "bg-emerald-700 text-white hover:brightness-110"
+        }`}
+      >
+        {isSaving ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <CheckCircle2 className="h-4 w-4" />
+        )}
+        {isSaving ? "Wird gespeichert ..." : "Als veröffentlicht markieren"}
+      </button>
+
+      {disabled && disabledReason ? (
+        <p className="text-xs font-bold leading-5 text-slate-700">
+          {disabledReason}
+        </p>
+      ) : null}
+    </div>
   );
 }

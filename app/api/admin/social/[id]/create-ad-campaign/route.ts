@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 type SocialPostRow = {
   id: string;
   project_id: string | null;
+  review_status: string | null;
   topic: string;
   hook: string;
   caption: string;
@@ -124,7 +125,7 @@ export async function POST(
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
       .select(
-        "id, project_id, topic, hook, caption, cta, hashtags, instagram_hook, instagram_caption, facebook_hook, facebook_caption"
+        "id, project_id, review_status, topic, hook, caption, cta, hashtags, instagram_hook, instagram_caption, facebook_hook, facebook_caption"
       )
       .eq("id", id)
       .single();
@@ -141,6 +142,18 @@ export async function POST(
     }
 
     const post = postData as SocialPostRow;
+
+    if (post.review_status !== "approved") {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Dieser Beitrag ist noch nicht im Content-Review freigegeben. Bitte zuerst das Review öffnen und den Beitrag freigeben, bevor daraus eine Ads-Kampagne erstellt wird.",
+        },
+        { status: 400 }
+      );
+    }
+
     const project = await loadProject(post.project_id);
 
     const { data: assetData } = await supabaseServer
@@ -187,7 +200,7 @@ export async function POST(
         end_at: null,
 
         notes:
-          "Automatisch aus einem SocialPilot-Beitrag erstellt. Bitte Zielregion, Zielgruppe, Budget, Laufzeit und Landingpage vor Freigabe prüfen.",
+          "Automatisch aus einem freigegebenen SocialPilot-Beitrag erstellt. Bitte Zielregion, Zielgruppe, Budget, Laufzeit und Landingpage vor Budgetfreigabe prüfen.",
         internal_warning:
           "Diese Kampagne ist nur ein interner Entwurf. Es wird noch kein Werbebudget ausgegeben.",
       })
