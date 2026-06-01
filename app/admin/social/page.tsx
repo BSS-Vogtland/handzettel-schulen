@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
+  BadgeEuro,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -169,13 +170,14 @@ export default async function AdminSocialPage() {
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#486581]">
                 Erzeuge automatisch Content-Ideen, Hooks, Captions, Hashtags,
                 Keywords sowie Bild- und Video-Prompts. Über die Einstellungen
-                kann das Projektprofil gepflegt werden — genau das ist die Basis
-                für das spätere Self-Service-Paket für Kunden.
+                kann das Projektprofil gepflegt werden. Im Ads-Modul können
+                Kampagnen vorbereitet, Budgets festgelegt und aktiv freigegeben
+                werden.
               </p>
             </div>
 
             <div className="flex flex-col items-start gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:flex-col">
                 <AdminSocialGenerateButton />
 
                 <Link
@@ -184,6 +186,14 @@ export default async function AdminSocialPage() {
                 >
                   <CalendarClock className="h-4 w-4" />
                   Social-Kalender öffnen
+                </Link>
+
+                <Link
+                  href="/admin/social/ads"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-black text-amber-800 shadow-sm transition hover:bg-amber-100"
+                >
+                  <BadgeEuro className="h-4 w-4" />
+                  Ads-Kampagnen planen
                 </Link>
 
                 <Link
@@ -197,7 +207,9 @@ export default async function AdminSocialPage() {
 
               <p className="max-w-xs text-xs leading-5 text-[#627D98]">
                 Empfehlung: Erst Projektprofil sauber pflegen, dann Beiträge
-                erzeugen, prüfen, terminieren und später veröffentlichen.
+                erzeugen, prüfen, terminieren und bei Bedarf Ads-Kampagnen
+                vorbereiten. Werbebudget wird erst nach aktiver Freigabe
+                berücksichtigt.
               </p>
             </div>
           </div>
@@ -267,17 +279,26 @@ export default async function AdminSocialPage() {
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
               Pflege zuerst optional das Projektprofil in den Einstellungen.
-              Danach kannst Du neue Social-Beiträge erzeugen und sie im Kalender
-              planen.
+              Danach kannst Du neue Social-Beiträge erzeugen, sie im Kalender
+              planen und später als Kampagnenentwurf für bezahlte Werbung
+              vorbereiten.
             </p>
 
-            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/admin/social/einstellungen"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
               >
                 <Settings className="h-4 w-4" />
                 Projektprofil bearbeiten
+              </Link>
+
+              <Link
+                href="/admin/social/ads"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-black text-amber-800 shadow-sm transition hover:bg-amber-100"
+              >
+                <BadgeEuro className="h-4 w-4" />
+                Ads-Modul öffnen
               </Link>
             </div>
           </section>
