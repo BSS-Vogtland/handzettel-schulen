@@ -5,6 +5,7 @@ import {
   BadgeEuro,
   CopyPlus,
   ExternalLink,
+  History,
   ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -41,6 +42,18 @@ type CampaignRow = {
   approved_at: string | null;
   approved_by_name: string | null;
   approved_by_email: string | null;
+};
+
+type CampaignVersionRow = {
+  id: string;
+  created_at: string;
+  status: string;
+  campaign_name: string;
+  parent_campaign_id: string | null;
+  version_number: number | null;
+  daily_budget_cents: number | null;
+  lifetime_budget_cents: number | null;
+  approved_at: string | null;
 };
 
 type ApprovalRow = {
@@ -101,6 +114,26 @@ function getStatusLabel(status: string) {
       return "Abgebrochen";
     default:
       return status;
+  }
+}
+
+function getStatusClasses(status: string) {
+  switch (status) {
+    case "approved":
+    case "ready_to_launch":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "launched":
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    case "paused":
+      return "border-slate-200 bg-slate-50 text-slate-700";
+    case "ended":
+      return "border-slate-300 bg-slate-100 text-slate-800";
+    case "cancelled":
+      return "border-red-200 bg-red-50 text-red-800";
+    case "review":
+      return "border-purple-200 bg-purple-50 text-purple-800";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-800";
   }
 }
 
@@ -204,6 +237,129 @@ function ReadOnlyCampaignDetails({ campaign }: { campaign: CampaignRow }) {
   );
 }
 
+function CampaignVersionsSection({
+  versions,
+  currentCampaignId,
+}: {
+  versions: CampaignVersionRow[];
+  currentCampaignId: string;
+}) {
+  if (versions.length <= 1) {
+    return (
+      <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFFCF7] text-[#B5282D]">
+            <History className="h-6 w-6" />
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-black text-[#102A43]">
+              Kampagnenversionen
+            </h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+              Für diese Kampagne gibt es aktuell nur eine Version. Sobald eine
+              freigegebene Kampagne geändert werden soll, wird eine neue Version
+              erstellt.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+      <div className="mb-5 flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFFCF7] text-[#B5282D]">
+          <History className="h-6 w-6" />
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-black text-[#102A43]">
+            Kampagnenversionen
+          </h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+            Hier siehst Du alle Versionen dieser Kampagne. Freigaben bleiben pro
+            Version erhalten. Änderungen sollten immer über eine neue Version
+            laufen.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {versions.map((version) => {
+          const isCurrent = version.id === currentCampaignId;
+          const versionNumber = version.version_number || 1;
+
+          return (
+            <article
+              key={version.id}
+              className={`rounded-2xl border p-4 ${
+                isCurrent
+                  ? "border-blue-200 bg-blue-50"
+                  : "border-[#E7D8C3] bg-[#FFFCF7]"
+              }`}
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-black text-blue-800">
+                      Version {versionNumber}
+                    </span>
+
+                    <span
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
+                        version.status
+                      )}`}
+                    >
+                      {getStatusLabel(version.status)}
+                    </span>
+
+                    {isCurrent ? (
+                      <span className="inline-flex rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#102A43]">
+                        Aktuell geöffnet
+                      </span>
+                    ) : null}
+
+                    {version.approved_at ? (
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+                        Freigegeben: {formatDateTime(version.approved_at)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <h3 className="text-lg font-black text-[#102A43]">
+                    {version.campaign_name}
+                  </h3>
+
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm font-semibold text-[#52616F]">
+                    <span>Erstellt: {formatDateTime(version.created_at)}</span>
+                    <span>
+                      Tagesbudget: {formatEuro(version.daily_budget_cents)}
+                    </span>
+                    <span>
+                      Gesamtbudget: {formatEuro(version.lifetime_budget_cents)}
+                    </span>
+                  </div>
+                </div>
+
+                {!isCurrent ? (
+                  <Link
+                    href={`/admin/social/ads/${version.id}`}
+                    className="inline-flex items-center justify-center rounded-2xl bg-[#B5282D] px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                  >
+                    Version öffnen
+                  </Link>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default async function AdminSocialAdsDetailPage({
   params,
 }: {
@@ -222,6 +378,16 @@ export default async function AdminSocialAdsDetailPage({
   }
 
   const campaign = data as CampaignRow;
+  const rootCampaignId = campaign.parent_campaign_id || campaign.id;
+
+  const { data: versionsData } = await supabaseServer
+    .from("social_ad_campaigns")
+    .select(
+      "id, created_at, status, campaign_name, parent_campaign_id, version_number, daily_budget_cents, lifetime_budget_cents, approved_at"
+    )
+    .or(`id.eq.${rootCampaignId},parent_campaign_id.eq.${rootCampaignId}`)
+    .order("version_number", { ascending: true })
+    .order("created_at", { ascending: true });
 
   const { data: approvalsData } = await supabaseServer
     .from("social_ad_approvals")
@@ -247,6 +413,7 @@ export default async function AdminSocialAdsDetailPage({
   const approvals = (approvalsData || []) as ApprovalRow[];
   const posts = (postsData || []) as SocialPostOption[];
   const assets = (assetsData || []) as SocialAssetOption[];
+  const versions = (versionsData || []) as CampaignVersionRow[];
 
   const isApproved =
     campaign.status === "approved" ||
@@ -347,6 +514,11 @@ export default async function AdminSocialAdsDetailPage({
             </p>
           </div>
         </section>
+
+        <CampaignVersionsSection
+          versions={versions}
+          currentCampaignId={campaign.id}
+        />
 
         {isEditable ? (
           <AdminSocialAdEditForm
