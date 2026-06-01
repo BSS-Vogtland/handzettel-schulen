@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   BadgeEuro,
-  CalendarClock,
   ExternalLink,
   ShieldCheck,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialAdApprovalBox from "@/components/AdminSocialAdApprovalBox";
+import AdminSocialAdEditForm from "@/components/AdminSocialAdEditForm";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,8 @@ type CampaignRow = {
   platform: string;
   objective: string;
   campaign_name: string;
+  post_id: string | null;
+  asset_id: string | null;
   ad_headline: string | null;
   ad_text: string | null;
   landing_page_url: string | null;
@@ -43,6 +45,18 @@ type ApprovalRow = {
   approved_by_name: string;
   approved_by_email: string | null;
   approval_text: string;
+};
+
+type SocialPostOption = {
+  id: string;
+  topic: string;
+  hook: string;
+};
+
+type SocialAssetOption = {
+  id: string;
+  post_id: string;
+  public_url: string | null;
 };
 
 function formatEuro(cents: number | null) {
@@ -101,6 +115,91 @@ function getPlatformLabel(platform: string) {
   }
 }
 
+function ReadOnlyCampaignDetails({ campaign }: { campaign: CampaignRow }) {
+  return (
+    <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+      <h2 className="text-2xl font-black text-[#102A43]">
+        Kampagnendetails
+      </h2>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Anzeigenheadline
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
+            {campaign.ad_headline || "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Landingpage
+          </p>
+          {campaign.landing_page_url ? (
+            <a
+              href={campaign.landing_page_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-2 text-sm font-black text-[#B5282D] hover:underline"
+            >
+              {campaign.landing_page_url}
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-[#102A43]">—</p>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Zielregion
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
+            {campaign.target_location || "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Platzierungen
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
+            {(campaign.placements || []).join(", ") || "—"}
+          </p>
+        </div>
+
+        <div className="lg:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Zielgruppe
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
+            {campaign.target_audience_description || "—"}
+          </p>
+        </div>
+
+        <div className="lg:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Anzeigentext
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
+            {campaign.ad_text || "—"}
+          </p>
+        </div>
+
+        <div className="lg:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+            Interne Notiz
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
+            {campaign.notes || "—"}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default async function AdminSocialAdsDetailPage({
   params,
 }: {
@@ -126,8 +225,34 @@ export default async function AdminSocialAdsDetailPage({
     .eq("campaign_id", id)
     .order("created_at", { ascending: false });
 
+  const { data: postsData } = await supabaseServer
+    .from("social_posts")
+    .select("id, topic, hook")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const { data: assetsData } = await supabaseServer
+    .from("social_assets")
+    .select("id, post_id, public_url")
+    .eq("asset_type", "image")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
   const approvals = (approvalsData || []) as ApprovalRow[];
-  const isApproved = campaign.status === "approved" || approvals.length > 0;
+  const posts = (postsData || []) as SocialPostOption[];
+  const assets = (assetsData || []) as SocialAssetOption[];
+
+  const isApproved =
+    campaign.status === "approved" ||
+    campaign.status === "ready_to_launch" ||
+    campaign.status === "launched" ||
+    campaign.status === "paused" ||
+    campaign.status === "ended" ||
+    approvals.length > 0;
+
+  const isEditable = !isApproved && ["draft", "review"].includes(campaign.status);
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -162,8 +287,9 @@ export default async function AdminSocialAdsDetailPage({
               </h1>
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
-                Hier wird die Kampagne geprüft und das Werbebudget aktiv
-                freigegeben. Noch wird keine echte Werbung geschaltet.
+                Kampagnendaten können vor der Freigabe bearbeitet werden. Nach
+                der Budgetfreigabe wird die Kampagne gesperrt, damit Budget,
+                Zielgruppe und Laufzeit nachvollziehbar bleiben.
               </p>
             </div>
 
@@ -208,86 +334,37 @@ export default async function AdminSocialAdsDetailPage({
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
-          <h2 className="text-2xl font-black text-[#102A43]">
-            Kampagnendetails
-          </h2>
+        {isEditable ? (
+          <AdminSocialAdEditForm
+            campaign={campaign}
+            posts={posts}
+            assets={assets}
+          />
+        ) : (
+          <>
+            <section className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-7">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Anzeigenheadline
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
-                {campaign.ad_headline || "—"}
-              </p>
-            </div>
+                <div>
+                  <h2 className="text-xl font-black text-emerald-950">
+                    Kampagne ist gesperrt
+                  </h2>
+                  <p className="mt-2 text-sm font-bold leading-6 text-emerald-900">
+                    Diese Kampagne wurde bereits freigegeben oder befindet sich
+                    nicht mehr im bearbeitbaren Entwurfsstatus. Änderungen an
+                    Budget, Zielgruppe oder Laufzeit sollten ab jetzt nur über
+                    eine neue Kampagnenversion erfolgen.
+                  </p>
+                </div>
+              </div>
+            </section>
 
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Landingpage
-              </p>
-              {campaign.landing_page_url ? (
-                <a
-                  href={campaign.landing_page_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 inline-flex items-center gap-2 text-sm font-black text-[#B5282D] hover:underline"
-                >
-                  {campaign.landing_page_url}
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              ) : (
-                <p className="mt-2 text-sm font-semibold text-[#102A43]">—</p>
-              )}
-            </div>
-
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Zielregion
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
-                {campaign.target_location || "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Platzierungen
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#102A43]">
-                {(campaign.placements || []).join(", ") || "—"}
-              </p>
-            </div>
-
-            <div className="lg:col-span-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Zielgruppe
-              </p>
-              <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-                {campaign.target_audience_description || "—"}
-              </p>
-            </div>
-
-            <div className="lg:col-span-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Anzeigentext
-              </p>
-              <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-                {campaign.ad_text || "—"}
-              </p>
-            </div>
-
-            <div className="lg:col-span-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
-                Interne Notiz
-              </p>
-              <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-                {campaign.notes || "—"}
-              </p>
-            </div>
-          </div>
-        </section>
+            <ReadOnlyCampaignDetails campaign={campaign} />
+          </>
+        )}
 
         <AdminSocialAdApprovalBox
           campaignId={campaign.id}
