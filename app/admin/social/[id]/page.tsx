@@ -7,6 +7,7 @@ import {
   ExternalLink,
   ImageIcon,
   Megaphone,
+  Share2,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialPostEditor from "@/components/AdminSocialPostEditor";
@@ -165,6 +166,14 @@ export default async function AdminSocialPostDetailPage({
                 >
                   Zum Adminbereich
                 </Link>
+
+                <Link
+                  href={`/admin/social/${post.id}/posting`}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-800 transition hover:bg-blue-100"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Posting vorbereiten
+                </Link>
               </div>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
@@ -178,8 +187,9 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Bilder sollen klar zur
-                Überschrift passen und nicht wie reine Hausaufgabenhilfe wirken.
+                Keywords sowie Bild- und Video-Prompts. Über „Posting
+                vorbereiten“ erhältst Du eine saubere Veröffentlichungsmappe mit
+                Copy-Buttons für TikTok, Instagram und Facebook.
               </p>
             </div>
 
@@ -209,7 +219,22 @@ export default async function AdminSocialPostDetailPage({
                     Geplant: {formatDateTime(post.scheduled_at)}
                   </div>
                 ) : null}
+
+                {post.published_at ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-[#A23A2E]" />
+                    Veröffentlicht: {formatDateTime(post.published_at)}
+                  </div>
+                ) : null}
               </div>
+
+              <Link
+                href={`/admin/social/${post.id}/posting`}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <Share2 className="h-4 w-4" />
+                Posting vorbereiten
+              </Link>
             </div>
           </div>
         </header>
@@ -240,10 +265,20 @@ export default async function AdminSocialPostDetailPage({
               ) : null}
             </div>
 
-            <AdminSocialImageGenerateButton
-              postId={post.id}
-              disabled={!post.image_prompt}
-            />
+            <div className="flex flex-col gap-3">
+              <AdminSocialImageGenerateButton
+                postId={post.id}
+                disabled={!post.image_prompt}
+              />
+
+              <Link
+                href={`/admin/social/${post.id}/posting`}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
+              >
+                <Share2 className="h-4 w-4" />
+                Zur Posting-Vorbereitung
+              </Link>
+            </div>
           </div>
 
           {assets.length === 0 ? (
@@ -258,7 +293,8 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
                 Sobald Du auf „Bild erzeugen“ klickst, wird das Bild hier
-                gespeichert und angezeigt.
+                gespeichert und angezeigt. Danach kannst Du es in der
+                Posting-Vorbereitung direkt nutzen.
               </p>
             </div>
           ) : (
