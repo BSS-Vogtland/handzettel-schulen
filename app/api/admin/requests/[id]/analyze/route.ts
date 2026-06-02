@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v3-lineature-0-8f";
+const ANALYZE_VERSION = "school-material-analyze-v4-checkbox-context-abbreviations";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -81,7 +81,7 @@ const materialSchema: Record<string, unknown> = {
           category: {
             type: ["string", "null"],
             description:
-              "Kategorie wie Heft, Hausaufgabenheft, Umschlag, Schnellhefter, Schreibblock, Zeichenblock, Zeichenkarton, Stift, Papier, Basteln.",
+              "Kategorie wie Heft, Rechenheft, Hausaufgabenheft, Umschlag, Mappe, Schnellhefter, Schreibblock, Zeichenblock, Zeichenkarton, Stift, Papier, Basteln.",
           },
           format: {
             type: ["string", "null"],
@@ -213,6 +213,17 @@ function normalizeText(value: unknown) {
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function stripCheckboxNoise(value: unknown) {
+  return String(value ?? "")
+    .replace(/^[\s\-–—*•]+/g, "")
+    .replace(/^(?:☐|□|▢|◻|❑|❒|✓|✔|x|\[ \]|\[\]|0)\s*/i, "")
+    .trim();
+}
+
+function getSearchableText(...values: unknown[]) {
+  return normalizeText(values.map((value) => stripCheckboxNoise(value)).join(" "));
 }
 
 function cleanNullableString(value: unknown) {
@@ -404,6 +415,14 @@ function normalizeLineature(value: unknown) {
     return "8f";
   }
 
+  if (
+    text.includes("blanko") ||
+    text.includes("unliniert") ||
+    text.includes("ohne lineatur")
+  ) {
+    return "0";
+  }
+
   if (text.includes("kariert") || text.includes("karriert")) return "28";
   if (text.includes("liniert")) return "liniert";
 
@@ -470,7 +489,7 @@ function getEffectiveLineature(...values: unknown[]) {
 }
 
 function classifyType(value: unknown) {
-  const text = normalizeText(value);
+  const text = getSearchableText(value);
 
   if (
     text.includes("umschlag") ||
@@ -486,9 +505,22 @@ function classifyType(value: unknown) {
   if (
     text.includes("hausaufgabenheft") ||
     text.includes("hausaufgaben") ||
-    text.includes("aufgabenheft")
+    text.includes("aufgabenheft") ||
+    text.includes("ha heft") ||
+    text.includes("haheft") ||
+    text.includes("hausaufg")
   ) {
     return "Hausaufgabenheft";
+  }
+
+  if (
+    text.includes("mappe") ||
+    text.includes("mappen") ||
+    text.includes("sammelmappe") ||
+    text.includes("eckspanner") ||
+    text.includes("gummizugmappe")
+  ) {
+    return "Mappe";
   }
 
   if (
@@ -541,7 +573,18 @@ function classifyType(value: unknown) {
   }
 
   if (
+    text.includes("rechenheft") ||
+    text.includes("rechenh") ||
+    text.includes("matheheft") ||
+    text.includes("math heft") ||
+    text.includes("mathe heft")
+  ) {
+    return "Heft";
+  }
+
+  if (
     text.includes("schreibheft") ||
+    text.includes("schreibh") ||
     text.includes("schulheft") ||
     text.includes("heft")
   ) {
@@ -608,7 +651,17 @@ function cleanNormalizedName(item: ExtractedItem, productType: string | null) {
   let name = base;
 
   if (productType === "Heft") {
-    name = "Schreibheft";
+    if (
+      normalizedBase.includes("rechenheft") ||
+      normalizedBase.includes("rechenh") ||
+      normalizedBase.includes("matheheft") ||
+      normalizedBase.includes("mathe heft") ||
+      normalizedBase.includes("math heft")
+    ) {
+      name = "Rechenheft";
+    } else {
+      name = "Schreibheft";
+    }
 
     if (format) {
       name += ` ${format}`;
@@ -628,6 +681,16 @@ function cleanNormalizedName(item: ExtractedItem, productType: string | null) {
 
     if (color) {
       name += ` ${color}`;
+    }
+  } else if (productType === "Mappe") {
+    name = "Mappe";
+
+    if (color) {
+      name += ` ${color}`;
+    }
+
+    if (format) {
+      name += ` ${format}`;
     }
   } else if (productType === "Schnellhefter") {
     name = normalizedBase.includes("schnellhefter") ? "Schnellhefter" : "Hefter";
@@ -913,10 +976,22 @@ export async function POST(_request: Request, context: RouteContext) {
               type: "input_text",
               text:
                 "Du bist ein extrem genauer Assistent für deutsche Schulmateriallisten. " +
-                "Du extrahierst nur echte Materialpositionen, keine Überschriften, keine Schule, keine Datenschutztexte, keine Preise. " +
-                "Du musst jede Materialposition vollständig als eigene Position erfassen. " +
-                "Die vollständige Originalzeile muss in rawText erhalten bleiben. " +
-                "Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
+                "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte Auflösung, Checkbox-Listen, mehrspaltige Listen oder eingerückte Kategorien sind. " +
+                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Überschriften und keine Dekoration. " +
+                "Du musst jede sichtbare Materialposition vollständig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
+                "Die vollständige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
+                "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie ☐, □, ▢, [ ], Häkchen, Aufzählungspunkte oder Streichpunkte ignorierst du für quantity. " +
+                "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: '☐ 2 dicke Bleistifte' bedeutet quantity 2, '☐ 1 blaue Mappe' bedeutet quantity 1. " +
+                "Kategorie-Regel: Überschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
+                "Wenn unter der Überschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
+                "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
+                "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
+                "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
+                "Hausaufgabenheft-Regel: Hausaufgabenheft, HA-Heft und Aufgabenheft niemals als normales Schreibheft interpretieren. " +
+                "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/Blöcke geht. " +
+                "Kariert-Regel: 'kariert' bedeutet lineature '28', wenn keine exakte Nummer angegeben ist. 'liniert' bedeutet lineature 'liniert', wenn keine exakte Nummer angegeben ist. " +
+                "Mehrspalten-Regel: Bei mehreren Spalten musst du alle sichtbaren Materialpositionen aus allen Spalten extrahieren. " +
+                "Störgrafiken, Stempel, Logos, Illustrationen und Randgrafiken ignorierst du. " +
                 "Beispiele: " +
                 "'40x Schreibheft A5 (Lineatur 0)' bedeutet lineature exakt '0'. Lineatur 0 ist NICHT unklar. " +
                 "'40x Schreibheft A5 (Lineatur 1)' bedeutet lineature exakt '1'. " +
@@ -936,12 +1011,16 @@ export async function POST(_request: Request, context: RouteContext) {
             {
               type: "input_text",
               text:
-                "Analysiere diese Schulmaterialliste. " +
-                "Extrahiere alle Materialpositionen strukturiert. " +
-                "Achte besonders auf Menge, Format, Lineatur, Farbe und Artikelart. " +
-                "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern. " +
-                "Lineatur 0 muss als lineature '0' gespeichert werden. " +
-                "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden.",
+                "Analysiere diese Schulmaterialliste vollständig. " +
+                "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerückten Kategorien. " +
+                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Überschriften. " +
+                "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern und sichtbarer Abkürzungen. " +
+                "Checkboxen oder Aufzählungszeichen sind keine Mengen. " +
+                "Wenn Text teilweise unsicher ist, extrahiere die plausible Materialposition trotzdem mit niedrigerer confidence, statt sie wegzulassen. " +
+                "Lineatur 0, blanko, unliniert oder ohne Lineatur muss als lineature '0' gespeichert werden. " +
+                "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden. " +
+                "Rechenh. bedeutet Rechenheft. Schreibh. bedeutet Schreibheft. HA-Heft bedeutet Hausaufgabenheft. " +
+                "Überschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext für die darunter stehenden Positionen.",
             },
             fileContentPart,
           ],
