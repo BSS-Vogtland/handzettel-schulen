@@ -13,9 +13,72 @@ import {
   updateShopCartItemQuantity,
 } from "../_lib/shopCart";
 
+type DiscountPreview = {
+  ok: boolean;
+  hasCampaign: boolean;
+  wouldApply: boolean;
+  subtotalAmount: number;
+  minimumOrderAmount: number | null;
+  missingAmount: number | null;
+  discountCampaignId: string | null;
+  discountName: string | null;
+  discountType: "percent" | "fixed_amount" | null;
+  discountValue: number | null;
+  discountAmount: number;
+  totalAfterDiscount: number;
+  message?: string;
+};
+
+function getDiscountLabel(preview: DiscountPreview | null) {
+  if (!preview?.hasCampaign || !preview.discountName) {
+    return "Rabatt";
+  }
+
+  if (preview.discountType === "percent" && preview.discountValue) {
+    return `${preview.discountName} (${preview.discountValue.toLocaleString(
+      "de-DE",
+      {
+        maximumFractionDigits: 2,
+      }
+    )} %)`;
+  }
+
+  if (preview.discountType === "fixed_amount" && preview.discountValue) {
+    return `${preview.discountName} (${formatShopPrice(preview.discountValue)})`;
+  }
+
+  return preview.discountName;
+}
+
+function getDiscountInfoText(preview: DiscountPreview | null) {
+  if (!preview?.hasCampaign) {
+    return null;
+  }
+
+  if (preview.wouldApply && preview.discountAmount > 0) {
+    return `Rabatt aktiv: Du sparst ${formatShopPrice(preview.discountAmount)}.`;
+  }
+
+  if (
+    preview.minimumOrderAmount !== null &&
+    preview.missingAmount !== null &&
+    preview.missingAmount > 0
+  ) {
+    return `Noch ${formatShopPrice(
+      preview.missingAmount
+    )} bis zum Rabatt "${preview.discountName}".`;
+  }
+
+  return `Rabattaktion "${preview.discountName}" ist aktiv, greift aber für diesen Warenkorb noch nicht.`;
+}
+
 export default function ShopCartPage() {
   const [cartItems, setCartItems] = useState<ShopCartItem[]>([]);
   const [lastActionMessage, setLastActionMessage] = useState<string | null>(null);
+  const [discountPreview, setDiscountPreview] = useState<DiscountPreview | null>(
+    null
+  );
+  const [isLoadingDiscountPreview, setIsLoadingDiscountPreview] = useState(false);
 
   useEffect(() => {
     setCartItems(readShopCart());
@@ -41,6 +104,65 @@ export default function ShopCartPage() {
     return getShopCartSubtotal(cartItems);
   }, [cartItems]);
 
+  const discountAmount = discountPreview?.wouldApply
+    ? discountPreview.discountAmount
+    : 0;
+
+  const totalBeforeShipping = discountPreview?.hasCampaign
+    ? discountPreview.totalAfterDiscount
+    : subtotal;
+
+  const discountInfoText = getDiscountInfoText(discountPreview);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadDiscountPreview() {
+      if (cartItems.length === 0) {
+        setDiscountPreview(null);
+        return;
+      }
+
+      setIsLoadingDiscountPreview(true);
+
+      try {
+        const response = await fetch(
+          `/api/shop/discount-preview?subtotal=${encodeURIComponent(
+            subtotal.toFixed(2)
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const result = (await response.json()) as DiscountPreview;
+
+        if (!isCancelled) {
+          if (response.ok && result.ok) {
+            setDiscountPreview(result);
+          } else {
+            setDiscountPreview(null);
+          }
+        }
+      } catch {
+        if (!isCancelled) {
+          setDiscountPreview(null);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingDiscountPreview(false);
+        }
+      }
+    }
+
+    void loadDiscountPreview();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [cartItems.length, subtotal]);
+
   function showTemporaryMessage(message: string) {
     setLastActionMessage(message);
 
@@ -52,7 +174,7 @@ export default function ShopCartPage() {
   function handleDecreaseQuantity(item: ShopCartItem) {
     const nextCart = updateShopCartItemQuantity(
       item.productId,
-      item.quantity - 1,
+      item.quantity - 1
     );
 
     setCartItems(nextCart);
@@ -68,7 +190,7 @@ export default function ShopCartPage() {
   function handleIncreaseQuantity(item: ShopCartItem) {
     const nextCart = updateShopCartItemQuantity(
       item.productId,
-      item.quantity + 1,
+      item.quantity + 1
     );
 
     setCartItems(nextCart);
@@ -84,7 +206,7 @@ export default function ShopCartPage() {
 
   function handleClearCart() {
     const confirmed = window.confirm(
-      "Möchtest Du den gesamten Warenkorb wirklich leeren?",
+      "Möchtest Du den gesamten Warenkorb wirklich leeren?"
     );
 
     if (!confirmed) {
@@ -93,6 +215,7 @@ export default function ShopCartPage() {
 
     clearShopCart();
     setCartItems([]);
+    setDiscountPreview(null);
     showTemporaryMessage("Der Warenkorb wurde geleert.");
   }
 
@@ -144,6 +267,18 @@ export default function ShopCartPage() {
                 </p>
               </div>
             </div>
+
+            {discountPreview?.hasCampaign ? (
+              <div
+                className={`mt-5 rounded-2xl p-4 text-sm font-bold leading-6 ring-1 ${
+                  discountPreview.wouldApply
+                    ? "bg-[#e7f7ec] text-[#246b3a] ring-[#bfe7c9]"
+                    : "bg-[#fff8ea] text-[#8a5a00] ring-[#f1d7a3]"
+                }`}
+              >
+                {discountInfoText}
+              </div>
+            ) : null}
 
             <div className="mt-5 rounded-2xl bg-[#e7f7ec] p-4 text-sm font-bold leading-6 text-[#246b3a] ring-1 ring-[#bfe7c9]">
               Im nächsten Schritt gibst Du Deine Daten ein. Danach läuft alles
@@ -337,9 +472,46 @@ export default function ShopCartPage() {
                   <span>{formatShopPrice(subtotal)}</span>
                 </div>
 
+                {discountPreview?.hasCampaign ? (
+                  <div className="border-b border-[#eadfce] pb-4">
+                    <div className="flex items-center justify-between gap-4 text-sm font-bold text-[#4c5870]">
+                      <span>{getDiscountLabel(discountPreview)}</span>
+                      <span
+                        className={
+                          discountPreview.wouldApply
+                            ? "text-[#246b3a]"
+                            : "text-[#8a5a00]"
+                        }
+                      >
+                        {discountPreview.wouldApply
+                          ? `-${formatShopPrice(discountAmount)}`
+                          : "noch nicht aktiv"}
+                      </span>
+                    </div>
+
+                    {discountInfoText ? (
+                      <p
+                        className={`mt-3 rounded-2xl px-4 py-3 text-sm font-bold leading-6 ${
+                          discountPreview.wouldApply
+                            ? "bg-[#e7f7ec] text-[#246b3a] ring-1 ring-[#bfe7c9]"
+                            : "bg-[#fff8ea] text-[#8a5a00] ring-1 ring-[#f1d7a3]"
+                        }`}
+                      >
+                        {discountInfoText}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {isLoadingDiscountPreview ? (
+                  <div className="border-b border-[#eadfce] pb-4 text-sm font-bold text-[#7a8496]">
+                    Rabatt wird geprüft...
+                  </div>
+                ) : null}
+
                 <div className="flex items-center justify-between text-lg font-black text-[#172033]">
                   <span>Gesamt vor Versand</span>
-                  <span>{formatShopPrice(subtotal)}</span>
+                  <span>{formatShopPrice(totalBeforeShipping)}</span>
                 </div>
               </div>
 
