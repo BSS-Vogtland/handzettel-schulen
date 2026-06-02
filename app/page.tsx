@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import UploadForm from "@/components/UploadForm";
 import LegalFooter from "@/components/LegalFooter";
@@ -15,7 +16,9 @@ import {
   Play,
   School,
   ShieldCheck,
+  ShoppingCart,
   Sparkles,
+  Store,
   UsersRound,
   Video,
 } from "lucide-react";
@@ -86,7 +89,7 @@ const structuredData = {
   url: "https://www.handzettel-schulen.de",
   logo: "https://www.handzettel-schulen.de/handzettel-logo.png",
   description:
-    "Schulmaterialliste oder Handzettel der Schule online hochladen und persönlichen Schulmaterial-Paketwunsch vorbereiten lassen.",
+    "Schulmaterialliste oder Handzettel der Schule online hochladen, persönlichen Schulmaterial-Paketwunsch vorbereiten lassen oder Schulartikel direkt im Shop nachkaufen.",
   brand: {
     "@type": "Brand",
     name: "Handzettel-Schulen.de",
@@ -95,18 +98,27 @@ const structuredData = {
     "@type": "Country",
     name: "Deutschland",
   },
-  makesOffer: {
-    "@type": "Offer",
-    name: "Schulmaterialliste hochladen und Schulpaket vorbereiten lassen",
-    description:
-      "Eltern laden ihre Schulmaterialliste als Foto, Screenshot oder PDF hoch. Handzettel-Schulen.de bereitet daraus einen persönlichen Paketwunsch vor.",
-  },
+  makesOffer: [
+    {
+      "@type": "Offer",
+      name: "Schulmaterialliste hochladen und Schulpaket vorbereiten lassen",
+      description:
+        "Eltern laden ihre Schulmaterialliste als Foto, Screenshot oder PDF hoch. Handzettel-Schulen.de bereitet daraus einen persönlichen Paketwunsch vor.",
+    },
+    {
+      "@type": "Offer",
+      name: "Schulmaterial direkt online nachkaufen",
+      description:
+        "Eltern können einzelne Schulartikel im Shop suchen, in den Warenkorb legen und über die bestehende Rechnung und Zahlung abschließen.",
+    },
+  ],
 };
 
 const cardBackgrounds = {
   upload: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82)), radial-gradient(circle at 82% 22%, rgba(18,57,95,0.20), transparent 32%), radial-gradient(circle at 86% 84%, rgba(181,40,45,0.16), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23fff7ec'/%3E%3Cg opacity='0.70'%3E%3Crect x='232' y='38' width='118' height='154' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M256 76h70M256 102h54M256 128h68M256 154h42' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.65'/%3E%3Cpath d='M196 184c26-42 60-42 86 0' fill='none' stroke='%23b5282d' stroke-width='10' stroke-linecap='round'/%3E%3Cpath d='M238 116v60M210 146h56' stroke='%232f7d50' stroke-width='11' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
   products: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 84% 18%, rgba(47,125,80,0.18), transparent 34%), radial-gradient(circle at 88% 84%, rgba(167,91,40,0.18), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23eef8f1'/%3E%3Cg opacity='0.76'%3E%3Crect x='218' y='62' width='58' height='112' rx='12' fill='%23ffffff' stroke='%2312395f' stroke-width='4'/%3E%3Crect x='286' y='78' width='58' height='96' rx='12' fill='%23ffffff' stroke='%23b5282d' stroke-width='4'/%3E%3Crect x='250' y='184' width='112' height='28' rx='14' fill='%23a75b28' opacity='0.25'/%3E%3Cpath d='M234 96h24M234 120h24M234 144h18M302 110h24M302 136h18' stroke='%23102a43' stroke-width='6' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='190' cy='130' r='34' fill='%232f7d50' opacity='0.25'/%3E%3Cpath d='M176 130l10 10 22-25' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E")`,
   review: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 82% 18%, rgba(181,40,45,0.15), transparent 33%), radial-gradient(circle at 88% 82%, rgba(18,57,95,0.17), transparent 32%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23f7f1e9'/%3E%3Cg opacity='0.76'%3E%3Crect x='230' y='70' width='126' height='96' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M252 110h76M252 136h52' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='210' cy='116' r='38' fill='%23fff' stroke='%232f7d50' stroke-width='5'/%3E%3Cpath d='M192 116l13 13 27-32' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='276' y='178' width='88' height='34' rx='17' fill='%23b5282d' opacity='0.20'/%3E%3C/g%3E%3C/svg%3E")`,
+  shop: `linear-gradient(90deg, rgba(255,255,255,0.96), rgba(255,255,255,0.82)), radial-gradient(circle at 82% 18%, rgba(181,40,45,0.18), transparent 32%), radial-gradient(circle at 88% 84%, rgba(47,125,80,0.18), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23fff7ec'/%3E%3Cg opacity='0.78'%3E%3Cpath d='M230 92h112l-14 76H246z' fill='%23ffffff' stroke='%2312395f' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M246 92l-16-38h-38' fill='none' stroke='%2312395f' stroke-width='7' stroke-linecap='round'/%3E%3Ccircle cx='260' cy='192' r='12' fill='%23b5282d'/%3E%3Ccircle cx='314' cy='192' r='12' fill='%23b5282d'/%3E%3Crect x='180' y='116' width='48' height='64' rx='10' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M192 140h24M192 158h18' stroke='%232f7d50' stroke-width='6' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
 } as const;
 
 type CardBackground = keyof typeof cardBackgrounds;
@@ -147,6 +159,9 @@ export default function Home() {
             <a href="#ablauf" className="transition hover:text-[#B5282D]">
               So funktioniert’s
             </a>
+            <Link href="/shop" className="transition hover:text-[#B5282D]">
+              Shop
+            </Link>
             <a href="#vertrauen" className="transition hover:text-[#B5282D]">
               Sicherheit
             </a>
@@ -201,12 +216,20 @@ export default function Home() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
-              href="#ablauf"
-              className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
+              href="#upload"
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-6 py-4 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#102A43]"
             >
-              So funktioniert es
+              Materialliste hochladen
               <ArrowRight className="h-5 w-5" />
             </a>
+
+            <Link
+              href="/shop"
+              className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-bold text-[#102A43] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
+            >
+              Direkt zum Shop
+              <ShoppingCart className="h-5 w-5" />
+            </Link>
           </div>
 
           <div className="mt-8 grid gap-3 text-sm font-semibold text-[#40566D] sm:grid-cols-3">
@@ -267,6 +290,85 @@ export default function Home() {
             text="Du entscheidest selbst, wann Du Deinen Paketwunsch absendest. Vorher ist nichts automatisch bestellt."
             background="review"
           />
+        </div>
+      </section>
+
+      <section
+        id="shop"
+        className="border-b border-[#E8DED2] bg-[#FBF7F0] px-5 py-14 lg:px-8"
+      >
+        <div
+          className="mx-auto grid max-w-7xl gap-8 overflow-hidden rounded-[36px] border border-[#E8DED2] bg-white bg-cover bg-center p-6 shadow-sm md:p-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center"
+          style={{ backgroundImage: cardBackgrounds.shop }}
+        >
+          <div>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#FFF2E6] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28] ring-1 ring-[#F0D7C2]">
+              <Store className="h-4 w-4" />
+              Neu: Schulmaterial-Shop
+            </div>
+
+            <h2 className="font-serif text-3xl font-black leading-tight text-[#102A43] sm:text-4xl">
+              Einzelne Schulartikel direkt kaufen oder nachbestellen.
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[#40566D]">
+              Du brauchst nur einzelne Hefte, Blöcke, Umschläge, Mappen oder
+              Ersatzartikel? Dann kannst Du direkt im Shop suchen, Produkte in
+              den Warenkorb legen und über die bestehende Rechnung und Zahlung
+              abschließen.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <ShopPoint text="Ideal für Nachkäufe einzelner Artikel" />
+              <ShopPoint text="Warenkorb mit Rechnung & Zahlung" />
+              <ShopPoint text="Rabattaktionen werden berücksichtigt" />
+              <ShopPoint text="Abholung oder Versand möglich" />
+            </div>
+          </div>
+
+          <div className="rounded-[30px] border border-[#D8C8B8] bg-white/90 p-5 shadow-sm backdrop-blur">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-[#102A43] text-white">
+                <ShoppingCart className="h-7 w-7" />
+              </div>
+
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-[#B5282D]">
+                  Direkt einkaufen
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-[#102A43]">
+                  Schulmaterial-Shop öffnen
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                  Suche einzelne Produkte selbst aus und lege sie direkt in den
+                  Warenkorb. Perfekt, wenn Du keine komplette Liste hochladen
+                  möchtest.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl bg-[#F0FFF6] p-4 text-sm font-bold leading-6 text-[#2F7D50] ring-1 ring-[#BFE3CD]">
+              Tipp: Auch Artikel aus einem früheren Paketwunsch können später
+              schnell nachgekauft werden.
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/shop"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-6 py-4 text-base font-black text-white shadow-sm transition hover:bg-[#B5282D]"
+              >
+                Zum Shop
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+
+              <a
+                href="#upload"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-6 py-4 text-base font-black text-[#102A43] transition hover:border-[#B5282D] hover:bg-[#FFF8EE]"
+              >
+                Liste hochladen
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -656,6 +758,15 @@ function Benefit({ title, text }: { title: string; text: string }) {
 function TrustPoint({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm font-black text-[#102A43]">
+      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2F7D50]" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function ShopPoint({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-white/90 p-4 text-sm font-black text-[#102A43] ring-1 ring-[#E8DED2]">
       <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2F7D50]" />
       <span>{text}</span>
     </div>
