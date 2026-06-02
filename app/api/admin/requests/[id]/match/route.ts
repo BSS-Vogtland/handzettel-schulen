@@ -42,6 +42,9 @@ type ProductRow = {
   format?: string | null;
   color?: string | null;
   lineature?: string | null;
+  book_width_mm?: number | string | null;
+  book_height_mm?: number | string | null;
+  book_size_note?: string | null;
   active?: boolean | null;
 };
 
@@ -52,6 +55,12 @@ type AliasRow = {
   alias_text?: string | null;
   alias_name?: string | null;
   name?: string | null;
+};
+
+type BookDimensions = {
+  shortSideMm: number;
+  longSideMm: number;
+  label: string;
 };
 
 const MIN_VISIBLE_SCORE = 70;
@@ -152,6 +161,144 @@ function normalizeFormat(value: unknown) {
   return null;
 }
 
+function normalizeDimensionNumberToMm(
+  value: number,
+  unit: string | undefined,
+  partnerUnit: string | undefined
+) {
+  const normalizedUnit = String(unit || partnerUnit || "").toLowerCase();
+
+  if (normalizedUnit === "cm") {
+    return Math.round(value * 10);
+  }
+
+  if (normalizedUnit === "mm") {
+    return Math.round(value);
+  }
+
+  if (value < 100) {
+    return Math.round(value * 10);
+  }
+
+  return Math.round(value);
+}
+
+function makeBookDimensions(firstMm: number, secondMm: number): BookDimensions | null {
+  if (!Number.isFinite(firstMm) || !Number.isFinite(secondMm)) return null;
+  if (firstMm <= 0 || secondMm <= 0) return null;
+
+  const shortSideMm = Math.min(firstMm, secondMm);
+  const longSideMm = Math.max(firstMm, secondMm);
+
+  if (shortSideMm < 50 || longSideMm < 80) return null;
+
+  return {
+    shortSideMm,
+    longSideMm,
+    label: `${shortSideMm} x ${longSideMm} mm`,
+  };
+}
+
+function extractBookDimensionsMm(value: unknown): BookDimensions | null {
+  const rawText = String(value ?? "")
+    .toLowerCase()
+    .replace(/,/g, ".")
+    .replace(/×/g, "x")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!rawText) return null;
+
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*(mm|cm)?\s*(?:x|mal)\s*(\d+(?:\.\d+)?)\s*(mm|cm)?/,
+    /(\d+(?:\.\d+)?)\s*(mm|cm)\s+(?:hoch|breit)\s+(?:und\s+)?(\d+(?:\.\d+)?)\s*(mm|cm)\s+(?:hoch|breit)/,
+    /(\d+(?:\.\d+)?)\s*(mm|cm)?\s+(?:hoch|breit)\s+(?:und\s+)?(\d+(?:\.\d+)?)\s*(mm|cm)?\s+(?:hoch|breit)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = rawText.match(pattern);
+    if (!match) continue;
+
+    const first = Number(match[1]);
+    const firstUnit = match[2];
+    const second = Number(match[3]);
+    const secondUnit = match[4];
+
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    const firstMm = normalizeDimensionNumberToMm(first, firstUnit, secondUnit);
+    const secondMm = normalizeDimensionNumberToMm(second, secondUnit, firstUnit);
+
+    const dimensions = makeBookDimensions(firstMm, secondMm);
+    if (dimensions) return dimensions;
+  }
+
+  return null;
+}
+
+function getProductBookDimensions(product: ProductRow): BookDimensions | null {
+  const width = toNumber(product.book_width_mm, 0);
+  const height = toNumber(product.book_height_mm, 0);
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return makeBookDimensions(width, height);
+}
+
+function compareBookDimensions(input: {
+  requested: BookDimensions;
+  product: BookDimensions;
+}) {
+  const shortDiff = Math.abs(input.requested.shortSideMm - input.product.shortSideMm);
+  const longDiff = Math.abs(input.requested.longSideMm - input.product.longSideMm);
+
+  if (shortDiff <= 3 && longDiff <= 3) {
+    return {
+      compatible: true,
+      score: 45,
+      reason: `Buchmaß passt exakt: ${input.product.label}`,
+    };
+  }
+
+  if (shortDiff <= 10 && longDiff <= 10) {
+    return {
+      compatible: true,
+      score: 38,
+      reason: `Buchmaß passt mit kleiner Toleranz: ${input.product.label}`,
+    };
+  }
+
+  if (shortDiff <= 20 && longDiff <= 20) {
+    return {
+      compatible: true,
+      score: 28,
+      reason: `Buchmaß liegt im passenden Toleranzbereich: ${input.product.label}`,
+    };
+  }
+
+  const productIsSlightlyLarger =
+    input.product.shortSideMm >= input.requested.shortSideMm &&
+    input.product.longSideMm >= input.requested.longSideMm &&
+    input.product.shortSideMm - input.requested.shortSideMm <= 30 &&
+    input.product.longSideMm - input.requested.longSideMm <= 30;
+
+  if (productIsSlightlyLarger) {
+    return {
+      compatible: true,
+      score: 20,
+      reason: `Buchmaß passt als etwas größerer Umschlag: ${input.product.label}`,
+    };
+  }
+
+  return {
+    compatible: false,
+    score: 0,
+    reason: `Buchmaß passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
+  };
+}
+
 function extractDimensions(value: unknown) {
   const text = normalizeText(value).replace(/,/g, ".");
 
@@ -245,7 +392,6 @@ function normalizeLineature(value: unknown) {
     return "unknown";
   }
 
-  // Lineatur 0 ist eine echte eigene Lineatur.
   if (
     text === "0" ||
     text.includes("lineatur 0") ||
@@ -264,7 +410,6 @@ function normalizeLineature(value: unknown) {
     return "0";
   }
 
-  // Bei Euch wird Lineatur 8 als 8f geführt.
   if (
     text === "8" ||
     text === "8f" ||
@@ -339,6 +484,8 @@ function classifyType(value: unknown) {
     text.includes("umschlaege") ||
     text.includes("hefthuelle") ||
     text.includes("hefthuellen") ||
+    text.includes("buchhuelle") ||
+    text.includes("buchhulle") ||
     text.includes("huelle") ||
     text.includes("huellen")
   ) {
@@ -467,6 +614,8 @@ function buildItemText(item: RequestItem) {
 }
 
 function buildProductText(product: ProductRow, aliases: string[]) {
+  const bookDimensions = getProductBookDimensions(product);
+
   return [
     getProductName(product),
     getProductSku(product),
@@ -475,6 +624,8 @@ function buildProductText(product: ProductRow, aliases: string[]) {
     product.format,
     product.color,
     product.lineature,
+    bookDimensions ? bookDimensions.label : null,
+    product.book_size_note,
     ...aliases,
   ]
     .filter(Boolean)
@@ -497,7 +648,35 @@ function isColorSensitiveType(type: string | null) {
   return ["umschlag", "schnellhefter"].includes(type || "");
 }
 
+function isBookDimensionRelevant(params: {
+  itemText: string;
+  productText: string;
+  itemType: string | null;
+  productType: string | null;
+  itemDimensions: BookDimensions | null;
+}) {
+  if (!params.itemDimensions) return false;
+
+  const normalizedItemText = normalizeText(params.itemText);
+  const normalizedProductText = normalizeText(params.productText);
+
+  return (
+    params.itemType === "umschlag" ||
+    params.productType === "umschlag" ||
+    normalizedItemText.includes("buchumschlag") ||
+    normalizedItemText.includes("buchmass") ||
+    normalizedItemText.includes("buchma") ||
+    normalizedItemText.includes("buchhulle") ||
+    normalizedItemText.includes("buchhuelle") ||
+    normalizedProductText.includes("buchumschlag") ||
+    normalizedProductText.includes("buchhulle") ||
+    normalizedProductText.includes("buchhuelle")
+  );
+}
+
 function makeDuplicateKey(product: ProductRow) {
+  const bookDimensions = getProductBookDimensions(product);
+
   return normalizeForWords(
     [
       getProductName(product),
@@ -505,6 +684,7 @@ function makeDuplicateKey(product: ProductRow) {
       product.format,
       product.color,
       product.lineature,
+      bookDimensions ? bookDimensions.label : null,
     ]
       .filter(Boolean)
       .join(" ")
@@ -539,6 +719,10 @@ function calculateMatch(input: {
 
   const productLineature = normalizeLineature(productText);
 
+  const itemBookDimensions = extractBookDimensionsMm(itemText);
+  const productBookDimensions =
+    getProductBookDimensions(input.product) || extractBookDimensionsMm(productText);
+
   const reasons: string[] = [];
   let score = 0;
 
@@ -566,6 +750,32 @@ function calculateMatch(input: {
 
   if (itemType === "hausaufgabenheft" && productType !== "hausaufgabenheft") {
     return null;
+  }
+
+  if (
+    isBookDimensionRelevant({
+      itemText,
+      productText,
+      itemType,
+      productType,
+      itemDimensions: itemBookDimensions,
+    })
+  ) {
+    if (!itemBookDimensions || !productBookDimensions) {
+      return null;
+    }
+
+    const dimensionMatch = compareBookDimensions({
+      requested: itemBookDimensions,
+      product: productBookDimensions,
+    });
+
+    if (!dimensionMatch.compatible) {
+      return null;
+    }
+
+    score += dimensionMatch.score;
+    reasons.push(dimensionMatch.reason);
   }
 
   if (itemFormat) {
@@ -625,6 +835,7 @@ function calculateMatch(input: {
     "200x",
     "pappe",
     "cm",
+    "mm",
     "und",
     "hoch",
     "breit",
@@ -728,6 +939,13 @@ async function createRequestEvent(
   metadata?: Record<string, unknown>
 ) {
   const payloads = [
+    {
+      request_id: requestId,
+      event_type: eventType,
+      title: "Produktvorschläge berechnet",
+      description: message,
+      created_at: new Date().toISOString(),
+    },
     {
       request_id: requestId,
       event_type: eventType,
@@ -992,7 +1210,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu und strenger berechnet.",
+      "Produktvorschläge wurden neu berechnet. Buchmaße für Umschläge werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -1009,7 +1227,7 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          ? `Produktvorschläge wurden neu berechnet. Buchmaße für Umschläge werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
           : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {
