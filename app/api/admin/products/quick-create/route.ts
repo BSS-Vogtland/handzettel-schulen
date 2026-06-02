@@ -23,6 +23,9 @@ type ProductRow = {
   color?: string | null;
   lineature?: string | null;
   image_url?: string | null;
+  book_width_mm?: number | string | null;
+  book_height_mm?: number | string | null;
+  book_size_note?: string | null;
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -56,6 +59,22 @@ function toNumber(value: unknown, fallback = 0) {
 
   const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toOptionalInteger(value: unknown): number | null {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) return null;
+
+  const cleaned = raw.replace(/[^\d]/g, "");
+
+  if (!cleaned) return null;
+
+  const parsed = Number(cleaned);
+
+  if (!Number.isFinite(parsed)) return null;
+
+  return Math.max(0, Math.floor(parsed));
 }
 
 function normalizeText(value: unknown) {
@@ -102,6 +121,45 @@ function getProductPrice(product: ProductRow) {
   );
 }
 
+function getBookSizeAliases(input: {
+  productName: string;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string;
+}) {
+  const aliases: string[] = [];
+
+  if (!input.bookWidthMm || !input.bookHeightMm) {
+    return aliases;
+  }
+
+  const width = String(input.bookWidthMm);
+  const height = String(input.bookHeightMm);
+  const sizeLabel = `${width} x ${height} mm`;
+
+  aliases.push(
+    sizeLabel,
+    `${width} x ${height}`,
+    `${width} ${height}`,
+    `Buchmaß ${sizeLabel}`,
+    `Buchmass ${sizeLabel}`,
+    `Buchumschlag ${sizeLabel}`,
+    `Buchhülle ${sizeLabel}`,
+    `Umschlag ${sizeLabel}`,
+    `${input.productName} ${sizeLabel}`,
+    `${input.productName} ${width} x ${height}`
+  );
+
+  if (input.bookSizeNote) {
+    aliases.push(
+      `${input.productName} ${input.bookSizeNote}`,
+      `${sizeLabel} ${input.bookSizeNote}`
+    );
+  }
+
+  return aliases;
+}
+
 function buildAliasList(input: {
   productName: string;
   productSku: string;
@@ -111,6 +169,9 @@ function buildAliasList(input: {
   color: string;
   lineature: string;
   aliases: string;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string;
 }) {
   const manualAliases = input.aliases
     .split(/[\n,;]+/)
@@ -122,6 +183,12 @@ function buildAliasList(input: {
     `${input.productName} ${input.productSku}`,
     `${input.productType} ${input.format} ${input.color} ${input.lineature}`,
     `${input.category} ${input.format} ${input.color} ${input.lineature}`,
+    ...getBookSizeAliases({
+      productName: input.productName,
+      bookWidthMm: input.bookWidthMm,
+      bookHeightMm: input.bookHeightMm,
+      bookSizeNote: input.bookSizeNote,
+    }),
   ]
     .map((alias) => alias.trim().replace(/\s+/g, " "))
     .filter((alias) => alias.length >= 2);
@@ -220,6 +287,9 @@ async function createProductFlexible(
     lineature: string;
     aliases: string;
     imageUrl: string | null;
+    bookWidthMm: number | null;
+    bookHeightMm: number | null;
+    bookSizeNote: string;
   }
 ) {
   const matchKeywords = Array.from(
@@ -232,8 +302,14 @@ async function createProductFlexible(
       ...splitKeywords(input.color),
       ...splitKeywords(input.lineature),
       ...splitKeywords(input.aliases),
+      ...splitKeywords(input.bookWidthMm),
+      ...splitKeywords(input.bookHeightMm),
+      ...splitKeywords(input.bookSizeNote),
+      input.bookWidthMm && input.bookHeightMm
+        ? `${input.bookWidthMm}x${input.bookHeightMm}`
+        : "",
     ])
-  );
+  ).filter(Boolean);
 
   const payloadVariants = [
     {
@@ -246,6 +322,9 @@ async function createProductFlexible(
       color: input.color || null,
       lineature: input.lineature || null,
       image_url: input.imageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
       match_keywords: matchKeywords,
       active: true,
     },
@@ -259,6 +338,9 @@ async function createProductFlexible(
       color: input.color || null,
       lineature: input.lineature || null,
       image_url: input.imageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
       match_keywords: matchKeywords,
       active: true,
     },
@@ -268,6 +350,9 @@ async function createProductFlexible(
       price: input.productPrice,
       category: input.category || null,
       image_url: input.imageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
     },
     {
       name: input.productName,
@@ -308,20 +393,45 @@ async function createProductFlexible(
   );
 }
 
-async function updateExistingProductImage(
+async function updateExistingProductFlexible(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   productId: string,
-  imageUrl: string | null
+  input: {
+    imageUrl: string | null;
+    bookWidthMm: number | null;
+    bookHeightMm: number | null;
+    bookSizeNote: string;
+  }
 ) {
-  if (!imageUrl) return;
+  const now = new Date().toISOString();
 
-  await supabase
+  const fullPayload: Record<string, unknown> = {
+    book_width_mm: input.bookWidthMm,
+    book_height_mm: input.bookHeightMm,
+    book_size_note: input.bookSizeNote || null,
+    updated_at: now,
+  };
+
+  if (input.imageUrl) {
+    fullPayload.image_url = input.imageUrl;
+  }
+
+  const { error: fullUpdateError } = await supabase
     .from("school_products")
-    .update({
-      image_url: imageUrl,
-      updated_at: new Date().toISOString(),
-    })
+    .update(fullPayload)
     .eq("id", productId);
+
+  if (!fullUpdateError) return;
+
+  if (input.imageUrl) {
+    await supabase
+      .from("school_products")
+      .update({
+        image_url: input.imageUrl,
+        updated_at: now,
+      })
+      .eq("id", productId);
+  }
 }
 
 async function createAliasFlexible(
@@ -378,6 +488,10 @@ export async function POST(request: NextRequest) {
     const lineature = String(formData.get("lineature") || "").trim();
     const aliases = String(formData.get("aliases") || "").trim();
 
+    const bookWidthMm = toOptionalInteger(formData.get("bookWidthMm"));
+    const bookHeightMm = toOptionalInteger(formData.get("bookHeightMm"));
+    const bookSizeNote = String(formData.get("bookSizeNote") || "").trim();
+
     const imageFileValue = formData.get("productImage");
     const imageFile =
       imageFileValue instanceof File && imageFileValue.size > 0
@@ -394,6 +508,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      (bookWidthMm !== null && bookHeightMm === null) ||
+      (bookWidthMm === null && bookHeightMm !== null)
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          message:
+            "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
+        },
+        400
+      );
+    }
+
     const imageUrl = await uploadProductImage(supabase, imageFile);
 
     const existingProduct = await findExistingProductBySkuOrName(
@@ -403,9 +531,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (existingProduct) {
-      if (imageUrl) {
-        await updateExistingProductImage(supabase, existingProduct.id, imageUrl);
-      }
+      await updateExistingProductFlexible(supabase, existingProduct.id, {
+        imageUrl,
+        bookWidthMm,
+        bookHeightMm,
+        bookSizeNote,
+      });
 
       const aliasList = buildAliasList({
         productName,
@@ -416,6 +547,9 @@ export async function POST(request: NextRequest) {
         color,
         lineature,
         aliases,
+        bookWidthMm,
+        bookHeightMm,
+        bookSizeNote,
       });
 
       let aliasCount = 0;
@@ -441,9 +575,10 @@ export async function POST(request: NextRequest) {
           imageUrl: imageUrl || existingProduct.image_url || null,
         },
         aliasCount,
-        message: imageUrl
-          ? "Dieses Produkt existiert bereits. Bild und Suchbegriffe wurden aktualisiert."
-          : "Dieses Produkt existiert bereits. Zusätzliche Suchbegriffe wurden gespeichert.",
+        message:
+          imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
+            ? "Dieses Produkt existiert bereits. Bild, Buchmaße und Suchbegriffe wurden aktualisiert."
+            : "Dieses Produkt existiert bereits. Zusätzliche Suchbegriffe wurden gespeichert.",
       });
     }
 
@@ -458,6 +593,9 @@ export async function POST(request: NextRequest) {
       lineature,
       aliases,
       imageUrl,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
     });
 
     const aliasList = buildAliasList({
@@ -469,6 +607,9 @@ export async function POST(request: NextRequest) {
       color,
       lineature,
       aliases,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
     });
 
     let aliasCount = 0;
@@ -490,8 +631,8 @@ export async function POST(request: NextRequest) {
       },
       aliasCount,
       message: imageUrl
-        ? "Produkt wurde mit Bild angelegt und ist ab sofort verfügbar."
-        : "Produkt wurde angelegt und ist ab sofort verfügbar.",
+        ? "Produkt wurde mit Bild und optionalen Buchmaßen angelegt und ist ab sofort verfügbar."
+        : "Produkt wurde mit optionalen Buchmaßen angelegt und ist ab sofort verfügbar.",
     });
   } catch (error) {
     console.error("Quick product create error:", error);
