@@ -26,6 +26,9 @@ type ProductRow = {
   format?: string | null;
   color?: string | null;
   lineature?: string | null;
+  book_width_mm?: number | string | null;
+  book_height_mm?: number | string | null;
+  book_size_note?: string | null;
   image_url?: string | null;
   active?: boolean | null;
 };
@@ -37,6 +40,12 @@ type AliasRow = {
   alias_text?: string | null;
   alias_name?: string | null;
   name?: string | null;
+};
+
+type BookDimensions = {
+  shortSideMm: number;
+  longSideMm: number;
+  label: string;
 };
 
 const MAX_PRODUCTS = 3;
@@ -84,6 +93,7 @@ function normalizeSearch(value: unknown) {
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
+    .replace(/×/g, "x")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -127,6 +137,146 @@ function getWords(value: unknown) {
   return normalizeWords(value)
     .split(" ")
     .filter((word) => word.length >= 2);
+}
+
+function normalizeDimensionNumberToMm(
+  value: number,
+  unit: string | undefined,
+  partnerUnit: string | undefined
+) {
+  const normalizedUnit = String(unit || partnerUnit || "").toLowerCase();
+
+  if (normalizedUnit === "cm") {
+    return Math.round(value * 10);
+  }
+
+  if (normalizedUnit === "mm") {
+    return Math.round(value);
+  }
+
+  if (value < 100) {
+    return Math.round(value * 10);
+  }
+
+  return Math.round(value);
+}
+
+function makeBookDimensions(
+  firstMm: number,
+  secondMm: number
+): BookDimensions | null {
+  if (!Number.isFinite(firstMm) || !Number.isFinite(secondMm)) return null;
+  if (firstMm <= 0 || secondMm <= 0) return null;
+
+  const shortSideMm = Math.min(firstMm, secondMm);
+  const longSideMm = Math.max(firstMm, secondMm);
+
+  if (shortSideMm < 50 || longSideMm < 80) return null;
+
+  return {
+    shortSideMm,
+    longSideMm,
+    label: `${shortSideMm} x ${longSideMm} mm`,
+  };
+}
+
+function extractBookDimensionsMm(value: unknown): BookDimensions | null {
+  const rawText = String(value ?? "")
+    .toLowerCase()
+    .replace(/,/g, ".")
+    .replace(/×/g, "x")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!rawText) return null;
+
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*(mm|cm)?\s*(?:x|mal)\s*(\d+(?:\.\d+)?)\s*(mm|cm)?/,
+    /(\d+(?:\.\d+)?)\s*(mm|cm)\s+(?:hoch|breit)\s+(?:und\s+)?(\d+(?:\.\d+)?)\s*(mm|cm)\s+(?:hoch|breit)/,
+    /(\d+(?:\.\d+)?)\s*(mm|cm)?\s+(?:hoch|breit)\s+(?:und\s+)?(\d+(?:\.\d+)?)\s*(mm|cm)?\s+(?:hoch|breit)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = rawText.match(pattern);
+    if (!match) continue;
+
+    const first = Number(match[1]);
+    const firstUnit = match[2];
+    const second = Number(match[3]);
+    const secondUnit = match[4];
+
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    const firstMm = normalizeDimensionNumberToMm(first, firstUnit, secondUnit);
+    const secondMm = normalizeDimensionNumberToMm(second, secondUnit, firstUnit);
+
+    const dimensions = makeBookDimensions(firstMm, secondMm);
+    if (dimensions) return dimensions;
+  }
+
+  return null;
+}
+
+function getProductBookDimensions(product: ProductRow): BookDimensions | null {
+  const width = toNumber(product.book_width_mm, 0);
+  const height = toNumber(product.book_height_mm, 0);
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return makeBookDimensions(width, height);
+}
+
+function compareBookDimensions(input: {
+  requested: BookDimensions;
+  product: BookDimensions;
+}) {
+  const shortDiff = Math.abs(
+    input.requested.shortSideMm - input.product.shortSideMm
+  );
+  const longDiff = Math.abs(
+    input.requested.longSideMm - input.product.longSideMm
+  );
+
+  if (shortDiff <= 3 && longDiff <= 3) {
+    return {
+      compatible: true,
+      score: 55,
+    };
+  }
+
+  if (shortDiff <= 10 && longDiff <= 10) {
+    return {
+      compatible: true,
+      score: 48,
+    };
+  }
+
+  if (shortDiff <= 20 && longDiff <= 20) {
+    return {
+      compatible: true,
+      score: 38,
+    };
+  }
+
+  const productIsSlightlyLarger =
+    input.product.shortSideMm >= input.requested.shortSideMm &&
+    input.product.longSideMm >= input.requested.longSideMm &&
+    input.product.shortSideMm - input.requested.shortSideMm <= 30 &&
+    input.product.longSideMm - input.requested.longSideMm <= 30;
+
+  if (productIsSlightlyLarger) {
+    return {
+      compatible: true,
+      score: 28,
+    };
+  }
+
+  return {
+    compatible: false,
+    score: 0,
+  };
 }
 
 function normalizeFormat(value: unknown) {
@@ -328,6 +478,8 @@ function classifyType(value: unknown) {
     text.includes("umschlaege") ||
     text.includes("hefthuelle") ||
     text.includes("hefthuellen") ||
+    text.includes("buchhuelle") ||
+    text.includes("buchhulle") ||
     text.includes("huelle") ||
     text.includes("huellen")
   ) {
@@ -457,6 +609,8 @@ function getEffectiveQueryLineature(query: string) {
 }
 
 function getProductSearchText(product: ProductRow, aliases: string[]) {
+  const bookDimensions = getProductBookDimensions(product);
+
   return [
     getProductName(product),
     getProductSku(product),
@@ -465,6 +619,8 @@ function getProductSearchText(product: ProductRow, aliases: string[]) {
     product.format,
     product.color,
     product.lineature,
+    bookDimensions ? bookDimensions.label : null,
+    product.book_size_note,
     ...aliases,
   ]
     .filter(Boolean)
@@ -529,6 +685,32 @@ function productHasLineature(productText: string, lineature: string) {
   );
 }
 
+function isBookDimensionRelevant(params: {
+  queryText: string;
+  productText: string;
+  queryType: string | null;
+  productType: string | null;
+  queryDimensions: BookDimensions | null;
+}) {
+  if (!params.queryDimensions) return false;
+
+  const normalizedQueryText = normalizeSearch(params.queryText);
+  const normalizedProductText = normalizeSearch(params.productText);
+
+  return (
+    params.queryType === "umschlag" ||
+    params.productType === "umschlag" ||
+    normalizedQueryText.includes("buchumschlag") ||
+    normalizedQueryText.includes("buchmass") ||
+    normalizedQueryText.includes("buchma") ||
+    normalizedQueryText.includes("buchhulle") ||
+    normalizedQueryText.includes("buchhuelle") ||
+    normalizedProductText.includes("buchumschlag") ||
+    normalizedProductText.includes("buchhulle") ||
+    normalizedProductText.includes("buchhuelle")
+  );
+}
+
 function scoreProductSearch(input: {
   query: string;
   product: ProductRow;
@@ -547,9 +729,11 @@ function scoreProductSearch(input: {
     if (
       [
         "cm",
+        "mm",
         "und",
         "hoch",
         "breit",
+        "mal",
         "buchmass",
         "buchma",
         "buchmae",
@@ -559,6 +743,7 @@ function scoreProductSearch(input: {
     ) {
       return false;
     }
+
     return true;
   });
 
@@ -574,7 +759,13 @@ function scoreProductSearch(input: {
   const queryLineature = getEffectiveQueryLineature(queryText);
   const productLineature = normalizeLineature(productText);
 
+  const queryBookDimensions = extractBookDimensionsMm(queryText);
+  const productBookDimensions =
+    getProductBookDimensions(input.product) ||
+    extractBookDimensionsMm(productText);
+
   let score = 0;
+  let bookDimensionScoreApplied = false;
 
   if (queryType && productType && queryType !== productType) {
     return 0;
@@ -586,6 +777,32 @@ function scoreProductSearch(input: {
 
   if (queryType && productType && queryType === productType) {
     score += 45;
+  }
+
+  if (
+    isBookDimensionRelevant({
+      queryText,
+      productText,
+      queryType,
+      productType,
+      queryDimensions: queryBookDimensions,
+    })
+  ) {
+    if (!queryBookDimensions || !productBookDimensions) {
+      return 0;
+    }
+
+    const dimensionMatch = compareBookDimensions({
+      requested: queryBookDimensions,
+      product: productBookDimensions,
+    });
+
+    if (!dimensionMatch.compatible) {
+      return 0;
+    }
+
+    score += dimensionMatch.score;
+    bookDimensionScoreApplied = true;
   }
 
   if (normalizedQuery && normalizedProductName === normalizedQuery) {
@@ -605,11 +822,19 @@ function scoreProductSearch(input: {
   }
 
   if (queryFormat) {
-    if (!productFormat && isFormatSensitiveType(queryType || productType)) {
+    if (
+      !productFormat &&
+      isFormatSensitiveType(queryType || productType) &&
+      !bookDimensionScoreApplied
+    ) {
       return 0;
     }
 
-    if (productFormat && queryFormat !== productFormat) {
+    if (
+      productFormat &&
+      queryFormat !== productFormat &&
+      !bookDimensionScoreApplied
+    ) {
       return 0;
     }
 
@@ -831,6 +1056,8 @@ export async function GET(request: NextRequest, context: Params) {
       .slice(0, MAX_PRODUCTS)
       .map((entry) => {
         const product = entry.product;
+        const productAliases = aliasesByProduct.get(product.id) || [];
+        const productBookDimensions = getProductBookDimensions(product);
 
         return {
           id: product.id,
@@ -844,9 +1071,20 @@ export async function GET(request: NextRequest, context: Params) {
           color: product.color || null,
           lineature:
             normalizeLineature(product.lineature) ||
-            normalizeLineature(getProductSearchText(product, aliasesByProduct.get(product.id) || [])) ||
+            normalizeLineature(getProductSearchText(product, productAliases)) ||
             product.lineature ||
             null,
+          bookWidthMm:
+            product.book_width_mm !== null && product.book_width_mm !== undefined
+              ? toNumber(product.book_width_mm, 0)
+              : null,
+          bookHeightMm:
+            product.book_height_mm !== null &&
+            product.book_height_mm !== undefined
+              ? toNumber(product.book_height_mm, 0)
+              : null,
+          bookSizeNote: product.book_size_note || null,
+          bookSizeLabel: productBookDimensions ? productBookDimensions.label : null,
           score: entry.score,
         };
       });
