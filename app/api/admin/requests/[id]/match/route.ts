@@ -405,7 +405,10 @@ function normalizeLineature(value: unknown) {
     text.endsWith(" l0") ||
     text.includes("heft 0") ||
     text.includes("schreibheft 0") ||
-    text.includes("schulheft 0")
+    text.includes("schulheft 0") ||
+    text.includes("blanko") ||
+    text.includes("unliniert") ||
+    text.includes("ohne lineatur")
   ) {
     return "0";
   }
@@ -431,7 +434,10 @@ function normalizeLineature(value: unknown) {
     text.includes(" l8f") ||
     text.includes("l8f ") ||
     text.endsWith(" l8f") ||
-    text.includes("8 f")
+    text.includes("8 f") ||
+    text.includes("nr 8") ||
+    text.includes("nr. 8") ||
+    text.includes("nummer 8")
   ) {
     return "8f";
   }
@@ -467,7 +473,10 @@ function normalizeLineature(value: unknown) {
       text.includes(` l${entry} `) ||
       text.endsWith(` l${entry}`) ||
       text.includes(`l${entry} `) ||
-      text.endsWith(`l${entry}`)
+      text.endsWith(`l${entry}`) ||
+      text.includes(`nr ${entry}`) ||
+      text.includes(`nr. ${entry}`) ||
+      text.includes(`nummer ${entry}`)
     ) {
       return entry;
     }
@@ -495,9 +504,22 @@ function classifyType(value: unknown) {
   if (
     text.includes("hausaufgabenheft") ||
     text.includes("hausaufgaben") ||
-    text.includes("aufgabenheft")
+    text.includes("aufgabenheft") ||
+    text.includes("ha heft") ||
+    text.includes("haheft") ||
+    text.includes("ha hft")
   ) {
     return "hausaufgabenheft";
+  }
+
+  if (
+    text.includes("mappe") ||
+    text.includes("mappen") ||
+    text.includes("sammelmappe") ||
+    text.includes("eckspanner") ||
+    text.includes("gummizugmappe")
+  ) {
+    return "mappe";
   }
 
   if (
@@ -550,7 +572,18 @@ function classifyType(value: unknown) {
   }
 
   if (
+    text.includes("rechenheft") ||
+    text.includes("rechenh") ||
+    text.includes("matheheft") ||
+    text.includes("mathe heft") ||
+    text.includes("math heft")
+  ) {
+    return "heft";
+  }
+
+  if (
     text.includes("schreibheft") ||
+    text.includes("schreibh") ||
     text.includes("schulheft") ||
     text.includes("heft")
   ) {
@@ -593,9 +626,55 @@ function hasSpecificLineature(value: unknown) {
       text.includes(` l${lineature} `) ||
       text.endsWith(` l${lineature}`) ||
       text.includes(`l${lineature} `) ||
-      text.endsWith(`l${lineature}`)
+      text.endsWith(`l${lineature}`) ||
+      text.includes(`nr ${lineature}`) ||
+      text.includes(`nr. ${lineature}`) ||
+      text.includes(`nummer ${lineature}`)
     );
   });
+}
+
+function isRechenheftText(value: unknown) {
+  const text = normalizeText(value);
+
+  return (
+    text.includes("rechenheft") ||
+    text.includes("rechenh") ||
+    text.includes("matheheft") ||
+    text.includes("mathe heft") ||
+    text.includes("math heft")
+  );
+}
+
+function isSchreibheftText(value: unknown) {
+  const text = normalizeText(value);
+
+  return (
+    text.includes("schreibheft") ||
+    text.includes("schreibh") ||
+    text.includes("schulheft")
+  );
+}
+
+function isHausaufgabenheftText(value: unknown) {
+  const text = normalizeText(value);
+
+  return (
+    text.includes("hausaufgabenheft") ||
+    text.includes("hausaufgaben") ||
+    text.includes("aufgabenheft") ||
+    text.includes("ha heft") ||
+    text.includes("haheft") ||
+    text.includes("ha hft")
+  );
+}
+
+function getHeftSubtype(value: unknown) {
+  if (isHausaufgabenheftText(value)) return "hausaufgabenheft";
+  if (isRechenheftText(value)) return "rechenheft";
+  if (isSchreibheftText(value)) return "schreibheft";
+
+  return null;
 }
 
 function buildItemText(item: RequestItem) {
@@ -637,6 +716,7 @@ function isFormatSensitiveType(type: string | null) {
     "heft",
     "hausaufgabenheft",
     "umschlag",
+    "mappe",
     "schnellhefter",
     "schreibblock",
     "zeichenblock",
@@ -645,7 +725,7 @@ function isFormatSensitiveType(type: string | null) {
 }
 
 function isColorSensitiveType(type: string | null) {
-  return ["umschlag", "schnellhefter"].includes(type || "");
+  return ["umschlag", "mappe", "schnellhefter"].includes(type || "");
 }
 
 function isBookDimensionRelevant(params: {
@@ -714,7 +794,7 @@ function calculateMatch(input: {
   const itemLineature = normalizeLineature(
     `${input.item.lineature || ""} ${input.item.raw_text || ""} ${
       input.item.normalized_name || ""
-    }`
+    } ${input.item.notes || ""}`
   );
 
   const productLineature = normalizeLineature(productText);
@@ -722,6 +802,9 @@ function calculateMatch(input: {
   const itemBookDimensions = extractBookDimensionsMm(itemText);
   const productBookDimensions =
     getProductBookDimensions(input.product) || extractBookDimensionsMm(productText);
+
+  const itemHeftSubtype = getHeftSubtype(itemText);
+  const productHeftSubtype = getHeftSubtype(productText);
 
   const reasons: string[] = [];
   let score = 0;
@@ -742,6 +825,33 @@ function calculateMatch(input: {
   if (itemType && productType && itemType === productType) {
     score += 40;
     reasons.push(`Produkttyp passt: ${itemType}`);
+  }
+
+  if (itemType === "heft" || productType === "heft") {
+    if (itemHeftSubtype === "hausaufgabenheft" && productHeftSubtype !== "hausaufgabenheft") {
+      return null;
+    }
+
+    if (productHeftSubtype === "hausaufgabenheft" && itemHeftSubtype !== "hausaufgabenheft") {
+      return null;
+    }
+
+    if (itemHeftSubtype === "rechenheft" && productHeftSubtype && productHeftSubtype !== "rechenheft") {
+      return null;
+    }
+
+    if (itemHeftSubtype === "schreibheft" && productHeftSubtype === "rechenheft") {
+      return null;
+    }
+
+    if (itemHeftSubtype && productHeftSubtype && itemHeftSubtype === productHeftSubtype) {
+      score += 18;
+      reasons.push(`Heft-Unterart passt: ${itemHeftSubtype}`);
+    }
+
+    if (itemHeftSubtype === "rechenheft" && !productHeftSubtype && !isRechenheftText(productText)) {
+      return null;
+    }
   }
 
   if (itemType === "heft" && productType === "hausaufgabenheft") {
@@ -802,7 +912,7 @@ function calculateMatch(input: {
       return null;
     }
 
-    score += 25;
+    score += 28;
     reasons.push(`Farbe passt: ${itemColor}`);
   }
 
@@ -818,7 +928,7 @@ function calculateMatch(input: {
         return null;
       }
 
-      score += 30;
+      score += 32;
       reasons.push(`Lineatur passt: ${itemLineature}`);
     } else if (hasSpecificLineature(productText)) {
       return null;
@@ -844,6 +954,14 @@ function calculateMatch(input: {
     "buchmass",
     "buchma",
     "buchmae",
+    "produkttyp",
+    "analyse",
+    "version",
+    "wurde",
+    "als",
+    "eigenstaendige",
+    "erkannt",
+    "normalisiert",
   ]);
 
   const meaningfulSharedWords = itemWords.filter((word) => {
@@ -855,7 +973,7 @@ function calculateMatch(input: {
   const uniqueSharedWords = Array.from(new Set(meaningfulSharedWords));
 
   if (uniqueSharedWords.length > 0) {
-    const wordScore = Math.min(12, uniqueSharedWords.length * 3);
+    const wordScore = Math.min(15, uniqueSharedWords.length * 3);
     score += wordScore;
     reasons.push(`${uniqueSharedWords.length} gemeinsame Suchbegriffe`);
   }
@@ -866,7 +984,7 @@ function calculateMatch(input: {
     if (!normalizedAlias) continue;
 
     if (normalizedItemText.includes(normalizedAlias)) {
-      score += 12;
+      score += 15;
       reasons.push(`Alias passt: ${alias}`);
       break;
     }
@@ -877,7 +995,7 @@ function calculateMatch(input: {
     ).length;
 
     if (aliasHitCount >= 2) {
-      score += 8;
+      score += 10;
       reasons.push(`Alias teilweise passend: ${alias}`);
       break;
     }
@@ -889,8 +1007,13 @@ function calculateMatch(input: {
   );
 
   if (productName && itemName && productName.includes(itemName)) {
-    score += 10;
+    score += 12;
     reasons.push("Produktname enthält erkannte Position");
+  }
+
+  if (itemName && productName && itemName.includes(productName)) {
+    score += 10;
+    reasons.push("Erkannte Position enthält Produktname");
   }
 
   if (
@@ -910,6 +1033,15 @@ function calculateMatch(input: {
     return null;
   }
 
+  if (
+    itemType === "mappe" &&
+    itemColor &&
+    productColor &&
+    itemColor !== productColor
+  ) {
+    return null;
+  }
+
   if (normalizedItemText.includes("schreibheft")) {
     if (
       normalizedProductText.includes("hausaufgabenheft") ||
@@ -917,6 +1049,14 @@ function calculateMatch(input: {
     ) {
       return null;
     }
+  }
+
+  if (itemType === "mappe" && normalizedProductText.includes("schnellhefter")) {
+    return null;
+  }
+
+  if (itemType === "schnellhefter" && normalizedProductText.includes("mappe")) {
+    return null;
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
@@ -1210,7 +1350,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Buchmaße für Umschläge werden berücksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -1227,7 +1367,7 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Buchmaße für Umschläge werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          ? `Produktvorschläge wurden neu berechnet. Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
           : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {
