@@ -27,6 +27,7 @@ import AdminSendRequestReceivedMailButton from "@/components/AdminSendRequestRec
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
+import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -153,7 +154,9 @@ type EventRow = {
   request_id: string;
   event_type?: string | null;
   type?: string | null;
+  title?: string | null;
   message: string | null;
+  description?: string | null;
   metadata?: unknown;
   created_at: string | null;
 };
@@ -366,6 +369,10 @@ function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
   });
 }
 
+function getEventText(event: EventRow) {
+  return event.description || event.message || null;
+}
+
 export default async function AdminRequestDetailPage({ params }: Params) {
   const { id } = await params;
   const supabase = getSupabaseAdmin();
@@ -554,6 +561,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <RefreshCw className="h-4 w-4" />
               Aktualisieren
             </a>
+
+            <AdminRematchRequestButton requestId={request.id} itemCount={items.length} />
 
             {customerOfferUrl ? (
               <>
@@ -1024,98 +1033,55 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                               im Paketwunsch
                             </div>
                           ) : itemMatches.length === 0 ? (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF4E5] px-3 py-2 text-xs font-black text-[#A75B28]">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF8EE] px-3 py-2 text-xs font-black text-[#A75B28]">
                               <AlertTriangle className="h-4 w-4" />
                               manuell prüfen
                             </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-[#52616F]">
-                              offen
-                            </div>
-                          )}
+                          ) : null}
                         </div>
 
+                        {item.notes ? (
+                          <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
+                            {item.notes}
+                          </p>
+                        ) : null}
+
                         {selectedItems.length > 0 ? (
-                          <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
-                            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                              Paketposition
-                            </p>
+                          <div className="mt-4 grid gap-3">
+                            {selectedItems.map((selectedItem) => (
+                              <div
+                                key={selectedItem.id}
+                                className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4"
+                              >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                                      Im Paketwunsch
+                                    </p>
+                                    <p className="mt-1 font-black text-[#102A43]">
+                                      {selectedItem.product_name}
+                                    </p>
+                                    <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                                      {selectedItem.product_sku
+                                        ? `Art.-Nr.: ${selectedItem.product_sku}`
+                                        : "Ohne Art.-Nr."}
+                                    </p>
+                                  </div>
 
-                            <div className="grid gap-2">
-                              {selectedItems.map((selectedItem) => (
-                                <div
-                                  key={selectedItem.id}
-                                  className="rounded-xl bg-white p-3"
-                                >
-                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                      <p className="font-black text-[#102A43]">
-                                        {selectedItem.product_name}
-                                      </p>
-
-                                      <p className="text-xs font-semibold text-[#52616F]">
-                                        {selectedItem.product_sku
-                                          ? `Art.-Nr.: ${selectedItem.product_sku}`
-                                          : "Ohne Art.-Nr."}
-                                      </p>
-
-                                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                                        Menge: {toNumber(selectedItem.quantity, 1)}
-                                      </p>
-
-                                      {selectedItem.unit ? (
-                                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                                          Einheit: {selectedItem.unit}
-                                        </p>
-                                      ) : null}
-
-                                      {selectedItem.notes ? (
-                                        <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                                          Notiz: {selectedItem.notes}
-                                        </p>
-                                      ) : null}
-
-                                      {selectedItem.source === "admin_manual" ? (
-                                        <p className="mt-1 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#A75B28]">
-                                          manuell ergänzt
-                                        </p>
-                                      ) : null}
-                                    </div>
-
-                                    <div className="sm:text-right">
-                                      <p className="font-black text-[#102A43]">
-                                        {formatMoney(selectedItem.product_price)}
-                                      </p>
-
-                                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                                        Gesamt:{" "}
-                                        {formatMoney(
-                                          toNumber(selectedItem.quantity, 1) *
-                                            toNumber(selectedItem.product_price, 0)
-                                        )}
-                                      </p>
-
-                                      <AdminEditOfferItemForm
-                                        requestId={request.id}
-                                        itemId={selectedItem.id}
-                                        productName={selectedItem.product_name}
-                                        productSku={selectedItem.product_sku}
-                                        productPrice={selectedItem.product_price}
-                                        quantity={selectedItem.quantity}
-                                        unit={selectedItem.unit}
-                                        notes={selectedItem.notes}
-                                      />
-
-                                      <AdminDeleteOfferItemButton
-                                        requestId={request.id}
-                                        itemId={selectedItem.id}
-                                        productName={selectedItem.product_name}
-                                      />
-                                    </div>
+                                  <div className="text-left sm:text-right">
+                                    <p className="text-sm font-bold text-[#52616F]">
+                                      Menge: {toNumber(selectedItem.quantity, 1)}
+                                    </p>
+                                    <p className="text-lg font-black text-[#102A43]">
+                                      {formatMoney(
+                                        toNumber(selectedItem.quantity, 1) *
+                                          toNumber(selectedItem.product_price, 0)
+                                      )}
+                                    </p>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
                           </div>
                         ) : null}
 
@@ -1273,7 +1239,10 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                     >
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-black text-[#102A43]">
-                          {event.event_type || event.type || "Ereignis"}
+                          {event.title ||
+                            event.event_type ||
+                            event.type ||
+                            "Ereignis"}
                         </p>
 
                         <p className="text-xs font-bold text-[#52616F]">
@@ -1281,9 +1250,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         </p>
                       </div>
 
-                      {event.message ? (
+                      {getEventText(event) ? (
                         <p className="mt-2 text-sm leading-6 text-[#52616F]">
-                          {event.message}
+                          {getEventText(event)}
                         </p>
                       ) : null}
                     </div>
