@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   CreditCard,
   FileText,
+  Percent,
   School,
   ShieldCheck,
   Truck,
@@ -29,6 +30,13 @@ type InvoiceRow = {
 
   subtotal_amount: number | string | null;
   shipping_amount: number | string | null;
+
+  discount_campaign_id: string | null;
+  discount_name: string | null;
+  discount_type: string | null;
+  discount_value: number | string | null;
+  discount_amount: number | string | null;
+
   total_amount: number | string | null;
   currency: string | null;
 
@@ -104,6 +112,10 @@ function formatMoney(value: unknown) {
   }).format(toNumber(value, 0));
 }
 
+function formatNegativeMoney(value: unknown) {
+  return `-${formatMoney(Math.abs(toNumber(value, 0)))}`;
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -152,6 +164,31 @@ function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
   return "Noch nicht gewählt";
+}
+
+function getDiscountDescription(invoice: InvoiceRow) {
+  const discountName = invoice.discount_name?.trim();
+  const discountType = invoice.discount_type;
+  const discountValue = toNumber(invoice.discount_value, 0);
+
+  if (!discountName) {
+    return "Rabattaktion";
+  }
+
+  if (discountType === "percent" && discountValue > 0) {
+    return `Rabattaktion: ${discountName} (${discountValue.toLocaleString(
+      "de-DE",
+      {
+        maximumFractionDigits: 2,
+      }
+    )} %)`;
+  }
+
+  if (discountType === "fixed_amount" && discountValue > 0) {
+    return `Rabattaktion: ${discountName} (${formatMoney(discountValue)})`;
+  }
+
+  return `Rabattaktion: ${discountName}`;
 }
 
 function getNextStepText(params: {
@@ -243,6 +280,9 @@ export default async function InvoicePaymentPage({ params }: Params) {
     invoice.payment_status === "payment_received" ||
     invoice.payment_status === "cash_paid";
 
+  const discountAmount = toNumber(invoice.discount_amount, 0);
+  const hasDiscount = discountAmount > 0;
+
   const nextStepText = getNextStepText({
     isPaid,
     paymentStatus: invoice.payment_status,
@@ -282,6 +322,21 @@ export default async function InvoicePaymentPage({ params }: Params) {
                   </div>
                 </div>
               </div>
+
+              {hasDiscount ? (
+                <div className="mt-4 rounded-[24px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-[#A75B28]">
+                  <div className="flex items-start gap-3">
+                    <Percent className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="font-black">Rabatt wurde angewendet</p>
+                      <p className="mt-1 text-sm font-semibold leading-6">
+                        {getDiscountDescription(invoice)} · Du sparst{" "}
+                        {formatMoney(discountAmount)}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
@@ -294,6 +349,12 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
                 Gesamtbetrag inkl. Versandkosten, falls Versand gewählt wurde
               </p>
+
+              {hasDiscount ? (
+                <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm font-black text-[#2F7D50]">
+                  Rabatt berücksichtigt: {formatNegativeMoney(discountAmount)}
+                </p>
+              ) : null}
             </div>
           </div>
         </header>
@@ -328,8 +389,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
               {isShipping
                 ? "Die Versandkosten sind im Gesamtbetrag enthalten."
                 : isPickup
-                ? "Du holst Dein Paket im Laden ab."
-                : "Die Übergabeart ist noch nicht festgelegt."}
+                  ? "Du holst Dein Paket im Laden ab."
+                  : "Die Übergabeart ist noch nicht festgelegt."}
             </p>
           </div>
 
@@ -419,11 +480,24 @@ export default async function InvoicePaymentPage({ params }: Params) {
           )}
 
           <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <div>
                 <p className="text-xs font-bold text-[#52616F]">Paketbetrag</p>
                 <p className="mt-1 text-xl font-black text-[#102A43]">
                   {formatMoney(invoice.subtotal_amount)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-[#52616F]">
+                  {hasDiscount ? getDiscountDescription(invoice) : "Rabatt"}
+                </p>
+                <p
+                  className={`mt-1 text-xl font-black ${
+                    hasDiscount ? "text-[#2F7D50]" : "text-[#52616F]"
+                  }`}
+                >
+                  {hasDiscount ? formatNegativeMoney(discountAmount) : "—"}
                 </p>
               </div>
 
