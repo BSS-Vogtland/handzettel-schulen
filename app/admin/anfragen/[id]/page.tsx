@@ -28,6 +28,7 @@ import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
 import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
+import AdminReanalyzeRequestButton from "@/components/AdminReanalyzeRequestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -562,7 +563,16 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               Aktualisieren
             </a>
 
-            <AdminRematchRequestButton requestId={request.id} itemCount={items.length} />
+            <AdminReanalyzeRequestButton
+              requestId={request.id}
+              itemCount={items.length}
+              offerItemsCount={offerItems.length}
+            />
+
+            <AdminRematchRequestButton
+              requestId={request.id}
+              itemCount={items.length}
+            />
 
             {customerOfferUrl ? (
               <>
