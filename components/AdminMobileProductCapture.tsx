@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Camera,
   CheckCircle2,
@@ -35,6 +42,9 @@ type AliasInput = {
   format: string;
   color: string;
   lineature: string;
+  bookWidthMm: string;
+  bookHeightMm: string;
+  bookSizeNote: string;
 };
 
 function cleanValue(value: unknown) {
@@ -52,6 +62,16 @@ function normalizeValue(value: unknown) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeOptionalIntegerInput(value: string) {
+  const cleaned = cleanValue(value).replace(/[^\d]/g, "");
+
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned;
 }
 
 function uniqueList(values: string[]) {
@@ -86,12 +106,27 @@ function getBaseProductType(input: AliasInput) {
       "umschlag",
       "hefthuelle",
       "hefthuellen",
+      "buchumschlag",
+      "buchhuelle",
+      "buchhulle",
       "huelle",
       "huellen",
       "schutzumschlag",
     ])
   ) {
     return "umschlag";
+  }
+
+  if (
+    containsAny(combined, [
+      "buch",
+      "schulbuch",
+      "arbeitsbuch",
+      "arbeitsheft",
+      "lehrbuch",
+    ])
+  ) {
+    return "buch";
   }
 
   if (
@@ -153,6 +188,17 @@ function buildPart(...parts: Array<string | null | undefined>) {
   return parts.map(cleanValue).filter(Boolean).join(" ");
 }
 
+function getBookSizeLabel(input: AliasInput) {
+  const width = cleanValue(input.bookWidthMm);
+  const height = cleanValue(input.bookHeightMm);
+
+  if (!width || !height) {
+    return "";
+  }
+
+  return `${width} x ${height} mm`;
+}
+
 function generateRuleBasedAliases(input: AliasInput) {
   const productName = cleanValue(input.productName);
   const sku = cleanValue(input.productSku);
@@ -166,6 +212,11 @@ function generateRuleBasedAliases(input: AliasInput) {
     .replace(/^lin\.\s*/i, "")
     .trim();
 
+  const bookWidth = cleanValue(input.bookWidthMm);
+  const bookHeight = cleanValue(input.bookHeightMm);
+  const bookSizeLabel = getBookSizeLabel(input);
+  const bookSizeNote = cleanValue(input.bookSizeNote);
+
   const baseType = getBaseProductType(input);
   const aliases: string[] = [];
 
@@ -175,25 +226,82 @@ function generateRuleBasedAliases(input: AliasInput) {
   if (category && productName) aliases.push(`${category} ${productName}`);
   if (productType && productName) aliases.push(`${productType} ${productName}`);
 
+  if (bookSizeLabel) {
+    aliases.push(
+      buildPart(productName, bookSizeLabel),
+      buildPart(productName, bookWidth, "x", bookHeight),
+      buildPart(bookSizeLabel, productName),
+      buildPart(bookWidth, "x", bookHeight),
+      buildPart(bookWidth, bookHeight),
+      buildPart("Buchmaß", bookSizeLabel),
+      buildPart("Buchmass", bookSizeLabel)
+    );
+  }
+
+  if (bookSizeNote) {
+    aliases.push(buildPart(productName, bookSizeNote));
+  }
+
   if (baseType === "umschlag") {
     aliases.push(
       buildPart("Umschlag", format, color),
       buildPart("Heftumschlag", format, color),
+      buildPart("Buchumschlag", format, color),
+      buildPart("Buchhülle", format, color),
+      buildPart("Buch Hülle", format, color),
       buildPart("Hefthülle", format, color),
       buildPart("Heft Hülle", format, color),
       buildPart("Schutzumschlag", format, color),
       buildPart(format, "Umschlag", color),
       buildPart(color, "Umschlag", format)
     );
+
+    if (bookSizeLabel) {
+      aliases.push(
+        buildPart("Umschlag", bookSizeLabel, color),
+        buildPart("Buchumschlag", bookSizeLabel, color),
+        buildPart("Buchhülle", bookSizeLabel, color),
+        buildPart("Schutzumschlag", bookSizeLabel, color),
+        buildPart("Umschlag", bookWidth, "x", bookHeight, color),
+        buildPart("Buchumschlag", bookWidth, "x", bookHeight, color)
+      );
+    }
+  }
+
+  if (baseType === "buch") {
+    aliases.push(
+      buildPart("Buch", productName),
+      buildPart("Schulbuch", productName),
+      buildPart("Arbeitsbuch", productName),
+      buildPart("Arbeitsheft", productName),
+      buildPart("Buch", bookSizeLabel),
+      buildPart("Schulbuch", bookSizeLabel),
+      buildPart("Arbeitsheft", bookSizeLabel)
+    );
   }
 
   if (baseType === "heft") {
     aliases.push(
-      buildPart("Schulheft", format, lineature ? `Lineatur ${lineature}` : "", color),
-      buildPart("Schreibheft", format, lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart(
+        "Schulheft",
+        format,
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
+      buildPart(
+        "Schreibheft",
+        format,
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
       buildPart("Heft", format, lineature ? `Lineatur ${lineature}` : "", color),
       buildPart("Heft", format, lineature, color),
-      buildPart(format, "Heft", lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart(
+        format,
+        "Heft",
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
       buildPart("Lineatur", lineature, format),
       buildPart("Lin", lineature, format),
       buildPart("L", lineature, format)
@@ -292,10 +400,15 @@ function generateRuleBasedAliases(input: AliasInput) {
     buildPart(productName, color),
     buildPart(productName, lineature ? `Lineatur ${lineature}` : ""),
     buildPart(productName, format, color),
-    buildPart(productName, format, lineature ? `Lineatur ${lineature}` : "", color)
+    buildPart(
+      productName,
+      format,
+      lineature ? `Lineatur ${lineature}` : "",
+      color
+    )
   );
 
-  return uniqueList(aliases).slice(0, 30);
+  return uniqueList(aliases).slice(0, 36);
 }
 
 function formatFileSize(size: number) {
@@ -318,6 +431,9 @@ export default function AdminMobileProductCapture() {
   const [format, setFormat] = useState("");
   const [color, setColor] = useState("");
   const [lineature, setLineature] = useState("");
+  const [bookWidthMm, setBookWidthMm] = useState("");
+  const [bookHeightMm, setBookHeightMm] = useState("");
+  const [bookSizeNote, setBookSizeNote] = useState("");
   const [aliases, setAliases] = useState("");
   const [aliasesWereManuallyEdited, setAliasesWereManuallyEdited] =
     useState(false);
@@ -338,8 +454,22 @@ export default function AdminMobileProductCapture() {
       format,
       color,
       lineature,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
     });
-  }, [productName, productSku, category, productType, format, color, lineature]);
+  }, [
+    productName,
+    productSku,
+    category,
+    productType,
+    format,
+    color,
+    lineature,
+    bookWidthMm,
+    bookHeightMm,
+    bookSizeNote,
+  ]);
 
   useEffect(() => {
     if (aliasesWereManuallyEdited) return;
@@ -369,6 +499,9 @@ export default function AdminMobileProductCapture() {
     setFormat("");
     setColor("");
     setLineature("");
+    setBookWidthMm("");
+    setBookHeightMm("");
+    setBookSizeNote("");
     setAliases("");
     setAliasesWereManuallyEdited(false);
     setProductImage(null);
@@ -426,12 +559,21 @@ export default function AdminMobileProductCapture() {
 
     if (!category.trim()) {
       if (type === "heft") setCategory("Heft");
+      if (type === "buch") setCategory("Buch");
       if (type === "umschlag") setCategory("Umschlag");
       if (type === "schnellhefter") setCategory("Schnellhefter");
       if (type === "block") setCategory("Block");
       if (type === "mappe") setCategory("Mappe");
       if (type === "stift") setCategory("Stifte");
     }
+  }
+
+  function handleBookWidthChange(value: string) {
+    setBookWidthMm(normalizeOptionalIntegerInput(value));
+  }
+
+  function handleBookHeightChange(value: string) {
+    setBookHeightMm(normalizeOptionalIntegerInput(value));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -444,6 +586,16 @@ export default function AdminMobileProductCapture() {
 
     if (!productName.trim()) {
       setErrorMessage("Bitte gib einen Produktnamen ein.");
+      return;
+    }
+
+    const width = bookWidthMm.trim();
+    const height = bookHeightMm.trim();
+
+    if ((width && !height) || (!width && height)) {
+      setErrorMessage(
+        "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer."
+      );
       return;
     }
 
@@ -460,6 +612,9 @@ export default function AdminMobileProductCapture() {
       formData.append("format", format.trim());
       formData.append("color", color.trim());
       formData.append("lineature", lineature.trim());
+      formData.append("bookWidthMm", bookWidthMm.trim());
+      formData.append("bookHeightMm", bookHeightMm.trim());
+      formData.append("bookSizeNote", bookSizeNote.trim());
       formData.append("aliases", aliases.trim());
 
       if (productImage) {
@@ -526,7 +681,8 @@ export default function AdminMobileProductCapture() {
 
         <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
           Für schnelles Arbeiten am Handy: Foto aufnehmen, Produktname eintragen,
-          speichern, nächstes Produkt.
+          speichern, nächstes Produkt. Optional kannst Du Buchmaße für passende
+          Umschläge erfassen.
         </p>
       </div>
 
@@ -654,9 +810,10 @@ export default function AdminMobileProductCapture() {
             Schnell-Typ
           </p>
 
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
               { label: "Heft", value: "heft" },
+              { label: "Buch", value: "buch" },
               { label: "Umschlag", value: "umschlag" },
               { label: "Hefter", value: "schnellhefter" },
               { label: "Block", value: "block" },
@@ -746,6 +903,73 @@ export default function AdminMobileProductCapture() {
           </label>
         </section>
 
+        <section className="rounded-[28px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+          <div className="mb-3">
+            <div className="mb-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+              Optional
+            </div>
+
+            <h3 className="text-base font-black text-[#102A43]">
+              Buchmaße für passende Umschläge
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              Trage Breite und Höhe in Millimetern ein, wenn das Produkt ein
+              Buch, Arbeitsheft oder passender Buchumschlag ist. Beispiel:{" "}
+              <span className="font-black text-[#102A43]">230 x 440 mm</span>.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#102A43]">
+                Breite mm
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bookWidthMm}
+                onChange={(event) => handleBookWidthChange(event.target.value)}
+                placeholder="z. B. 230"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#102A43]">
+                Höhe mm
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bookHeightMm}
+                onChange={(event) => handleBookHeightChange(event.target.value)}
+                placeholder="z. B. 440"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="mb-2 block text-sm font-black text-[#102A43]">
+                Hinweis zum Buchmaß
+              </span>
+              <input
+                type="text"
+                value={bookSizeNote}
+                onChange={(event) => setBookSizeNote(event.target.value)}
+                placeholder="z. B. passend für großes Arbeitsbuch"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </label>
+          </div>
+
+          {bookWidthMm && bookHeightMm ? (
+            <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
+              Erfasstes Buchmaß: {bookWidthMm} x {bookHeightMm} mm
+            </div>
+          ) : null}
+        </section>
+
         <section className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
           <div className="mb-3 flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
@@ -757,8 +981,8 @@ export default function AdminMobileProductCapture() {
                 Suchbegriffe
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                Werden automatisch aus den Produktdaten erzeugt. Du kannst sie
-                bei Bedarf überschreiben.
+                Werden automatisch aus den Produktdaten erzeugt. Buchmaße werden
+                ebenfalls berücksichtigt. Du kannst sie bei Bedarf überschreiben.
               </p>
             </div>
           </div>
