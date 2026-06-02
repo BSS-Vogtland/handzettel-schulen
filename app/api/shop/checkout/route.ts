@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { findActiveDiscountCampaign, roundMoney } from "../../../lib/discountCampaigns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,10 +101,6 @@ function toNumber(value: unknown, fallback = 0) {
 
   const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function normalizeQuantity(value: unknown) {
@@ -212,6 +209,10 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
   return validItems;
 }
 
+function formatEuroForEvent(value: number) {
+  return value.toFixed(2).replace(".", ",");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await readBodySafely(request);
@@ -274,11 +275,25 @@ export async function POST(request: NextRequest) {
       }, 0)
     );
 
-    const totalAmount = roundMoney(subtotalAmount + shippingAmount);
+    const appliedDiscount = await findActiveDiscountCampaign({
+      supabase,
+      appliesTo: "shop",
+      subtotalAmount,
+    });
+
+    const discountAmount = roundMoney(appliedDiscount.discountAmount);
+    const totalAmount = roundMoney(
+      Math.max(0, subtotalAmount + shippingAmount - discountAmount)
+    );
 
     const messageParts = [
       "Shop-Bestellung über /shop.",
       customerMessage ? `Kundenhinweis: ${customerMessage}` : null,
+      appliedDiscount.discountName
+        ? `Automatisch angewendete Rabattaktion: ${appliedDiscount.discountName} (-${formatEuroForEvent(
+            discountAmount
+          )} EUR).`
+        : null,
       cartItems.some((item) => item.sourceType === "reorder_from_school_list")
         ? "Enthält Nachkauf-Artikel aus früherem Paketwunsch."
         : null,
@@ -304,6 +319,9 @@ export async function POST(request: NextRequest) {
           fulfillment_method: fulfillmentMethod,
 
           cash_on_pickup_allowed: fulfillmentMethod === "pickup",
+
+          discount_campaign_id: appliedDiscount.campaignId,
+          discount_amount: discountAmount,
 
           confirmed_at: now,
           updated_at: now,
@@ -421,6 +439,11 @@ export async function POST(request: NextRequest) {
 
         subtotal_amount: subtotalAmount,
         shipping_amount: shippingAmount,
+        discount_campaign_id: appliedDiscount.campaignId,
+        discount_name: appliedDiscount.discountName,
+        discount_type: appliedDiscount.discountType,
+        discount_value: appliedDiscount.discountValue,
+        discount_amount: discountAmount,
         total_amount: totalAmount,
         currency: "EUR",
 
@@ -440,7 +463,11 @@ export async function POST(request: NextRequest) {
             ? "Bürotechnik Schwalm & Staffe"
             : null,
 
-        admin_note: "Automatisch aus Shop-Warenkorb erzeugt.",
+        admin_note: appliedDiscount.discountName
+          ? `Automatisch aus Shop-Warenkorb erzeugt. Rabattaktion: ${
+              appliedDiscount.discountName
+            }, Rabattbetrag: ${formatEuroForEvent(discountAmount)} EUR.`
+          : "Automatisch aus Shop-Warenkorb erzeugt.",
       })
       .select("id, invoice_number, invoice_token, invoice_status, payment_status")
       .single();
@@ -473,7 +500,7 @@ export async function POST(request: NextRequest) {
     const invoiceItems = createdOfferItems.map((offerItem) => {
       const quantity = normalizeQuantity(offerItem.quantity);
       const unitPrice = roundMoney(toNumber(offerItem.product_price, 0));
-      const totalPrice = roundMoney(quantity * unitPrice);
+      const itemTotalPrice = roundMoney(quantity * unitPrice);
 
       return {
         invoice_id: invoice.id,
@@ -489,7 +516,7 @@ export async function POST(request: NextRequest) {
         unit: offerItem.unit,
 
         unit_price: unitPrice,
-        total_price: totalPrice,
+        total_price: itemTotalPrice,
 
         source: offerItem.source,
         notes: offerItem.notes,
@@ -518,6 +545,8 @@ export async function POST(request: NextRequest) {
         selected_payment_method: "paypal",
         latest_invoice_id: invoice.id,
         shipping_amount: shippingAmount,
+        discount_campaign_id: appliedDiscount.campaignId,
+        discount_amount: discountAmount,
         invoice_total_amount: totalAmount,
         updated_at: new Date().toISOString(),
       })
@@ -538,9 +567,21 @@ export async function POST(request: NextRequest) {
       requestId,
       eventType: "shop_order_created",
       title: "Shop-Bestellung erstellt",
-      description: `Shop-Bestellung mit ${cartItems.length} Positionen wurde erstellt. Gesamtbetrag: ${totalAmount
-        .toFixed(2)
-        .replace(".", ",")} EUR.`,
+      description: appliedDiscount.discountName
+        ? `Shop-Bestellung mit ${
+            cartItems.length
+          } Positionen wurde erstellt. Zwischensumme: ${formatEuroForEvent(
+            subtotalAmount
+          )} EUR, Rabatt: -${formatEuroForEvent(
+            discountAmount
+          )} EUR, Versand: ${formatEuroForEvent(
+            shippingAmount
+          )} EUR, Gesamtbetrag: ${formatEuroForEvent(totalAmount)} EUR.`
+        : `Shop-Bestellung mit ${
+            cartItems.length
+          } Positionen wurde erstellt. Gesamtbetrag: ${formatEuroForEvent(
+            totalAmount
+          )} EUR.`,
     });
 
     await insertRequestEvent({
@@ -548,11 +589,17 @@ export async function POST(request: NextRequest) {
       requestId,
       eventType: "invoice_draft_created",
       title: "Rechnung vorbereitet",
-      description: `Rechnung ${
-        invoice.invoice_number || ""
-      } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${totalAmount
-        .toFixed(2)
-        .replace(".", ",")} EUR.`,
+      description: appliedDiscount.discountName
+        ? `Rechnung ${
+            invoice.invoice_number || ""
+          } wurde für die Shop-Bestellung vorbereitet. Rabattaktion: ${
+            appliedDiscount.discountName
+          }. Gesamtbetrag: ${formatEuroForEvent(totalAmount)} EUR.`
+        : `Rechnung ${
+            invoice.invoice_number || ""
+          } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
+            totalAmount
+          )} EUR.`,
     });
 
     return NextResponse.json({
@@ -565,8 +612,15 @@ export async function POST(request: NextRequest) {
       redirectUrl: `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
       subtotalAmount,
       shippingAmount,
+      discountCampaignId: appliedDiscount.campaignId,
+      discountName: appliedDiscount.discountName,
+      discountType: appliedDiscount.discountType,
+      discountValue: appliedDiscount.discountValue,
+      discountAmount,
       totalAmount,
-      message: "Die Shop-Bestellung wurde erstellt.",
+      message: appliedDiscount.discountName
+        ? `Die Shop-Bestellung wurde erstellt. Rabattaktion "${appliedDiscount.discountName}" wurde angewendet.`
+        : "Die Shop-Bestellung wurde erstellt.",
     });
   } catch (error) {
     console.error("Shop checkout error:", error);
