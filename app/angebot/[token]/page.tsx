@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import CustomerPreparePackageButton from "@/components/CustomerPreparePackageButton";
+import CustomerRefreshProductsButton from "@/components/CustomerRefreshProductsButton";
 import CustomerSelectProductButton from "@/components/CustomerSelectProductButton";
 import ConfirmOfferButton from "@/components/ConfirmOfferButton";
 import CustomerProductSearch from "@/components/CustomerProductSearch";
@@ -1932,6 +1933,10 @@ export default async function CustomerOfferPage({ params }: Params) {
             </div>
 
             <aside className="sticky top-6 space-y-4">
+              {!isConfirmed && items.length > 0 ? (
+  <CustomerRefreshProductsButton token={token} />
+) : null}
+
               <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
