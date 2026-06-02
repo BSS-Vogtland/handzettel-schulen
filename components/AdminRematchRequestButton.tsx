@@ -29,7 +29,7 @@ export default function AdminRematchRequestButton({
 
     if (itemCount <= 0) {
       setErrorMessage(
-        "Es sind noch keine Materialpositionen erkannt. Bitte zuerst die Liste analysieren."
+        "Es sind noch keine Materialpositionen erkannt. Für diese Anfrage muss zuerst die Materialliste erneut analysiert werden."
       );
       return;
     }
@@ -89,7 +89,7 @@ export default function AdminRematchRequestButton({
       <button
         type="button"
         onClick={handleRematch}
-        disabled={isRunning || itemCount <= 0}
+        disabled={isRunning}
         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isRunning ? (
@@ -99,6 +99,12 @@ export default function AdminRematchRequestButton({
         )}
         {isRunning ? "Berechnet..." : "Vorschläge neu berechnen"}
       </button>
+
+      {itemCount <= 0 ? (
+        <p className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-3 py-2 text-xs font-bold leading-5 text-[#A75B28]">
+          Noch keine erkannten Positionen. Erst Liste analysieren, dann Vorschläge neu berechnen.
+        </p>
+      ) : null}
 
       {message ? (
         <p className="rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-3 py-2 text-xs font-bold leading-5 text-[#2F7D50]">
