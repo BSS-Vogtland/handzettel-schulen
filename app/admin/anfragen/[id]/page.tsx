@@ -29,6 +29,7 @@ import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
 import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
 import AdminReanalyzeRequestButton from "@/components/AdminReanalyzeRequestButton";
+import AdminAdoptSafeMatchesButton from "@/components/AdminAdoptSafeMatchesButton";
 
 export const dynamic = "force-dynamic";
 
@@ -570,6 +571,11 @@ export default async function AdminRequestDetailPage({ params }: Params) {
             />
 
             <AdminRematchRequestButton
+              requestId={request.id}
+              itemCount={items.length}
+            />
+
+            <AdminAdoptSafeMatchesButton
               requestId={request.id}
               itemCount={items.length}
             />
