@@ -34,6 +34,9 @@ type AliasInput = {
   format: string;
   color: string;
   lineature: string;
+  bookWidthMm: string;
+  bookHeightMm: string;
+  bookSizeNote: string;
 };
 
 function cleanValue(value: unknown) {
@@ -77,6 +80,16 @@ function containsAny(text: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
 
+function normalizeOptionalIntegerInput(value: string) {
+  const cleaned = cleanValue(value).replace(/[^\d]/g, "");
+
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned;
+}
+
 function getBaseProductType(input: AliasInput) {
   const combined = normalizeValue(
     `${input.productName} ${input.category} ${input.productType}`
@@ -90,9 +103,24 @@ function getBaseProductType(input: AliasInput) {
       "huelle",
       "huellen",
       "schutzumschlag",
+      "buchumschlag",
+      "buchhuelle",
+      "buchhülle",
     ])
   ) {
     return "umschlag";
+  }
+
+  if (
+    containsAny(combined, [
+      "arbeitsheft",
+      "arbeitsbuch",
+      "buch",
+      "schulbuch",
+      "lehrbuch",
+    ])
+  ) {
+    return "buch";
   }
 
   if (
@@ -154,6 +182,17 @@ function buildPart(...parts: Array<string | null | undefined>) {
   return parts.map(cleanValue).filter(Boolean).join(" ");
 }
 
+function getBookSizeLabel(input: AliasInput) {
+  const width = cleanValue(input.bookWidthMm);
+  const height = cleanValue(input.bookHeightMm);
+
+  if (!width || !height) {
+    return "";
+  }
+
+  return `${width} x ${height} mm`;
+}
+
 function generateRuleBasedAliases(input: AliasInput) {
   const productName = cleanValue(input.productName);
   const sku = cleanValue(input.productSku);
@@ -167,6 +206,11 @@ function generateRuleBasedAliases(input: AliasInput) {
     .replace(/^lin\.\s*/i, "")
     .trim();
 
+  const bookWidth = cleanValue(input.bookWidthMm);
+  const bookHeight = cleanValue(input.bookHeightMm);
+  const bookSizeLabel = getBookSizeLabel(input);
+  const bookSizeNote = cleanValue(input.bookSizeNote);
+
   const baseType = getBaseProductType(input);
   const aliases: string[] = [];
 
@@ -176,25 +220,81 @@ function generateRuleBasedAliases(input: AliasInput) {
   if (category && productName) aliases.push(`${category} ${productName}`);
   if (productType && productName) aliases.push(`${productType} ${productName}`);
 
+  if (bookSizeLabel) {
+    aliases.push(
+      buildPart(productName, bookSizeLabel),
+      buildPart(productName, bookWidth, bookHeight),
+      buildPart(bookSizeLabel, productName),
+      buildPart(bookWidth, "x", bookHeight),
+      buildPart(bookWidth, bookHeight),
+      buildPart("Buchmaß", bookSizeLabel),
+      buildPart("Buchmass", bookSizeLabel)
+    );
+  }
+
+  if (bookSizeNote) {
+    aliases.push(buildPart(productName, bookSizeNote));
+  }
+
   if (baseType === "umschlag") {
     aliases.push(
       buildPart("Umschlag", format, color),
       buildPart("Heftumschlag", format, color),
+      buildPart("Buchumschlag", format, color),
+      buildPart("Buchhülle", format, color),
       buildPart("Hefthülle", format, color),
       buildPart("Heft Hülle", format, color),
       buildPart("Schutzumschlag", format, color),
       buildPart(format, "Umschlag", color),
       buildPart(color, "Umschlag", format)
     );
+
+    if (bookSizeLabel) {
+      aliases.push(
+        buildPart("Umschlag", bookSizeLabel, color),
+        buildPart("Buchumschlag", bookSizeLabel, color),
+        buildPart("Buchhülle", bookSizeLabel, color),
+        buildPart("Schutzumschlag", bookSizeLabel, color),
+        buildPart("Umschlag", bookWidth, "x", bookHeight, color),
+        buildPart("Buchumschlag", bookWidth, "x", bookHeight, color)
+      );
+    }
+  }
+
+  if (baseType === "buch") {
+    aliases.push(
+      buildPart("Buch", productName),
+      buildPart("Schulbuch", productName),
+      buildPart("Arbeitsbuch", productName),
+      buildPart("Arbeitsheft", productName),
+      buildPart("Buch", bookSizeLabel),
+      buildPart("Schulbuch", bookSizeLabel),
+      buildPart("Arbeitsheft", bookSizeLabel)
+    );
   }
 
   if (baseType === "heft") {
     aliases.push(
-      buildPart("Schulheft", format, lineature ? `Lineatur ${lineature}` : "", color),
-      buildPart("Schreibheft", format, lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart(
+        "Schulheft",
+        format,
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
+      buildPart(
+        "Schreibheft",
+        format,
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
       buildPart("Heft", format, lineature ? `Lineatur ${lineature}` : "", color),
       buildPart("Heft", format, lineature, color),
-      buildPart(format, "Heft", lineature ? `Lineatur ${lineature}` : "", color),
+      buildPart(
+        format,
+        "Heft",
+        lineature ? `Lineatur ${lineature}` : "",
+        color
+      ),
       buildPart("Lineatur", lineature, format),
       buildPart("Lin", lineature, format),
       buildPart("L", lineature, format)
@@ -293,10 +393,15 @@ function generateRuleBasedAliases(input: AliasInput) {
     buildPart(productName, color),
     buildPart(productName, lineature ? `Lineatur ${lineature}` : ""),
     buildPart(productName, format, color),
-    buildPart(productName, format, lineature ? `Lineatur ${lineature}` : "", color)
+    buildPart(
+      productName,
+      format,
+      lineature ? `Lineatur ${lineature}` : "",
+      color
+    )
   );
 
-  return uniqueList(aliases).slice(0, 30);
+  return uniqueList(aliases).slice(0, 36);
 }
 
 export default function AdminQuickProductForm() {
@@ -310,6 +415,9 @@ export default function AdminQuickProductForm() {
   const [format, setFormat] = useState("");
   const [color, setColor] = useState("");
   const [lineature, setLineature] = useState("");
+  const [bookWidthMm, setBookWidthMm] = useState("");
+  const [bookHeightMm, setBookHeightMm] = useState("");
+  const [bookSizeNote, setBookSizeNote] = useState("");
   const [aliases, setAliases] = useState("");
   const [aliasesWereManuallyEdited, setAliasesWereManuallyEdited] =
     useState(false);
@@ -330,8 +438,22 @@ export default function AdminQuickProductForm() {
       format,
       color,
       lineature,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
     });
-  }, [productName, productSku, category, productType, format, color, lineature]);
+  }, [
+    productName,
+    productSku,
+    category,
+    productType,
+    format,
+    color,
+    lineature,
+    bookWidthMm,
+    bookHeightMm,
+    bookSizeNote,
+  ]);
 
   useEffect(() => {
     if (aliasesWereManuallyEdited) return;
@@ -362,6 +484,9 @@ export default function AdminQuickProductForm() {
     setFormat("");
     setColor("");
     setLineature("");
+    setBookWidthMm("");
+    setBookHeightMm("");
+    setBookSizeNote("");
     setAliases("");
     setAliasesWereManuallyEdited(false);
     setProductImage(null);
@@ -405,6 +530,14 @@ export default function AdminQuickProductForm() {
     setProductImage(file);
   }
 
+  function handleBookWidthChange(value: string) {
+    setBookWidthMm(normalizeOptionalIntegerInput(value));
+  }
+
+  function handleBookHeightChange(value: string) {
+    setBookHeightMm(normalizeOptionalIntegerInput(value));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -415,6 +548,16 @@ export default function AdminQuickProductForm() {
 
     if (!productName.trim()) {
       setErrorMessage("Bitte gib einen Produktnamen ein.");
+      return;
+    }
+
+    const width = bookWidthMm.trim();
+    const height = bookHeightMm.trim();
+
+    if ((width && !height) || (!width && height)) {
+      setErrorMessage(
+        "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer."
+      );
       return;
     }
 
@@ -431,6 +574,9 @@ export default function AdminQuickProductForm() {
       formData.append("format", format.trim());
       formData.append("color", color.trim());
       formData.append("lineature", lineature.trim());
+      formData.append("bookWidthMm", bookWidthMm.trim());
+      formData.append("bookHeightMm", bookHeightMm.trim());
+      formData.append("bookSizeNote", bookSizeNote.trim());
       formData.append("aliases", aliases.trim());
 
       if (productImage) {
@@ -496,8 +642,8 @@ export default function AdminQuickProductForm() {
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
             Lege Produkte inklusive Bild schnell an. Suchbegriffe werden
-            automatisch aus Produktname, Kategorie, Typ, Format, Farbe und
-            Lineatur erzeugt.
+            automatisch aus Produktname, Kategorie, Typ, Format, Farbe, Lineatur
+            und optionalen Buchmaßen erzeugt.
           </p>
         </div>
 
@@ -662,6 +808,73 @@ export default function AdminQuickProductForm() {
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
+        </div>
+
+        <div className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+          <div className="mb-4">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+              Optional
+            </div>
+
+            <h3 className="text-sm font-black text-[#102A43]">
+              Buchmaße für passende Umschläge
+            </h3>
+
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+              Trage hier Maße in Millimetern ein, wenn das Produkt ein Buch,
+              Arbeitsheft oder ein passender Buchumschlag ist. Beispiel:{" "}
+              <span className="font-black text-[#102A43]">230 x 440 mm</span>.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_2fr]">
+            <div>
+              <label className="mb-2 block text-sm font-black text-[#102A43]">
+                Breite mm
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bookWidthMm}
+                onChange={(event) => handleBookWidthChange(event.target.value)}
+                placeholder="z. B. 230"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-black text-[#102A43]">
+                Höhe mm
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bookHeightMm}
+                onChange={(event) => handleBookHeightChange(event.target.value)}
+                placeholder="z. B. 440"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-black text-[#102A43]">
+                Hinweis
+              </label>
+              <input
+                type="text"
+                value={bookSizeNote}
+                onChange={(event) => setBookSizeNote(event.target.value)}
+                placeholder="z. B. für Buchumschlag passend"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+              />
+            </div>
+          </div>
+
+          {bookWidthMm && bookHeightMm ? (
+            <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
+              Erfasstes Buchmaß: {bookWidthMm} x {bookHeightMm} mm
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
