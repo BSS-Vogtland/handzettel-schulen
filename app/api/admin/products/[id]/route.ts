@@ -55,6 +55,22 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function toOptionalInteger(value: unknown): number | null {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) return null;
+
+  const cleaned = raw.replace(/[^\d]/g, "");
+
+  if (!cleaned) return null;
+
+  const parsed = Number(cleaned);
+
+  if (!Number.isFinite(parsed)) return null;
+
+  return Math.max(0, Math.floor(parsed));
+}
+
 function splitAliases(value: unknown) {
   const text = String(value ?? "");
 
@@ -220,6 +236,9 @@ async function readPatchPayload(request: NextRequest) {
       format: formData.get("format"),
       color: formData.get("color"),
       lineature: formData.get("lineature"),
+      bookWidthMm: formData.get("bookWidthMm"),
+      bookHeightMm: formData.get("bookHeightMm"),
+      bookSizeNote: formData.get("bookSizeNote"),
       imageUrl: formData.get("imageUrl"),
       active: formData.get("active"),
       aliases: formData.get("aliases"),
@@ -267,6 +286,9 @@ export async function PATCH(request: NextRequest, context: Params) {
     const format = cleanString(payload.format);
     const color = cleanString(payload.color);
     const lineature = cleanString(payload.lineature);
+    const bookWidthMm = toOptionalInteger(payload.bookWidthMm);
+    const bookHeightMm = toOptionalInteger(payload.bookHeightMm);
+    const bookSizeNote = cleanString(payload.bookSizeNote);
     let imageUrl = cleanString(payload.imageUrl);
     const price = toNumber(payload.productPrice, 0);
     const active = parseActive(payload.active);
@@ -277,6 +299,20 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message: "Bitte gib einen Produktnamen ein.",
+        },
+        400
+      );
+    }
+
+    if (
+      (bookWidthMm !== null && bookHeightMm === null) ||
+      (bookWidthMm === null && bookHeightMm !== null)
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          message:
+            "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
         },
         400
       );
@@ -337,6 +373,11 @@ export async function PATCH(request: NextRequest, context: Params) {
     setIfColumnExists(updatePayload, product, "format", format);
     setIfColumnExists(updatePayload, product, "color", color);
     setIfColumnExists(updatePayload, product, "lineature", lineature);
+
+    setIfColumnExists(updatePayload, product, "book_width_mm", bookWidthMm);
+    setIfColumnExists(updatePayload, product, "book_height_mm", bookHeightMm);
+    setIfColumnExists(updatePayload, product, "book_size_note", bookSizeNote);
+
     setIfColumnExists(updatePayload, product, "image_url", imageUrl);
     setIfColumnExists(updatePayload, product, "active", active);
     setIfColumnExists(

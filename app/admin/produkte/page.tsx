@@ -31,6 +31,9 @@ type ProductRow = {
   format?: string | null;
   color?: string | null;
   lineature?: string | null;
+  book_width_mm?: number | string | null;
+  book_height_mm?: number | string | null;
+  book_size_note?: string | null;
   image_url?: string | null;
   active?: boolean | null;
   created_at?: string | null;
@@ -117,6 +120,17 @@ function getProductPrice(product: ProductRow) {
 
 function getAliasText(alias: AliasRow) {
   return alias.alias || alias.alias_text || alias.alias_name || alias.name || "";
+}
+
+function getBookMeasureLabel(product: ProductRow) {
+  const width = toNumber(product.book_width_mm, 0);
+  const height = toNumber(product.book_height_mm, 0);
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return `${width} x ${height} mm`;
 }
 
 export default async function AdminProductsPage() {
@@ -257,7 +271,8 @@ export default async function AdminProductsPage() {
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
                 Öffne bei einem Produkt den Bearbeiten-Bereich, um Stammdaten,
-                Preis, Aliase, Produktbild oder den Aktivstatus zu ändern.
+                Preis, Aliase, Produktbild, Buchmaße oder den Aktivstatus zu
+                ändern.
               </p>
             </div>
 
@@ -286,6 +301,8 @@ export default async function AdminProductsPage() {
                 const aliasTexts = productAliases
                   .map((alias) => getAliasText(alias))
                   .filter(Boolean);
+
+                const bookMeasureLabel = getBookMeasureLabel(product);
 
                 return (
                   <article
@@ -341,6 +358,12 @@ export default async function AdminProductsPage() {
                               Lineatur: {product.lineature}
                             </span>
                           ) : null}
+
+                          {bookMeasureLabel ? (
+                            <span className="rounded-full bg-[#F5FAFD] px-3 py-1 text-xs font-black text-[#12395F] ring-1 ring-[#D6E7EF]">
+                              Buchmaß: {bookMeasureLabel}
+                            </span>
+                          ) : null}
                         </div>
 
                         <h3 className="text-lg font-black text-[#102A43]">
@@ -352,6 +375,25 @@ export default async function AdminProductsPage() {
                             ? `Art.-Nr.: ${getProductSku(product)}`
                             : "Ohne Art.-Nr."}
                         </p>
+
+                        {bookMeasureLabel || product.book_size_note ? (
+                          <div className="mt-3 rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-semibold text-[#12395F]">
+                            {bookMeasureLabel ? (
+                              <p>
+                                Buchmaß:{" "}
+                                <span className="font-black">
+                                  {bookMeasureLabel}
+                                </span>
+                              </p>
+                            ) : null}
+
+                            {product.book_size_note ? (
+                              <p className={bookMeasureLabel ? "mt-1" : ""}>
+                                Hinweis: {product.book_size_note}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
 
                         {aliasTexts.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">
@@ -386,6 +428,19 @@ export default async function AdminProductsPage() {
                           format={product.format || null}
                           color={product.color || null}
                           lineature={product.lineature || null}
+                          bookWidthMm={
+                            product.book_width_mm !== null &&
+                            product.book_width_mm !== undefined
+                              ? String(product.book_width_mm)
+                              : null
+                          }
+                          bookHeightMm={
+                            product.book_height_mm !== null &&
+                            product.book_height_mm !== undefined
+                              ? String(product.book_height_mm)
+                              : null
+                          }
+                          bookSizeNote={product.book_size_note || null}
                           imageUrl={product.image_url || null}
                           active={product.active !== false}
                           aliases={aliasTexts}

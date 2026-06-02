@@ -25,6 +25,9 @@ type AdminEditProductFormProps = {
   format: string | null;
   color: string | null;
   lineature: string | null;
+  bookWidthMm: string | null;
+  bookHeightMm: string | null;
+  bookSizeNote: string | null;
   imageUrl: string | null;
   active: boolean;
   aliases: string[];
@@ -53,6 +56,16 @@ function formatPriceInput(value: number) {
   return String(value).replace(".", ",");
 }
 
+function normalizeOptionalIntegerInput(value: string) {
+  const cleaned = String(value || "").replace(/[^\d]/g, "");
+
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned;
+}
+
 export default function AdminEditProductForm({
   productId,
   productName,
@@ -63,6 +76,9 @@ export default function AdminEditProductForm({
   format,
   color,
   lineature,
+  bookWidthMm,
+  bookHeightMm,
+  bookSizeNote,
   imageUrl,
   active,
   aliases,
@@ -85,6 +101,9 @@ export default function AdminEditProductForm({
     format: format || "",
     color: color || "",
     lineature: lineature || "",
+    bookWidthMm: bookWidthMm || "",
+    bookHeightMm: bookHeightMm || "",
+    bookSizeNote: bookSizeNote || "",
     imageUrl: imageUrl || "",
     active,
     aliases: aliases.join(", "),
@@ -109,6 +128,14 @@ export default function AdminEditProductForm({
       ...current,
       [field]: value,
     }));
+  }
+
+  function updateBookWidth(value: string) {
+    updateField("bookWidthMm", normalizeOptionalIntegerInput(value));
+  }
+
+  function updateBookHeight(value: string) {
+    updateField("bookHeightMm", normalizeOptionalIntegerInput(value));
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -170,6 +197,18 @@ export default function AdminEditProductForm({
       return;
     }
 
+    const width = formData.bookWidthMm.trim();
+    const height = formData.bookHeightMm.trim();
+
+    if ((width && !height) || (!width && height)) {
+      setFeedback({
+        type: "error",
+        message:
+          "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
+      });
+      return;
+    }
+
     try {
       setIsSaving(true);
       setFeedback(null);
@@ -184,6 +223,9 @@ export default function AdminEditProductForm({
       submitData.append("format", formData.format);
       submitData.append("color", formData.color);
       submitData.append("lineature", formData.lineature);
+      submitData.append("bookWidthMm", formData.bookWidthMm);
+      submitData.append("bookHeightMm", formData.bookHeightMm);
+      submitData.append("bookSizeNote", formData.bookSizeNote);
       submitData.append("imageUrl", formData.imageUrl);
       submitData.append("active", String(formData.active));
       submitData.append("aliases", formData.aliases);
@@ -378,6 +420,73 @@ export default function AdminEditProductForm({
               />
             </label>
           </div>
+
+          <section className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+            <div className="mb-3">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                Optional
+              </div>
+
+              <h3 className="font-black text-[#102A43]">
+                Buchmaße für passende Umschläge
+              </h3>
+
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                Breite und Höhe in Millimetern. Beispiel: 230 x 440 mm.
+                Diese Werte werden später für das automatische Umschlag-Matching
+                genutzt.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_2fr]">
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#12395F]">
+                  Breite mm
+                </span>
+                <input
+                  value={formData.bookWidthMm}
+                  onChange={(event) => updateBookWidth(event.target.value)}
+                  inputMode="numeric"
+                  placeholder="z. B. 230"
+                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#12395F]">
+                  Höhe mm
+                </span>
+                <input
+                  value={formData.bookHeightMm}
+                  onChange={(event) => updateBookHeight(event.target.value)}
+                  inputMode="numeric"
+                  placeholder="z. B. 440"
+                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#12395F]">
+                  Hinweis
+                </span>
+                <input
+                  value={formData.bookSizeNote}
+                  onChange={(event) =>
+                    updateField("bookSizeNote", event.target.value)
+                  }
+                  placeholder="z. B. passend für großes Arbeitsbuch"
+                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                />
+              </label>
+            </div>
+
+            {formData.bookWidthMm && formData.bookHeightMm ? (
+              <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
+                Erfasstes Buchmaß: {formData.bookWidthMm} x{" "}
+                {formData.bookHeightMm} mm
+              </div>
+            ) : null}
+          </section>
 
           <section className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
