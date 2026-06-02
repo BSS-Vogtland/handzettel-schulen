@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { sendAdminShopOrderNotification } from "../../../lib/adminNotifications";
 import { findActiveDiscountCampaign, roundMoney } from "../../../lib/discountCampaigns";
 
 export const runtime = "nodejs";
@@ -211,6 +212,78 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
 
 function formatEuroForEvent(value: number) {
   return value.toFixed(2).replace(".", ",");
+}
+
+async function sendShopOrderAdminNotificationSafely(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+  requestNumber: string | null;
+  invoiceNumber: string | null;
+  invoiceToken: string;
+  customerName: string;
+  email: string;
+  phone: string | null;
+  childName: string | null;
+  schoolName: string | null;
+  className: string | null;
+  fulfillmentMethod: "pickup" | "shipping";
+  itemCount: number;
+  subtotalAmount: number;
+  shippingAmount: number;
+  discountName: string | null;
+  discountAmount: number;
+  totalAmount: number;
+  customerMessage: string | null;
+}) {
+  try {
+    const result = await sendAdminShopOrderNotification({
+      requestId: params.requestId,
+      requestNumber: params.requestNumber,
+      invoiceNumber: params.invoiceNumber,
+      invoiceToken: params.invoiceToken,
+      customerName: params.customerName,
+      email: params.email,
+      phone: params.phone,
+      childName: params.childName,
+      schoolName: params.schoolName,
+      className: params.className,
+      fulfillmentMethod: params.fulfillmentMethod,
+      itemCount: params.itemCount,
+      subtotalAmount: params.subtotalAmount,
+      shippingAmount: params.shippingAmount,
+      discountName: params.discountName,
+      discountAmount: params.discountAmount,
+      totalAmount: params.totalAmount,
+      customerMessage: params.customerMessage,
+    });
+
+    await insertRequestEvent({
+      supabase: params.supabase,
+      requestId: params.requestId,
+      eventType: result.ok
+        ? "admin_shop_notification_sent"
+        : "admin_shop_notification_skipped",
+      title: result.ok
+        ? "Admin-Mail versendet"
+        : "Admin-Mail nicht versendet",
+      description: result.ok
+        ? "Die Admin-Benachrichtigung zur Shop-Bestellung wurde versendet."
+        : result.message || "Die Admin-Benachrichtigung wurde nicht versendet.",
+    });
+  } catch (error) {
+    console.error("Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:", error);
+
+    await insertRequestEvent({
+      supabase: params.supabase,
+      requestId: params.requestId,
+      eventType: "admin_shop_notification_failed",
+      title: "Admin-Mail fehlgeschlagen",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Die Admin-Benachrichtigung zur Shop-Bestellung konnte nicht versendet werden.",
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -600,6 +673,28 @@ export async function POST(request: NextRequest) {
           } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
             totalAmount
           )} EUR.`,
+    });
+
+    await sendShopOrderAdminNotificationSafely({
+      supabase,
+      requestId,
+      requestNumber: createdRequest.request_number,
+      invoiceNumber: invoice.invoice_number,
+      invoiceToken: invoice.invoice_token,
+      customerName,
+      email,
+      phone,
+      childName,
+      schoolName,
+      className,
+      fulfillmentMethod,
+      itemCount: cartItems.length,
+      subtotalAmount,
+      shippingAmount,
+      discountName: appliedDiscount.discountName,
+      discountAmount,
+      totalAmount,
+      customerMessage,
     });
 
     return NextResponse.json({
