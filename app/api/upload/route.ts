@@ -51,6 +51,42 @@ function getSiteUrl() {
   );
 }
 
+function getAdminNotificationEmail() {
+  return (
+    process.env.ADMIN_NOTIFICATION_EMAIL?.trim() ||
+    process.env.ADMIN_EMAIL?.trim() ||
+    process.env.NOTIFICATION_EMAIL?.trim() ||
+    null
+  );
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "unbekannt";
+
+  const mb = bytes / 1024 / 1024;
+
+  if (mb >= 1) {
+    return `${mb.toLocaleString("de-DE", {
+      maximumFractionDigits: 2,
+    })} MB`;
+  }
+
+  const kb = bytes / 1024;
+
+  return `${kb.toLocaleString("de-DE", {
+    maximumFractionDigits: 1,
+  })} KB`;
+}
+
+function escapeHtml(value: string | null | undefined) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function buildOfferEmail(input: {
   customerName: string | null;
   childName: string | null;
@@ -96,19 +132,19 @@ function buildOfferEmail(input: {
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.6; max-width: 640px;">
       <h2 style="color: #102A43; margin-bottom: 12px;">Dein persönlicher Link zu Deiner Schulmaterialliste</h2>
 
-      <p>${greeting}</p>
+      <p>${escapeHtml(greeting)}</p>
 
       <p>
         vielen Dank für Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
-        ${childLine}.
+        ${escapeHtml(childLine)}.
       </p>
 
       ${
         schoolLine || requestLine
           ? `
             <div style="background: #FBF7F0; border: 1px solid #E8DED2; border-radius: 16px; padding: 14px 16px; margin: 18px 0;">
-              ${schoolLine ? `<p style="margin: 0;"><strong>${schoolLine}</strong></p>` : ""}
-              ${requestLine ? `<p style="margin: 4px 0 0 0;">${requestLine}</p>` : ""}
+              ${schoolLine ? `<p style="margin: 0;"><strong>${escapeHtml(schoolLine)}</strong></p>` : ""}
+              ${requestLine ? `<p style="margin: 4px 0 0 0;">${escapeHtml(requestLine)}</p>` : ""}
             </div>
           `
           : ""
@@ -153,6 +189,111 @@ function buildOfferEmail(input: {
   };
 }
 
+function buildAdminUploadNotificationEmail(input: {
+  customerName: string | null;
+  childName: string | null;
+  schoolName: string | null;
+  className: string | null;
+  requestNumber: string | null;
+  requestId: string;
+  email: string | null;
+  phone: string | null;
+  contact: string | null;
+  message: string | null;
+  originalFilename: string;
+  fileType: string;
+  fileSize: number;
+  offerUrl: string;
+}) {
+  const siteUrl = getSiteUrl();
+  const adminUrl = `${siteUrl}/admin/anfragen`;
+  const adminDetailUrl = `${siteUrl}/admin/anfragen/${input.requestId}`;
+
+  const subject = `Neue Materialliste eingegangen${
+    input.requestNumber ? `: ${input.requestNumber}` : ""
+  }`;
+
+  const text = [
+    "Neue Materialliste eingegangen",
+    "",
+    `Anfrage: ${input.requestNumber || input.requestId}`,
+    `Kunde: ${input.customerName || "nicht angegeben"}`,
+    `E-Mail: ${input.email || "nicht angegeben"}`,
+    `Telefon/Kontakt: ${input.phone || input.contact || "nicht angegeben"}`,
+    "",
+    `Kind: ${input.childName || "nicht angegeben"}`,
+    `Schule: ${input.schoolName || "nicht angegeben"}`,
+    `Klasse: ${input.className || "nicht angegeben"}`,
+    "",
+    `Datei: ${input.originalFilename}`,
+    `Dateityp: ${input.fileType || "nicht angegeben"}`,
+    `Dateigröße: ${formatFileSize(input.fileSize)}`,
+    "",
+    input.message ? `Nachricht: ${input.message}` : "Nachricht: keine",
+    "",
+    `Admin-Übersicht: ${adminUrl}`,
+    `Admin-Detail: ${adminDetailUrl}`,
+    `Kundenlink: ${input.offerUrl}`,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.5; max-width: 680px;">
+      <h1 style="margin: 0 0 16px; color: #102A43;">Neue Materialliste eingegangen</h1>
+
+      <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #FBF7F0; margin-bottom: 16px;">
+        <p><strong>Anfrage:</strong> ${escapeHtml(input.requestNumber || input.requestId)}</p>
+        <p><strong>Kunde:</strong> ${escapeHtml(input.customerName || "nicht angegeben")}</p>
+        <p><strong>E-Mail:</strong> ${escapeHtml(input.email || "nicht angegeben")}</p>
+        <p><strong>Telefon/Kontakt:</strong> ${escapeHtml(input.phone || input.contact || "nicht angegeben")}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #ffffff; margin-bottom: 16px;">
+        <p><strong>Kind:</strong> ${escapeHtml(input.childName || "nicht angegeben")}</p>
+        <p><strong>Schule:</strong> ${escapeHtml(input.schoolName || "nicht angegeben")}</p>
+        <p><strong>Klasse:</strong> ${escapeHtml(input.className || "nicht angegeben")}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #ffffff; margin-bottom: 16px;">
+        <p><strong>Datei:</strong> ${escapeHtml(input.originalFilename)}</p>
+        <p><strong>Dateityp:</strong> ${escapeHtml(input.fileType || "nicht angegeben")}</p>
+        <p><strong>Dateigröße:</strong> ${escapeHtml(formatFileSize(input.fileSize))}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #F1D1A8; border-radius: 16px; background: #FFF8EE; margin-bottom: 16px;">
+        <p><strong>Nachricht:</strong></p>
+        <p>${escapeHtml(input.message || "keine Nachricht")}</p>
+      </div>
+
+      <p style="margin: 24px 0;">
+        <a
+          href="${adminUrl}"
+          style="display: inline-block; padding: 12px 18px; background: #102A43; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: bold;"
+        >
+          Admin-Anfragen öffnen
+        </a>
+      </p>
+
+      <p>
+        <a href="${adminDetailUrl}" style="color: #A75B28; font-weight: bold;">
+          Admin-Detail öffnen
+        </a>
+      </p>
+
+      <p>
+        <a href="${input.offerUrl}" style="color: #12395F; font-weight: bold;">
+          Kundenlink öffnen
+        </a>
+      </p>
+    </div>
+  `;
+
+  return {
+    subject,
+    text,
+    html,
+  };
+}
+
 async function saveRequestEvent(input: {
   requestId: string;
   eventType: string;
@@ -188,6 +329,93 @@ async function saveRequestEvent(input: {
       .insert(payload);
 
     if (!error) return;
+  }
+}
+
+async function sendAdminUploadNotificationSafely(input: {
+  requestId: string;
+  requestNumber: string | null;
+  offerUrl: string;
+  customerName: string | null;
+  childName: string | null;
+  schoolName: string | null;
+  className: string | null;
+  email: string | null;
+  phone: string | null;
+  contact: string | null;
+  message: string | null;
+  originalFilename: string;
+  fileType: string;
+  fileSize: number;
+}) {
+  const adminEmail = getAdminNotificationEmail();
+
+  if (!adminEmail) {
+    await saveRequestEvent({
+      requestId: input.requestId,
+      eventType: "admin_upload_notification_skipped",
+      title: "Admin-Mail nicht versendet",
+      description:
+        "Es ist keine ADMIN_NOTIFICATION_EMAIL, ADMIN_EMAIL oder NOTIFICATION_EMAIL konfiguriert.",
+      metadata: {
+        requestNumber: input.requestNumber,
+      },
+    });
+
+    return;
+  }
+
+  try {
+    const emailContent = buildAdminUploadNotificationEmail({
+      customerName: input.customerName,
+      childName: input.childName,
+      schoolName: input.schoolName,
+      className: input.className,
+      requestNumber: input.requestNumber,
+      requestId: input.requestId,
+      email: input.email,
+      phone: input.phone,
+      contact: input.contact,
+      message: input.message,
+      originalFilename: input.originalFilename,
+      fileType: input.fileType,
+      fileSize: input.fileSize,
+      offerUrl: input.offerUrl,
+    });
+
+    await sendMail({
+      to: adminEmail,
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html,
+    });
+
+    await saveRequestEvent({
+      requestId: input.requestId,
+      eventType: "admin_upload_notification_sent",
+      title: "Admin-Mail versendet",
+      description: `Die Admin-Benachrichtigung wurde an ${adminEmail} versendet.`,
+      metadata: {
+        adminEmail,
+        requestNumber: input.requestNumber,
+      },
+    });
+  } catch (error) {
+    console.error("admin upload notification error:", error);
+
+    await saveRequestEvent({
+      requestId: input.requestId,
+      eventType: "admin_upload_notification_failed",
+      title: "Admin-Mail fehlgeschlagen",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Die Admin-Benachrichtigung konnte nicht versendet werden.",
+      metadata: {
+        adminEmail,
+        requestNumber: input.requestNumber,
+      },
+    });
   }
 }
 
@@ -262,8 +490,8 @@ export async function POST(request: Request) {
       !looksLikeEmail(contact) && contact
         ? contact
         : rawPhone && !looksLikeEmail(rawPhone)
-        ? rawPhone
-        : null;
+          ? rawPhone
+          : null;
 
     const { data: createdRequest, error: requestError } = await supabaseServer
       .from("school_requests")
@@ -365,6 +593,23 @@ export async function POST(request: Request) {
 
     const siteUrl = getSiteUrl();
     const offerUrl = `${siteUrl}/angebot/${createdRequest.offer_token}`;
+
+    await sendAdminUploadNotificationSafely({
+      requestId: createdRequest.id,
+      requestNumber: createdRequest.request_number,
+      offerUrl,
+      customerName,
+      childName,
+      schoolName,
+      className,
+      email,
+      phone,
+      contact,
+      message,
+      originalFilename: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+    });
 
     let emailSent = false;
     let emailMessage: string | null = null;
