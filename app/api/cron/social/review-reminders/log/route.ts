@@ -87,6 +87,25 @@ const DEFAULT_TIMEZONE = "Europe/Berlin";
 const REMINDER_TYPE = "review_reminder";
 const REMINDER_TOLERANCE_MINUTES = 10;
 
+function assertCronAccess(request: Request) {
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    return;
+  }
+
+  const url = new URL(request.url);
+  const secretFromQuery = url.searchParams.get("secret");
+  const authHeader = request.headers.get("authorization");
+  const expectedAuthHeader = `Bearer ${cronSecret}`;
+
+  if (secretFromQuery === cronSecret || authHeader === expectedAuthHeader) {
+    return;
+  }
+
+  throw new Error("Nicht autorisiert. CRON_SECRET fehlt oder ist falsch.");
+}
+
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }
@@ -468,6 +487,8 @@ function buildPreviewPosts({
 
 export async function GET(request: Request) {
   try {
+    assertCronAccess(request);
+
     const { now, invalidNowParam } = parseNowFromRequest(request);
 
     if (!now) {
