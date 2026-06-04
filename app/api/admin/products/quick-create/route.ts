@@ -5,6 +5,7 @@ import {
   generateProductSeoFields,
   slugifyProductText,
 } from "../../../../lib/productSeo";
+import { tryStyleProductImageById } from "../../../../lib/productImageStyling";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +17,9 @@ const PRODUCT_IMAGE_OPTIMIZED_PREFIX = "products";
 type ProductRow = {
   id: string;
   name?: string | null;
-  product_name?: string | null;
   title?: string | null;
   sku?: string | null;
-  product_sku?: string | null;
   price?: number | string | null;
-  product_price?: number | string | null;
   sale_price?: number | string | null;
   sale_price_gross?: number | string | null;
   category?: string | null;
@@ -43,6 +41,7 @@ type ProductRow = {
   image_alt_text?: string | null;
   image_title_text?: string | null;
   seo_updated_at?: string | null;
+  active?: boolean | null;
   updated_at?: string | null;
 };
 
@@ -149,24 +148,16 @@ function setIfColumnExists(
 }
 
 function getProductName(product: ProductRow) {
-  return (
-    product.name ||
-    product.product_name ||
-    product.title ||
-    "Unbenanntes Produkt"
-  );
+  return product.name || product.title || "Unbenanntes Produkt";
 }
 
 function getProductSku(product: ProductRow) {
-  return product.sku || product.product_sku || null;
+  return product.sku || null;
 }
 
 function getProductPrice(product: ProductRow) {
   return toNumber(
-    product.price ??
-      product.product_price ??
-      product.sale_price_gross ??
-      product.sale_price,
+    product.price ?? product.sale_price_gross ?? product.sale_price,
     0
   );
 }
@@ -252,30 +243,22 @@ async function findExistingProductBySkuOrName(
   productSku: string
 ) {
   if (productSku) {
-    const skuColumns = ["sku", "product_sku"];
-
-    for (const column of skuColumns) {
-      const { data, error } = await supabase
-        .from("school_products")
-        .select("*")
-        .eq(column, productSku)
-        .maybeSingle();
-
-      if (!error && data) return data as ProductRow;
-    }
-  }
-
-  const nameColumns = ["name", "product_name", "title"];
-
-  for (const column of nameColumns) {
     const { data, error } = await supabase
       .from("school_products")
       .select("*")
-      .eq(column, productName)
+      .eq("sku", productSku)
       .maybeSingle();
 
     if (!error && data) return data as ProductRow;
   }
+
+  const { data, error } = await supabase
+    .from("school_products")
+    .select("*")
+    .eq("name", productName)
+    .maybeSingle();
+
+  if (!error && data) return data as ProductRow;
 
   return null;
 }
@@ -646,24 +629,6 @@ async function createProductFlexible(
       ...seoPayload,
     },
     {
-      product_name: input.productName,
-      product_sku: input.productSku || null,
-      product_price: input.productPrice,
-      category: input.category || null,
-      product_type: input.productType || null,
-      format: input.format || null,
-      color: input.color || null,
-      lineature: input.lineature || null,
-      image_url: input.imageUrl,
-      image_original_url: input.originalImageUrl,
-      book_width_mm: input.bookWidthMm,
-      book_height_mm: input.bookHeightMm,
-      book_size_note: input.bookSizeNote || null,
-      match_keywords: matchKeywords,
-      active: true,
-      ...seoPayload,
-    },
-    {
       title: input.productName,
       sku: input.productSku || null,
       price: input.productPrice,
@@ -690,14 +655,6 @@ async function createProductFlexible(
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
       match_keywords: matchKeywords,
-      active: true,
-    },
-    {
-      product_name: input.productName,
-      product_sku: input.productSku || null,
-      product_price: input.productPrice,
-      category: input.category || null,
-      image_url: input.imageUrl,
       active: true,
     },
   ];
@@ -957,6 +914,16 @@ export async function POST(request: NextRequest) {
         if (created) aliasCount += 1;
       }
 
+      const autoStyle =
+        uploadedImage.imageUrl && uploadedImage.originalImageUrl
+          ? await tryStyleProductImageById(existingProduct.id)
+          : {
+              attempted: false,
+              ok: false,
+              result: null,
+              message: "Kein neues Bild übergeben.",
+            };
+
       return jsonResponse({
         ok: true,
         existing: true,
@@ -972,6 +939,7 @@ export async function POST(request: NextRequest) {
             null,
         },
         aliasCount,
+        autoStyle,
         imageOptimization:
           uploadedImage.imageUrl && uploadedImage.originalImageUrl
             ? {
@@ -981,7 +949,9 @@ export async function POST(request: NextRequest) {
             : null,
         message:
           uploadedImage.imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
-            ? "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe und SEO-Daten wurden aktualisiert. Das Shopbild wurde optimiert, das Originalbild bleibt gespeichert."
+            ? autoStyle.ok
+              ? "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe, SEO-Daten und KI-Hintergrund wurden aktualisiert."
+              : "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe und SEO-Daten wurden aktualisiert. Der KI-Hintergrund konnte nicht automatisch erzeugt werden."
             : "Dieses Produkt existiert bereits. Suchbegriffe und SEO-Daten wurden aktualisiert.",
       });
     }
@@ -1024,6 +994,16 @@ export async function POST(request: NextRequest) {
       if (created) aliasCount += 1;
     }
 
+    const autoStyle =
+      uploadedImage.imageUrl && uploadedImage.originalImageUrl
+        ? await tryStyleProductImageById(product.id)
+        : {
+            attempted: false,
+            ok: false,
+            result: null,
+            message: "Kein neues Bild übergeben.",
+          };
+
     return jsonResponse({
       ok: true,
       existing: false,
@@ -1037,6 +1017,7 @@ export async function POST(request: NextRequest) {
         seoTitle: product.seo_title || null,
       },
       aliasCount,
+      autoStyle,
       imageOptimization:
         uploadedImage.imageUrl && uploadedImage.originalImageUrl
           ? {
@@ -1045,7 +1026,9 @@ export async function POST(request: NextRequest) {
             }
           : null,
       message: uploadedImage.imageUrl
-        ? "Produkt wurde mit optimiertem Shopbild, Originalbild und SEO-Daten angelegt. Der KI-Hintergrund kann danach im Produkt über „KI-Hintergrund neu erzeugen“ erstellt werden."
+        ? autoStyle.ok
+          ? "Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten und KI-Hintergrund angelegt."
+          : "Produkt wurde mit optimiertem Shopbild, Originalbild und SEO-Daten angelegt. Der KI-Hintergrund konnte nicht automatisch erzeugt werden und kann später im Produkt manuell erstellt werden."
         : "Produkt wurde mit optionalen Buchmaßen und SEO-Daten angelegt und ist ab sofort verfügbar.",
     });
   } catch (error) {
