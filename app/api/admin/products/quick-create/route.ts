@@ -1,10 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PRODUCT_IMAGE_BUCKET = "school-product-images";
+const PRODUCT_IMAGE_ORIGINAL_PREFIX = "products-original";
+const PRODUCT_IMAGE_OPTIMIZED_PREFIX = "products";
 
 type ProductRow = {
   id: string;
@@ -23,9 +26,20 @@ type ProductRow = {
   color?: string | null;
   lineature?: string | null;
   image_url?: string | null;
+  image_original_url?: string | null;
+  image_styled_url?: string | null;
   book_width_mm?: number | string | null;
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
+};
+
+type UploadedProductImage = {
+  imageUrl: string | null;
+  originalImageUrl: string | null;
+  optimizedStoragePath: string | null;
+  originalStoragePath: string | null;
+  originalSizeBytes: number;
+  optimizedSizeBytes: number;
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -230,34 +244,46 @@ async function findExistingProductBySkuOrName(
   return null;
 }
 
-async function uploadProductImage(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  file: File | null
-) {
-  if (!file) return null;
+function getCleanExtension(fileName: string) {
+  return (
+    fileName
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "jpg"
+  );
+}
 
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Bitte lade nur Bilddateien hoch.");
-  }
+async function createOptimizedProductImageBuffer(fileBuffer: Buffer) {
+  const optimized = await sharp(fileBuffer, {
+    failOn: "none",
+  })
+    .rotate()
+    .resize({
+      width: 1400,
+      height: 1400,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({
+      quality: 82,
+      effort: 4,
+    })
+    .toBuffer();
 
-  const maxSize = 5 * 1024 * 1024;
+  return optimized;
+}
 
-  if (file.size > maxSize) {
-    throw new Error("Das Produktbild darf maximal 5 MB groß sein.");
-  }
-
-  const extension =
-    file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-    "jpg";
-
-  const storagePath = `products/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const { error: uploadError } = await supabase.storage
+async function uploadBufferToStorage(input: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  storagePath: string;
+  buffer: Buffer;
+  contentType: string;
+}) {
+  const { error: uploadError } = await input.supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: file.type,
+    .upload(input.storagePath, input.buffer, {
+      contentType: input.contentType,
       upsert: false,
     });
 
@@ -267,11 +293,71 @@ async function uploadProductImage(
     );
   }
 
-  const { data } = supabase.storage
+  const { data } = input.supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .getPublicUrl(storagePath);
+    .getPublicUrl(input.storagePath);
 
   return data.publicUrl || null;
+}
+
+async function uploadProductImage(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  file: File | null
+): Promise<UploadedProductImage> {
+  if (!file) {
+    return {
+      imageUrl: null,
+      originalImageUrl: null,
+      optimizedStoragePath: null,
+      originalStoragePath: null,
+      originalSizeBytes: 0,
+      optimizedSizeBytes: 0,
+    };
+  }
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Bitte lade nur Bilddateien hoch.");
+  }
+
+  const maxSize = 15 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    throw new Error("Das Produktbild darf maximal 15 MB groß sein.");
+  }
+
+  const extension = getCleanExtension(file.name);
+  const baseName = `${Date.now()}-${crypto.randomUUID()}`;
+
+  const originalStoragePath = `${PRODUCT_IMAGE_ORIGINAL_PREFIX}/${baseName}.${extension}`;
+  const optimizedStoragePath = `${PRODUCT_IMAGE_OPTIMIZED_PREFIX}/${baseName}.webp`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const originalBuffer = Buffer.from(arrayBuffer);
+
+  const optimizedBuffer = await createOptimizedProductImageBuffer(originalBuffer);
+
+  const originalImageUrl = await uploadBufferToStorage({
+    supabase,
+    storagePath: originalStoragePath,
+    buffer: originalBuffer,
+    contentType: file.type || "application/octet-stream",
+  });
+
+  const imageUrl = await uploadBufferToStorage({
+    supabase,
+    storagePath: optimizedStoragePath,
+    buffer: optimizedBuffer,
+    contentType: "image/webp",
+  });
+
+  return {
+    imageUrl,
+    originalImageUrl,
+    optimizedStoragePath,
+    originalStoragePath,
+    originalSizeBytes: originalBuffer.length,
+    optimizedSizeBytes: optimizedBuffer.length,
+  };
 }
 
 async function createProductFlexible(
@@ -287,6 +373,7 @@ async function createProductFlexible(
     lineature: string;
     aliases: string;
     imageUrl: string | null;
+    originalImageUrl: string | null;
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
@@ -311,7 +398,52 @@ async function createProductFlexible(
     ])
   ).filter(Boolean);
 
-  const payloadVariants = [
+  const payloadVariants: Array<Record<string, unknown>> = [
+    {
+      name: input.productName,
+      sku: input.productSku || null,
+      price: input.productPrice,
+      category: input.category || null,
+      product_type: input.productType || null,
+      format: input.format || null,
+      color: input.color || null,
+      lineature: input.lineature || null,
+      image_url: input.imageUrl,
+      image_original_url: input.originalImageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
+      match_keywords: matchKeywords,
+      active: true,
+    },
+    {
+      product_name: input.productName,
+      product_sku: input.productSku || null,
+      product_price: input.productPrice,
+      category: input.category || null,
+      product_type: input.productType || null,
+      format: input.format || null,
+      color: input.color || null,
+      lineature: input.lineature || null,
+      image_url: input.imageUrl,
+      image_original_url: input.originalImageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
+      match_keywords: matchKeywords,
+      active: true,
+    },
+    {
+      title: input.productName,
+      sku: input.productSku || null,
+      price: input.productPrice,
+      category: input.category || null,
+      image_url: input.imageUrl,
+      image_original_url: input.originalImageUrl,
+      book_width_mm: input.bookWidthMm,
+      book_height_mm: input.bookHeightMm,
+      book_size_note: input.bookSizeNote || null,
+    },
     {
       name: input.productName,
       sku: input.productSku || null,
@@ -329,30 +461,20 @@ async function createProductFlexible(
       active: true,
     },
     {
-      product_name: input.productName,
-      product_sku: input.productSku || null,
-      product_price: input.productPrice,
-      category: input.category || null,
-      product_type: input.productType || null,
-      format: input.format || null,
-      color: input.color || null,
-      lineature: input.lineature || null,
-      image_url: input.imageUrl,
-      book_width_mm: input.bookWidthMm,
-      book_height_mm: input.bookHeightMm,
-      book_size_note: input.bookSizeNote || null,
-      match_keywords: matchKeywords,
-      active: true,
-    },
-    {
-      title: input.productName,
+      name: input.productName,
       sku: input.productSku || null,
       price: input.productPrice,
       category: input.category || null,
       image_url: input.imageUrl,
-      book_width_mm: input.bookWidthMm,
-      book_height_mm: input.bookHeightMm,
-      book_size_note: input.bookSizeNote || null,
+      active: true,
+    },
+    {
+      product_name: input.productName,
+      product_sku: input.productSku || null,
+      product_price: input.productPrice,
+      category: input.category || null,
+      image_url: input.imageUrl,
+      active: true,
     },
     {
       name: input.productName,
@@ -398,6 +520,7 @@ async function updateExistingProductFlexible(
   productId: string,
   input: {
     imageUrl: string | null;
+    originalImageUrl: string | null;
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
@@ -414,6 +537,10 @@ async function updateExistingProductFlexible(
 
   if (input.imageUrl) {
     fullPayload.image_url = input.imageUrl;
+  }
+
+  if (input.originalImageUrl) {
+    fullPayload.image_original_url = input.originalImageUrl;
   }
 
   const { error: fullUpdateError } = await supabase
@@ -522,7 +649,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const imageUrl = await uploadProductImage(supabase, imageFile);
+    const uploadedImage = await uploadProductImage(supabase, imageFile);
 
     const existingProduct = await findExistingProductBySkuOrName(
       supabase,
@@ -532,7 +659,8 @@ export async function POST(request: NextRequest) {
 
     if (existingProduct) {
       await updateExistingProductFlexible(supabase, existingProduct.id, {
-        imageUrl,
+        imageUrl: uploadedImage.imageUrl,
+        originalImageUrl: uploadedImage.originalImageUrl,
         bookWidthMm,
         bookHeightMm,
         bookSizeNote,
@@ -572,12 +700,23 @@ export async function POST(request: NextRequest) {
           productName: getProductName(existingProduct),
           productSku: getProductSku(existingProduct),
           productPrice: getProductPrice(existingProduct),
-          imageUrl: imageUrl || existingProduct.image_url || null,
+          imageUrl:
+            uploadedImage.imageUrl ||
+            existingProduct.image_url ||
+            existingProduct.image_original_url ||
+            null,
         },
         aliasCount,
+        imageOptimization:
+          uploadedImage.imageUrl && uploadedImage.originalImageUrl
+            ? {
+                originalSizeBytes: uploadedImage.originalSizeBytes,
+                optimizedSizeBytes: uploadedImage.optimizedSizeBytes,
+              }
+            : null,
         message:
-          imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
-            ? "Dieses Produkt existiert bereits. Bild, Buchmaße und Suchbegriffe wurden aktualisiert."
+          uploadedImage.imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
+            ? "Dieses Produkt existiert bereits. Bild, Buchmaße und Suchbegriffe wurden aktualisiert. Das Shopbild wurde optimiert, das Originalbild bleibt gespeichert."
             : "Dieses Produkt existiert bereits. Zusätzliche Suchbegriffe wurden gespeichert.",
       });
     }
@@ -592,7 +731,8 @@ export async function POST(request: NextRequest) {
       color,
       lineature,
       aliases,
-      imageUrl,
+      imageUrl: uploadedImage.imageUrl,
+      originalImageUrl: uploadedImage.originalImageUrl,
       bookWidthMm,
       bookHeightMm,
       bookSizeNote,
@@ -627,11 +767,18 @@ export async function POST(request: NextRequest) {
         productName: getProductName(product),
         productSku: getProductSku(product),
         productPrice: getProductPrice(product),
-        imageUrl: product.image_url || imageUrl || null,
+        imageUrl: product.image_url || uploadedImage.imageUrl || null,
       },
       aliasCount,
-      message: imageUrl
-        ? "Produkt wurde mit Bild und optionalen Buchmaßen angelegt und ist ab sofort verfügbar."
+      imageOptimization:
+        uploadedImage.imageUrl && uploadedImage.originalImageUrl
+          ? {
+              originalSizeBytes: uploadedImage.originalSizeBytes,
+              optimizedSizeBytes: uploadedImage.optimizedSizeBytes,
+            }
+          : null,
+      message: uploadedImage.imageUrl
+        ? "Produkt wurde mit optimiertem Shopbild angelegt. Das Originalbild bleibt zusätzlich gespeichert."
         : "Produkt wurde mit optionalen Buchmaßen angelegt und ist ab sofort verfügbar.",
     });
   } catch (error) {
