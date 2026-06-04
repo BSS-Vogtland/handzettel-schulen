@@ -121,6 +121,28 @@ function getProductImageUrl(product: ProductRow): string | null {
   ]);
 }
 
+function getProductImageAlt(product: ProductRow, fallbackName: string): string {
+  return (
+    getStringValue(product, [
+      "image_alt_text",
+      "image_alt",
+      "alt_text",
+      "seo_image_alt",
+    ]) || `${fallbackName} als Produktbild`
+  );
+}
+
+function getProductImageTitle(product: ProductRow, fallbackName: string): string {
+  return (
+    getStringValue(product, [
+      "image_title_text",
+      "image_title",
+      "title_text",
+      "seo_image_title",
+    ]) || `${fallbackName} – Handzettel-Schulen.de`
+  );
+}
+
 function getProductFormat(product: ProductRow): string | null {
   return getStringValue(product, ["format", "size", "product_format"]);
 }
@@ -507,6 +529,13 @@ export default function ShopPage() {
           </div>
         </div>
 
+        <div className="mt-4 rounded-[1.5rem] border border-[#eadfce] bg-[#fffaf2] px-4 py-3 text-xs font-semibold leading-5 text-[#5b667a] shadow-sm">
+          <span className="font-black text-[#172033]">Hinweis:</span>{" "}
+          Produktbilder dienen der besseren Orientierung und können KI-gestützt
+          optimiert worden sein. Geringfügige optische Abweichungen sind möglich.
+          Maßgeblich sind Artikelbeschreibung und Produktmerkmale.
+        </div>
+
         {isLoading ? (
           <div className="mt-8 rounded-[2rem] bg-white p-8 text-center shadow-sm ring-1 ring-[#eadfce]">
             <p className="text-lg font-black text-[#172033]">
@@ -548,6 +577,8 @@ export default function ShopPage() {
               const sku = getProductSku(product);
               const price = getProductPrice(product);
               const imageUrl = getProductImageUrl(product);
+              const imageAlt = getProductImageAlt(product, name);
+              const imageTitle = getProductImageTitle(product, name);
               const category = getProductCategory(product);
               const format = getProductFormat(product);
               const color = getProductColor(product);
@@ -569,7 +600,8 @@ export default function ShopPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={imageUrl}
-                        alt={name}
+                        alt={imageAlt}
+                        title={imageTitle}
                         className="h-full w-full object-cover"
                       />
                     ) : (
