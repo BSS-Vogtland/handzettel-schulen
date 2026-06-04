@@ -595,14 +595,14 @@ export default function ShopPage() {
                       : "ring-[#eadfce]",
                   ].join(" ")}
                 >
-                  <div className="relative flex aspect-[4/3] items-center justify-center bg-[#eef2f7]">
+                  <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden bg-[#fffaf2] sm:min-h-[380px] lg:min-h-[400px]">
                     {imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={imageUrl}
                         alt={imageAlt}
                         title={imageTitle}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover object-center"
                       />
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
