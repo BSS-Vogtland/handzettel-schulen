@@ -111,6 +111,8 @@ function getProductCategory(product: ProductRow): string | null {
 
 function getProductImageUrl(product: ProductRow): string | null {
   return getStringValue(product, [
+    "image_styled_url",
+    "styled_image_url",
     "image_url",
     "product_image_url",
     "image",
