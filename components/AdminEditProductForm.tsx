@@ -12,6 +12,7 @@ import {
   Loader2,
   Pencil,
   Save,
+  Wand2,
   X,
 } from "lucide-react";
 
@@ -87,6 +88,7 @@ export default function AdminEditProductForm({
 
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isStyling, setIsStyling] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
 
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -187,7 +189,7 @@ export default function AdminEditProductForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isSaving) return;
+    if (isSaving || isStyling) return;
 
     if (!formData.productName.trim()) {
       setFeedback({
@@ -280,6 +282,58 @@ export default function AdminEditProductForm({
     }
   }
 
+  async function handleStyleImage() {
+    if (isSaving || isStyling) return;
+
+    try {
+      setIsStyling(true);
+      setFeedback({
+        type: "success",
+        message:
+          "KI-Hintergrund wird erzeugt. Das kann je nach Bild einige Sekunden dauern.",
+      });
+
+      const response = await fetch(
+        `/api/admin/products/${productId}/style-image`,
+        {
+          method: "POST",
+        }
+      );
+
+      const payload = await readJsonSafely(response);
+
+      if (!response.ok || payload?.ok === false) {
+        setFeedback({
+          type: "error",
+          message:
+            payload?.message ||
+            "Der KI-Hintergrund konnte nicht erzeugt werden.",
+        });
+        setIsStyling(false);
+        return;
+      }
+
+      setFeedback({
+        type: "success",
+        message:
+          payload?.message ||
+          "KI-Hintergrund wurde erzeugt und gespeichert.",
+      });
+
+      setIsStyling(false);
+      router.refresh();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Der KI-Hintergrund konnte nicht erzeugt werden.",
+      });
+      setIsStyling(false);
+    }
+  }
+
   const visibleImageUrl = previewUrl || formData.imageUrl || null;
 
   return (
@@ -343,7 +397,9 @@ export default function AdminEditProductForm({
               </span>
               <input
                 value={formData.productSku}
-                onChange={(event) => updateField("productSku", event.target.value)}
+                onChange={(event) =>
+                  updateField("productSku", event.target.value)
+                }
                 className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </label>
@@ -506,13 +562,34 @@ export default function AdminEditProductForm({
                 </p>
               </div>
 
-              <label
-                htmlFor={`product-image-${productId}`}
-                className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-2 text-xs font-black text-white transition hover:brightness-110"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                Foto aufnehmen / hochladen
-              </label>
+              <div className="flex flex-col gap-2 sm:items-end">
+                <label
+                  htmlFor={`product-image-${productId}`}
+                  className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-2 text-xs font-black text-white transition hover:brightness-110"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Foto aufnehmen / hochladen
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleStyleImage}
+                  disabled={isSaving || isStyling || !formData.imageUrl}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2 text-xs font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isStyling ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      KI-Hintergrund läuft...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" />
+                      KI-Hintergrund neu erzeugen
+                    </>
+                  )}
+                </button>
+              </div>
 
               <input
                 id={`product-image-${productId}`}
@@ -571,6 +648,8 @@ export default function AdminEditProductForm({
                 <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
                   Wenn Du ein neues Foto auswählst, wird es beim Speichern
                   hochgeladen und ersetzt die aktuelle Bild-URL automatisch.
+                  Der KI-Hintergrund wird separat erzeugt und kann danach
+                  jederzeit neu angestoßen werden.
                 </p>
               </div>
             </div>
@@ -606,7 +685,7 @@ export default function AdminEditProductForm({
 
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || isStyling}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSaving ? (
