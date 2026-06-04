@@ -14,10 +14,16 @@ const PRODUCT_IMAGE_BUCKET = "school-product-images";
 const STYLED_PREFIX = "products-styled-removebg";
 
 const OUTPUT_SIZE = 1254;
-const DEFAULT_MAX_WIDTH = 860;
-const DEFAULT_MAX_HEIGHT = 760;
-const FLAT_MAX_WIDTH = 900;
-const FLAT_MAX_HEIGHT = 900;
+
+const DEFAULT_MAX_WIDTH = 760;
+const DEFAULT_MAX_HEIGHT = 650;
+
+const SLIM_MAX_WIDTH = 620;
+const SLIM_MAX_HEIGHT = 540;
+
+const FLAT_MAX_WIDTH = 760;
+const FLAT_MAX_HEIGHT = 720;
+
 const PRODUCT_BOTTOM_Y = 1038;
 const WEBP_QUALITY = 84;
 
@@ -55,7 +61,26 @@ const FLAT_PRODUCT_KEYWORDS = [
   "heftumschlag",
   "muttiheft",
   "löschblatt",
+  "loeschblatt",
   "deckblatt",
+];
+
+const SLIM_PRODUCT_KEYWORDS = [
+  "klebestift",
+  "kleber",
+  "stift",
+  "buntstift",
+  "bleistift",
+  "filzstift",
+  "textmarker",
+  "marker",
+  "fineliner",
+  "füller",
+  "fueller",
+  "kugelschreiber",
+  "pinsel",
+  "lineal",
+  "zirkel",
 ];
 
 function getArg(name, fallback = null) {
@@ -98,6 +123,16 @@ function getRemoveBgApiKey() {
 function cleanString(value) {
   const text = String(value ?? "").trim();
   return text.length > 0 ? text : null;
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss");
 }
 
 function getProductName(product) {
@@ -173,14 +208,19 @@ function getStyledStoragePath(product, sourceStoragePath) {
 }
 
 function isFlatProduct(productName) {
-  const normalized = productName
-    .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss");
+  const normalized = normalizeText(productName);
 
-  return FLAT_PRODUCT_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  return FLAT_PRODUCT_KEYWORDS.some((keyword) =>
+    normalized.includes(normalizeText(keyword))
+  );
+}
+
+function isSlimProduct(productName) {
+  const normalized = normalizeText(productName);
+
+  return SLIM_PRODUCT_KEYWORDS.some((keyword) =>
+    normalized.includes(normalizeText(keyword))
+  );
 }
 
 async function blobToBuffer(blob) {
@@ -269,19 +309,23 @@ async function removeBackgroundWithRemoveBg(sourceBuffer, productName) {
     .toBuffer();
 }
 
-function makeShadowSvg(width, height, productWidth, flatProduct) {
+function makeShadowSvg(width, height, productWidth, flatProduct, slimProduct) {
   const cx = Math.round(width / 2);
-  const cy = PRODUCT_BOTTOM_Y + (flatProduct ? 18 : 24);
+  const cy = PRODUCT_BOTTOM_Y + (flatProduct ? 18 : slimProduct ? 16 : 24);
 
   const rx = flatProduct
     ? Math.max(120, Math.min(300, Math.round(productWidth * 0.34)))
-    : Math.max(140, Math.min(360, Math.round(productWidth * 0.42)));
+    : slimProduct
+      ? Math.max(100, Math.min(260, Math.round(productWidth * 0.32)))
+      : Math.max(140, Math.min(360, Math.round(productWidth * 0.42)));
 
   const ry = flatProduct
     ? Math.max(12, Math.min(28, Math.round(productWidth * 0.026)))
-    : Math.max(18, Math.min(42, Math.round(productWidth * 0.05)));
+    : slimProduct
+      ? Math.max(10, Math.min(24, Math.round(productWidth * 0.026)))
+      : Math.max(18, Math.min(42, Math.round(productWidth * 0.05)));
 
-  const opacity = flatProduct ? 0.11 : 0.17;
+  const opacity = flatProduct ? 0.11 : slimProduct ? 0.13 : 0.17;
 
   return Buffer.from(`
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -298,6 +342,7 @@ async function composeProductOnBackground(cutoutBuffer, productName) {
   }
 
   const flatProduct = isFlatProduct(productName);
+  const slimProduct = !flatProduct && isSlimProduct(productName);
 
   const backgroundBuffer = await sharp(BACKGROUND_PATH)
     .resize(OUTPUT_SIZE, OUTPUT_SIZE, {
@@ -321,40 +366,53 @@ async function composeProductOnBackground(cutoutBuffer, productName) {
     failOn: "none",
   })
     .extend({
-      top: flatProduct ? 12 : 7,
-      bottom: flatProduct ? 12 : 7,
-      left: flatProduct ? 12 : 7,
-      right: flatProduct ? 12 : 7,
+      top: flatProduct ? 12 : slimProduct ? 10 : 7,
+      bottom: flatProduct ? 12 : slimProduct ? 10 : 7,
+      left: flatProduct ? 12 : slimProduct ? 10 : 7,
+      right: flatProduct ? 12 : slimProduct ? 10 : 7,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
     .png()
     .toBuffer();
 
+  const maxWidth = flatProduct
+    ? FLAT_MAX_WIDTH
+    : slimProduct
+      ? SLIM_MAX_WIDTH
+      : DEFAULT_MAX_WIDTH;
+
+  const maxHeight = flatProduct
+    ? FLAT_MAX_HEIGHT
+    : slimProduct
+      ? SLIM_MAX_HEIGHT
+      : DEFAULT_MAX_HEIGHT;
+
   const resized = await sharp(withSafetyPadding, {
     failOn: "none",
   })
     .resize({
-      width: flatProduct ? FLAT_MAX_WIDTH : 860,
-      height: flatProduct ? FLAT_MAX_HEIGHT : 760,
+      width: maxWidth,
+      height: maxHeight,
       fit: "inside",
       withoutEnlargement: true,
     })
     .png()
     .toBuffer({ resolveWithObject: true });
 
-  const productWidth =
-    resized.info.width || (flatProduct ? FLAT_MAX_WIDTH : DEFAULT_MAX_WIDTH);
-  const productHeight =
-    resized.info.height || (flatProduct ? FLAT_MAX_HEIGHT : DEFAULT_MAX_HEIGHT);
+  const productWidth = resized.info.width || maxWidth;
+  const productHeight = resized.info.height || maxHeight;
 
   const left = Math.round((OUTPUT_SIZE - productWidth) / 2);
-  const top = Math.max(flatProduct ? 170 : 230, PRODUCT_BOTTOM_Y - productHeight);
+
+  const minimumTop = flatProduct ? 170 : slimProduct ? 300 : 230;
+  const top = Math.max(minimumTop, PRODUCT_BOTTOM_Y - productHeight);
 
   const shadowSvg = makeShadowSvg(
     OUTPUT_SIZE,
     OUTPUT_SIZE,
     productWidth,
-    flatProduct
+    flatProduct,
+    slimProduct
   );
 
   return sharp(backgroundBuffer)
