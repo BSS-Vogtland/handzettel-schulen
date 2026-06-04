@@ -33,6 +33,7 @@ const FLAT_PRODUCT_KEYWORDS = [
   "heftumschlag",
   "muttiheft",
   "löschblatt",
+  "loeschblatt",
   "deckblatt",
 ];
 
@@ -76,16 +77,23 @@ function getProductName(product) {
   return cleanString(product.name) || "Unbenanntes Produkt";
 }
 
-function isFlatProduct(productName) {
-  const normalized = productName
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
     .toLowerCase()
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss");
+    .replace(/ß/g, "ss")
+    .replace(/[,;/_]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isFlatProduct(productName) {
+  const normalized = normalizeText(productName);
 
   return FLAT_PRODUCT_KEYWORDS.some((keyword) =>
-    normalized.includes(keyword)
+    normalized.includes(normalizeText(keyword))
   );
 }
 
@@ -145,8 +153,7 @@ async function loadProducts(supabase, options) {
     .select(
       "id,name,image_url,image_original_url,image_styled_url,image_styled_at,updated_at,created_at"
     )
-    .not("image_original_url", "is", null)
-    .order("updated_at", { ascending: false });
+    .not("image_original_url", "is", null);
 
   if (!options.force) {
     query = query.is("image_styled_url", null);
@@ -171,13 +178,26 @@ async function loadProducts(supabase, options) {
   }
 
   if (options.search) {
-    const normalizedSearch = options.search.toLowerCase();
+    const normalizedSearch = normalizeText(options.search);
     products = products.filter((product) =>
-      getProductName(product).toLowerCase().includes(normalizedSearch)
+      normalizeText(getProductName(product)).includes(normalizedSearch)
     );
   }
 
-  return products.slice(0, options.limit);
+  products = products.sort((a, b) => {
+    const nameA = getProductName(a).localeCompare(getProductName(b), "de", {
+      sensitivity: "base",
+    });
+
+    if (nameA !== 0) return nameA;
+
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+
+  const start = Math.max(0, options.offset);
+  const end = start + options.limit;
+
+  return products.slice(start, end);
 }
 
 async function main() {
@@ -191,12 +211,17 @@ async function main() {
   const limit =
     Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : 5;
 
+  const offsetArg = Number(getArg("--offset", "0"));
+  const offset =
+    Number.isFinite(offsetArg) && offsetArg >= 0 ? Math.floor(offsetArg) : 0;
+
   console.log("");
   console.log("remove.bg Produktbild-Freistellung");
   console.log("==================================");
   console.log("");
   console.log(`Modus: ${dryRun ? "Dry Run" : "Speichern aktiv"}`);
   console.log(`Limit: ${limit}`);
+  console.log(`Offset: ${offset}`);
   console.log(`Force: ${force ? "ja" : "nein"}`);
   console.log(`Flat only: ${flatOnly ? "ja" : "nein"}`);
   console.log(`ID: ${id || "—"}`);
@@ -212,6 +237,7 @@ async function main() {
     id,
     search,
     limit,
+    offset,
   });
 
   if (products.length === 0) {
