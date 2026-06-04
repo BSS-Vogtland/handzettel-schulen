@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import {
+  generateProductSeoFields,
+  slugifyProductText,
+} from "../../../../lib/productSeo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,9 +32,18 @@ type ProductRow = {
   image_url?: string | null;
   image_original_url?: string | null;
   image_styled_url?: string | null;
+  image_styled_at?: string | null;
   book_width_mm?: number | string | null;
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
+  seo_slug?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string[] | null;
+  image_alt_text?: string | null;
+  image_title_text?: string | null;
+  seo_updated_at?: string | null;
+  updated_at?: string | null;
 };
 
 type UploadedProductImage = {
@@ -62,6 +75,14 @@ function getSupabaseAdmin() {
       autoRefreshToken: false,
     },
   });
+}
+
+function cleanString(value: unknown) {
+  if (value === null || value === undefined) return null;
+
+  const trimmed = String(value).trim();
+
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function toNumber(value: unknown, fallback = 0) {
@@ -110,6 +131,21 @@ function splitKeywords(value: unknown) {
     .split(" ")
     .filter((word) => word.length >= 2)
     .slice(0, 20);
+}
+
+function hasColumn(product: ProductRow, columnName: string) {
+  return Object.prototype.hasOwnProperty.call(product, columnName);
+}
+
+function setIfColumnExists(
+  updatePayload: Record<string, unknown>,
+  product: ProductRow,
+  columnName: string,
+  value: unknown
+) {
+  if (hasColumn(product, columnName)) {
+    updatePayload[columnName] = value;
+  }
 }
 
 function getProductName(product: ProductRow) {
@@ -244,18 +280,41 @@ async function findExistingProductBySkuOrName(
   return null;
 }
 
-function getCleanExtension(fileName: string) {
-  return (
+function getCleanExtension(fileName: string, fileType?: string) {
+  const fromName =
     fileName
       .split(".")
       .pop()
       ?.toLowerCase()
-      .replace(/[^a-z0-9]/g, "") || "jpg"
-  );
+      .replace(/[^a-z0-9]/g, "") || "";
+
+  if (fromName) {
+    return fromName === "jpeg" ? "jpg" : fromName;
+  }
+
+  if (fileType === "image/png") return "png";
+  if (fileType === "image/webp") return "webp";
+  if (fileType === "image/avif") return "avif";
+  if (fileType === "image/heic") return "heic";
+  if (fileType === "image/heif") return "heif";
+
+  return "jpg";
+}
+
+function getContentTypeFromExtension(extension: string) {
+  const ext = extension.toLowerCase();
+
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "avif") return "image/avif";
+  if (ext === "heic") return "image/heic";
+  if (ext === "heif") return "image/heif";
+
+  return "image/jpeg";
 }
 
 async function createOptimizedProductImageBuffer(fileBuffer: Buffer) {
-  const optimized = await sharp(fileBuffer, {
+  return sharp(fileBuffer, {
     failOn: "none",
   })
     .rotate()
@@ -270,8 +329,6 @@ async function createOptimizedProductImageBuffer(fileBuffer: Buffer) {
       effort: 4,
     })
     .toBuffer();
-
-  return optimized;
 }
 
 async function uploadBufferToStorage(input: {
@@ -300,9 +357,164 @@ async function uploadBufferToStorage(input: {
   return data.publicUrl || null;
 }
 
+function buildSeoInput(input: {
+  productName: string;
+  productSku: string | null;
+  category: string | null;
+  productType: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  return {
+    productName: input.productName,
+    sku: input.productSku,
+    category: input.category,
+    productType: input.productType,
+    format: input.format,
+    color: input.color,
+    lineature: input.lineature,
+    bookWidthMm: input.bookWidthMm,
+    bookHeightMm: input.bookHeightMm,
+    bookSizeNote: input.bookSizeNote,
+  };
+}
+
+async function createUniqueSeoSlug(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId?: string | null;
+  preferredSlug: string;
+}) {
+  const baseSlug =
+    slugifyProductText(params.preferredSlug) ||
+    `produkt-${crypto.randomUUID().slice(0, 8)}`;
+
+  let candidate = baseSlug;
+  let counter = 2;
+
+  while (counter < 300) {
+    let query = params.supabase
+      .from("school_products")
+      .select("id")
+      .eq("seo_slug", candidate)
+      .limit(1);
+
+    if (params.productId) {
+      query = query.neq("id", params.productId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return candidate;
+    }
+
+    if (!data || data.length === 0) {
+      return candidate;
+    }
+
+    candidate = `${baseSlug}-${counter}`;
+    counter += 1;
+  }
+
+  return `${baseSlug}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+async function buildSeoPayload(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId?: string | null;
+  product?: ProductRow | null;
+  productName: string;
+  productSku: string | null;
+  category: string | null;
+  productType: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  const seoFields = generateProductSeoFields(
+    buildSeoInput({
+      productName: params.productName,
+      productSku: params.productSku,
+      category: params.category,
+      productType: params.productType,
+      format: params.format,
+      color: params.color,
+      lineature: params.lineature,
+      bookWidthMm: params.bookWidthMm,
+      bookHeightMm: params.bookHeightMm,
+      bookSizeNote: params.bookSizeNote,
+    })
+  );
+
+  const seoSlug = await createUniqueSeoSlug({
+    supabase: params.supabase,
+    productId: params.productId,
+    preferredSlug: seoFields.seo_slug,
+  });
+
+  const fullPayload = {
+    seo_slug: seoSlug,
+    seo_title: seoFields.seo_title,
+    seo_description: seoFields.seo_description,
+    seo_keywords: seoFields.seo_keywords,
+    image_alt_text: seoFields.image_alt_text,
+    image_title_text: seoFields.image_title_text,
+    seo_updated_at: new Date().toISOString(),
+  };
+
+  if (!params.product) {
+    return fullPayload;
+  }
+
+  const filteredPayload: Record<string, unknown> = {};
+
+  setIfColumnExists(filteredPayload, params.product, "seo_slug", fullPayload.seo_slug);
+  setIfColumnExists(filteredPayload, params.product, "seo_title", fullPayload.seo_title);
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "seo_description",
+    fullPayload.seo_description
+  );
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "seo_keywords",
+    fullPayload.seo_keywords
+  );
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "image_alt_text",
+    fullPayload.image_alt_text
+  );
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "image_title_text",
+    fullPayload.image_title_text
+  );
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "seo_updated_at",
+    fullPayload.seo_updated_at
+  );
+
+  return filteredPayload;
+}
+
 async function uploadProductImage(
   supabase: ReturnType<typeof getSupabaseAdmin>,
-  file: File | null
+  file: File | null,
+  productName: string
 ): Promise<UploadedProductImage> {
   if (!file) {
     return {
@@ -325,22 +537,22 @@ async function uploadProductImage(
     throw new Error("Das Produktbild darf maximal 15 MB groß sein.");
   }
 
-  const extension = getCleanExtension(file.name);
-  const baseName = `${Date.now()}-${crypto.randomUUID()}`;
+  const extension = getCleanExtension(file.name, file.type);
+  const productSlug = slugifyProductText(productName) || "produkt";
+  const baseName = `${Date.now()}-${crypto.randomUUID()}-${productSlug}`;
 
   const originalStoragePath = `${PRODUCT_IMAGE_ORIGINAL_PREFIX}/${baseName}.${extension}`;
   const optimizedStoragePath = `${PRODUCT_IMAGE_OPTIMIZED_PREFIX}/${baseName}.webp`;
 
   const arrayBuffer = await file.arrayBuffer();
   const originalBuffer = Buffer.from(arrayBuffer);
-
   const optimizedBuffer = await createOptimizedProductImageBuffer(originalBuffer);
 
   const originalImageUrl = await uploadBufferToStorage({
     supabase,
     storagePath: originalStoragePath,
     buffer: originalBuffer,
-    contentType: file.type || "application/octet-stream",
+    contentType: file.type || getContentTypeFromExtension(extension),
   });
 
   const imageUrl = await uploadBufferToStorage({
@@ -398,6 +610,22 @@ async function createProductFlexible(
     ])
   ).filter(Boolean);
 
+  const seoPayload = await buildSeoPayload({
+    supabase,
+    productId: null,
+    product: null,
+    productName: input.productName,
+    productSku: input.productSku || null,
+    category: input.category || null,
+    productType: input.productType || null,
+    format: input.format || null,
+    color: input.color || null,
+    lineature: input.lineature || null,
+    bookWidthMm: input.bookWidthMm,
+    bookHeightMm: input.bookHeightMm,
+    bookSizeNote: input.bookSizeNote || null,
+  });
+
   const payloadVariants: Array<Record<string, unknown>> = [
     {
       name: input.productName,
@@ -415,6 +643,7 @@ async function createProductFlexible(
       book_size_note: input.bookSizeNote || null,
       match_keywords: matchKeywords,
       active: true,
+      ...seoPayload,
     },
     {
       product_name: input.productName,
@@ -432,6 +661,7 @@ async function createProductFlexible(
       book_size_note: input.bookSizeNote || null,
       match_keywords: matchKeywords,
       active: true,
+      ...seoPayload,
     },
     {
       title: input.productName,
@@ -443,6 +673,7 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
+      ...seoPayload,
     },
     {
       name: input.productName,
@@ -454,6 +685,7 @@ async function createProductFlexible(
       color: input.color || null,
       lineature: input.lineature || null,
       image_url: input.imageUrl,
+      image_original_url: input.originalImageUrl,
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
@@ -461,33 +693,11 @@ async function createProductFlexible(
       active: true,
     },
     {
-      name: input.productName,
-      sku: input.productSku || null,
-      price: input.productPrice,
-      category: input.category || null,
-      image_url: input.imageUrl,
-      active: true,
-    },
-    {
       product_name: input.productName,
       product_sku: input.productSku || null,
       product_price: input.productPrice,
       category: input.category || null,
       image_url: input.imageUrl,
-      active: true,
-    },
-    {
-      name: input.productName,
-      sku: input.productSku || null,
-      price: input.productPrice,
-      category: input.category || null,
-      active: true,
-    },
-    {
-      product_name: input.productName,
-      product_sku: input.productSku || null,
-      product_price: input.productPrice,
-      category: input.category || null,
       active: true,
     },
   ];
@@ -517,8 +727,16 @@ async function createProductFlexible(
 
 async function updateExistingProductFlexible(
   supabase: ReturnType<typeof getSupabaseAdmin>,
-  productId: string,
+  product: ProductRow,
   input: {
+    productName: string;
+    productSku: string;
+    productPrice: number;
+    category: string;
+    productType: string;
+    format: string;
+    color: string;
+    lineature: string;
     imageUrl: string | null;
     originalImageUrl: string | null;
     bookWidthMm: number | null;
@@ -528,11 +746,28 @@ async function updateExistingProductFlexible(
 ) {
   const now = new Date().toISOString();
 
+  const seoPayload = await buildSeoPayload({
+    supabase,
+    productId: product.id,
+    product,
+    productName: input.productName,
+    productSku: input.productSku || null,
+    category: input.category || null,
+    productType: input.productType || null,
+    format: input.format || null,
+    color: input.color || null,
+    lineature: input.lineature || null,
+    bookWidthMm: input.bookWidthMm,
+    bookHeightMm: input.bookHeightMm,
+    bookSizeNote: input.bookSizeNote || null,
+  });
+
   const fullPayload: Record<string, unknown> = {
     book_width_mm: input.bookWidthMm,
     book_height_mm: input.bookHeightMm,
     book_size_note: input.bookSizeNote || null,
     updated_at: now,
+    ...seoPayload,
   };
 
   if (input.imageUrl) {
@@ -543,21 +778,39 @@ async function updateExistingProductFlexible(
     fullPayload.image_original_url = input.originalImageUrl;
   }
 
+  if (input.imageUrl || input.originalImageUrl) {
+    fullPayload.image_styled_url = null;
+    fullPayload.image_styled_at = null;
+  }
+
   const { error: fullUpdateError } = await supabase
     .from("school_products")
     .update(fullPayload)
-    .eq("id", productId);
+    .eq("id", product.id);
 
   if (!fullUpdateError) return;
 
+  const fallbackPayload: Record<string, unknown> = {
+    updated_at: now,
+  };
+
   if (input.imageUrl) {
-    await supabase
-      .from("school_products")
-      .update({
-        image_url: input.imageUrl,
-        updated_at: now,
-      })
-      .eq("id", productId);
+    fallbackPayload.image_url = input.imageUrl;
+  }
+
+  if (input.originalImageUrl) {
+    fallbackPayload.image_original_url = input.originalImageUrl;
+  }
+
+  const { error: fallbackError } = await supabase
+    .from("school_products")
+    .update(fallbackPayload)
+    .eq("id", product.id);
+
+  if (fallbackError) {
+    throw new Error(
+      `Produkt konnte nicht aktualisiert werden: ${fallbackError.message}`
+    );
   }
 }
 
@@ -649,7 +902,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadedImage = await uploadProductImage(supabase, imageFile);
+    const uploadedImage = await uploadProductImage(
+      supabase,
+      imageFile,
+      productName
+    );
 
     const existingProduct = await findExistingProductBySkuOrName(
       supabase,
@@ -658,7 +915,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (existingProduct) {
-      await updateExistingProductFlexible(supabase, existingProduct.id, {
+      await updateExistingProductFlexible(supabase, existingProduct, {
+        productName,
+        productSku,
+        productPrice,
+        category,
+        productType,
+        format,
+        color,
+        lineature,
         imageUrl: uploadedImage.imageUrl,
         originalImageUrl: uploadedImage.originalImageUrl,
         bookWidthMm,
@@ -716,8 +981,8 @@ export async function POST(request: NextRequest) {
             : null,
         message:
           uploadedImage.imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
-            ? "Dieses Produkt existiert bereits. Bild, Buchmaße und Suchbegriffe wurden aktualisiert. Das Shopbild wurde optimiert, das Originalbild bleibt gespeichert."
-            : "Dieses Produkt existiert bereits. Zusätzliche Suchbegriffe wurden gespeichert.",
+            ? "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe und SEO-Daten wurden aktualisiert. Das Shopbild wurde optimiert, das Originalbild bleibt gespeichert."
+            : "Dieses Produkt existiert bereits. Suchbegriffe und SEO-Daten wurden aktualisiert.",
       });
     }
 
@@ -768,6 +1033,8 @@ export async function POST(request: NextRequest) {
         productSku: getProductSku(product),
         productPrice: getProductPrice(product),
         imageUrl: product.image_url || uploadedImage.imageUrl || null,
+        seoSlug: product.seo_slug || null,
+        seoTitle: product.seo_title || null,
       },
       aliasCount,
       imageOptimization:
@@ -778,8 +1045,8 @@ export async function POST(request: NextRequest) {
             }
           : null,
       message: uploadedImage.imageUrl
-        ? "Produkt wurde mit optimiertem Shopbild angelegt. Das Originalbild bleibt zusätzlich gespeichert."
-        : "Produkt wurde mit optionalen Buchmaßen angelegt und ist ab sofort verfügbar.",
+        ? "Produkt wurde mit optimiertem Shopbild, Originalbild und SEO-Daten angelegt. Der KI-Hintergrund kann danach im Produkt über „KI-Hintergrund neu erzeugen“ erstellt werden."
+        : "Produkt wurde mit optionalen Buchmaßen und SEO-Daten angelegt und ist ab sofort verfügbar.",
     });
   } catch (error) {
     console.error("Quick product create error:", error);
