@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
+import {
+  generateProductSeoFields,
+  slugifyProductText,
+} from "../../../../lib/productSeo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +18,17 @@ type Params = {
 type ProductRow = Record<string, unknown>;
 
 const PRODUCT_IMAGE_BUCKET = "school-product-images";
+const PRODUCT_IMAGE_ORIGINAL_PREFIX = "products-original";
+const PRODUCT_IMAGE_OPTIMIZED_PREFIX = "products";
+
+type UploadedProductImage = {
+  imageUrl: string | null;
+  originalImageUrl: string | null;
+  optimizedStoragePath: string | null;
+  originalStoragePath: string | null;
+  originalSizeBytes: number;
+  optimizedSizeBytes: number;
+};
 
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -109,36 +125,53 @@ function getFileExtension(file: File) {
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
   if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/avif") return "avif";
+  if (file.type === "image/heic") return "heic";
+  if (file.type === "image/heif") return "heif";
 
   return "jpg";
 }
 
-async function uploadProductImage(params: {
+function getContentTypeFromExtension(extension: string) {
+  const ext = extension.toLowerCase();
+
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "avif") return "image/avif";
+  if (ext === "heic") return "image/heic";
+  if (ext === "heif") return "image/heif";
+
+  return "image/jpeg";
+}
+
+async function createOptimizedProductImageBuffer(fileBuffer: Buffer) {
+  return sharp(fileBuffer, {
+    failOn: "none",
+  })
+    .rotate()
+    .resize({
+      width: 1400,
+      height: 1400,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({
+      quality: 82,
+      effort: 4,
+    })
+    .toBuffer();
+}
+
+async function uploadBufferToStorage(input: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
-  productId: string;
-  file: File;
+  storagePath: string;
+  buffer: Buffer;
+  contentType: string;
 }) {
-  const { supabase, productId, file } = params;
-
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Bitte lade eine Bilddatei hoch.");
-  }
-
-  const maxSize = 8 * 1024 * 1024;
-
-  if (file.size > maxSize) {
-    throw new Error("Das Produktbild darf maximal 8 MB groß sein.");
-  }
-
-  const extension = getFileExtension(file);
-  const path = `${productId}/${Date.now()}.${extension}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await input.supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .upload(path, buffer, {
-      contentType: file.type || "image/jpeg",
+    .upload(input.storagePath, input.buffer, {
+      contentType: input.contentType,
       upsert: true,
     });
 
@@ -148,15 +181,68 @@ async function uploadProductImage(params: {
     );
   }
 
-  const { data } = supabase.storage
+  const { data } = input.supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .getPublicUrl(path);
+    .getPublicUrl(input.storagePath);
 
   if (!data.publicUrl) {
     throw new Error("Produktbild wurde hochgeladen, aber keine URL erzeugt.");
   }
 
   return data.publicUrl;
+}
+
+async function uploadProductImage(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId: string;
+  productName: string;
+  file: File;
+}): Promise<UploadedProductImage> {
+  const { supabase, productId, productName, file } = params;
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Bitte lade eine Bilddatei hoch.");
+  }
+
+  const maxSize = 15 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    throw new Error("Das Produktbild darf maximal 15 MB groß sein.");
+  }
+
+  const extension = getFileExtension(file);
+  const productSlug = slugifyProductText(productName) || "produkt";
+  const uniquePart = `${Date.now()}-${crypto.randomUUID()}`;
+
+  const originalStoragePath = `${PRODUCT_IMAGE_ORIGINAL_PREFIX}/${productId}-${productSlug}-${uniquePart}.${extension}`;
+  const optimizedStoragePath = `${PRODUCT_IMAGE_OPTIMIZED_PREFIX}/${productId}-${productSlug}-${uniquePart}.webp`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const originalBuffer = Buffer.from(arrayBuffer);
+  const optimizedBuffer = await createOptimizedProductImageBuffer(originalBuffer);
+
+  const originalImageUrl = await uploadBufferToStorage({
+    supabase,
+    storagePath: originalStoragePath,
+    buffer: originalBuffer,
+    contentType: file.type || getContentTypeFromExtension(extension),
+  });
+
+  const imageUrl = await uploadBufferToStorage({
+    supabase,
+    storagePath: optimizedStoragePath,
+    buffer: optimizedBuffer,
+    contentType: "image/webp",
+  });
+
+  return {
+    imageUrl,
+    originalImageUrl,
+    optimizedStoragePath,
+    originalStoragePath,
+    originalSizeBytes: originalBuffer.length,
+    optimizedSizeBytes: optimizedBuffer.length,
+  };
 }
 
 async function replaceProductAliases(
@@ -262,6 +348,113 @@ function parseActive(value: unknown) {
   return text !== "false" && text !== "0" && text !== "off";
 }
 
+async function createUniqueSeoSlug(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId: string;
+  preferredSlug: string;
+}) {
+  const baseSlug =
+    slugifyProductText(params.preferredSlug) ||
+    `produkt-${params.productId.slice(0, 8)}`;
+
+  let candidate = baseSlug;
+  let counter = 2;
+
+  while (counter < 200) {
+    const { data, error } = await params.supabase
+      .from("school_products")
+      .select("id")
+      .eq("seo_slug", candidate)
+      .neq("id", params.productId)
+      .limit(1);
+
+    if (error) {
+      return candidate;
+    }
+
+    if (!data || data.length === 0) {
+      return candidate;
+    }
+
+    candidate = `${baseSlug}-${counter}`;
+    counter += 1;
+  }
+
+  return `${baseSlug}-${params.productId.slice(0, 8)}`;
+}
+
+async function buildSeoPayload(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId: string;
+  product: ProductRow;
+  productName: string;
+  productSku: string | null;
+  category: string | null;
+  productType: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  const seoFields = generateProductSeoFields({
+    productName: params.productName,
+    sku: params.productSku,
+    category: params.category,
+    productType: params.productType,
+    format: params.format,
+    color: params.color,
+    lineature: params.lineature,
+    bookWidthMm: params.bookWidthMm,
+    bookHeightMm: params.bookHeightMm,
+    bookSizeNote: params.bookSizeNote,
+  });
+
+  const uniqueSlug = await createUniqueSeoSlug({
+    supabase: params.supabase,
+    productId: params.productId,
+    preferredSlug: seoFields.seo_slug,
+  });
+
+  const payload: Record<string, unknown> = {};
+
+  setIfColumnExists(payload, params.product, "seo_slug", uniqueSlug);
+  setIfColumnExists(payload, params.product, "seo_title", seoFields.seo_title);
+  setIfColumnExists(
+    payload,
+    params.product,
+    "seo_description",
+    seoFields.seo_description
+  );
+  setIfColumnExists(
+    payload,
+    params.product,
+    "seo_keywords",
+    seoFields.seo_keywords
+  );
+  setIfColumnExists(
+    payload,
+    params.product,
+    "image_alt_text",
+    seoFields.image_alt_text
+  );
+  setIfColumnExists(
+    payload,
+    params.product,
+    "image_title_text",
+    seoFields.image_title_text
+  );
+  setIfColumnExists(
+    payload,
+    params.product,
+    "seo_updated_at",
+    new Date().toISOString()
+  );
+
+  return payload;
+}
+
 export async function PATCH(request: NextRequest, context: Params) {
   try {
     const { id } = await context.params;
@@ -290,6 +483,7 @@ export async function PATCH(request: NextRequest, context: Params) {
     const bookHeightMm = toOptionalInteger(payload.bookHeightMm);
     const bookSizeNote = cleanString(payload.bookSizeNote);
     let imageUrl = cleanString(payload.imageUrl);
+    let originalImageUrl: string | null = null;
     const price = toNumber(payload.productPrice, 0);
     const active = parseActive(payload.active);
     const aliases = splitAliases(payload.aliases);
@@ -345,15 +539,27 @@ export async function PATCH(request: NextRequest, context: Params) {
       );
     }
 
+    const product = existingProduct as ProductRow;
+    const previousImageUrl = cleanString(product.image_url);
+
+    let uploadedImage: UploadedProductImage | null = null;
+
     if (payload.productImage) {
-      imageUrl = await uploadProductImage({
+      uploadedImage = await uploadProductImage({
         supabase,
         productId: id,
+        productName,
         file: payload.productImage,
       });
+
+      imageUrl = uploadedImage.imageUrl;
+      originalImageUrl = uploadedImage.originalImageUrl;
     }
 
-    const product = existingProduct as ProductRow;
+    const imageWasChanged =
+      Boolean(payload.productImage) ||
+      Boolean(imageUrl && previousImageUrl && imageUrl !== previousImageUrl);
+
     const updatePayload: Record<string, unknown> = {};
 
     setIfColumnExists(updatePayload, product, "name", productName);
@@ -379,6 +585,39 @@ export async function PATCH(request: NextRequest, context: Params) {
     setIfColumnExists(updatePayload, product, "book_size_note", bookSizeNote);
 
     setIfColumnExists(updatePayload, product, "image_url", imageUrl);
+
+    if (originalImageUrl) {
+      setIfColumnExists(
+        updatePayload,
+        product,
+        "image_original_url",
+        originalImageUrl
+      );
+    }
+
+    if (imageWasChanged) {
+      setIfColumnExists(updatePayload, product, "image_styled_url", null);
+      setIfColumnExists(updatePayload, product, "image_styled_at", null);
+    }
+
+    const seoPayload = await buildSeoPayload({
+      supabase,
+      productId: id,
+      product,
+      productName,
+      productSku,
+      category,
+      productType,
+      format,
+      color,
+      lineature,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
+    });
+
+    Object.assign(updatePayload, seoPayload);
+
     setIfColumnExists(updatePayload, product, "active", active);
     setIfColumnExists(
       updatePayload,
@@ -418,9 +657,18 @@ export async function PATCH(request: NextRequest, context: Params) {
     return jsonResponse({
       ok: true,
       message: payload.productImage
-        ? "Produkt wurde aktualisiert und das Bild wurde hochgeladen."
-        : "Produkt wurde aktualisiert.",
+        ? "Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert und die SEO-Daten wurden aktualisiert."
+        : imageWasChanged
+          ? "Produkt wurde aktualisiert. Bildverknüpfung und SEO-Daten wurden aktualisiert."
+          : "Produkt wurde aktualisiert. Die SEO-Daten wurden aktualisiert.",
       imageUrl,
+      originalImageUrl,
+      imageOptimization: uploadedImage
+        ? {
+            originalSizeBytes: uploadedImage.originalSizeBytes,
+            optimizedSizeBytes: uploadedImage.optimizedSizeBytes,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Admin product update error:", error);
