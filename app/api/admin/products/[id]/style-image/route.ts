@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { styleProductImageById } from "../../../../../lib/productImageStyling";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,39 +14,25 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 export async function POST(_request: NextRequest, context: Params) {
-  try {
-    const { id } = await context.params;
+  const { id } = await context.params;
 
-    if (!id) {
-      return jsonResponse(
-        {
-          ok: false,
-          message: "Keine Produkt-ID übergeben.",
-        },
-        400
-      );
-    }
-
-    const result = await styleProductImageById(id);
-
-    return jsonResponse({
-      ...result,
-      ok: true,
-      message:
-        "Produkt wurde freigestellt und mit unverändertem Originalprodukt auf den neuen Hintergrund gesetzt.",
-    });
-  } catch (error) {
-    console.error("Admin product style image error:", error);
-
+  if (!id) {
     return jsonResponse(
       {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "KI-Hintergrund konnte nicht erzeugt werden.",
+        message: "Keine Produkt-ID übergeben.",
       },
-      500
+      400
     );
   }
+
+  return jsonResponse(
+    {
+      ok: false,
+      productId: id,
+      message:
+        "Die Hintergrund-Erzeugung ist vorübergehend deaktiviert. Produktbild, Originalbild und SEO-Daten bleiben erhalten. Die originalschonende Freistellung wird als separates Batch-Script weitergeführt, damit die Website stabil bleibt.",
+    },
+    503
+  );
 }
