@@ -5,6 +5,7 @@ import {
   generateProductSeoFields,
   slugifyProductText,
 } from "../../../../lib/productSeo";
+import { createUniqueProductSku } from "../../../../lib/productSku";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -316,6 +317,7 @@ async function readPatchPayload(request: NextRequest) {
     return {
       productName: formData.get("productName"),
       productSku: formData.get("productSku"),
+      ean: formData.get("ean"),
       productPrice: formData.get("productPrice"),
       category: formData.get("category"),
       productType: formData.get("productType"),
@@ -473,7 +475,8 @@ export async function PATCH(request: NextRequest, context: Params) {
     const payload = await readPatchPayload(request);
 
     const productName = cleanString(payload.productName);
-    const productSku = cleanString(payload.productSku);
+    const requestedProductSku = cleanString(payload.productSku);
+    const ean = cleanString(payload.ean);
     const category = cleanString(payload.category);
     const productType = cleanString(payload.productType);
     const format = cleanString(payload.format);
@@ -540,6 +543,22 @@ export async function PATCH(request: NextRequest, context: Params) {
     }
 
     const product = existingProduct as ProductRow;
+
+    const productSku =
+      requestedProductSku ||
+      (await createUniqueProductSku({
+        supabase,
+        input: {
+          productName,
+          category,
+          productType,
+          format,
+          color,
+          lineature,
+        },
+        excludeProductId: id,
+      }));
+
     const previousImageUrl = cleanString(product.image_url);
 
     let uploadedImage: UploadedProductImage | null = null;
@@ -568,6 +587,7 @@ export async function PATCH(request: NextRequest, context: Params) {
 
     setIfColumnExists(updatePayload, product, "sku", productSku);
     setIfColumnExists(updatePayload, product, "product_sku", productSku);
+    setIfColumnExists(updatePayload, product, "ean", ean);
 
     setIfColumnExists(updatePayload, product, "price", price);
     setIfColumnExists(updatePayload, product, "product_price", price);
@@ -661,6 +681,8 @@ export async function PATCH(request: NextRequest, context: Params) {
         : imageWasChanged
           ? "Produkt wurde aktualisiert. Bildverknüpfung und SEO-Daten wurden aktualisiert."
           : "Produkt wurde aktualisiert. Die SEO-Daten wurden aktualisiert.",
+      productSku,
+      ean,
       imageUrl,
       originalImageUrl,
       imageOptimization: uploadedImage

@@ -6,6 +6,7 @@ import {
   slugifyProductText,
 } from "../../../../lib/productSeo";
 import { tryStyleProductImageById } from "../../../../lib/productImageStyling";
+import { createUniqueProductSku } from "../../../../lib/productSku";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ type ProductRow = {
   name?: string | null;
   title?: string | null;
   sku?: string | null;
+  ean?: string | null;
   price?: number | string | null;
   sale_price?: number | string | null;
   sale_price_gross?: number | string | null;
@@ -560,6 +562,7 @@ async function createProductFlexible(
   input: {
     productName: string;
     productSku: string;
+    ean: string | null;
     productPrice: number;
     category: string;
     productType: string;
@@ -613,6 +616,7 @@ async function createProductFlexible(
     {
       name: input.productName,
       sku: input.productSku || null,
+      ean: input.ean || null,
       price: input.productPrice,
       category: input.category || null,
       product_type: input.productType || null,
@@ -631,6 +635,7 @@ async function createProductFlexible(
     {
       title: input.productName,
       sku: input.productSku || null,
+      ean: input.ean || null,
       price: input.productPrice,
       category: input.category || null,
       image_url: input.imageUrl,
@@ -643,6 +648,7 @@ async function createProductFlexible(
     {
       name: input.productName,
       sku: input.productSku || null,
+      ean: input.ean || null,
       price: input.productPrice,
       category: input.category || null,
       product_type: input.productType || null,
@@ -688,6 +694,7 @@ async function updateExistingProductFlexible(
   input: {
     productName: string;
     productSku: string;
+    ean: string | null;
     productPrice: number;
     category: string;
     productType: string;
@@ -720,6 +727,8 @@ async function updateExistingProductFlexible(
   });
 
   const fullPayload: Record<string, unknown> = {
+    sku: input.productSku || null,
+    ean: input.ean || null,
     book_width_mm: input.bookWidthMm,
     book_height_mm: input.bookHeightMm,
     book_size_note: input.bookSizeNote || null,
@@ -748,6 +757,8 @@ async function updateExistingProductFlexible(
   if (!fullUpdateError) return;
 
   const fallbackPayload: Record<string, unknown> = {
+    sku: input.productSku || null,
+    ean: input.ean || null,
     updated_at: now,
   };
 
@@ -816,7 +827,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
 
     const productName = String(formData.get("productName") || "").trim();
-    const productSku = String(formData.get("productSku") || "").trim();
+    const requestedProductSku = String(formData.get("productSku") || "").trim();
+    const ean = cleanString(formData.get("ean"));
     const productPrice = toNumber(formData.get("productPrice"), 0);
     const category = String(formData.get("category") || "").trim();
     const productType = String(formData.get("productType") || "").trim();
@@ -859,6 +871,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const productSku =
+      requestedProductSku ||
+      (await createUniqueProductSku({
+        supabase,
+        input: {
+          productName,
+          category,
+          productType,
+          format,
+          color,
+          lineature,
+        },
+      }));
+
     const uploadedImage = await uploadProductImage(
       supabase,
       imageFile,
@@ -875,6 +901,7 @@ export async function POST(request: NextRequest) {
       await updateExistingProductFlexible(supabase, existingProduct, {
         productName,
         productSku,
+        ean,
         productPrice,
         category,
         productType,
@@ -930,7 +957,8 @@ export async function POST(request: NextRequest) {
         product: {
           id: existingProduct.id,
           productName: getProductName(existingProduct),
-          productSku: getProductSku(existingProduct),
+          productSku,
+          ean,
           productPrice: getProductPrice(existingProduct),
           imageUrl:
             uploadedImage.imageUrl ||
@@ -959,6 +987,7 @@ export async function POST(request: NextRequest) {
     const product = await createProductFlexible(supabase, {
       productName,
       productSku,
+      ean,
       productPrice,
       category,
       productType,
@@ -1011,6 +1040,7 @@ export async function POST(request: NextRequest) {
         id: product.id,
         productName: getProductName(product),
         productSku: getProductSku(product),
+        ean: product.ean || ean || null,
         productPrice: getProductPrice(product),
         imageUrl: product.image_url || uploadedImage.imageUrl || null,
         seoSlug: product.seo_slug || null,

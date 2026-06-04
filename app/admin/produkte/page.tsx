@@ -23,6 +23,7 @@ type ProductRow = {
   title?: string | null;
   sku?: string | null;
   product_sku?: string | null;
+  ean?: string | null;
   price?: number | string | null;
   product_price?: number | string | null;
   sale_price?: number | string | null;
@@ -430,6 +431,10 @@ export default async function AdminProductsPage() {
                             : "Ohne Art.-Nr."}
                         </p>
 
+                        <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                          {product.ean ? `EAN: ${product.ean}` : "Ohne EAN"}
+                        </p>
+
                         {bookMeasureLabel || product.book_size_note ? (
                           <div className="mt-3 rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-semibold text-[#12395F]">
                             {bookMeasureLabel ? (
@@ -476,6 +481,7 @@ export default async function AdminProductsPage() {
                           productId={product.id}
                           productName={getProductName(product)}
                           productSku={getProductSku(product)}
+                          ean={product.ean || null}
                           productPrice={getProductPrice(product)}
                           category={product.category || null}
                           productType={product.product_type || null}

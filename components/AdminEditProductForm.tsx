@@ -20,6 +20,7 @@ type AdminEditProductFormProps = {
   productId: string;
   productName: string;
   productSku: string | null;
+  ean: string | null;
   productPrice: number;
   category: string | null;
   productType: string | null;
@@ -71,6 +72,7 @@ export default function AdminEditProductForm({
   productId,
   productName,
   productSku,
+  ean,
   productPrice,
   category,
   productType,
@@ -97,6 +99,7 @@ export default function AdminEditProductForm({
   const [formData, setFormData] = useState({
     productName,
     productSku: productSku || "",
+    ean: ean || "",
     productPrice: formatPriceInput(productPrice),
     category: category || "",
     productType: productType || "",
@@ -219,6 +222,7 @@ export default function AdminEditProductForm({
 
       submitData.append("productName", formData.productName);
       submitData.append("productSku", formData.productSku);
+      submitData.append("ean", formData.ean);
       submitData.append("productPrice", formData.productPrice);
       submitData.append("category", formData.category);
       submitData.append("productType", formData.productType);
@@ -400,6 +404,23 @@ export default function AdminEditProductForm({
                 onChange={(event) =>
                   updateField("productSku", event.target.value)
                 }
+                placeholder="Wird automatisch erzeugt, wenn leer"
+                className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+              <span className="mt-1 block text-xs font-semibold text-[#52616F]">
+                Leer lassen, wenn das System beim Speichern automatisch eine sprechende Art.-Nr. erzeugen soll.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                EAN
+              </span>
+              <input
+                value={formData.ean}
+                onChange={(event) => updateField("ean", event.target.value)}
+                inputMode="numeric"
+                placeholder="Optional: Barcode / EAN"
                 className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </label>
