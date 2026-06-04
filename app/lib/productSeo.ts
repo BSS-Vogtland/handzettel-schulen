@@ -38,6 +38,15 @@ function cleanText(value: unknown) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeForCompare(value: unknown) {
+  return normalizeGermanText(value)
+    .toLowerCase()
+    .replace(/&/g, " und ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function slugifyProductText(value: unknown) {
   return normalizeGermanText(value)
     .toLowerCase()
@@ -46,12 +55,6 @@ export function slugifyProductText(value: unknown) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 90);
-}
-
-function compactList(values: Array<unknown>) {
-  return values
-    .map((value) => cleanText(value))
-    .filter((value) => value.length > 0);
 }
 
 function uniqueList(values: string[]) {
@@ -63,9 +66,9 @@ function uniqueList(values: string[]) {
 
     if (!cleaned) continue;
 
-    const key = cleaned.toLowerCase();
+    const key = normalizeForCompare(cleaned);
 
-    if (seen.has(key)) continue;
+    if (!key || seen.has(key)) continue;
 
     seen.add(key);
     result.push(cleaned);
@@ -82,25 +85,102 @@ function limitText(value: string, maxLength: number) {
   return cleaned.slice(0, maxLength - 1).trimEnd() + "…";
 }
 
+function containsToken(text: unknown, token: unknown) {
+  const normalizedText = normalizeForCompare(text);
+  const normalizedToken = normalizeForCompare(token);
+
+  if (!normalizedText || !normalizedToken) return false;
+
+  return ` ${normalizedText} `.includes(` ${normalizedToken} `);
+}
+
+function productNameAlreadyContainsValue(productName: string, value: unknown) {
+  const cleanedValue = cleanText(value);
+
+  if (!cleanedValue) return true;
+
+  return containsToken(productName, cleanedValue);
+}
+
+function normalizeLineature(value: unknown) {
+  return cleanText(value)
+    .replace(/^lineatur\s*/i, "")
+    .replace(/^lin\.\s*/i, "")
+    .replace(/^lin\s*/i, "")
+    .replace(/^l\s*/i, "")
+    .trim();
+}
+
+function productNameAlreadyContainsLineature(productName: string, value: unknown) {
+  const lineature = normalizeLineature(value);
+
+  if (!lineature) return true;
+
+  const normalizedName = normalizeForCompare(productName);
+  const normalizedLineature = normalizeForCompare(lineature);
+
+  if (!normalizedName || !normalizedLineature) return false;
+
+  return (
+    normalizedName.includes(`lineatur ${normalizedLineature}`) ||
+    normalizedName.includes(`lin ${normalizedLineature}`) ||
+    normalizedName.includes(`l ${normalizedLineature}`)
+  );
+}
+
+function productNameAlreadyContainsBookMeasure(
+  productName: string,
+  width: unknown,
+  height: unknown
+) {
+  const cleanedWidth = cleanText(width);
+  const cleanedHeight = cleanText(height);
+
+  if (!cleanedWidth || !cleanedHeight) return true;
+
+  const normalizedName = normalizeForCompare(productName);
+
+  return normalizedName.includes(`${cleanedWidth} ${cleanedHeight}`);
+}
+
 function buildDetails(input: ProductSeoInput) {
+  const productName = cleanText(input.productName);
   const details: string[] = [];
 
-  if (input.format) details.push(String(input.format).toUpperCase());
-  if (input.color) details.push(cleanText(input.color));
+  const format = cleanText(input.format).toUpperCase();
+  const color = cleanText(input.color);
+  const lineature = normalizeLineature(input.lineature);
 
-  if (input.lineature) {
-    details.push(`Lineatur ${cleanText(input.lineature)}`);
+  if (format && !productNameAlreadyContainsValue(productName, format)) {
+    details.push(format);
+  }
+
+  if (color && !productNameAlreadyContainsValue(productName, color)) {
+    details.push(color);
+  }
+
+  if (
+    lineature &&
+    !productNameAlreadyContainsLineature(productName, lineature)
+  ) {
+    details.push(`Lineatur ${lineature}`);
   }
 
   const width = cleanText(input.bookWidthMm);
   const height = cleanText(input.bookHeightMm);
 
-  if (width && height) {
+  if (
+    width &&
+    height &&
+    !productNameAlreadyContainsBookMeasure(productName, width, height)
+  ) {
     details.push(`${width} x ${height} mm`);
   }
 
-  if (input.bookSizeNote) {
-    details.push(cleanText(input.bookSizeNote));
+  const note = cleanText(input.bookSizeNote);
+
+  if (note && !normalizeForCompare(productName).includes(normalizeForCompare(note))) {
+    details.push(note);
   }
 
   return uniqueList(details);
@@ -133,16 +213,23 @@ function inferUseCase(input: ProductSeoInput) {
   return "für Schule, Unterricht und Schulmateriallisten";
 }
 
-export function generateProductSeoFields(input: ProductSeoInput): ProductSeoFields {
+export function buildReadableProductSeoName(input: ProductSeoInput) {
   const productName = cleanText(input.productName) || "Schulmaterial";
-  const category = cleanText(input.category) || "Schulmaterial";
-  const productType = cleanText(input.productType);
   const details = buildDetails(input);
   const detailText = details.length > 0 ? ` ${details.join(" ")}` : "";
-  const readableName = cleanText(`${productName}${detailText}`);
+
+  return cleanText(`${productName}${detailText}`);
+}
+
+export function generateProductSeoFields(input: ProductSeoInput): ProductSeoFields {
+  const productName = cleanText(input.productName) || "Schulmaterial";
+  const readableName = buildReadableProductSeoName(input);
+  const category = cleanText(input.category) || "Schulmaterial";
+  const productType = cleanText(input.productType);
   const useCase = inferUseCase(input);
 
-  const slugBase = slugifyProductText(readableName || productName) || "schulmaterial";
+  const slugBase =
+    slugifyProductText(readableName || productName) || "schulmaterial";
 
   const seoTitle = limitText(
     `${readableName} online finden | Handzettel-Schulen.de`,
@@ -159,9 +246,11 @@ export function generateProductSeoFields(input: ProductSeoInput): ProductSeoFiel
     readableName,
     category,
     productType,
-    input.format ? `${productName} ${input.format}` : "",
-    input.color ? `${productName} ${input.color}` : "",
-    input.lineature ? `${productName} Lineatur ${input.lineature}` : "",
+    input.format ? `${productName} ${cleanText(input.format).toUpperCase()}` : "",
+    input.color ? `${productName} ${cleanText(input.color)}` : "",
+    input.lineature
+      ? `${productName} Lineatur ${normalizeLineature(input.lineature)}`
+      : "",
     "Schulmaterial",
     "Schulbedarf",
     "Schulmaterialliste",

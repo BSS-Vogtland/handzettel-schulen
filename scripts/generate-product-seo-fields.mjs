@@ -56,6 +56,15 @@ function cleanText(value) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeForCompare(value) {
+  return normalizeGermanText(value)
+    .toLowerCase()
+    .replace(/&/g, " und ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function slugifyProductText(value) {
   return normalizeGermanText(value)
     .toLowerCase()
@@ -75,9 +84,9 @@ function uniqueList(values) {
 
     if (!cleaned) continue;
 
-    const key = cleaned.toLowerCase();
+    const key = normalizeForCompare(cleaned);
 
-    if (seen.has(key)) continue;
+    if (!key || seen.has(key)) continue;
 
     seen.add(key);
     result.push(cleaned);
@@ -94,6 +103,15 @@ function limitText(value, maxLength) {
   return cleaned.slice(0, maxLength - 1).trimEnd() + "…";
 }
 
+function containsToken(text, token) {
+  const normalizedText = normalizeForCompare(text);
+  const normalizedToken = normalizeForCompare(token);
+
+  if (!normalizedText || !normalizedToken) return false;
+
+  return ` ${normalizedText} `.includes(` ${normalizedToken} `);
+}
+
 function getProductName(product) {
   return (
     product.name ||
@@ -104,42 +122,100 @@ function getProductName(product) {
   );
 }
 
-function getProductSku(product) {
-  return product.sku || product.product_sku || null;
+function productNameAlreadyContainsValue(productName, value) {
+  const cleanedValue = cleanText(value);
+
+  if (!cleanedValue) return true;
+
+  return containsToken(productName, cleanedValue);
 }
 
-function getProductPrice(product) {
+function normalizeLineature(value) {
+  return cleanText(value)
+    .replace(/^lineatur\s*/i, "")
+    .replace(/^lin\.\s*/i, "")
+    .replace(/^lin\s*/i, "")
+    .replace(/^l\s*/i, "")
+    .trim();
+}
+
+function productNameAlreadyContainsLineature(productName, value) {
+  const lineature = normalizeLineature(value);
+
+  if (!lineature) return true;
+
+  const normalizedName = normalizeForCompare(productName);
+  const normalizedLineature = normalizeForCompare(lineature);
+
+  if (!normalizedName || !normalizedLineature) return false;
+
   return (
-    product.price ||
-    product.product_price ||
-    product.sale_price_gross ||
-    product.sale_price ||
-    null
+    normalizedName.includes(`lineatur ${normalizedLineature}`) ||
+    normalizedName.includes(`lin ${normalizedLineature}`) ||
+    normalizedName.includes(`l ${normalizedLineature}`)
   );
 }
 
+function productNameAlreadyContainsBookMeasure(productName, width, height) {
+  const cleanedWidth = cleanText(width);
+  const cleanedHeight = cleanText(height);
+
+  if (!cleanedWidth || !cleanedHeight) return true;
+
+  const normalizedName = normalizeForCompare(productName);
+
+  return normalizedName.includes(`${cleanedWidth} ${cleanedHeight}`);
+}
+
 function buildDetails(product) {
+  const productName = cleanText(getProductName(product));
   const details = [];
 
-  if (product.format) details.push(String(product.format).toUpperCase());
-  if (product.color) details.push(cleanText(product.color));
+  const format = cleanText(product.format).toUpperCase();
+  const color = cleanText(product.color);
+  const lineature = normalizeLineature(product.lineature);
 
-  if (product.lineature) {
-    details.push(`Lineatur ${cleanText(product.lineature)}`);
+  if (format && !productNameAlreadyContainsValue(productName, format)) {
+    details.push(format);
+  }
+
+  if (color && !productNameAlreadyContainsValue(productName, color)) {
+    details.push(color);
+  }
+
+  if (
+    lineature &&
+    !productNameAlreadyContainsLineature(productName, lineature)
+  ) {
+    details.push(`Lineatur ${lineature}`);
   }
 
   const width = cleanText(product.book_width_mm);
   const height = cleanText(product.book_height_mm);
 
-  if (width && height) {
+  if (
+    width &&
+    height &&
+    !productNameAlreadyContainsBookMeasure(productName, width, height)
+  ) {
     details.push(`${width} x ${height} mm`);
   }
 
-  if (product.book_size_note) {
-    details.push(cleanText(product.book_size_note));
+  const note = cleanText(product.book_size_note);
+
+  if (note && !normalizeForCompare(productName).includes(normalizeForCompare(note))) {
+    details.push(note);
   }
 
   return uniqueList(details);
+}
+
+function buildReadableProductSeoName(product) {
+  const productName = cleanText(getProductName(product)) || "Schulmaterial";
+  const details = buildDetails(product);
+  const detailText = details.length > 0 ? ` ${details.join(" ")}` : "";
+
+  return cleanText(`${productName}${detailText}`);
 }
 
 function inferUseCase(product) {
@@ -171,11 +247,9 @@ function inferUseCase(product) {
 
 function generateProductSeoFields(product, slug) {
   const productName = cleanText(getProductName(product)) || "Schulmaterial";
+  const readableName = buildReadableProductSeoName(product);
   const category = cleanText(product.category) || "Schulmaterial";
   const productType = cleanText(product.product_type);
-  const details = buildDetails(product);
-  const detailText = details.length > 0 ? ` ${details.join(" ")}` : "";
-  const readableName = cleanText(`${productName}${detailText}`);
   const useCase = inferUseCase(product);
 
   const seoTitle = limitText(
@@ -193,9 +267,11 @@ function generateProductSeoFields(product, slug) {
     readableName,
     category,
     productType,
-    product.format ? `${productName} ${product.format}` : "",
-    product.color ? `${productName} ${product.color}` : "",
-    product.lineature ? `${productName} Lineatur ${product.lineature}` : "",
+    product.format ? `${productName} ${cleanText(product.format).toUpperCase()}` : "",
+    product.color ? `${productName} ${cleanText(product.color)}` : "",
+    product.lineature
+      ? `${productName} Lineatur ${normalizeLineature(product.lineature)}`
+      : "",
     "Schulmaterial",
     "Schulbedarf",
     "Schulmaterialliste",
@@ -244,28 +320,42 @@ function shouldProcessProduct(product, force) {
 }
 
 function makeSlugBase(product) {
-  const productName = cleanText(getProductName(product));
-  const details = buildDetails(product);
-  const readableName = cleanText(
-    [productName, ...details].filter(Boolean).join(" ")
-  );
+  const readableName = buildReadableProductSeoName(product);
 
-  return slugifyProductText(readableName || productName || product.id) || product.id;
+  return (
+    slugifyProductText(readableName || getProductName(product) || product.id) ||
+    product.id
+  );
 }
 
-function createUniqueSlug(product, usedSlugs) {
-  const baseSlug = makeSlugBase(product);
+async function createUniqueSlug(supabase, product, usedSlugs) {
+  const baseSlug = makeSlugBase(product) || `produkt-${String(product.id).slice(0, 8)}`;
+
   let candidate = baseSlug;
   let counter = 2;
 
-  while (usedSlugs.has(candidate)) {
+  while (counter < 300) {
+    if (!usedSlugs.has(candidate)) {
+      const { data, error } = await supabase
+        .from("school_products")
+        .select("id")
+        .eq("seo_slug", candidate)
+        .neq("id", product.id)
+        .limit(1);
+
+      if (error || !data || data.length === 0) {
+        usedSlugs.add(candidate);
+        return candidate;
+      }
+    }
+
     candidate = `${baseSlug}-${counter}`;
     counter += 1;
   }
 
-  usedSlugs.add(candidate);
-
-  return candidate;
+  const fallback = `${baseSlug}-${String(product.id).slice(0, 8)}`;
+  usedSlugs.add(fallback);
+  return fallback;
 }
 
 async function loadProducts(supabase) {
@@ -303,12 +393,6 @@ async function main() {
   const supabase = getSupabaseAdmin();
   const allProducts = await loadProducts(supabase);
 
-  const usedSlugs = new Set(
-    allProducts
-      .map((product) => cleanText(product.seo_slug))
-      .filter(Boolean)
-  );
-
   const productsToProcess = allProducts
     .filter((product) => shouldProcessProduct(product, force))
     .slice(0, all ? allProducts.length : limit);
@@ -322,22 +406,17 @@ async function main() {
   console.log(`Zu verarbeitende Produkte: ${productsToProcess.length}`);
   console.log("");
 
+  const usedSlugs = new Set();
   let successCount = 0;
   let errorCount = 0;
 
   for (const [index, product] of productsToProcess.entries()) {
     const productName = getProductName(product);
-    const oldSlug = cleanText(product.seo_slug);
-
-    if (oldSlug) {
-      usedSlugs.delete(oldSlug);
-    }
-
-    const slug = oldSlug && !force ? oldSlug : createUniqueSlug(product, usedSlugs);
-
-    if (oldSlug && !usedSlugs.has(oldSlug)) {
-      usedSlugs.add(oldSlug);
-    }
+    const existingSlug = cleanText(product.seo_slug);
+    const slug =
+      existingSlug && !force
+        ? existingSlug
+        : await createUniqueSlug(supabase, product, usedSlugs);
 
     const seoFields = generateProductSeoFields(product, slug);
 
