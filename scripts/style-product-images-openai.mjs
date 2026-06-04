@@ -9,15 +9,17 @@ import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
-import { removeBackground } from "@imgly/background-removal-node";
 
 const PRODUCT_IMAGE_BUCKET = "school-product-images";
-const STYLED_PREFIX = "products-styled";
+const STYLED_PREFIX = "products-styled-openai";
+
+const OPENAI_IMAGE_EDIT_URL = "https://api.openai.com/v1/images/edits";
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
 
 const OUTPUT_SIZE = 1254;
-const PRODUCT_MAX_WIDTH = 820;
-const PRODUCT_MAX_HEIGHT = 720;
-const PRODUCT_BOTTOM_Y = 1015;
+const PRODUCT_MAX_WIDTH = 860;
+const PRODUCT_MAX_HEIGHT = 760;
+const PRODUCT_BOTTOM_Y = 1040;
 const WEBP_QUALITY = 82;
 
 const BACKGROUND_PATH = path.join(
@@ -30,9 +32,7 @@ const BACKGROUND_PATH = path.join(
 function getArg(name, fallback = null) {
   const prefix = `${name}=`;
   const found = process.argv.find((arg) => arg.startsWith(prefix));
-
   if (!found) return fallback;
-
   return found.slice(prefix.length);
 }
 
@@ -56,6 +56,16 @@ function getSupabaseAdmin() {
       autoRefreshToken: false,
     },
   });
+}
+
+function getOpenAiApiKey() {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey || apiKey.trim().length < 20) {
+    throw new Error("OPENAI_API_KEY fehlt in .env.local.");
+  }
+
+  return apiKey.trim();
 }
 
 function getProductName(product) {
@@ -84,20 +94,8 @@ function sanitizePathPart(value) {
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
-
-  if (bytes < 1024 * 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
-  }
-
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(2).replace(".", ",")} MB`;
-}
-
-function getReductionPercent(originalBytes, optimizedBytes) {
-  if (!originalBytes || !optimizedBytes || optimizedBytes >= originalBytes) {
-    return 0;
-  }
-
-  return Math.round(((originalBytes - optimizedBytes) / originalBytes) * 100);
 }
 
 function parseStoragePathFromPublicUrl(publicUrl) {
@@ -109,7 +107,6 @@ function parseStoragePathFromPublicUrl(publicUrl) {
   if (markerIndex === -1) return null;
 
   const rawPath = publicUrl.slice(markerIndex + marker.length).split("?")[0];
-
   if (!rawPath) return null;
 
   try {
@@ -162,17 +159,15 @@ async function downloadStorageFile(supabase, storagePath) {
   return blobToBuffer(data);
 }
 
-async function normalizeInputImageToPng(inputBuffer, productLabel) {
-  console.log(`   Originalbild für Verarbeitung vorbereiten: ${productLabel}`);
-
-  return sharp(inputBuffer, {
+async function prepareImageForOpenAi(sourceBuffer) {
+  return sharp(sourceBuffer, {
     failOn: "none",
     unlimited: false,
   })
     .rotate()
     .resize({
-      width: 1800,
-      height: 1800,
+      width: 1400,
+      height: 1400,
       fit: "inside",
       withoutEnlargement: true,
     })
@@ -183,41 +178,85 @@ async function normalizeInputImageToPng(inputBuffer, productLabel) {
     .toBuffer();
 }
 
-async function removeImageBackground(inputBuffer, productLabel) {
-  const normalizedPngBuffer = await normalizeInputImageToPng(
-    inputBuffer,
-    productLabel
+async function cutOutWithOpenAi(sourceBuffer, productName) {
+  const apiKey = getOpenAiApiKey();
+  const preparedPng = await prepareImageForOpenAi(sourceBuffer);
+
+  const formData = new FormData();
+
+  formData.append("model", OPENAI_IMAGE_MODEL);
+  formData.append(
+    "prompt",
+    [
+      "Remove the background from this product photo.",
+      "Keep only the photographed product.",
+      "Do not redesign the product.",
+      "Do not change the product shape, label, text, colors, packaging, proportions, or visible details.",
+      "Only isolate the product from the background.",
+      "Return the product on a transparent background.",
+      "Preserve the product as close to the original as possible.",
+    ].join(" ")
   );
 
-  const inputBlob = new Blob([normalizedPngBuffer], {
-    type: "image/png",
+  formData.append(
+    "image",
+    new Blob([preparedPng], { type: "image/png" }),
+    `${sanitizePathPart(productName) || "product"}.png`
+  );
+
+  formData.append("size", "1024x1024");
+  formData.append("background", "transparent");
+  formData.append("quality", "medium");
+
+  console.log(`   OpenAI-Freistellung starten: ${productName}`);
+
+  const response = await fetch(OPENAI_IMAGE_EDIT_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: formData,
   });
 
-  console.log(`   Hintergrund entfernen: ${productLabel}`);
+  const responseText = await response.text();
 
-  const processedBlob = await removeBackground(inputBlob, {
-    model: "medium",
-    output: {
-      format: "image/png",
-      quality: 0.95,
-    },
-    progress: (key, current, total) => {
-      if (!total) return;
+  if (!response.ok) {
+    throw new Error(
+      `OpenAI Images API Fehler ${response.status}: ${responseText}`
+    );
+  }
 
-      const percentage = Math.round((current / total) * 100);
+  let json;
 
-      if (
-        percentage === 25 ||
-        percentage === 50 ||
-        percentage === 75 ||
-        percentage === 100
-      ) {
-        console.log(`   ${key}: ${percentage}%`);
-      }
-    },
-  });
+  try {
+    json = JSON.parse(responseText);
+  } catch {
+    throw new Error("OpenAI-Antwort konnte nicht als JSON gelesen werden.");
+  }
 
-  return blobToBuffer(processedBlob);
+  const firstImage = json?.data?.[0];
+
+  if (!firstImage) {
+    throw new Error("OpenAI hat kein Bild zurückgegeben.");
+  }
+
+  if (firstImage.b64_json) {
+    return Buffer.from(firstImage.b64_json, "base64");
+  }
+
+  if (firstImage.url) {
+    const imageResponse = await fetch(firstImage.url);
+
+    if (!imageResponse.ok) {
+      throw new Error(
+        `OpenAI-Bild-URL konnte nicht geladen werden: ${imageResponse.status}`
+      );
+    }
+
+    return Buffer.from(await imageResponse.arrayBuffer());
+  }
+
+  throw new Error("OpenAI-Antwort enthält weder b64_json noch url.");
 }
 
 function makeShadowSvg(width, height, productWidth) {
@@ -239,10 +278,7 @@ async function composeProductOnBackground(cutoutBuffer) {
       fit: "cover",
       position: "center",
     })
-    .webp({
-      quality: WEBP_QUALITY,
-      effort: 4,
-    })
+    .png()
     .toBuffer();
 
   const resizedProduct = await sharp(cutoutBuffer, {
@@ -386,8 +422,8 @@ async function loadProductsToProcess(supabase) {
 
 async function main() {
   console.log("");
-  console.log("Produktbilder mit Handzettel-Hintergrund erzeugen");
-  console.log("================================================");
+  console.log("Produktbilder mit OpenAI-Freistellung und Handzettel-Hintergrund erzeugen");
+  console.log("========================================================================");
   console.log("");
 
   if (!fs.existsSync(BACKGROUND_PATH)) {
@@ -404,6 +440,7 @@ async function main() {
   console.log(`Modus: ${dryRun ? "Dry Run, keine Speicherung" : "Speichern aktiv"}`);
   console.log(`Umfang: ${all ? "alle passenden Produkte" : `maximal ${limit} Produkte`}`);
   console.log(`Force: ${force ? "ja, vorhandene styled Bilder neu erzeugen" : "nein"}`);
+  console.log(`OpenAI-Modell: ${OPENAI_IMAGE_MODEL}`);
   console.log(`Ausgabeformat: WebP, Qualität ${WEBP_QUALITY}`);
   console.log("");
 
@@ -444,8 +481,8 @@ async function main() {
     }
 
     if (
-      sourceStoragePath.startsWith(`${STYLED_PREFIX}/`) ||
-      sourceStoragePath.includes("/products-styled/")
+      sourceStoragePath.startsWith("products-styled/") ||
+      sourceStoragePath.startsWith("products-styled-openai/")
     ) {
       skippedCount += 1;
       console.log("   Übersprungen: Quelle ist bereits ein styled Bild.");
@@ -467,7 +504,7 @@ async function main() {
 
     try {
       const sourceBuffer = await downloadStorageFile(supabase, sourceStoragePath);
-      const cutoutBuffer = await removeImageBackground(sourceBuffer, productName);
+      const cutoutBuffer = await cutOutWithOpenAi(sourceBuffer, productName);
       const styledBuffer = await composeProductOnBackground(cutoutBuffer);
 
       const styledPublicUrl = await uploadStyledImage(
@@ -478,8 +515,6 @@ async function main() {
 
       await updateProductStyledImageUrl(supabase, product, styledPublicUrl);
 
-      const reduction = getReductionPercent(sourceBuffer.length, styledBuffer.length);
-
       totalSourceBytes += sourceBuffer.length;
       totalStyledBytes += styledBuffer.length;
       successCount += 1;
@@ -487,7 +522,7 @@ async function main() {
       console.log(
         `   Fertig: Quelle ${formatBytes(sourceBuffer.length)} → Styled ${formatBytes(
           styledBuffer.length
-        )} (${reduction}% kleiner als Quelle)`
+        )}`
       );
       console.log("");
     } catch (error) {
@@ -501,8 +536,6 @@ async function main() {
     }
   }
 
-  const totalReduction = getReductionPercent(totalSourceBytes, totalStyledBytes);
-
   console.log("Zusammenfassung");
   console.log("===============");
   console.log(`Erfolgreich: ${successCount}`);
@@ -513,7 +546,7 @@ async function main() {
     console.log(
       `Gesamtgröße: ${formatBytes(totalSourceBytes)} → ${formatBytes(
         totalStyledBytes
-      )} (${totalReduction}% kleiner als Quelle)`
+      )}`
     );
   }
 
