@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import AdminQuickProductForm from "@/components/AdminQuickProductForm";
 import AdminEditProductForm from "@/components/AdminEditProductForm";
+import AdminProductPreviewImage from "@/components/AdminProductPreviewImage";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,12 @@ type ProductRow = {
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
   image_url?: string | null;
+  image_original_url?: string | null;
+  image_styled_url?: string | null;
+  product_image_url?: string | null;
+  image?: string | null;
+  photo_url?: string | null;
+  picture_url?: string | null;
   active?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -131,6 +138,31 @@ function getBookMeasureLabel(product: ProductRow) {
   }
 
   return `${width} x ${height} mm`;
+}
+
+function cleanImageUrl(value: unknown) {
+  const cleaned = String(value || "").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function getProductImageCandidates(product: ProductRow) {
+  const candidates = [
+    product.image_styled_url,
+    product.image_url,
+    product.image_original_url,
+    product.product_image_url,
+    product.image,
+    product.photo_url,
+    product.picture_url,
+  ]
+    .map((value) => cleanImageUrl(value))
+    .filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(candidates));
+}
+
+function getPrimaryProductImageUrl(product: ProductRow) {
+  return getProductImageCandidates(product)[0] || null;
 }
 
 export default async function AdminProductsPage() {
@@ -303,6 +335,8 @@ export default async function AdminProductsPage() {
                   .filter(Boolean);
 
                 const bookMeasureLabel = getBookMeasureLabel(product);
+                const imageCandidates = getProductImageCandidates(product);
+                const primaryImageUrl = getPrimaryProductImageUrl(product);
 
                 return (
                   <article
@@ -311,10 +345,10 @@ export default async function AdminProductsPage() {
                   >
                     <div className="grid gap-4 lg:grid-cols-[120px_1fr_170px] lg:items-start">
                       <div className="overflow-hidden rounded-2xl border border-[#E8DED2] bg-white">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
+                        {imageCandidates.length > 0 ? (
+                          <AdminProductPreviewImage
                             alt={getProductName(product)}
+                            sources={imageCandidates}
                             className="h-28 w-full object-contain p-2"
                           />
                         ) : (
@@ -441,7 +475,7 @@ export default async function AdminProductsPage() {
                               : null
                           }
                           bookSizeNote={product.book_size_note || null}
-                          imageUrl={product.image_url || null}
+                          imageUrl={primaryImageUrl}
                           active={product.active !== false}
                           aliases={aliasTexts}
                         />
