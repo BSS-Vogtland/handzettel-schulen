@@ -161,8 +161,17 @@ function getProductImageCandidates(product: ProductRow) {
   return Array.from(new Set(candidates));
 }
 
-function getPrimaryProductImageUrl(product: ProductRow) {
-  return getProductImageCandidates(product)[0] || null;
+function getEditableProductImageUrl(product: ProductRow) {
+  /*
+    Wichtig:
+    Für die Bearbeitungsmaske darf NICHT image_styled_url übergeben werden.
+    Sonst kann ein KI-Hintergrundbild versehentlich als normales image_url gespeichert werden.
+  */
+  return cleanImageUrl(product.image_url);
+}
+
+function hasStyledProductImage(product: ProductRow) {
+  return Boolean(cleanImageUrl(product.image_styled_url));
 }
 
 export default async function AdminProductsPage() {
@@ -336,7 +345,8 @@ export default async function AdminProductsPage() {
 
                 const bookMeasureLabel = getBookMeasureLabel(product);
                 const imageCandidates = getProductImageCandidates(product);
-                const primaryImageUrl = getPrimaryProductImageUrl(product);
+                const editableImageUrl = getEditableProductImageUrl(product);
+                const styledImageAvailable = hasStyledProductImage(product);
 
                 return (
                   <article
@@ -398,6 +408,16 @@ export default async function AdminProductsPage() {
                               Buchmaß: {bookMeasureLabel}
                             </span>
                           ) : null}
+
+                          {styledImageAvailable ? (
+                            <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50] ring-1 ring-[#BFE3CD]">
+                              KI-Hintergrund aktiv
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-[#FFF8EE] px-3 py-1 text-xs font-black text-[#A75B28] ring-1 ring-[#F1D1A8]">
+                              Noch kein KI-Hintergrund
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-lg font-black text-[#102A43]">
@@ -475,7 +495,7 @@ export default async function AdminProductsPage() {
                               : null
                           }
                           bookSizeNote={product.book_size_note || null}
-                          imageUrl={primaryImageUrl}
+                          imageUrl={editableImageUrl}
                           active={product.active !== false}
                           aliases={aliasTexts}
                         />
