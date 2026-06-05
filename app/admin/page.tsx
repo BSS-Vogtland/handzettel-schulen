@@ -5,6 +5,7 @@ import {
   Megaphone,
   MessageCircle,
   PackagePlus,
+  Percent,
   School,
   ShoppingBasket,
   Smartphone,
@@ -192,6 +193,34 @@ export default function AdminHomePage() {
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Mobile Erfassung öffnen
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/einstellungen/rabatte"
+            className="group rounded-[32px] border border-[#E8D5F0] bg-[#FCF6FF] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
+          >
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#8A3FB0]">
+              <Percent className="h-6 w-6" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A3FB0]">
+              Rabattaktionen
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+              Rabatte verwalten
+            </h2>
+
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#6F4A7D]">
+              Erstelle und bearbeite zeitlich begrenzte Rabattaktionen für den
+              Shop. Lege Namen, Zeitraum, Rabattart, Wert und Mindestbestellwert
+              fest.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#8A3FB0] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+              Zu den Rabatten
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
