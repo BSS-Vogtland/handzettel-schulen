@@ -8,11 +8,11 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Copy,
   ImagePlus,
   Loader2,
   Pencil,
   Save,
+  Wand2,
   X,
 } from "lucide-react";
 
@@ -90,6 +90,7 @@ export default function AdminEditProductForm({
 
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isStyling, setIsStyling] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
 
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -191,7 +192,7 @@ export default function AdminEditProductForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isSaving) return;
+    if (isSaving || isStyling) return;
 
     if (!formData.productName.trim()) {
       setFeedback({
@@ -285,11 +286,9 @@ export default function AdminEditProductForm({
     }
   }
 
-  function getBatchCommand() {
-    return `node scripts/restyle-products-removebg.mjs --id=${productId} --force`;
-  }
+  async function handleStyleImage() {
+    if (isSaving || isStyling) return;
 
-  async function handleCopyBatchCommand() {
     if (!formData.imageUrl) {
       setFeedback({
         type: "error",
@@ -299,33 +298,60 @@ export default function AdminEditProductForm({
       return;
     }
 
-    const command = getBatchCommand();
-
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(command);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = command;
-        textarea.setAttribute("readonly", "true");
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
+      setIsStyling(true);
+      setFeedback({
+        type: "success",
+        message:
+          "Bild wird freigestellt und auf den Handzettel-Hintergrund gesetzt. Bitte kurz warten.",
+      });
+
+      const response = await fetch(
+        `/api/admin/products/${productId}/style-image`,
+        {
+          method: "POST",
+          cache: "no-store",
+        }
+      );
+
+      const payload = await readJsonSafely(response);
+
+      if (!response.ok || payload?.ok === false) {
+        setFeedback({
+          type: "error",
+          message:
+            payload?.message ||
+            "Das Bild konnte nicht freigestellt und neu gesetzt werden.",
+        });
+        setIsStyling(false);
+        return;
+      }
+
+      if (payload?.styledImageUrl) {
+        setFormData((current) => ({
+          ...current,
+          imageUrl: payload.styledImageUrl,
+        }));
       }
 
       setFeedback({
         type: "success",
         message:
-          "Batch-Befehl wurde kopiert. Führe ihn lokal im VS-Code-Terminal aus, um dieses Produktbild neu freizustellen.",
+          payload?.message ||
+          "Bild wurde freigestellt und mit Hintergrund gespeichert.",
       });
-    } catch {
+
+      setIsStyling(false);
+      router.refresh();
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: `Kopieren nicht möglich. Befehl: ${command}`,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Das Bild konnte nicht freigestellt und neu gesetzt werden.",
       });
+      setIsStyling(false);
     }
   }
 
@@ -373,10 +399,10 @@ export default function AdminEditProductForm({
           ) : null}
 
           <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-4 py-3 text-sm font-semibold leading-6 text-[#12395F]">
-            Die Bildfreistellung wird nicht automatisch beim Speichern gestartet.
-            Verwende bei Bedarf den Button <span className="font-black">Batch-Befehl kopieren</span>
-            im Bildbereich und führe den Befehl lokal im VS-Code-Terminal aus.
-            So bleiben Produktbearbeitung und Website stabil.
+            Die Bildfreistellung läuft gezielt über den Button
+            <span className="font-black"> Bild freistellen & Hintergrund setzen</span>.
+            Das Originalbild bleibt erhalten. Die Funktion wird nicht automatisch
+            beim Speichern gestartet.
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -592,12 +618,21 @@ export default function AdminEditProductForm({
 
                 <button
                   type="button"
-                  onClick={handleCopyBatchCommand}
-                  disabled={isSaving || !formData.imageUrl}
+                  onClick={handleStyleImage}
+                  disabled={isSaving || isStyling || !formData.imageUrl}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2 text-xs font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Copy className="h-3.5 w-3.5" />
-                  Batch-Befehl kopieren
+                  {isStyling ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Bild wird verarbeitet...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" />
+                      Bild freistellen & Hintergrund setzen
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -658,8 +693,8 @@ export default function AdminEditProductForm({
                 <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
                   Wenn Du ein neues Foto auswählst, wird es beim Speichern
                   hochgeladen und ersetzt die aktuelle Bild-URL automatisch.
-                  Die Bildfreistellung läuft bewusst nicht beim Speichern,
-                  sondern lokal über einen separaten Batch-Befehl.
+                  Die Freistellung und der Hintergrund werden danach separat
+                  über den roten Button für genau dieses Produkt erzeugt.
                 </p>
               </div>
             </div>
@@ -695,7 +730,7 @@ export default function AdminEditProductForm({
 
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || isStyling}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSaving ? (
