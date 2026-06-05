@@ -1,7 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { sendAdminShopOrderNotification } from "../../../lib/adminNotifications";
-import { findActiveDiscountCampaign, roundMoney } from "../../../lib/discountCampaigns";
+import {
+  findActiveDiscountCampaign,
+  roundMoney,
+} from "../../../lib/discountCampaigns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +36,11 @@ type CheckoutBody = {
   fulfillmentMethod?: "pickup" | "shipping" | null;
   customerMessage?: string | null;
   cartItems?: CheckoutCartItem[];
+};
+
+type ProductRow = Record<string, unknown> & {
+  id?: string | number | null;
+  active?: boolean | null;
 };
 
 type CreatedRequestRow = {
@@ -69,7 +77,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
@@ -123,7 +131,7 @@ async function readBodySafely(request: NextRequest): Promise<CheckoutBody> {
 }
 
 async function getInvoiceNumber(
-  supabase: ReturnType<typeof getSupabaseAdmin>
+  supabase: ReturnType<typeof getSupabaseAdmin>,
 ): Promise<string> {
   const { data, error } = await supabase.rpc("generate_school_invoice_number");
 
@@ -166,7 +174,7 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
     return [];
   }
 
-  const validItems: CheckoutCartItem[] = [];
+  const itemsByProductId = new Map<string, CheckoutCartItem>();
 
   for (const rawItem of items) {
     if (!rawItem || typeof rawItem !== "object") {
@@ -176,25 +184,30 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
     const cartItem = rawItem as Partial<CheckoutCartItem>;
 
     const productId = cleanString(cartItem.productId);
-    const name = cleanString(cartItem.name);
     const quantity = normalizeQuantity(cartItem.quantity);
-    const price = roundMoney(Math.max(0, toNumber(cartItem.price, 0)));
 
-    if (!productId || !name || quantity <= 0) {
+    if (!productId || quantity <= 0) {
       continue;
     }
 
-    const normalizedItem: CheckoutCartItem = {
+    const existingItem = itemsByProductId.get(productId);
+
+    if (existingItem) {
+      existingItem.quantity = Math.min(99, existingItem.quantity + quantity);
+      continue;
+    }
+
+    itemsByProductId.set(productId, {
       productId,
-      name,
-      sku: cleanNullableString(cartItem.sku),
-      price,
-      imageUrl: cleanNullableString(cartItem.imageUrl),
+      name: "",
+      sku: null,
+      price: 0,
+      imageUrl: null,
       quantity,
-      category: cleanNullableString(cartItem.category),
-      format: cleanNullableString(cartItem.format),
-      color: cleanNullableString(cartItem.color),
-      lineature: cleanNullableString(cartItem.lineature),
+      category: null,
+      format: null,
+      color: null,
+      lineature: null,
       sourceType:
         cartItem.sourceType === "reorder_from_school_list"
           ? "reorder_from_school_list"
@@ -202,12 +215,207 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
       sourceRequestId: cleanNullableString(cartItem.sourceRequestId),
       sourceOfferItemId: cleanNullableString(cartItem.sourceOfferItemId),
       sourceRequestItemId: cleanNullableString(cartItem.sourceRequestItemId),
-    };
-
-    validItems.push(normalizedItem);
+    });
   }
 
-  return validItems;
+  return Array.from(itemsByProductId.values());
+}
+
+function getProductId(product: ProductRow) {
+  return cleanString(product.id);
+}
+
+function getProductStringValue(product: ProductRow, keys: string[]) {
+  for (const key of keys) {
+    const value = product[key];
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return null;
+}
+
+function getProductNumberValue(product: ProductRow, keys: string[]) {
+  for (const key of keys) {
+    const value = product[key];
+    const parsed = toNumber(value, Number.NaN);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function getServerProductName(product: ProductRow) {
+  return (
+    getProductStringValue(product, [
+      "name",
+      "product_name",
+      "title",
+      "display_name",
+      "label",
+    ]) || "Unbenanntes Produkt"
+  );
+}
+
+function getServerProductSku(product: ProductRow) {
+  return getProductStringValue(product, [
+    "sku",
+    "product_sku",
+    "article_number",
+    "item_number",
+    "artikelnummer",
+  ]);
+}
+
+function getServerProductPrice(product: ProductRow) {
+  return roundMoney(
+    Math.max(
+      0,
+      getProductNumberValue(product, [
+        "price",
+        "gross_price",
+        "product_price",
+        "unit_price",
+        "sale_price",
+        "sale_price_gross",
+        "brutto_preis",
+      ]),
+    ),
+  );
+}
+
+function getServerProductImageUrl(product: ProductRow) {
+  return getProductStringValue(product, [
+    "image_styled_url",
+    "styled_image_url",
+    "image_url",
+    "product_image_url",
+    "image",
+    "photo_url",
+    "picture_url",
+  ]);
+}
+
+function isServerProductActive(product: ProductRow) {
+  if (product.active === false) {
+    return false;
+  }
+
+  const status = getProductStringValue(product, ["status", "product_status"]);
+
+  if (!status) {
+    return true;
+  }
+
+  return !["inactive", "archived", "deleted", "disabled"].includes(
+    status.toLowerCase(),
+  );
+}
+
+async function hydrateCartItemsFromServerProducts(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  cartItems: CheckoutCartItem[];
+}) {
+  const productIds = Array.from(
+    new Set(params.cartItems.map((item) => item.productId).filter(Boolean)),
+  );
+
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await params.supabase
+    .from("school_products")
+    .select("*")
+    .in("id", productIds);
+
+  if (error) {
+    throw new Error(
+      `Produktdaten konnten nicht geprüft werden: ${error.message}`,
+    );
+  }
+
+  const productsById = new Map<string, ProductRow>();
+
+  for (const product of (data || []) as ProductRow[]) {
+    const productId = getProductId(product);
+
+    if (productId) {
+      productsById.set(productId, product);
+    }
+  }
+
+  const unavailableProductNames: string[] = [];
+  const invalidPriceProductNames: string[] = [];
+  const hydratedItems: CheckoutCartItem[] = [];
+
+  for (const cartItem of params.cartItems) {
+    const product = productsById.get(cartItem.productId);
+
+    if (!product || !isServerProductActive(product)) {
+      unavailableProductNames.push(cartItem.name || cartItem.productId);
+      continue;
+    }
+
+    const serverPrice = getServerProductPrice(product);
+    const serverName = getServerProductName(product);
+
+    if (serverPrice <= 0) {
+      invalidPriceProductNames.push(serverName);
+      continue;
+    }
+
+    hydratedItems.push({
+      ...cartItem,
+      name: serverName,
+      sku: getServerProductSku(product),
+      price: serverPrice,
+      imageUrl: getServerProductImageUrl(product),
+      category: getProductStringValue(product, [
+        "category",
+        "product_category",
+        "type",
+      ]),
+      format: getProductStringValue(product, [
+        "format",
+        "size",
+        "product_format",
+      ]),
+      color: getProductStringValue(product, ["color", "colour", "farbe"]),
+      lineature: getProductStringValue(product, [
+        "lineature",
+        "lineatur",
+        "ruling",
+      ]),
+    });
+  }
+
+  if (unavailableProductNames.length > 0) {
+    throw new Error(
+      `Mindestens ein Produkt ist nicht mehr verfügbar: ${unavailableProductNames.join(
+        ", ",
+      )}. Bitte entferne es aus dem Warenkorb und versuche es erneut.`,
+    );
+  }
+
+  if (invalidPriceProductNames.length > 0) {
+    throw new Error(
+      `Mindestens ein Produkt hat aktuell keinen gültigen Preis: ${invalidPriceProductNames.join(
+        ", ",
+      )}. Bitte entferne es aus dem Warenkorb oder kontaktiere uns.`,
+    );
+  }
+
+  return hydratedItems;
 }
 
 function formatEuroForEvent(value: number) {
@@ -263,15 +471,16 @@ async function sendShopOrderAdminNotificationSafely(params: {
       eventType: result.ok
         ? "admin_shop_notification_sent"
         : "admin_shop_notification_skipped",
-      title: result.ok
-        ? "Admin-Mail versendet"
-        : "Admin-Mail nicht versendet",
+      title: result.ok ? "Admin-Mail versendet" : "Admin-Mail nicht versendet",
       description: result.ok
         ? "Die Admin-Benachrichtigung zur Shop-Bestellung wurde versendet."
         : result.message || "Die Admin-Benachrichtigung wurde nicht versendet.",
     });
   } catch (error) {
-    console.error("Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:", error);
+    console.error(
+      "Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:",
+      error,
+    );
 
     await insertRequestEvent({
       supabase: params.supabase,
@@ -303,7 +512,7 @@ export async function POST(request: NextRequest) {
 
     const customerMessage = cleanNullableString(body.customerMessage);
 
-    const cartItems = validateCartItems(body.cartItems);
+    let cartItems = validateCartItems(body.cartItems);
 
     if (!customerName) {
       return NextResponse.json(
@@ -311,7 +520,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte gib Deinen Namen ein.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -321,7 +530,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte gib eine gültige E-Mail-Adresse ein.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -332,12 +541,41 @@ export async function POST(request: NextRequest) {
           message:
             "Dein Warenkorb ist leer. Bitte lege zuerst Produkte in den Warenkorb.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
+
+    try {
+      cartItems = await hydrateCartItemsFromServerProducts({
+        supabase,
+        cartItems,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Die Warenkorb-Produkte konnten nicht geprüft werden.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (cartItems.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Dein Warenkorb enthält keine aktuell verfügbaren Produkte mehr.",
+        },
+        { status: 400 },
+      );
+    }
 
     const shippingAmount =
       fulfillmentMethod === "shipping" ? SHIPPING_AMOUNT : 0;
@@ -345,7 +583,7 @@ export async function POST(request: NextRequest) {
     const subtotalAmount = roundMoney(
       cartItems.reduce((sum, item) => {
         return sum + item.quantity * item.price;
-      }, 0)
+      }, 0),
     );
 
     const appliedDiscount = await findActiveDiscountCampaign({
@@ -356,7 +594,7 @@ export async function POST(request: NextRequest) {
 
     const discountAmount = roundMoney(appliedDiscount.discountAmount);
     const totalAmount = roundMoney(
-      Math.max(0, subtotalAmount + shippingAmount - discountAmount)
+      Math.max(0, subtotalAmount + shippingAmount - discountAmount),
     );
 
     const messageParts = [
@@ -364,7 +602,7 @@ export async function POST(request: NextRequest) {
       customerMessage ? `Kundenhinweis: ${customerMessage}` : null,
       appliedDiscount.discountName
         ? `Automatisch angewendete Rabattaktion: ${appliedDiscount.discountName} (-${formatEuroForEvent(
-            discountAmount
+            discountAmount,
           )} EUR).`
         : null,
       cartItems.some((item) => item.sourceType === "reorder_from_school_list")
@@ -410,7 +648,7 @@ export async function POST(request: NextRequest) {
             requestInsertError?.message ||
             "Die Shop-Bestellung konnte nicht angelegt werden.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -479,7 +717,7 @@ export async function POST(request: NextRequest) {
             "unit",
             "source",
             "notes",
-          ].join(", ")
+          ].join(", "),
         );
 
     if (offerInsertError || !createdOfferItemsData) {
@@ -490,7 +728,7 @@ export async function POST(request: NextRequest) {
             offerInsertError?.message ||
             "Die Shop-Positionen konnten nicht gespeichert werden.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -542,7 +780,9 @@ export async function POST(request: NextRequest) {
             }, Rabattbetrag: ${formatEuroForEvent(discountAmount)} EUR.`
           : "Automatisch aus Shop-Warenkorb erzeugt.",
       })
-      .select("id, invoice_number, invoice_token, invoice_status, payment_status")
+      .select(
+        "id, invoice_number, invoice_token, invoice_status, payment_status",
+      )
       .single();
 
     if (invoiceInsertError || !invoiceData) {
@@ -553,7 +793,7 @@ export async function POST(request: NextRequest) {
             invoiceInsertError?.message ||
             "Die Rechnung zur Shop-Bestellung konnte nicht erzeugt werden.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -566,7 +806,7 @@ export async function POST(request: NextRequest) {
           message:
             "Die Rechnung wurde erzeugt, aber es wurde kein Zahlungslink-Token zurückgegeben.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -606,7 +846,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: `Die Rechnungspositionen konnten nicht gespeichert werden: ${invoiceItemsInsertError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -631,7 +871,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: `Die Shop-Bestellung wurde angelegt, aber der Rechnungsstatus konnte nicht aktualisiert werden: ${requestUpdateError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -644,16 +884,16 @@ export async function POST(request: NextRequest) {
         ? `Shop-Bestellung mit ${
             cartItems.length
           } Positionen wurde erstellt. Zwischensumme: ${formatEuroForEvent(
-            subtotalAmount
+            subtotalAmount,
           )} EUR, Rabatt: -${formatEuroForEvent(
-            discountAmount
+            discountAmount,
           )} EUR, Versand: ${formatEuroForEvent(
-            shippingAmount
+            shippingAmount,
           )} EUR, Gesamtbetrag: ${formatEuroForEvent(totalAmount)} EUR.`
         : `Shop-Bestellung mit ${
             cartItems.length
           } Positionen wurde erstellt. Gesamtbetrag: ${formatEuroForEvent(
-            totalAmount
+            totalAmount,
           )} EUR.`,
     });
 
@@ -671,7 +911,7 @@ export async function POST(request: NextRequest) {
         : `Rechnung ${
             invoice.invoice_number || ""
           } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
-            totalAmount
+            totalAmount,
           )} EUR.`,
     });
 
@@ -728,7 +968,7 @@ export async function POST(request: NextRequest) {
             ? error.message
             : "Die Shop-Bestellung konnte nicht abgeschlossen werden.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -739,6 +979,6 @@ export async function GET() {
       ok: false,
       message: "Diese Route kann nur per POST genutzt werden.",
     },
-    { status: 405 }
+    { status: 405 },
   );
 }
