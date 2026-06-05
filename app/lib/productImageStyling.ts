@@ -6,8 +6,8 @@ const PRODUCT_IMAGE_STYLED_PREFIX = "products-styled-removebg";
 
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 1200;
-const LOGO_SAFE_BOTTOM_Y = 355;
-const PRODUCT_BOTTOM_Y = 1038;
+const LOGO_SAFE_BOTTOM_Y = 210;
+const PRODUCT_BOTTOM_Y = 1040;
 
 type ProductRow = {
   id: string;
@@ -207,12 +207,7 @@ function getProductProfile(product: ProductRow): ProductProfile {
   };
 }
 
-function createBackgroundSvg(product: ProductRow) {
-  const productName = getProductName(product)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
+function createBackgroundSvg(_product: ProductRow) {
   return Buffer.from(`
     <svg width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" viewBox="0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -221,25 +216,18 @@ function createBackgroundSvg(product: ProductRow) {
           <stop offset="0.55" stop-color="#FBF7F0"/>
           <stop offset="1" stop-color="#EEF4FA"/>
         </linearGradient>
-        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#102A43" flood-opacity="0.16"/>
-        </filter>
+        <radialGradient id="stage" cx="50%" cy="42%" r="55%">
+          <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.92"/>
+          <stop offset="0.72" stop-color="#FFFFFF" stop-opacity="0.42"/>
+          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+        </radialGradient>
       </defs>
 
-      <rect width="1200" height="1200" rx="0" fill="url(#bg)"/>
-      <circle cx="140" cy="1050" r="310" fill="#F4E7D8" opacity="0.55"/>
-      <circle cx="1110" cy="230" r="270" fill="#DDEAF7" opacity="0.75"/>
-      <path d="M0 210 C220 130 380 265 610 180 C840 95 970 135 1200 70 L1200 0 L0 0 Z" fill="#ffffff" opacity="0.82"/>
-
-      <g filter="url(#softShadow)">
-        <rect x="86" y="70" width="1028" height="210" rx="44" fill="#ffffff" opacity="0.96"/>
-      </g>
-
-      <text x="600" y="145" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#102A43">Handzettel-Schulen.de</text>
-      <text x="600" y="198" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#A75B28">Schulmaterial einfach finden</text>
-      <text x="600" y="246" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#52616F">${productName}</text>
-
-      <rect x="110" y="1080" width="980" height="42" rx="21" fill="#ffffff" opacity="0.72"/>
+      <rect width="1200" height="1200" fill="url(#bg)"/>
+      <circle cx="145" cy="1070" r="320" fill="#F4E7D8" opacity="0.55"/>
+      <circle cx="1115" cy="235" r="275" fill="#DDEAF7" opacity="0.75"/>
+      <path d="M0 210 C220 130 380 265 610 180 C840 95 970 135 1200 70 L1200 0 L0 0 Z" fill="#ffffff" opacity="0.58"/>
+      <rect x="0" y="0" width="1200" height="1200" fill="url(#stage)"/>
     </svg>
   `);
 }
@@ -307,23 +295,87 @@ async function normalizeInputImage(inputBuffer: Buffer) {
     .toBuffer();
 }
 
-async function buildStyledImage(input: {
-  product: ProductRow;
-  productBuffer: Buffer;
-  profile: ProductProfile;
-}) {
-  const resizedProductBuffer = await sharp(input.productBuffer, {
+async function getTransparentPixelRatio(inputBuffer: Buffer) {
+  const { data, info } = await sharp(inputBuffer, {
     failOn: "none",
   })
-    .rotate()
+    .ensureAlpha()
+    .raw()
+    .toBuffer({
+      resolveWithObject: true,
+    });
+
+  if (!info.width || !info.height || info.channels < 4) {
+    return 0;
+  }
+
+  const totalPixels = info.width * info.height;
+  let transparentPixels = 0;
+
+  for (let index = 3; index < data.length; index += info.channels) {
+    if (data[index] < 245) {
+      transparentPixels += 1;
+    }
+  }
+
+  return totalPixels > 0 ? transparentPixels / totalPixels : 0;
+}
+
+async function assertUsableTransparentImage(inputBuffer: Buffer) {
+  const transparentRatio = await getTransparentPixelRatio(inputBuffer);
+
+  if (transparentRatio < 0.05) {
+    throw new Error(
+      "Die Freistellung hat keinen nutzbaren transparenten Hintergrund erzeugt. Das Styled-Bild wurde nicht gespeichert, damit kein kaputtes Bild im Shop erscheint."
+    );
+  }
+}
+
+async function prepareProductLayer(inputBuffer: Buffer, profile: ProductProfile) {
+  if (profile.preserveOriginal) {
+    return sharp(inputBuffer, {
+      failOn: "none",
+    })
+      .rotate()
+      .resize({
+        width: profile.maxWidth,
+        height: profile.maxHeight,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .png()
+      .toBuffer();
+  }
+
+  await assertUsableTransparentImage(inputBuffer);
+
+  return sharp(inputBuffer, {
+    failOn: "none",
+  })
+    .ensureAlpha()
+    .trim({
+      threshold: 10,
+    })
     .resize({
-      width: input.profile.maxWidth,
-      height: input.profile.maxHeight,
+      width: profile.maxWidth,
+      height: profile.maxHeight,
       fit: "inside",
       withoutEnlargement: true,
     })
     .png()
     .toBuffer();
+}
+
+
+async function buildStyledImage(input: {
+  product: ProductRow;
+  productBuffer: Buffer;
+  profile: ProductProfile;
+}) {
+  const resizedProductBuffer = await prepareProductLayer(
+    input.productBuffer,
+    input.profile
+  );
 
   const metadata = await sharp(resizedProductBuffer).metadata();
   const productWidth = metadata.width || input.profile.maxWidth;
