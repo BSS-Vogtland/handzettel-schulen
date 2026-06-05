@@ -8,11 +8,11 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Copy,
   ImagePlus,
   Loader2,
   Pencil,
   Save,
-  Wand2,
   X,
 } from "lucide-react";
 
@@ -90,7 +90,6 @@ export default function AdminEditProductForm({
 
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isStyling, setIsStyling] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
 
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -192,7 +191,7 @@ export default function AdminEditProductForm({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isSaving || isStyling) return;
+    if (isSaving) return;
 
     if (!formData.productName.trim()) {
       setFeedback({
@@ -286,55 +285,47 @@ export default function AdminEditProductForm({
     }
   }
 
-  async function handleStyleImage() {
-    if (isSaving || isStyling) return;
+  function getBatchCommand() {
+    return `node scripts/restyle-products-removebg.mjs --id=${productId} --force`;
+  }
+
+  async function handleCopyBatchCommand() {
+    if (!formData.imageUrl) {
+      setFeedback({
+        type: "error",
+        message:
+          "Für dieses Produkt ist noch kein Bild gespeichert. Bitte zuerst ein Produktbild hochladen und speichern.",
+      });
+      return;
+    }
+
+    const command = getBatchCommand();
 
     try {
-      setIsStyling(true);
-      setFeedback({
-        type: "success",
-        message:
-          "KI-Hintergrund wird erzeugt. Das kann je nach Bild einige Sekunden dauern.",
-      });
-
-      const response = await fetch(
-        `/api/admin/products/${productId}/style-image`,
-        {
-          method: "POST",
-        }
-      );
-
-      const payload = await readJsonSafely(response);
-
-      if (!response.ok || payload?.ok === false) {
-        setFeedback({
-          type: "error",
-          message:
-            payload?.message ||
-            "Der KI-Hintergrund konnte nicht erzeugt werden.",
-        });
-        setIsStyling(false);
-        return;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(command);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = command;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
       }
 
       setFeedback({
         type: "success",
         message:
-          payload?.message ||
-          "KI-Hintergrund wurde erzeugt und gespeichert.",
+          "Batch-Befehl wurde kopiert. Führe ihn lokal im VS-Code-Terminal aus, um dieses Produktbild neu freizustellen.",
       });
-
-      setIsStyling(false);
-      router.refresh();
-    } catch (error) {
+    } catch {
       setFeedback({
         type: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Der KI-Hintergrund konnte nicht erzeugt werden.",
+        message: `Kopieren nicht möglich. Befehl: ${command}`,
       });
-      setIsStyling(false);
     }
   }
 
@@ -380,6 +371,13 @@ export default function AdminEditProductForm({
               </div>
             </div>
           ) : null}
+
+          <div className="rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-4 py-3 text-sm font-semibold leading-6 text-[#12395F]">
+            Die Bildfreistellung wird nicht automatisch beim Speichern gestartet.
+            Verwende bei Bedarf den Button <span className="font-black">Batch-Befehl kopieren</span>
+            im Bildbereich und führe den Befehl lokal im VS-Code-Terminal aus.
+            So bleiben Produktbearbeitung und Website stabil.
+          </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
@@ -594,21 +592,12 @@ export default function AdminEditProductForm({
 
                 <button
                   type="button"
-                  onClick={handleStyleImage}
-                  disabled={isSaving || isStyling || !formData.imageUrl}
+                  onClick={handleCopyBatchCommand}
+                  disabled={isSaving || !formData.imageUrl}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-2 text-xs font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isStyling ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      KI-Hintergrund läuft...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-3.5 w-3.5" />
-                      KI-Hintergrund neu erzeugen
-                    </>
-                  )}
+                  <Copy className="h-3.5 w-3.5" />
+                  Batch-Befehl kopieren
                 </button>
               </div>
 
@@ -669,8 +658,8 @@ export default function AdminEditProductForm({
                 <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
                   Wenn Du ein neues Foto auswählst, wird es beim Speichern
                   hochgeladen und ersetzt die aktuelle Bild-URL automatisch.
-                  Der KI-Hintergrund wird separat erzeugt und kann danach
-                  jederzeit neu angestoßen werden.
+                  Die Bildfreistellung läuft bewusst nicht beim Speichern,
+                  sondern lokal über einen separaten Batch-Befehl.
                 </p>
               </div>
             </div>
@@ -706,7 +695,7 @@ export default function AdminEditProductForm({
 
           <button
             type="submit"
-            disabled={isSaving || isStyling}
+            disabled={isSaving}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSaving ? (
