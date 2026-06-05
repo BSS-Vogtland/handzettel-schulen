@@ -227,16 +227,20 @@ export default function ShopPage() {
       }
 
       const cleanProducts = (data || []).filter((product) => {
-        const status = getProductStatus(product);
+  if (product.active === false) {
+    return false;
+  }
 
-        if (!status) {
-          return true;
-        }
+  const status = getProductStatus(product);
 
-        return !["inactive", "archived", "deleted", "disabled"].includes(
-          status.toLowerCase()
-        );
-      });
+  if (!status) {
+    return true;
+  }
+
+  return !["inactive", "archived", "deleted", "disabled"].includes(
+    status.toLowerCase()
+  );
+});
 
       setProducts(cleanProducts);
       setIsLoading(false);

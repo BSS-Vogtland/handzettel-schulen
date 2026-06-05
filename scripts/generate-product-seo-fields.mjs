@@ -130,6 +130,75 @@ function productNameAlreadyContainsValue(productName, value) {
   return containsToken(productName, cleanedValue);
 }
 
+function normalizeDetailValue(value) {
+  const cleaned = cleanText(value);
+
+  if (!cleaned) return "";
+
+  if (/^a\d(\s*(hoch|querformat|quer))?$/i.test(cleaned)) {
+    return cleaned
+      .replace(/^a/i, "A")
+      .replace(/\s+/g, " ")
+      .replace(/hoch/i, "Hochformat")
+      .replace(/querformat/i, "Querformat")
+      .replace(/quer/i, "Querformat");
+  }
+
+  const amountMatch = cleaned.match(/^(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l|mm|cm|m)$/i);
+  if (amountMatch) {
+    return `${amountMatch[1].replace(",", ".")} ${amountMatch[2].toLowerCase()}`;
+  }
+
+  if (/^box$/i.test(cleaned)) return "Box";
+  if (/^set$/i.test(cleaned)) return "Set";
+
+  return cleaned;
+}
+
+function shouldUseLineature(product, lineature) {
+  if (!lineature) return false;
+
+  const normalizedLineature = normalizeForCompare(lineature);
+  const text = normalizeForCompare(
+    [
+      getProductName(product),
+      product.category,
+      product.product_type,
+    ].join(" ")
+  );
+
+  const isHeftLike =
+    text.includes("heft") ||
+    text.includes("schreibheft") ||
+    text.includes("lernheft") ||
+    text.includes("muttiheft");
+
+  if (!isHeftLike) {
+    return false;
+  }
+
+  return (
+    /^\d+[a-z]?$/.test(normalizedLineature) ||
+    normalizedLineature === "dm" ||
+    normalizedLineature === "liniert" ||
+    normalizedLineature === "kariert" ||
+    normalizedLineature.includes("lineatur")
+  );
+}
+
+function isProductActive(product) {
+  if (!product) return false;
+
+  if (product.active === false) return false;
+
+  const status = cleanText(product.status || product.product_status).toLowerCase();
+  if (["inactive", "archived", "deleted", "disabled"].includes(status)) {
+    return false;
+  }
+
+  return true;
+}
+
 function normalizeLineature(value) {
   return cleanText(value)
     .replace(/^lineatur\s*/i, "")
@@ -171,8 +240,8 @@ function buildDetails(product) {
   const productName = cleanText(getProductName(product));
   const details = [];
 
-  const format = cleanText(product.format).toUpperCase();
-  const color = cleanText(product.color);
+  const format = normalizeDetailValue(product.format);
+  const color = normalizeDetailValue(product.color);
   const lineature = normalizeLineature(product.lineature);
 
   if (format && !productNameAlreadyContainsValue(productName, format)) {
@@ -184,7 +253,7 @@ function buildDetails(product) {
   }
 
   if (
-    lineature &&
+    shouldUseLineature(product, lineature) &&
     !productNameAlreadyContainsLineature(productName, lineature)
   ) {
     details.push(`Lineatur ${lineature}`);
@@ -267,9 +336,9 @@ function generateProductSeoFields(product, slug) {
     readableName,
     category,
     productType,
-    product.format ? `${productName} ${cleanText(product.format).toUpperCase()}` : "",
-    product.color ? `${productName} ${cleanText(product.color)}` : "",
-    product.lineature
+    product.format ? `${productName} ${normalizeDetailValue(product.format)}` : "",
+    product.color ? `${productName} ${normalizeDetailValue(product.color)}` : "",
+    shouldUseLineature(product, normalizeLineature(product.lineature))
       ? `${productName} Lineatur ${normalizeLineature(product.lineature)}`
       : "",
     "Schulmaterial",
@@ -381,6 +450,7 @@ async function main() {
   const dryRun = hasFlag("--dry-run");
   const force = hasFlag("--force");
   const all = hasFlag("--all");
+  const includeInactive = hasFlag("--include-inactive");
   const limitArg = Number(getArg("--limit", "20"));
   const limit =
     Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : 20;
@@ -388,12 +458,14 @@ async function main() {
   console.log(`Modus: ${dryRun ? "Dry Run, keine Speicherung" : "Speichern aktiv"}`);
   console.log(`Umfang: ${all ? "alle passenden Produkte" : `maximal ${limit} Produkte`}`);
   console.log(`Force: ${force ? "ja, vorhandene SEO-Daten überschreiben" : "nein"}`);
+  console.log(`Inaktive Produkte: ${includeInactive ? "werden mit verarbeitet" : "werden übersprungen"}`);
   console.log("");
 
   const supabase = getSupabaseAdmin();
   const allProducts = await loadProducts(supabase);
 
   const productsToProcess = allProducts
+    .filter((product) => includeInactive || isProductActive(product))
     .filter((product) => shouldProcessProduct(product, force))
     .slice(0, all ? allProducts.length : limit);
 

@@ -102,6 +102,62 @@ function productNameAlreadyContainsValue(productName: string, value: unknown) {
   return containsToken(productName, cleanedValue);
 }
 
+function normalizeDetailValue(value: unknown) {
+  const cleaned = cleanText(value);
+
+  if (!cleaned) return "";
+
+  if (/^a\d(\s*(hoch|querformat|quer))?$/i.test(cleaned)) {
+    return cleaned
+      .replace(/^a/i, "A")
+      .replace(/\s+/g, " ")
+      .replace(/hoch/i, "Hochformat")
+      .replace(/querformat/i, "Querformat")
+      .replace(/quer/i, "Querformat");
+  }
+
+  const amountMatch = cleaned.match(/^(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l|mm|cm|m)$/i);
+  if (amountMatch) {
+    return `${amountMatch[1].replace(",", ".")} ${amountMatch[2].toLowerCase()}`;
+  }
+
+  if (/^box$/i.test(cleaned)) return "Box";
+  if (/^set$/i.test(cleaned)) return "Set";
+
+  return cleaned;
+}
+
+function shouldUseLineature(input: ProductSeoInput, lineature: string) {
+  if (!lineature) return false;
+
+  const normalizedLineature = normalizeForCompare(lineature);
+  const text = normalizeForCompare(
+    [
+      input.productName,
+      input.category,
+      input.productType,
+    ].join(" ")
+  );
+
+  const isHeftLike =
+    text.includes("heft") ||
+    text.includes("schreibheft") ||
+    text.includes("lernheft") ||
+    text.includes("muttiheft");
+
+  if (!isHeftLike) {
+    return false;
+  }
+
+  return (
+    /^\d+[a-z]?$/.test(normalizedLineature) ||
+    normalizedLineature === "dm" ||
+    normalizedLineature === "liniert" ||
+    normalizedLineature === "kariert" ||
+    normalizedLineature.includes("lineatur")
+  );
+}
+
 function normalizeLineature(value: unknown) {
   return cleanText(value)
     .replace(/^lineatur\s*/i, "")
@@ -147,8 +203,8 @@ function buildDetails(input: ProductSeoInput) {
   const productName = cleanText(input.productName);
   const details: string[] = [];
 
-  const format = cleanText(input.format).toUpperCase();
-  const color = cleanText(input.color);
+  const format = normalizeDetailValue(input.format);
+  const color = normalizeDetailValue(input.color);
   const lineature = normalizeLineature(input.lineature);
 
   if (format && !productNameAlreadyContainsValue(productName, format)) {
@@ -160,7 +216,7 @@ function buildDetails(input: ProductSeoInput) {
   }
 
   if (
-    lineature &&
+    shouldUseLineature(input, lineature) &&
     !productNameAlreadyContainsLineature(productName, lineature)
   ) {
     details.push(`Lineatur ${lineature}`);
@@ -246,9 +302,9 @@ export function generateProductSeoFields(input: ProductSeoInput): ProductSeoFiel
     readableName,
     category,
     productType,
-    input.format ? `${productName} ${cleanText(input.format).toUpperCase()}` : "",
-    input.color ? `${productName} ${cleanText(input.color)}` : "",
-    input.lineature
+    input.format ? `${productName} ${normalizeDetailValue(input.format)}` : "",
+    input.color ? `${productName} ${normalizeDetailValue(input.color)}` : "",
+    shouldUseLineature(input, normalizeLineature(input.lineature))
       ? `${productName} Lineatur ${normalizeLineature(input.lineature)}`
       : "",
     "Schulmaterial",
