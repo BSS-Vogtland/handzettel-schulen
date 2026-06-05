@@ -239,16 +239,83 @@ function buildAliasList(input: {
   return Array.from(new Set([...manualAliases, ...generatedAliases]));
 }
 
-async function findExistingProductBySkuOrName(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  productName: string,
-  productSku: string
+function sameOptionalText(left: unknown, right: unknown) {
+  return normalizeText(left) === normalizeText(right);
+}
+
+function sameOptionalInteger(left: unknown, right: unknown) {
+  return toOptionalInteger(left) === toOptionalInteger(right);
+}
+
+function isSameProductVariant(
+  product: ProductRow,
+  input: {
+    productName: string;
+    category: string;
+    productType: string;
+    format: string;
+    color: string;
+    lineature: string;
+    bookWidthMm: number | null;
+    bookHeightMm: number | null;
+  }
 ) {
-  if (productSku) {
+  if (!sameOptionalText(getProductName(product), input.productName)) {
+    return false;
+  }
+
+  const hasBookMeasure =
+    input.bookWidthMm !== null ||
+    input.bookHeightMm !== null ||
+    product.book_width_mm !== null ||
+    product.book_height_mm !== null;
+
+  if (hasBookMeasure) {
+    return (
+      sameOptionalInteger(product.book_width_mm, input.bookWidthMm) &&
+      sameOptionalInteger(product.book_height_mm, input.bookHeightMm)
+    );
+  }
+
+  return (
+    sameOptionalText(product.category, input.category) &&
+    sameOptionalText(product.product_type, input.productType) &&
+    sameOptionalText(product.format, input.format) &&
+    sameOptionalText(product.color, input.color) &&
+    sameOptionalText(product.lineature, input.lineature)
+  );
+}
+
+async function findExistingProductByUniqueIdentifiersOrVariant(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  input: {
+    productName: string;
+    productSku: string;
+    ean: string | null;
+    category: string;
+    productType: string;
+    format: string;
+    color: string;
+    lineature: string;
+    bookWidthMm: number | null;
+    bookHeightMm: number | null;
+  }
+) {
+  if (input.productSku) {
     const { data, error } = await supabase
       .from("school_products")
       .select("*")
-      .eq("sku", productSku)
+      .eq("sku", input.productSku)
+      .maybeSingle();
+
+    if (!error && data) return data as ProductRow;
+  }
+
+  if (input.ean) {
+    const { data, error } = await supabase
+      .from("school_products")
+      .select("*")
+      .eq("ean", input.ean)
       .maybeSingle();
 
     if (!error && data) return data as ProductRow;
@@ -257,12 +324,18 @@ async function findExistingProductBySkuOrName(
   const { data, error } = await supabase
     .from("school_products")
     .select("*")
-    .eq("name", productName)
-    .maybeSingle();
+    .eq("name", input.productName)
+    .limit(50);
 
-  if (!error && data) return data as ProductRow;
+  if (error || !data || data.length === 0) {
+    return null;
+  }
 
-  return null;
+  const sameVariant = (data as ProductRow[]).find((product) =>
+    isSameProductVariant(product, input)
+  );
+
+  return sameVariant || null;
 }
 
 function getCleanExtension(fileName: string, fileType?: string) {
@@ -891,11 +964,19 @@ export async function POST(request: NextRequest) {
       productName
     );
 
-    const existingProduct = await findExistingProductBySkuOrName(
-      supabase,
-      productName,
-      productSku
-    );
+    const existingProduct =
+      await findExistingProductByUniqueIdentifiersOrVariant(supabase, {
+        productName,
+        productSku,
+        ean,
+        category,
+        productType,
+        format,
+        color,
+        lineature,
+        bookWidthMm,
+        bookHeightMm,
+      });
 
     if (existingProduct) {
       await updateExistingProductFlexible(supabase, existingProduct, {
