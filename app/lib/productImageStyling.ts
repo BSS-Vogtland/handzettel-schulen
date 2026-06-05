@@ -1,13 +1,163 @@
 import { createClient } from "@supabase/supabase-js";
+import fs from "node:fs";
+import path from "node:path";
 import sharp from "sharp";
 
 const PRODUCT_IMAGE_BUCKET = "school-product-images";
-const PRODUCT_IMAGE_STYLED_PREFIX = "products-styled-removebg";
+const STYLED_PREFIX = "products-styled-removebg";
 
-const CANVAS_WIDTH = 1200;
-const CANVAS_HEIGHT = 1200;
-const LOGO_SAFE_BOTTOM_Y = 210;
-const PRODUCT_BOTTOM_Y = 1040;
+const OUTPUT_SIZE = 1254;
+const LOGO_SAFE_BOTTOM_Y = 355;
+const PRODUCT_BOTTOM_Y = 1038;
+const WEBP_QUALITY = 84;
+const REMOVE_BG_API_URL = "https://api.remove.bg/v1.0/removebg";
+
+const BACKGROUND_PATH = path.join(
+  process.cwd(),
+  "scripts",
+  "assets",
+  "handzettel-product-bg.png"
+);
+
+const FLAT_PRODUCT_KEYWORDS = [
+  "heft",
+  "schreibheft",
+  "rechenheft",
+  "geometrieheft",
+  "vokabelheft",
+  "hausaufgabenheft",
+  "umschlag",
+  "schnellhefter",
+  "mappe",
+  "kunstmappe",
+  "sammelmappe",
+  "block",
+  "zeichenblock",
+  "schreibblock",
+  "malblock",
+  "papier",
+  "buntpapier",
+  "karton",
+  "zeichenkarton",
+  "buch",
+  "buchumschlag",
+  "heftumschlag",
+  "muttiheft",
+  "löschblatt",
+  "loeschblatt",
+  "deckblatt",
+];
+
+const TRANSPARENT_PRODUCT_KEYWORDS = [
+  "transparent",
+  "klar",
+  "clear",
+  "durchsichtig",
+  "pvc",
+  "folie",
+  "folien",
+  "buchumschlag",
+  "heftumschlag",
+  "umschlag transparent",
+  "umschlag klar",
+  "schnellhefter pvc",
+];
+
+const SLIM_PRODUCT_KEYWORDS = [
+  "klebestift",
+  "textmarker",
+  "permanentmarker",
+  "marker",
+  "bleistift",
+  "pinsel",
+  "lineal",
+  "zirkel",
+  "heftstreifen",
+  "aktentulli",
+  "schere",
+];
+
+type ProductProfile = {
+  label: string;
+  maxWidth: number;
+  maxHeight: number;
+  minTop: number;
+  bottomY: number;
+  padding: number;
+  shadowOpacity: number;
+  shadowWidthFactor: number;
+  shadowHeightFactor: number;
+  shadowYOffset: number;
+  preserveOriginal: boolean;
+};
+
+const PRODUCT_PROFILES: Record<string, ProductProfile> = {
+  default: {
+    label: "default",
+    maxWidth: 720,
+    maxHeight: 610,
+    minTop: LOGO_SAFE_BOTTOM_Y + 10,
+    bottomY: PRODUCT_BOTTOM_Y,
+    padding: 8,
+    shadowOpacity: 0.15,
+    shadowWidthFactor: 0.38,
+    shadowHeightFactor: 0.042,
+    shadowYOffset: 22,
+    preserveOriginal: false,
+  },
+  flat: {
+    label: "flat",
+    maxWidth: 690,
+    maxHeight: 600,
+    minTop: LOGO_SAFE_BOTTOM_Y + 20,
+    bottomY: PRODUCT_BOTTOM_Y,
+    padding: 14,
+    shadowOpacity: 0.1,
+    shadowWidthFactor: 0.31,
+    shadowHeightFactor: 0.023,
+    shadowYOffset: 17,
+    preserveOriginal: false,
+  },
+  flatTransparent: {
+    label: "flat-transparent-original-preserved",
+    maxWidth: 600,
+    maxHeight: 500,
+    minTop: LOGO_SAFE_BOTTOM_Y + 55,
+    bottomY: PRODUCT_BOTTOM_Y - 22,
+    padding: 22,
+    shadowOpacity: 0.055,
+    shadowWidthFactor: 0.25,
+    shadowHeightFactor: 0.016,
+    shadowYOffset: 12,
+    preserveOriginal: true,
+  },
+  slim: {
+    label: "slim",
+    maxWidth: 560,
+    maxHeight: 500,
+    minTop: LOGO_SAFE_BOTTOM_Y + 45,
+    bottomY: PRODUCT_BOTTOM_Y - 18,
+    padding: 12,
+    shadowOpacity: 0.1,
+    shadowWidthFactor: 0.29,
+    shadowHeightFactor: 0.021,
+    shadowYOffset: 13,
+    preserveOriginal: false,
+  },
+  slimLarge: {
+    label: "slim-large",
+    maxWidth: 620,
+    maxHeight: 520,
+    minTop: LOGO_SAFE_BOTTOM_Y + 42,
+    bottomY: PRODUCT_BOTTOM_Y - 14,
+    padding: 12,
+    shadowOpacity: 0.1,
+    shadowWidthFactor: 0.3,
+    shadowHeightFactor: 0.021,
+    shadowYOffset: 13,
+    preserveOriginal: false,
+  },
+};
 
 type ProductRow = {
   id: string;
@@ -15,18 +165,13 @@ type ProductRow = {
   product_name?: string | null;
   title?: string | null;
   sku?: string | null;
-  category?: string | null;
-  product_type?: string | null;
-  format?: string | null;
-  color?: string | null;
-  lineature?: string | null;
   image_url?: string | null;
   image_original_url?: string | null;
   image_styled_url?: string | null;
   image_styled_at?: string | null;
 };
 
-type StyleResult = {
+export type ProductImageStyleResult = {
   styledImageUrl: string;
   storagePath: string;
   usedRemoveBg: boolean;
@@ -37,7 +182,7 @@ type TryStyleResult =
   | {
       attempted: true;
       ok: true;
-      result: StyleResult;
+      result: ProductImageStyleResult;
       message: string;
     }
   | {
@@ -53,20 +198,13 @@ type TryStyleResult =
       message: string;
     };
 
-type ProductProfile = {
-  name: string;
-  maxWidth: number;
-  maxHeight: number;
-  preserveOriginal: boolean;
-};
-
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase-Variablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -78,194 +216,208 @@ function getSupabaseAdmin() {
   });
 }
 
-function cleanText(value: unknown) {
-  return String(value ?? "").trim().replace(/\s+/g, " ");
+function getRemoveBgApiKey() {
+  const apiKey = String(process.env.REMOVE_BG_API_KEY || "").trim();
+
+  if (!apiKey || apiKey.length < 10) {
+    throw new Error("REMOVE_BG_API_KEY fehlt in den Umgebungsvariablen.");
+  }
+
+  return apiKey;
 }
 
-function normalizeGermanText(value: unknown) {
-  return cleanText(value)
+function cleanString(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text.length > 0 ? text : null;
+}
+
+function normalizeText(value: unknown) {
+  return String(value || "")
+    .trim()
     .toLowerCase()
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss");
+    .replace(/ß/g, "ss")
+    .replace(/[,;/_]+/g, " ")
+    .replace(/\s+/g, " ");
 }
 
-function slugify(value: unknown) {
-  return normalizeGermanText(value)
-    .replace(/[^a-z0-9]+/g, "-")
+function hasKeyword(value: unknown, keywords: string[]) {
+  const normalized = normalizeText(value);
+
+  return keywords.some((keyword) => normalized.includes(normalizeText(keyword)));
+}
+
+function getProductName(product: ProductRow) {
+  return cleanString(product.name || product.product_name || product.title) || "Unbenanntes Produkt";
+}
+
+function sanitizePathPart(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 90);
 }
 
-function getProductName(product: ProductRow) {
-  return cleanText(product.name || product.product_name || product.title) || "Produkt";
+function parseStoragePathFromPublicUrl(publicUrl: unknown) {
+  const url = cleanString(publicUrl);
+
+  if (!url) return null;
+
+  const marker = `/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`;
+  const markerIndex = url.indexOf(marker);
+
+  if (markerIndex === -1) return null;
+
+  const rawPath = url.slice(markerIndex + marker.length).split("?")[0];
+
+  if (!rawPath) return null;
+
+  try {
+    return decodeURIComponent(rawPath);
+  } catch {
+    return rawPath;
+  }
 }
 
-function buildProductText(product: ProductRow) {
-  return [
-    product.name,
-    product.product_name,
-    product.title,
-    product.sku,
-    product.category,
-    product.product_type,
-    product.format,
-    product.color,
-    product.lineature,
-  ]
-    .map((value) => normalizeGermanText(value))
+function getSourceImageUrl(product: ProductRow) {
+  return cleanString(product.image_original_url) || cleanString(product.image_url);
+}
+
+function getSourceStoragePath(product: ProductRow) {
+  return parseStoragePathFromPublicUrl(getSourceImageUrl(product));
+}
+
+function getStyledStoragePath(product: ProductRow, sourceStoragePath: string) {
+  const sourceParsed = path.posix.parse(sourceStoragePath);
+  const productId = sanitizePathPart(product.id);
+  const productName = sanitizePathPart(getProductName(product));
+  const sourceName = sanitizePathPart(sourceParsed.name);
+  const timestamp = Date.now();
+
+  const baseName = [productId, productName, sourceName, timestamp]
     .filter(Boolean)
-    .join(" ");
+    .join("-")
+    .slice(0, 210);
+
+  return `${STYLED_PREFIX}/${baseName}.webp`;
 }
 
-function includesAny(text: string, words: string[]) {
-  return words.some((word) => text.includes(word));
+function getProductProfile(productName: string): ProductProfile {
+  const isFlat = hasKeyword(productName, FLAT_PRODUCT_KEYWORDS);
+  const isTransparent = hasKeyword(productName, TRANSPARENT_PRODUCT_KEYWORDS);
+  const isSlim = hasKeyword(productName, SLIM_PRODUCT_KEYWORDS);
+
+  if (isFlat && isTransparent) {
+    return PRODUCT_PROFILES.flatTransparent;
+  }
+
+  if (isFlat) {
+    return PRODUCT_PROFILES.flat;
+  }
+
+  if (isSlim) {
+    const normalized = normalizeText(productName);
+
+    if (
+      normalized.includes("pinsel sortiment") ||
+      normalized.includes("pinselset") ||
+      normalized.includes("pinsel sort")
+    ) {
+      return PRODUCT_PROFILES.slimLarge;
+    }
+
+    return PRODUCT_PROFILES.slim;
+  }
+
+  return PRODUCT_PROFILES.default;
 }
 
-function getProductProfile(product: ProductRow): ProductProfile {
-  const text = buildProductText(product);
-
-  if (
-    includesAny(text, [
-      "transparent",
-      "klar",
-      "clear",
-      "durchsichtig",
-      "pvc",
-      "folie",
-      "folien",
-      "buchumschlag",
-      "buchhuelle",
-      "buchhulle",
-      "heftumschlag",
-      "umschlag transparent",
-      "umschlag klar",
-      "schnellhefter pvc",
-    ])
-  ) {
-    return {
-      name: "flatTransparent",
-      maxWidth: 900,
-      maxHeight: 680,
-      preserveOriginal: true,
-    };
-  }
-
-  if (
-    includesAny(text, [
-      "klebestift",
-      "stift",
-      "textmarker",
-      "permanentmarker",
-      "marker",
-      "bleistift",
-      "pinsel",
-      "lineal",
-      "zirkel",
-      "heftstreifen",
-      "aktentulli",
-      "schere",
-    ])
-  ) {
-    return {
-      name: "slim",
-      maxWidth: 460,
-      maxHeight: 760,
-      preserveOriginal: false,
-    };
-  }
-
-  if (
-    includesAny(text, [
-      "schnellhefter",
-      "heft",
-      "block",
-      "zeichenblock",
-      "malblock",
-      "mappe",
-      "papier",
-      "tonpapier",
-      "transparentpapier",
-      "buntpapier",
-    ])
-  ) {
-    return {
-      name: "flat",
-      maxWidth: 850,
-      maxHeight: 640,
-      preserveOriginal: false,
-    };
-  }
-
-  return {
-    name: "default",
-    maxWidth: 760,
-    maxHeight: 720,
-    preserveOriginal: false,
-  };
-}
-
-function createBackgroundSvg(_product: ProductRow) {
-  return Buffer.from(`
-    <svg width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" viewBox="0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#FFF9EF"/>
-          <stop offset="0.55" stop-color="#FBF7F0"/>
-          <stop offset="1" stop-color="#EEF4FA"/>
-        </linearGradient>
-        <radialGradient id="stage" cx="50%" cy="42%" r="55%">
-          <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.92"/>
-          <stop offset="0.72" stop-color="#FFFFFF" stop-opacity="0.42"/>
-          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-
-      <rect width="1200" height="1200" fill="url(#bg)"/>
-      <circle cx="145" cy="1070" r="320" fill="#F4E7D8" opacity="0.55"/>
-      <circle cx="1115" cy="235" r="275" fill="#DDEAF7" opacity="0.75"/>
-      <path d="M0 210 C220 130 380 265 610 180 C840 95 970 135 1200 70 L1200 0 L0 0 Z" fill="#ffffff" opacity="0.58"/>
-      <rect x="0" y="0" width="1200" height="1200" fill="url(#stage)"/>
-    </svg>
-  `);
-}
-
-async function fetchBufferFromUrl(url: string) {
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Bild konnte nicht geladen werden: ${response.status} ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
+async function blobToBuffer(blob: Blob) {
+  const arrayBuffer = await blob.arrayBuffer();
   return Buffer.from(arrayBuffer);
 }
 
-async function removeBackgroundWithRemoveBg(inputBuffer: Buffer) {
-  const apiKey = process.env.REMOVE_BG_API_KEY;
+async function downloadStorageFile(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  storagePath: string
+) {
+  const { data, error } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .download(storagePath);
 
-  if (!apiKey) {
+  if (error || !data) {
     throw new Error(
-      "REMOVE_BG_API_KEY fehlt. Bitte in den Umgebungsvariablen hinterlegen."
+      `Bild konnte nicht aus Supabase geladen werden: ${error?.message || "Unbekannter Fehler"}`
     );
   }
 
+  return blobToBuffer(data);
+}
+
+async function prepareImageForRemoveBg(sourceBuffer: Buffer) {
+  return sharp(sourceBuffer, {
+    failOn: "none",
+    limitInputPixels: false,
+  })
+    .rotate()
+    .resize({
+      width: 1800,
+      height: 1800,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .png({
+      compressionLevel: 6,
+      adaptiveFiltering: true,
+    })
+    .toBuffer();
+}
+
+async function prepareOriginalLayer(sourceBuffer: Buffer) {
+  return sharp(sourceBuffer, {
+    failOn: "none",
+    limitInputPixels: false,
+  })
+    .rotate()
+    .resize({
+      width: 1600,
+      height: 1600,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .png({
+      compressionLevel: 6,
+      adaptiveFiltering: true,
+    })
+    .toBuffer();
+}
+
+async function removeBackgroundWithRemoveBg(sourceBuffer: Buffer, productName: string) {
+  const apiKey = getRemoveBgApiKey();
+  const preparedPng = await prepareImageForRemoveBg(sourceBuffer);
+
   const formData = new FormData();
+
   formData.append(
-  "image_file",
-  new Blob([new Uint8Array(inputBuffer)], {
-    type: "image/png",
-  }),
-  "product.png"
-);
+    "image_file",
+    new Blob([new Uint8Array(preparedPng)], { type: "image/png" }),
+    `${sanitizePathPart(productName) || "produkt"}.png`
+  );
+
   formData.append("size", "auto");
+  formData.append("type", "product");
   formData.append("format", "png");
 
-  const response = await fetch("https://api.remove.bg/v1.0/removebg", {
+  const response = await fetch(REMOVE_BG_API_URL, {
     method: "POST",
     headers: {
       "X-Api-Key": apiKey,
@@ -273,172 +425,204 @@ async function removeBackgroundWithRemoveBg(inputBuffer: Buffer) {
     body: formData,
   });
 
+  const responseBuffer = Buffer.from(await response.arrayBuffer());
+
   if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
+    const errorText = responseBuffer.toString("utf8");
     throw new Error(
-      `remove.bg konnte das Bild nicht freistellen: ${response.status} ${response.statusText}${
-        errorText ? ` - ${errorText.slice(0, 240)}` : ""
-      }`
+      `remove.bg Fehler ${response.status}: ${errorText || "Keine Fehlerdetails"}`
     );
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-async function normalizeInputImage(inputBuffer: Buffer) {
-  return sharp(inputBuffer, {
+  return sharp(responseBuffer, {
     failOn: "none",
   })
-    .rotate()
+    .ensureAlpha()
     .png()
     .toBuffer();
 }
 
-async function getTransparentPixelRatio(inputBuffer: Buffer) {
-  const { data, info } = await sharp(inputBuffer, {
-    failOn: "none",
-  })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({
-      resolveWithObject: true,
-    });
+function makeShadowSvg(
+  width: number,
+  height: number,
+  productWidth: number,
+  profile: ProductProfile
+) {
+  const cx = Math.round(width / 2);
+  const cy = profile.bottomY + profile.shadowYOffset;
 
-  if (!info.width || !info.height || info.channels < 4) {
-    return 0;
-  }
+  const rx = Math.max(
+    80,
+    Math.min(330, Math.round(productWidth * profile.shadowWidthFactor))
+  );
 
-  const totalPixels = info.width * info.height;
-  let transparentPixels = 0;
+  const ry = Math.max(
+    8,
+    Math.min(36, Math.round(productWidth * profile.shadowHeightFactor))
+  );
 
-  for (let index = 3; index < data.length; index += info.channels) {
-    if (data[index] < 245) {
-      transparentPixels += 1;
-    }
-  }
-
-  return totalPixels > 0 ? transparentPixels / totalPixels : 0;
+  return Buffer.from(`
+    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="rgba(15,23,42,${profile.shadowOpacity})" />
+    </svg>
+  `);
 }
 
-async function assertUsableTransparentImage(inputBuffer: Buffer) {
-  const transparentRatio = await getTransparentPixelRatio(inputBuffer);
-
-  if (transparentRatio < 0.05) {
+async function composeProductOnBackground(productLayerBuffer: Buffer, productName: string) {
+  if (!fs.existsSync(BACKGROUND_PATH)) {
     throw new Error(
-      "Die Freistellung hat keinen nutzbaren transparenten Hintergrund erzeugt. Das Styled-Bild wurde nicht gespeichert, damit kein kaputtes Bild im Shop erscheint."
+      `Hintergrundbild fehlt: ${BACKGROUND_PATH}. Lege die Datei unter scripts/assets/handzettel-product-bg.png ab.`
     );
   }
-}
 
-async function prepareProductLayer(inputBuffer: Buffer, profile: ProductProfile) {
-  if (profile.preserveOriginal) {
-    return sharp(inputBuffer, {
-      failOn: "none",
+  const profile = getProductProfile(productName);
+
+  const backgroundBuffer = await sharp(BACKGROUND_PATH)
+    .resize(OUTPUT_SIZE, OUTPUT_SIZE, {
+      fit: "cover",
+      position: "center",
     })
-      .rotate()
-      .resize({
-        width: profile.maxWidth,
-        height: profile.maxHeight,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .png()
-      .toBuffer();
-  }
+    .png()
+    .toBuffer();
 
-  await assertUsableTransparentImage(inputBuffer);
+  const trimOptions = profile.preserveOriginal
+    ? {
+        threshold: 12,
+      }
+    : {
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        threshold: 6,
+      };
 
-  return sharp(inputBuffer, {
+  const trimmed = await sharp(productLayerBuffer, {
     failOn: "none",
   })
     .ensureAlpha()
-    .trim({
-      threshold: 10,
+    .trim(trimOptions)
+    .toBuffer();
+
+  const withSafetyPadding = await sharp(trimmed, {
+    failOn: "none",
+  })
+    .extend({
+      top: profile.padding,
+      bottom: profile.padding,
+      left: profile.padding,
+      right: profile.padding,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
+    .png()
+    .toBuffer();
+
+  const availableHeightBelowLogo = Math.max(
+    260,
+    profile.bottomY - profile.minTop
+  );
+
+  const safeMaxHeight = Math.min(profile.maxHeight, availableHeightBelowLogo);
+
+  const resized = await sharp(withSafetyPadding, {
+    failOn: "none",
+  })
     .resize({
       width: profile.maxWidth,
-      height: profile.maxHeight,
+      height: safeMaxHeight,
       fit: "inside",
       withoutEnlargement: true,
     })
     .png()
-    .toBuffer();
-}
+    .toBuffer({ resolveWithObject: true });
 
+  const productWidth = resized.info.width || profile.maxWidth;
+  const productHeight = resized.info.height || safeMaxHeight;
 
-async function buildStyledImage(input: {
-  product: ProductRow;
-  productBuffer: Buffer;
-  profile: ProductProfile;
-}) {
-  const resizedProductBuffer = await prepareProductLayer(
-    input.productBuffer,
-    input.profile
+  const left = Math.round((OUTPUT_SIZE - productWidth) / 2);
+  const idealTop = profile.bottomY - productHeight;
+  const top = Math.max(profile.minTop, idealTop);
+
+  const shadowSvg = makeShadowSvg(
+    OUTPUT_SIZE,
+    OUTPUT_SIZE,
+    productWidth,
+    profile
   );
 
-  const metadata = await sharp(resizedProductBuffer).metadata();
-  const productWidth = metadata.width || input.profile.maxWidth;
-  const productHeight = metadata.height || input.profile.maxHeight;
-
-  const availableHeight = PRODUCT_BOTTOM_Y - LOGO_SAFE_BOTTOM_Y;
-  const top = Math.max(
-    LOGO_SAFE_BOTTOM_Y + 18,
-    Math.round(LOGO_SAFE_BOTTOM_Y + (availableHeight - productHeight) / 2)
-  );
-  const left = Math.max(0, Math.round((CANVAS_WIDTH - productWidth) / 2));
-
-  return sharp(createBackgroundSvg(input.product), {
-    failOn: "none",
-  })
+  return sharp(backgroundBuffer)
     .composite([
       {
-        input: resizedProductBuffer,
-        top,
+        input: shadowSvg,
+        left: 0,
+        top: 0,
+      },
+      {
+        input: resized.data,
         left,
+        top,
       },
     ])
     .webp({
-      quality: 88,
+      quality: WEBP_QUALITY,
       effort: 4,
     })
     .toBuffer();
 }
 
-async function uploadStyledImage(input: {
-  supabase: ReturnType<typeof getSupabaseAdmin>;
-  product: ProductRow;
-  buffer: Buffer;
-}) {
-  const productName = getProductName(input.product);
-  const productSlug = slugify(productName) || "produkt";
-  const storagePath = `${PRODUCT_IMAGE_STYLED_PREFIX}/${input.product.id}-${productSlug}-${Date.now()}.webp`;
-
-  const { error: uploadError } = await input.supabase.storage
+async function uploadStyledImage(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  styledStoragePath: string,
+  styledBuffer: Buffer
+) {
+  const { error } = await supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .upload(storagePath, input.buffer, {
+    .upload(styledStoragePath, styledBuffer, {
       contentType: "image/webp",
-      upsert: false,
+      upsert: true,
     });
 
-  if (uploadError) {
+  if (error) {
     throw new Error(
-      `Freigestelltes Produktbild konnte nicht hochgeladen werden: ${uploadError.message}`
+      `Gestyltes Produktbild konnte nicht hochgeladen werden: ${error.message}`
     );
   }
 
-  const { data } = input.supabase.storage
+  const { data } = supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .getPublicUrl(storagePath);
+    .getPublicUrl(styledStoragePath);
 
-  return {
-    storagePath,
-    styledImageUrl: data.publicUrl || null,
-  };
+  if (!data?.publicUrl) {
+    throw new Error(
+      "Öffentliche URL für gestyltes Produktbild konnte nicht erzeugt werden."
+    );
+  }
+
+  return data.publicUrl;
 }
 
-export async function styleProductImageById(productId: string): Promise<StyleResult> {
-  const cleanProductId = cleanText(productId);
+async function updateProductStyledImageUrl(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  product: ProductRow,
+  styledPublicUrl: string
+) {
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("school_products")
+    .update({
+      image_styled_url: styledPublicUrl,
+      image_styled_at: now,
+      updated_at: now,
+    })
+    .eq("id", product.id);
+
+  if (error) {
+    throw new Error(
+      `Produkt konnte nicht mit image_styled_url aktualisiert werden: ${error.message}`
+    );
+  }
+}
+
+export async function styleProductImageById(productId: string): Promise<ProductImageStyleResult> {
+  const cleanProductId = cleanString(productId);
 
   if (!cleanProductId) {
     throw new Error("Keine Produkt-ID übergeben.");
@@ -446,84 +630,102 @@ export async function styleProductImageById(productId: string): Promise<StyleRes
 
   const supabase = getSupabaseAdmin();
 
-  const { data: productData, error: productError } = await supabase
+  const { data: product, error: productError } = await supabase
     .from("school_products")
     .select("*")
     .eq("id", cleanProductId)
     .maybeSingle();
 
-  if (productError || !productData) {
+  if (productError) {
+    throw new Error(`Produkt konnte nicht geladen werden: ${productError.message}`);
+  }
+
+  if (!product) {
+    throw new Error("Produkt wurde nicht gefunden.");
+  }
+
+  const typedProduct = product as ProductRow;
+  const productName = getProductName(typedProduct);
+  const profile = getProductProfile(productName);
+  const sourceStoragePath = getSourceStoragePath(typedProduct);
+
+  if (!sourceStoragePath) {
     throw new Error(
-      productError?.message || "Produkt wurde nicht gefunden."
+      "Für dieses Produkt wurde keine verwendbare Supabase-Bildquelle gefunden."
     );
   }
 
-  const product = productData as ProductRow;
-  const sourceImageUrl = cleanText(product.image_original_url || product.image_url);
-
-  if (!sourceImageUrl) {
+  if (
+    sourceStoragePath.startsWith("products-styled/") ||
+    sourceStoragePath.startsWith("products-styled-openai/") ||
+    sourceStoragePath.startsWith("products-styled-cutout/") ||
+    sourceStoragePath.startsWith("products-styled-removebg/")
+  ) {
     throw new Error(
-      "Für dieses Produkt ist kein Originalbild oder Produktbild gespeichert."
+      "Die aktuelle Bildquelle ist bereits ein gestyltes Bild. Bitte image_original_url prüfen."
     );
   }
 
-  const profile = getProductProfile(product);
-  const originalBuffer = await fetchBufferFromUrl(sourceImageUrl);
-  const normalizedBuffer = await normalizeInputImage(originalBuffer);
+  const styledStoragePath = getStyledStoragePath(typedProduct, sourceStoragePath);
+  const sourceBuffer = await downloadStorageFile(supabase, sourceStoragePath);
 
-  const productBuffer = profile.preserveOriginal
-    ? normalizedBuffer
-    : await removeBackgroundWithRemoveBg(normalizedBuffer);
+  const productLayerBuffer = profile.preserveOriginal
+    ? await prepareOriginalLayer(sourceBuffer)
+    : await removeBackgroundWithRemoveBg(sourceBuffer, productName);
 
-  const styledBuffer = await buildStyledImage({
-    product,
-    productBuffer,
-    profile,
-  });
+  const styledBuffer = await composeProductOnBackground(
+    productLayerBuffer,
+    productName
+  );
 
-  const uploaded = await uploadStyledImage({
+  const styledPublicUrl = await uploadStyledImage(
     supabase,
-    product,
-    buffer: styledBuffer,
-  });
+    styledStoragePath,
+    styledBuffer
+  );
 
-  if (!uploaded.styledImageUrl) {
-    throw new Error("Styled-Bild wurde hochgeladen, aber es wurde keine öffentliche URL zurückgegeben.");
-  }
-
-  const styledAt = new Date().toISOString();
-
-  const { error: updateError } = await supabase
-    .from("school_products")
-    .update({
-      image_styled_url: uploaded.styledImageUrl,
-      image_styled_at: styledAt,
-      updated_at: styledAt,
-    })
-    .eq("id", product.id);
-
-  if (updateError) {
-    throw new Error(
-      `Styled-Bild wurde erzeugt, aber das Produkt konnte nicht aktualisiert werden: ${updateError.message}`
-    );
-  }
+  await updateProductStyledImageUrl(supabase, typedProduct, styledPublicUrl);
 
   return {
-    styledImageUrl: uploaded.styledImageUrl,
-    storagePath: uploaded.storagePath,
+    styledImageUrl: styledPublicUrl,
+    storagePath: styledStoragePath,
     usedRemoveBg: !profile.preserveOriginal,
-    profile: profile.name,
+    profile: profile.label,
   };
 }
 
-export async function tryStyleProductImageById(
-  _productId: string
-): Promise<TryStyleResult> {
-  return {
-    attempted: false,
-    ok: false,
-    result: null,
-    message:
-      "Automatische Hintergrund-Erzeugung beim Speichern ist deaktiviert. Nutze im Admin den separaten Button „Bild freistellen & Hintergrund setzen“.",
-  };
+export async function tryStyleProductImageById(productId: string): Promise<TryStyleResult> {
+  const cleanProductId = cleanString(productId);
+
+  if (!cleanProductId) {
+    return {
+      attempted: false,
+      ok: false,
+      result: null,
+      message: "Keine Produkt-ID übergeben.",
+    };
+  }
+
+  try {
+    const result = await styleProductImageById(cleanProductId);
+
+    return {
+      attempted: true,
+      ok: true,
+      result,
+      message: result.usedRemoveBg
+        ? "Produktbild wurde mit remove.bg freigestellt und auf den Shop-Hintergrund gesetzt."
+        : "Produktbild wurde originalschonend auf den Shop-Hintergrund gesetzt.",
+    };
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      result: null,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Produktbild konnte nicht freigestellt werden.",
+    };
+  }
 }
