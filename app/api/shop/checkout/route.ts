@@ -26,6 +26,15 @@ type CheckoutCartItem = {
   sourceRequestItemId?: string | null;
 };
 
+type CheckoutCartInputItem = {
+  productId: string;
+  quantity: number;
+  sourceType?: "shop" | "reorder_from_school_list";
+  sourceRequestId?: string | null;
+  sourceOfferItemId?: string | null;
+  sourceRequestItemId?: string | null;
+};
+
 type CheckoutBody = {
   customerName?: string | null;
   email?: string | null;
@@ -35,12 +44,7 @@ type CheckoutBody = {
   className?: string | null;
   fulfillmentMethod?: "pickup" | "shipping" | null;
   customerMessage?: string | null;
-  cartItems?: CheckoutCartItem[];
-};
-
-type ProductRow = Record<string, unknown> & {
-  id?: string | number | null;
-  active?: boolean | null;
+  cartItems?: unknown;
 };
 
 type CreatedRequestRow = {
@@ -69,6 +73,10 @@ type CreatedOfferItemRow = {
   notes: string | null;
 };
 
+type ProductRow = Record<string, unknown> & {
+  id?: string | number | null;
+};
+
 const SHIPPING_AMOUNT = 5.95;
 
 function getSupabaseAdmin() {
@@ -77,7 +85,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.",
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -131,7 +139,7 @@ async function readBodySafely(request: NextRequest): Promise<CheckoutBody> {
 }
 
 async function getInvoiceNumber(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
+  supabase: ReturnType<typeof getSupabaseAdmin>
 ): Promise<string> {
   const { data, error } = await supabase.rpc("generate_school_invoice_number");
 
@@ -169,12 +177,12 @@ async function insertRequestEvent(params: {
   }
 }
 
-function validateCartItems(items: unknown): CheckoutCartItem[] {
+function validateCartInputs(items: unknown): CheckoutCartInputItem[] {
   if (!Array.isArray(items)) {
     return [];
   }
 
-  const itemsByProductId = new Map<string, CheckoutCartItem>();
+  const itemsByProductId = new Map<string, CheckoutCartInputItem>();
 
   for (const rawItem of items) {
     if (!rawItem || typeof rawItem !== "object") {
@@ -182,7 +190,6 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
     }
 
     const cartItem = rawItem as Partial<CheckoutCartItem>;
-
     const productId = cleanString(cartItem.productId);
     const quantity = normalizeQuantity(cartItem.quantity);
 
@@ -190,28 +197,25 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
       continue;
     }
 
-    const existingItem = itemsByProductId.get(productId);
+    const sourceType =
+      cartItem.sourceType === "reorder_from_school_list"
+        ? "reorder_from_school_list"
+        : "shop";
 
-    if (existingItem) {
-      existingItem.quantity = Math.min(99, existingItem.quantity + quantity);
+    const existing = itemsByProductId.get(productId);
+
+    if (existing) {
+      itemsByProductId.set(productId, {
+        ...existing,
+        quantity: Math.min(99, existing.quantity + quantity),
+      });
       continue;
     }
 
     itemsByProductId.set(productId, {
       productId,
-      name: "",
-      sku: null,
-      price: 0,
-      imageUrl: null,
       quantity,
-      category: null,
-      format: null,
-      color: null,
-      lineature: null,
-      sourceType:
-        cartItem.sourceType === "reorder_from_school_list"
-          ? "reorder_from_school_list"
-          : "shop",
+      sourceType,
       sourceRequestId: cleanNullableString(cartItem.sourceRequestId),
       sourceOfferItemId: cleanNullableString(cartItem.sourceOfferItemId),
       sourceRequestItemId: cleanNullableString(cartItem.sourceRequestItemId),
@@ -221,11 +225,7 @@ function validateCartItems(items: unknown): CheckoutCartItem[] {
   return Array.from(itemsByProductId.values());
 }
 
-function getProductId(product: ProductRow) {
-  return cleanString(product.id);
-}
-
-function getProductStringValue(product: ProductRow, keys: string[]) {
+function getStringFromProduct(product: ProductRow, keys: string[]) {
   for (const key of keys) {
     const value = product[key];
 
@@ -241,22 +241,9 @@ function getProductStringValue(product: ProductRow, keys: string[]) {
   return null;
 }
 
-function getProductNumberValue(product: ProductRow, keys: string[]) {
-  for (const key of keys) {
-    const value = product[key];
-    const parsed = toNumber(value, Number.NaN);
-
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return 0;
-}
-
-function getServerProductName(product: ProductRow) {
+function getProductName(product: ProductRow) {
   return (
-    getProductStringValue(product, [
+    getStringFromProduct(product, [
       "name",
       "product_name",
       "title",
@@ -266,8 +253,8 @@ function getServerProductName(product: ProductRow) {
   );
 }
 
-function getServerProductSku(product: ProductRow) {
-  return getProductStringValue(product, [
+function getProductSku(product: ProductRow) {
+  return getStringFromProduct(product, [
     "sku",
     "product_sku",
     "article_number",
@@ -276,25 +263,25 @@ function getServerProductSku(product: ProductRow) {
   ]);
 }
 
-function getServerProductPrice(product: ProductRow) {
+function getProductPrice(product: ProductRow) {
   return roundMoney(
     Math.max(
       0,
-      getProductNumberValue(product, [
-        "price",
-        "gross_price",
-        "product_price",
-        "unit_price",
-        "sale_price",
-        "sale_price_gross",
-        "brutto_preis",
-      ]),
-    ),
+      toNumber(
+        product.price ??
+          product.gross_price ??
+          product.product_price ??
+          product.unit_price ??
+          product.sale_price_gross ??
+          product.sale_price,
+        0
+      )
+    )
   );
 }
 
-function getServerProductImageUrl(product: ProductRow) {
-  return getProductStringValue(product, [
+function getProductImageUrl(product: ProductRow) {
+  return getStringFromProduct(product, [
     "image_styled_url",
     "styled_image_url",
     "image_url",
@@ -305,33 +292,27 @@ function getServerProductImageUrl(product: ProductRow) {
   ]);
 }
 
-function isServerProductActive(product: ProductRow) {
-  if (product.active === false) {
-    return false;
-  }
+function getProductStatus(product: ProductRow) {
+  return getStringFromProduct(product, ["status", "product_status"]);
+}
 
-  const status = getProductStringValue(product, ["status", "product_status"]);
+function isProductActive(product: ProductRow) {
+  if (product.active === false) return false;
 
-  if (!status) {
-    return true;
-  }
+  const status = getProductStatus(product);
+
+  if (!status) return true;
 
   return !["inactive", "archived", "deleted", "disabled"].includes(
-    status.toLowerCase(),
+    status.toLowerCase()
   );
 }
 
-async function hydrateCartItemsFromServerProducts(params: {
+async function buildServerCartItems(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
-  cartItems: CheckoutCartItem[];
-}) {
-  const productIds = Array.from(
-    new Set(params.cartItems.map((item) => item.productId).filter(Boolean)),
-  );
-
-  if (productIds.length === 0) {
-    return [];
-  }
+  cartInputs: CheckoutCartInputItem[];
+}): Promise<CheckoutCartItem[]> {
+  const productIds = params.cartInputs.map((item) => item.productId);
 
   const { data, error } = await params.supabase
     .from("school_products")
@@ -339,83 +320,77 @@ async function hydrateCartItemsFromServerProducts(params: {
     .in("id", productIds);
 
   if (error) {
-    throw new Error(
-      `Produktdaten konnten nicht geprüft werden: ${error.message}`,
-    );
+    throw new Error(`Produkte konnten nicht geprüft werden: ${error.message}`);
   }
 
   const productsById = new Map<string, ProductRow>();
 
   for (const product of (data || []) as ProductRow[]) {
-    const productId = getProductId(product);
-
-    if (productId) {
-      productsById.set(productId, product);
-    }
+    const id = product.id ? String(product.id) : "";
+    if (id) productsById.set(id, product);
   }
 
-  const unavailableProductNames: string[] = [];
-  const invalidPriceProductNames: string[] = [];
-  const hydratedItems: CheckoutCartItem[] = [];
+  const missingProductIds = productIds.filter((id) => !productsById.has(id));
 
-  for (const cartItem of params.cartItems) {
-    const product = productsById.get(cartItem.productId);
+  if (missingProductIds.length > 0) {
+    throw new Error(
+      "Mindestens ein Produkt aus Deinem Warenkorb ist nicht mehr verfügbar. Bitte aktualisiere den Warenkorb."
+    );
+  }
 
-    if (!product || !isServerProductActive(product)) {
-      unavailableProductNames.push(cartItem.name || cartItem.productId);
+  const inactiveProducts: string[] = [];
+  const invalidPriceProducts: string[] = [];
+  const serverItems: CheckoutCartItem[] = [];
+
+  for (const input of params.cartInputs) {
+    const product = productsById.get(input.productId);
+
+    if (!product) continue;
+
+    const name = getProductName(product);
+    const price = getProductPrice(product);
+
+    if (!isProductActive(product)) {
+      inactiveProducts.push(name);
       continue;
     }
 
-    const serverPrice = getServerProductPrice(product);
-    const serverName = getServerProductName(product);
-
-    if (serverPrice <= 0) {
-      invalidPriceProductNames.push(serverName);
+    if (price <= 0) {
+      invalidPriceProducts.push(name);
       continue;
     }
 
-    hydratedItems.push({
-      ...cartItem,
-      name: serverName,
-      sku: getServerProductSku(product),
-      price: serverPrice,
-      imageUrl: getServerProductImageUrl(product),
-      category: getProductStringValue(product, [
-        "category",
-        "product_category",
-        "type",
-      ]),
-      format: getProductStringValue(product, [
-        "format",
-        "size",
-        "product_format",
-      ]),
-      color: getProductStringValue(product, ["color", "colour", "farbe"]),
-      lineature: getProductStringValue(product, [
-        "lineature",
-        "lineatur",
-        "ruling",
-      ]),
+    serverItems.push({
+      productId: input.productId,
+      name,
+      sku: getProductSku(product),
+      price,
+      imageUrl: getProductImageUrl(product),
+      quantity: input.quantity,
+      category: getStringFromProduct(product, ["category", "product_category", "type"]),
+      format: getStringFromProduct(product, ["format", "size", "product_format"]),
+      color: getStringFromProduct(product, ["color", "colour", "farbe"]),
+      lineature: getStringFromProduct(product, ["lineature", "lineatur", "ruling"]),
+      sourceType: input.sourceType,
+      sourceRequestId: input.sourceRequestId || null,
+      sourceOfferItemId: input.sourceOfferItemId || null,
+      sourceRequestItemId: input.sourceRequestItemId || null,
     });
   }
 
-  if (unavailableProductNames.length > 0) {
+  if (inactiveProducts.length > 0) {
     throw new Error(
-      `Mindestens ein Produkt ist nicht mehr verfügbar: ${unavailableProductNames.join(
-        ", ",
-      )}. Bitte entferne es aus dem Warenkorb und versuche es erneut.`,
+      `Diese Produkte sind nicht mehr verfügbar: ${inactiveProducts.join(", ")}. Bitte entferne sie aus dem Warenkorb.`
     );
   }
 
-  if (invalidPriceProductNames.length > 0) {
+  if (invalidPriceProducts.length > 0) {
     throw new Error(
-      `Mindestens ein Produkt hat aktuell keinen gültigen Preis: ${invalidPriceProductNames.join(
-        ", ",
-      )}. Bitte entferne es aus dem Warenkorb oder kontaktiere uns.`,
+      `Für diese Produkte ist aktuell kein gültiger Preis hinterlegt: ${invalidPriceProducts.join(", ")}. Bitte entferne sie aus dem Warenkorb oder kontaktiere uns.`
     );
   }
 
-  return hydratedItems;
+  return serverItems;
 }
 
 function formatEuroForEvent(value: number) {
@@ -471,16 +446,15 @@ async function sendShopOrderAdminNotificationSafely(params: {
       eventType: result.ok
         ? "admin_shop_notification_sent"
         : "admin_shop_notification_skipped",
-      title: result.ok ? "Admin-Mail versendet" : "Admin-Mail nicht versendet",
+      title: result.ok
+        ? "Admin-Mail versendet"
+        : "Admin-Mail nicht versendet",
       description: result.ok
         ? "Die Admin-Benachrichtigung zur Shop-Bestellung wurde versendet."
         : result.message || "Die Admin-Benachrichtigung wurde nicht versendet.",
     });
   } catch (error) {
-    console.error(
-      "Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:",
-      error,
-    );
+    console.error("Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:", error);
 
     await insertRequestEvent({
       supabase: params.supabase,
@@ -511,8 +485,7 @@ export async function POST(request: NextRequest) {
       body.fulfillmentMethod === "shipping" ? "shipping" : "pickup";
 
     const customerMessage = cleanNullableString(body.customerMessage);
-
-    let cartItems = validateCartItems(body.cartItems);
+    const cartInputs = validateCartInputs(body.cartItems);
 
     if (!customerName) {
       return NextResponse.json(
@@ -520,7 +493,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte gib Deinen Namen ein.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -530,50 +503,37 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte gib eine gültige E-Mail-Adresse ein.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    if (cartItems.length === 0) {
+    if (cartInputs.length === 0) {
       return NextResponse.json(
         {
           ok: false,
           message:
             "Dein Warenkorb ist leer. Bitte lege zuerst Produkte in den Warenkorb.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
 
-    try {
-      cartItems = await hydrateCartItemsFromServerProducts({
-        supabase,
-        cartItems,
-      });
-    } catch (error) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Die Warenkorb-Produkte konnten nicht geprüft werden.",
-        },
-        { status: 400 },
-      );
-    }
+    const cartItems = await buildServerCartItems({
+      supabase,
+      cartInputs,
+    });
 
     if (cartItems.length === 0) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Dein Warenkorb enthält keine aktuell verfügbaren Produkte mehr.",
+            "Für Deinen Warenkorb konnten keine gültigen Produkte gefunden werden.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -583,7 +543,7 @@ export async function POST(request: NextRequest) {
     const subtotalAmount = roundMoney(
       cartItems.reduce((sum, item) => {
         return sum + item.quantity * item.price;
-      }, 0),
+      }, 0)
     );
 
     const appliedDiscount = await findActiveDiscountCampaign({
@@ -594,7 +554,7 @@ export async function POST(request: NextRequest) {
 
     const discountAmount = roundMoney(appliedDiscount.discountAmount);
     const totalAmount = roundMoney(
-      Math.max(0, subtotalAmount + shippingAmount - discountAmount),
+      Math.max(0, subtotalAmount + shippingAmount - discountAmount)
     );
 
     const messageParts = [
@@ -602,7 +562,7 @@ export async function POST(request: NextRequest) {
       customerMessage ? `Kundenhinweis: ${customerMessage}` : null,
       appliedDiscount.discountName
         ? `Automatisch angewendete Rabattaktion: ${appliedDiscount.discountName} (-${formatEuroForEvent(
-            discountAmount,
+            discountAmount
           )} EUR).`
         : null,
       cartItems.some((item) => item.sourceType === "reorder_from_school_list")
@@ -648,7 +608,7 @@ export async function POST(request: NextRequest) {
             requestInsertError?.message ||
             "Die Shop-Bestellung konnte nicht angelegt werden.",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -717,7 +677,7 @@ export async function POST(request: NextRequest) {
             "unit",
             "source",
             "notes",
-          ].join(", "),
+          ].join(", ")
         );
 
     if (offerInsertError || !createdOfferItemsData) {
@@ -728,7 +688,7 @@ export async function POST(request: NextRequest) {
             offerInsertError?.message ||
             "Die Shop-Positionen konnten nicht gespeichert werden.",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -780,9 +740,7 @@ export async function POST(request: NextRequest) {
             }, Rabattbetrag: ${formatEuroForEvent(discountAmount)} EUR.`
           : "Automatisch aus Shop-Warenkorb erzeugt.",
       })
-      .select(
-        "id, invoice_number, invoice_token, invoice_status, payment_status",
-      )
+      .select("id, invoice_number, invoice_token, invoice_status, payment_status")
       .single();
 
     if (invoiceInsertError || !invoiceData) {
@@ -793,7 +751,7 @@ export async function POST(request: NextRequest) {
             invoiceInsertError?.message ||
             "Die Rechnung zur Shop-Bestellung konnte nicht erzeugt werden.",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -806,7 +764,7 @@ export async function POST(request: NextRequest) {
           message:
             "Die Rechnung wurde erzeugt, aber es wurde kein Zahlungslink-Token zurückgegeben.",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -846,7 +804,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: `Die Rechnungspositionen konnten nicht gespeichert werden: ${invoiceItemsInsertError.message}`,
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -871,7 +829,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: `Die Shop-Bestellung wurde angelegt, aber der Rechnungsstatus konnte nicht aktualisiert werden: ${requestUpdateError.message}`,
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -884,16 +842,16 @@ export async function POST(request: NextRequest) {
         ? `Shop-Bestellung mit ${
             cartItems.length
           } Positionen wurde erstellt. Zwischensumme: ${formatEuroForEvent(
-            subtotalAmount,
+            subtotalAmount
           )} EUR, Rabatt: -${formatEuroForEvent(
-            discountAmount,
+            discountAmount
           )} EUR, Versand: ${formatEuroForEvent(
-            shippingAmount,
+            shippingAmount
           )} EUR, Gesamtbetrag: ${formatEuroForEvent(totalAmount)} EUR.`
         : `Shop-Bestellung mit ${
             cartItems.length
           } Positionen wurde erstellt. Gesamtbetrag: ${formatEuroForEvent(
-            totalAmount,
+            totalAmount
           )} EUR.`,
     });
 
@@ -911,7 +869,7 @@ export async function POST(request: NextRequest) {
         : `Rechnung ${
             invoice.invoice_number || ""
           } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
-            totalAmount,
+            totalAmount
           )} EUR.`,
     });
 
@@ -968,7 +926,7 @@ export async function POST(request: NextRequest) {
             ? error.message
             : "Die Shop-Bestellung konnte nicht abgeschlossen werden.",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -979,6 +937,6 @@ export async function GET() {
       ok: false,
       message: "Diese Route kann nur per POST genutzt werden.",
     },
-    { status: 405 },
+    { status: 405 }
   );
 }
