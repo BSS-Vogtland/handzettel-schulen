@@ -150,6 +150,145 @@ function getWords(value: unknown) {
     .filter((word) => word.length >= 2);
 }
 
+
+const SIMPLE_STANDARD_TYPES = new Set([
+  "klebestift",
+  "radiergummi",
+  "spitzer",
+  "lineal",
+  "schere",
+  "bleistift",
+  "buntstifte",
+  "filzstifte",
+  "farbkasten",
+]);
+
+function normalizeSingularProductTerm(value: unknown) {
+  const text = normalizeForWords(value)
+    .replace(/\b\d+\s*x?\b/g, " ")
+    .replace(/\bstueck\b/g, " ")
+    .replace(/\bstk\b/g, " ")
+    .replace(/\bpackung\b/g, " ")
+    .replace(/\bset\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const replacements: Array<[RegExp, string]> = [
+    [/\bklebestifte\b/g, "klebestift"],
+    [/\bradiergummis\b/g, "radiergummi"],
+    [/\bradierer\b/g, "radiergummi"],
+    [/\bspitzer\b/g, "spitzer"],
+    [/\blineale\b/g, "lineal"],
+    [/\bscheren\b/g, "schere"],
+    [/\bbleistifte\b/g, "bleistift"],
+    [/\bbuntstift\b/g, "buntstifte"],
+    [/\bbuntstifte\b/g, "buntstifte"],
+    [/\bfilzstift\b/g, "filzstifte"],
+    [/\bfilzstifte\b/g, "filzstifte"],
+    [/\bfarbkaesten\b/g, "farbkasten"],
+    [/\bfarbkasten\b/g, "farbkasten"],
+    [/\bdeckfarbkasten\b/g, "farbkasten"],
+    [/\bmalkasten\b/g, "farbkasten"],
+  ];
+
+  return replacements
+    .reduce((current, [pattern, replacement]) => {
+      return current.replace(pattern, replacement);
+    }, text)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getExactNameCandidates(input: {
+  item: RequestItem;
+  product: ProductRow;
+  aliases: string[];
+}) {
+  const itemCandidates = [
+    input.item.normalized_name,
+    input.item.raw_text,
+    normalizeSingularProductTerm(input.item.normalized_name),
+    normalizeSingularProductTerm(input.item.raw_text),
+  ]
+    .map((value) => normalizeSingularProductTerm(value))
+    .filter(Boolean);
+
+  const productCandidates = [
+    getProductName(input.product),
+    ...input.aliases,
+  ]
+    .map((value) => normalizeSingularProductTerm(value))
+    .filter(Boolean);
+
+  return {
+    itemCandidates: Array.from(new Set(itemCandidates)),
+    productCandidates: Array.from(new Set(productCandidates)),
+  };
+}
+
+function hasExactNameOrAliasMatch(input: {
+  item: RequestItem;
+  product: ProductRow;
+  aliases: string[];
+}) {
+  const { itemCandidates, productCandidates } = getExactNameCandidates(input);
+
+  for (const itemCandidate of itemCandidates) {
+    if (!itemCandidate) continue;
+
+    for (const productCandidate of productCandidates) {
+      if (!productCandidate) continue;
+
+      if (itemCandidate === productCandidate) {
+        return {
+          exact: true,
+          label: itemCandidate,
+        };
+      }
+    }
+  }
+
+  return {
+    exact: false,
+    label: null,
+  };
+}
+
+function isSimpleStandardArticle(type: string | null, text: unknown) {
+  if (type && SIMPLE_STANDARD_TYPES.has(type)) {
+    return true;
+  }
+
+  const normalized = normalizeSingularProductTerm(text);
+
+  return Array.from(SIMPLE_STANDARD_TYPES).some((entry) => {
+    return normalized === entry || normalized.includes(entry);
+  });
+}
+
+function hasExplicitVariantDemand(params: {
+  itemText: string;
+  itemFormat: string | null;
+  itemColor: string | null;
+  itemLineature: string | null;
+  itemBookDimensions: BookDimensions | null;
+}) {
+  const normalizedItemText = normalizeText(params.itemText);
+
+  return Boolean(
+    params.itemFormat ||
+      params.itemColor ||
+      (params.itemLineature && params.itemLineature !== "unknown") ||
+      params.itemBookDimensions ||
+      normalizedItemText.includes("gramm") ||
+      normalizedItemText.includes(" g ") ||
+      normalizedItemText.endsWith(" g") ||
+      /\b\d+\s*g\b/.test(normalizedItemText) ||
+      /\b\d+\s*ml\b/.test(normalizedItemText)
+  );
+}
+
+
 function normalizeFormat(value: unknown) {
   const text = normalizeText(value);
 
@@ -555,6 +694,35 @@ function classifyType(value: unknown) {
     return "farbkasten";
   }
 
+  if (text.includes("klebestift") || text.includes("kleber")) {
+    return "klebestift";
+  }
+
+  if (text.includes("spitzer") || text.includes("anspitzer")) {
+    return "spitzer";
+  }
+
+  if (text.includes("schere")) {
+    return "schere";
+  }
+
+  if (
+    text.includes("buntstifte") ||
+    text.includes("buntstift") ||
+    text.includes("farbstifte") ||
+    text.includes("farbstift")
+  ) {
+    return "buntstifte";
+  }
+
+  if (
+    text.includes("filzstifte") ||
+    text.includes("filzstift") ||
+    text.includes("fasermaler")
+  ) {
+    return "filzstifte";
+  }
+
   if (text.includes("bleistift") || text.includes(" hb ")) {
     return "bleistift";
   }
@@ -806,6 +974,24 @@ function calculateMatch(input: {
   const itemHeftSubtype = getHeftSubtype(itemText);
   const productHeftSubtype = getHeftSubtype(productText);
 
+  const exactNameMatch = hasExactNameOrAliasMatch({
+    item: input.item,
+    product: input.product,
+    aliases: input.aliases,
+  });
+
+  const isSimpleStandardMatch =
+    exactNameMatch.exact &&
+    isSimpleStandardArticle(itemType || productType, `${itemText} ${productText}`);
+
+  const itemHasExplicitVariantDemand = hasExplicitVariantDemand({
+    itemText,
+    itemFormat,
+    itemColor,
+    itemLineature,
+    itemBookDimensions,
+  });
+
   const reasons: string[] = [];
   let score = 0;
 
@@ -1014,6 +1200,25 @@ function calculateMatch(input: {
   if (itemName && productName && itemName.includes(productName)) {
     score += 10;
     reasons.push("Erkannte Position enthält Produktname");
+  }
+
+  if (exactNameMatch.exact) {
+    if (isSimpleStandardMatch && !itemHasExplicitVariantDemand) {
+      score = Math.max(score, 98);
+      reasons.push(
+        `Exakter Standardartikel passt: ${exactNameMatch.label || getProductName(input.product)}`
+      );
+    } else if (!itemHasExplicitVariantDemand) {
+      score = Math.max(score, 92);
+      reasons.push(
+        `Exakter Produktname/Alias passt: ${exactNameMatch.label || getProductName(input.product)}`
+      );
+    } else {
+      score = Math.max(score, 85);
+      reasons.push(
+        `Produktname/Alias passt, Variantenmerkmal wird zusätzlich berücksichtigt`
+      );
+    }
   }
 
   if (
@@ -1350,7 +1555,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -1367,7 +1572,7 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
           : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {
