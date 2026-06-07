@@ -20,7 +20,14 @@ type ProductRow = {
   format?: string | null;
   color?: string | null;
   lineature?: string | null;
+  image_styled_url?: string | null;
   image_url?: string | null;
+  image_original_url?: string | null;
+  product_image_url?: string | null;
+  image?: string | null;
+  photo_url?: string | null;
+  picture_url?: string | null;
+  active?: boolean | null;
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -76,6 +83,35 @@ function getProductPrice(product: ProductRow) {
       product.sale_price_gross ??
       product.sale_price,
     0
+  );
+}
+
+function cleanImageUrl(value: unknown) {
+  const cleaned = String(value || "").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function getProductImageUrl(product: ProductRow) {
+  /*
+    Wichtig:
+    In der manuellen Produktzuweisung soll bevorzugt das fertige Shopbild
+    mit KI-/Freistell-Hintergrund angezeigt werden.
+
+    Fallback-Reihenfolge:
+    1. image_styled_url      = fertiges Shopbild / KI-Hintergrund
+    2. image_url             = optimiertes normales Produktbild
+    3. image_original_url    = Originalfoto
+    4. weitere Alt-Felder    = ältere/abweichende Spalten
+  */
+  return (
+    cleanImageUrl(product.image_styled_url) ||
+    cleanImageUrl(product.image_url) ||
+    cleanImageUrl(product.image_original_url) ||
+    cleanImageUrl(product.product_image_url) ||
+    cleanImageUrl(product.image) ||
+    cleanImageUrl(product.photo_url) ||
+    cleanImageUrl(product.picture_url) ||
+    null
   );
 }
 
@@ -164,7 +200,7 @@ export async function GET(request: NextRequest) {
           productName,
           productSku,
           productPrice: getProductPrice(product),
-          imageUrl: product.image_url || null,
+          imageUrl: getProductImageUrl(product),
           category: product.category || null,
           productType: product.product_type || null,
           format: product.format || null,
