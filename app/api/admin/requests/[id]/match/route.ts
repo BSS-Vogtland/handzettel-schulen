@@ -177,6 +177,13 @@ function normalizeSingularProductTerm(value: unknown) {
     [/\bklebestifte\b/g, "klebestift"],
     [/\bradiergummis\b/g, "radiergummi"],
     [/\bradierer\b/g, "radiergummi"],
+    [/\bdosenspitzer\b/g, "spitzer auffangbehaelter"],
+    [/\bspitzerdose\b/g, "auffangbehaelter"],
+    [/\bspitzerdosen\b/g, "auffangbehaelter"],
+    [/\bauffangdose\b/g, "auffangbehaelter"],
+    [/\bauffangdosen\b/g, "auffangbehaelter"],
+    [/\bauffangbehaelter\b/g, "auffangbehaelter"],
+    [/\bauffangbehalter\b/g, "auffangbehaelter"],
     [/\bspitzer\b/g, "spitzer"],
     [/\blineale\b/g, "lineal"],
     [/\bscheren\b/g, "schere"],
@@ -264,6 +271,63 @@ function isSimpleStandardArticle(type: string | null, text: unknown) {
   return Array.from(SIMPLE_STANDARD_TYPES).some((entry) => {
     return normalized === entry || normalized.includes(entry);
   });
+}
+
+
+function hasSpitzerContainerTerm(value: unknown) {
+  const text = normalizeText(value);
+
+  return (
+    text.includes("spitzerdose") ||
+    text.includes("spitzerdosen") ||
+    text.includes("dosenspitzer") ||
+    text.includes("auffangbehaelter") ||
+    text.includes("auffangbehalter") ||
+    text.includes("auffang behalter") ||
+    text.includes("auffang behaelter") ||
+    text.includes("auffangdose") ||
+    text.includes("auffang dos") ||
+    text.includes("spandose") ||
+    text.includes("spaenedose") ||
+    text.includes("spaene dose") ||
+    text.includes("mit dose") ||
+    text.includes("mit behaelter") ||
+    text.includes("mit behalter")
+  );
+}
+
+function getSpitzerContainerScore(params: {
+  itemText: string;
+  productText: string;
+  itemType: string | null;
+  productType: string | null;
+}) {
+  const isSpitzerMatch =
+    params.itemType === "spitzer" || params.productType === "spitzer";
+
+  if (!isSpitzerMatch) return null;
+
+  const itemWantsContainer = hasSpitzerContainerTerm(params.itemText);
+  const productHasContainer = hasSpitzerContainerTerm(params.productText);
+
+  if (itemWantsContainer && !productHasContainer) {
+    return {
+      compatible: false,
+      score: 0,
+      reason:
+        "Liste verlangt einen Spitzer mit Dose/Auffangbehälter, Produkt hat dieses Merkmal nicht.",
+    };
+  }
+
+  if (itemWantsContainer && productHasContainer) {
+    return {
+      compatible: true,
+      score: 42,
+      reason: "Spitzer mit Dose/Auffangbehälter passt",
+    };
+  }
+
+  return null;
 }
 
 function hasExplicitVariantDemand(params: {
@@ -698,7 +762,14 @@ function classifyType(value: unknown) {
     return "klebestift";
   }
 
-  if (text.includes("spitzer") || text.includes("anspitzer")) {
+  if (
+    text.includes("spitzer") ||
+    text.includes("anspitzer") ||
+    text.includes("spitzerdose") ||
+    text.includes("dosenspitzer") ||
+    text.includes("auffangbehaelter") ||
+    text.includes("auffangbehalter")
+  ) {
     return "spitzer";
   }
 
@@ -1013,6 +1084,22 @@ function calculateMatch(input: {
     reasons.push(`Produkttyp passt: ${itemType}`);
   }
 
+  const spitzerContainerScore = getSpitzerContainerScore({
+    itemText,
+    productText,
+    itemType,
+    productType,
+  });
+
+  if (spitzerContainerScore && !spitzerContainerScore.compatible) {
+    return null;
+  }
+
+  if (spitzerContainerScore && spitzerContainerScore.compatible) {
+    score += spitzerContainerScore.score;
+    reasons.push(spitzerContainerScore.reason);
+  }
+
   if (itemType === "heft" || productType === "heft") {
     if (itemHeftSubtype === "hausaufgabenheft" && productHeftSubtype !== "hausaufgabenheft") {
       return null;
@@ -1219,6 +1306,16 @@ function calculateMatch(input: {
         `Produktname/Alias passt, Variantenmerkmal wird zusätzlich berücksichtigt`
       );
     }
+  }
+
+  if (
+    itemType === "spitzer" &&
+    spitzerContainerScore &&
+    spitzerContainerScore.compatible &&
+    !itemHasExplicitVariantDemand
+  ) {
+    score = Math.max(score, 96);
+    reasons.push("Spitzer-Dosen-Synonym wurde gleichgesetzt");
   }
 
   if (
