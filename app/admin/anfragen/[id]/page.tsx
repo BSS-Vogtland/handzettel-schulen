@@ -613,10 +613,10 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Jede erkannte Position hat dauerhaft eine manuelle Bearbeitung.
-                Zusätzlich kannst Du vorhandene Paketpositionen direkt bearbeiten
-                oder entfernen. Wenn keine Positionen erkannt wurden, kannst Du
-                trotzdem direkt Produkte in den Paketwunsch legen.
+                Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
+                zuerst Anfrage und Kundendaten, dann Materialliste und
+                Produktprüfung, danach Paketwunsch-Mail, Rechnung, Zahlung und
+                Abwicklung. Spätere Schritte liegen bewusst weiter unten.
               </p>
             </div>
 
@@ -919,44 +919,6 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               updatedAt={request.updated_at}
             />
 
-            <div id="picking-abwicklung" className="scroll-mt-8">
-              <AdminFulfillmentPanel
-                requestId={request.id}
-                requestStatus={request.status}
-                offerStatus={request.offer_status}
-                fulfillmentMethod={request.fulfillment_method}
-                fulfillmentStatus={request.fulfillment_status}
-                pickingStatus={request.picking_status}
-                shippingCostStatus={request.shipping_cost_status}
-                selectedPaymentMethod={request.selected_payment_method}
-                paymentStatus={request.payment_status}
-                pickupLocationLabel={request.pickup_location_label}
-                pickupAddressSnapshot={request.pickup_address_snapshot}
-                pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
-                confirmedAt={request.confirmed_at}
-                pickingStartedAt={request.picking_started_at}
-                pickedAt={request.picked_at}
-                packedAt={request.packed_at}
-                shippedAt={request.shipped_at}
-                pickedUpAt={request.picked_up_at}
-                offerItems={offerItems}
-              />
-            </div>
-
-            <AdminInvoicePaymentPanel
-              requestId={request.id}
-              fulfillmentMethod={request.fulfillment_method}
-              subtotalAmount={selectedTotal}
-              currentShippingAmount={request.shipping_amount}
-              currentInvoiceTotalAmount={request.invoice_total_amount}
-              invoiceStatus={request.invoice_status}
-              paymentStatus={request.payment_status}
-              selectedPaymentMethod={request.selected_payment_method}
-              cashOnPickupAllowed={request.cash_on_pickup_allowed}
-              cashOnPickupAllowedAt={request.cash_on_pickup_allowed_at}
-              cashOnPickupAllowedNote={request.cash_on_pickup_allowed_note}
-            />
-
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
@@ -1228,6 +1190,65 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 </div>
               )}
             </section>
+
+            <section className="rounded-[28px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#12395F]">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+                    Nächster Abschnitt
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-[#102A43]">
+                    Rechnung, Zahlung und Abwicklung
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                    Diese Schritte kommen erst nach der fachlichen Produktprüfung.
+                    Dadurch bleibt die Detailseite in der gleichen Reihenfolge
+                    wie der echte Arbeitsablauf.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <AdminInvoicePaymentPanel
+              requestId={request.id}
+              fulfillmentMethod={request.fulfillment_method}
+              subtotalAmount={selectedTotal}
+              currentShippingAmount={request.shipping_amount}
+              currentInvoiceTotalAmount={request.invoice_total_amount}
+              invoiceStatus={request.invoice_status}
+              paymentStatus={request.payment_status}
+              selectedPaymentMethod={request.selected_payment_method}
+              cashOnPickupAllowed={request.cash_on_pickup_allowed}
+              cashOnPickupAllowedAt={request.cash_on_pickup_allowed_at}
+              cashOnPickupAllowedNote={request.cash_on_pickup_allowed_note}
+            />
+
+            <div id="picking-abwicklung" className="scroll-mt-8">
+              <AdminFulfillmentPanel
+                requestId={request.id}
+                requestStatus={request.status}
+                offerStatus={request.offer_status}
+                fulfillmentMethod={request.fulfillment_method}
+                fulfillmentStatus={request.fulfillment_status}
+                pickingStatus={request.picking_status}
+                shippingCostStatus={request.shipping_cost_status}
+                selectedPaymentMethod={request.selected_payment_method}
+                paymentStatus={request.payment_status}
+                pickupLocationLabel={request.pickup_location_label}
+                pickupAddressSnapshot={request.pickup_address_snapshot}
+                pickupMapsUrlSnapshot={request.pickup_maps_url_snapshot}
+                confirmedAt={request.confirmed_at}
+                pickingStartedAt={request.picking_started_at}
+                pickedAt={request.picked_at}
+                packedAt={request.packed_at}
+                shippedAt={request.shipped_at}
+                pickedUpAt={request.picked_up_at}
+                offerItems={offerItems}
+              />
+            </div>
 
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-4 flex items-start gap-3">
