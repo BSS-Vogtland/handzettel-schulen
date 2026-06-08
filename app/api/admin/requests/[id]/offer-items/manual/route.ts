@@ -639,6 +639,36 @@ export async function POST(request: NextRequest, context: Params) {
       await createAliasFlexible(supabase, productId, aliasText);
     }
 
+    if (productId && requestItemId) {
+  const { data: duplicateItem, error: duplicateError } = await supabase
+    .from("school_offer_items")
+    .select("id, product_name")
+    .eq("request_id", id)
+    .eq("request_item_id", requestItemId)
+    .eq("product_id", productId)
+    .maybeSingle();
+
+  if (duplicateError) {
+    return jsonResponse(
+      {
+        ok: false,
+        message: `Bestehende Paketposition konnte nicht geprüft werden: ${duplicateError.message}`,
+      },
+      500
+    );
+  }
+
+  if (duplicateItem) {
+    return jsonResponse(
+      {
+        ok: false,
+        message:
+          "Dieses Produkt wurde für diese Listenposition bereits in den Paketwunsch übernommen.",
+      },
+      409
+    );
+  }
+}
     const { data: insertedItem, error: insertError } = await supabase
       .from("school_offer_items")
       .insert({

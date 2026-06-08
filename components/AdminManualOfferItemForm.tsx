@@ -356,8 +356,30 @@ export default function AdminManualOfferItemForm({
       }
 
       setFeedback(payload.message || "Manuelle Position wurde hinzugefügt.");
-      setIsOpen(false);
-      router.refresh();
+
+// Wichtig für Sammelpositionen:
+// Formular bleibt offen, damit direkt das nächste Produkt aus derselben
+// Listenposition gesucht und übernommen werden kann.
+setSelectedProductId(null);
+setSelectedProductLabel(null);
+setSelectedProductImageUrl(null);
+
+setProductName("");
+setProductSku("");
+setProductPrice("");
+setProductCategory("");
+setProductType("");
+setProductFormat("");
+setProductColor("");
+setProductLineature("");
+setNotes("");
+
+setCreateProductMode(false);
+setSearchResults([]);
+setSearchQuery("");
+setAliasText(defaultProductName || "");
+
+router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -863,7 +885,7 @@ export default function AdminManualOfferItemForm({
             ) : (
               <>
                 <PackagePlus className="h-4 w-4" />
-                In Paketwunsch übernehmen
+                Produkt in Paketwunsch übernehmen
               </>
             )}
           </button>
