@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdminLogoutButton from "@/components/AdminLogoutButton";
 import {
   ArrowRight,
   ClipboardList,
@@ -19,6 +20,10 @@ export default function AdminHomePage() {
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
+          <div className="mb-4 flex justify-end">
+            <AdminLogoutButton />
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-[1fr_280px] lg:items-start">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">

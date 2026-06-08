@@ -1,31 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "./app/lib/adminAuth";
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
 
-function getUnauthorizedResponse() {
-  return new NextResponse("Admin-Bereich geschützt.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Handzettel-Schulen Admin"',
-    },
-  });
+function isLoginOrLogoutPath(pathname: string) {
+  return (
+    pathname === "/admin/login" ||
+    pathname.startsWith("/admin/login/") ||
+    pathname === "/api/admin/login" ||
+    pathname === "/api/admin/logout"
+  );
 }
 
-function safeCompare(a: string, b: string) {
-  if (a.length !== b.length) return false;
+function createLoginRedirect(request: NextRequest) {
+  const loginUrl = new URL("/admin/login", request.url);
+  const targetPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
 
-  let result = 0;
+  loginUrl.searchParams.set("next", targetPath);
 
-  for (let index = 0; index < a.length; index += 1) {
-    result |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  return NextResponse.redirect(loginUrl);
+}
+
+function createApiUnauthorizedResponse() {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "Admin-Sitzung abgelaufen oder nicht angemeldet.",
+    },
+    { status: 401 }
+  );
+}
+
+export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (isLoginOrLogoutPath(pathname)) {
+    return NextResponse.next();
   }
 
-  return result === 0;
-}
-
-export function middleware(request: NextRequest) {
   const adminUser = process.env.ADMIN_USER;
   const adminPassword = process.env.ADMIN_PASSWORD;
 
@@ -38,37 +52,16 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const authHeader = request.headers.get("authorization");
+  const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  const isAuthenticated = await verifyAdminSessionToken(sessionToken);
 
-  if (!authHeader || !authHeader.startsWith("Basic ")) {
-    return getUnauthorizedResponse();
+  if (isAuthenticated) {
+    return NextResponse.next();
   }
 
-  const encodedCredentials = authHeader.replace("Basic ", "");
-
-  let decodedCredentials = "";
-
-  try {
-    decodedCredentials = atob(encodedCredentials);
-  } catch {
-    return getUnauthorizedResponse();
+  if (pathname.startsWith("/api/admin/")) {
+    return createApiUnauthorizedResponse();
   }
 
-  const separatorIndex = decodedCredentials.indexOf(":");
-
-  if (separatorIndex === -1) {
-    return getUnauthorizedResponse();
-  }
-
-  const username = decodedCredentials.slice(0, separatorIndex);
-  const password = decodedCredentials.slice(separatorIndex + 1);
-
-  const usernameMatches = safeCompare(username, adminUser);
-  const passwordMatches = safeCompare(password, adminPassword);
-
-  if (!usernameMatches || !passwordMatches) {
-    return getUnauthorizedResponse();
-  }
-
-  return NextResponse.next();
+  return createLoginRedirect(request);
 }

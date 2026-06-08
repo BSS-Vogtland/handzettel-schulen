@@ -138,6 +138,19 @@ type EventRow = {
   created_at: string | null;
 };
 
+type RequestQuestion = {
+  id: string;
+  request_id: string;
+  request_item_id: string | null;
+  question_text: string | null;
+  answer_text: string | null;
+  status: string | null;
+  created_at: string | null;
+  answered_at: string | null;
+  resolved_at: string | null;
+  updated_at: string | null;
+};
+
 type RequestOverview = {
   request: SchoolRequest;
   fileCount: number;
@@ -151,6 +164,11 @@ type RequestOverview = {
   openWithMatchesCount: number;
   latestEvent: EventRow | null;
   events: EventRow[];
+  questions: RequestQuestion[];
+  questionCount: number;
+  openQuestionCount: number;
+  answeredQuestionCount: number;
+  resolvedQuestionCount: number;
   totalPrice: number;
   hasAdminEdits: boolean;
 };
@@ -172,6 +190,8 @@ type AdminRequestsPageProps = {
 
 type AdminFilter =
   | "all"
+  | "questions-answered"
+  | "questions-open"
   | "manual"
   | "payment-open"
   | "paid"
@@ -603,8 +623,36 @@ function isPickupRequest(overview: RequestOverview) {
   return overview.request.fulfillment_method === "pickup";
 }
 
+function hasAnsweredQuestions(overview: RequestOverview) {
+  return overview.answeredQuestionCount > 0;
+}
+
+function hasOpenQuestions(overview: RequestOverview) {
+  return overview.openQuestionCount > 0;
+}
+
+function hasResolvedQuestions(overview: RequestOverview) {
+  return overview.resolvedQuestionCount > 0;
+}
+
 function getOperationalHint(overview: RequestOverview) {
   const request = overview.request;
+
+  if (hasAnsweredQuestions(overview)) {
+    return {
+      label: "Antwort eingegangen",
+      text: "Der Kunde hat eine Rückfrage beantwortet. Bitte prüfen und die Position abschließen.",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    };
+  }
+
+  if (hasOpenQuestions(overview)) {
+    return {
+      label: "Rückfrage offen",
+      text: "Es wartet noch eine Rückfrage auf Kundenantwort. Vorgang beobachten, noch nicht final abschließen.",
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    };
+  }
 
   if (isManualReviewRequest(overview)) {
     return {
@@ -777,6 +825,16 @@ function getEventTypeLabel(event: EventRow | null) {
       return "Admin hat Position gelöscht";
     case "admin_offer_item_updated":
       return "Admin hat Position bearbeitet";
+    case "request_item_question_created":
+      return "Rückfrage gestellt";
+    case "request_item_question_mail_sent":
+      return "Rückfrage-Mail versendet";
+    case "request_item_question_answered":
+      return "Rückfrage beantwortet";
+    case "request_item_question_answer_notification_sent":
+      return "Admin über Antwort informiert";
+    case "request_item_question_resolved":
+      return "Rückfrage erledigt";
     default:
       return type || "Ereignis";
   }
@@ -785,6 +843,30 @@ function getEventTypeLabel(event: EventRow | null) {
 function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
   const request = overview.request;
   const isConfirmed = isConfirmedRequest(overview);
+
+  if (hasAnsweredQuestions(overview)) {
+    return {
+      area: "open",
+      title: "Rückfrage beantwortet",
+      subtitle:
+        "Der Kunde hat eine Rückfrage beantwortet. Öffne die Anfrage, prüfe die Antwort und löse die Position auf.",
+      badge: `${overview.answeredQuestionCount} Antwort${overview.answeredQuestionCount === 1 ? "" : "en"}`,
+      tone: "green",
+      icon: MessageCircle,
+    };
+  }
+
+  if (hasOpenQuestions(overview)) {
+    return {
+      area: "open",
+      title: "Wartet auf Rückfrage-Antwort",
+      subtitle:
+        "Eine Rückfrage wurde gestellt. Der Kunde muss die fehlenden Informationen noch nachreichen.",
+      badge: `${overview.openQuestionCount} offen`,
+      tone: "amber",
+      icon: MessageCircle,
+    };
+  }
 
   const hasRequestReceivedMail = hasEvent(overview, isRequestReceivedMailEvent);
 
@@ -1122,6 +1204,27 @@ function getSmallInfoBadges(overview: RequestOverview) {
     className: "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]",
   });
 
+  if (hasAnsweredQuestions(overview)) {
+    badges.push({
+      label: `Rückfrage beantwortet: ${overview.answeredQuestionCount}`,
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    });
+  }
+
+  if (hasOpenQuestions(overview)) {
+    badges.push({
+      label: `Rückfrage offen: ${overview.openQuestionCount}`,
+      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+    });
+  }
+
+  if (hasResolvedQuestions(overview)) {
+    badges.push({
+      label: `Rückfrage erledigt: ${overview.resolvedQuestionCount}`,
+      className: "border-[#E8DED2] bg-white text-[#52616F]",
+    });
+  }
+
   if (request.source === "whatsapp_manual") {
     badges.push({
       label: "WhatsApp-Import",
@@ -1263,6 +1366,8 @@ function getFilterValue(rawFilter: string | string[] | undefined): AdminFilter {
   const value = Array.isArray(rawFilter) ? rawFilter[0] : rawFilter;
 
   if (
+    value === "questions-answered" ||
+    value === "questions-open" ||
     value === "manual" ||
     value === "payment-open" ||
     value === "paid" ||
@@ -1279,6 +1384,10 @@ function getFilterValue(rawFilter: string | string[] | undefined): AdminFilter {
 
 function filterOverviews(overviews: RequestOverview[], filter: AdminFilter) {
   switch (filter) {
+    case "questions-answered":
+      return overviews.filter(hasAnsweredQuestions);
+    case "questions-open":
+      return overviews.filter(hasOpenQuestions);
     case "manual":
       return overviews.filter(isManualReviewRequest);
     case "payment-open":
@@ -1301,25 +1410,27 @@ function filterOverviews(overviews: RequestOverview[], filter: AdminFilter) {
 function getWorkflowPriority(overview: RequestOverview) {
   const workflow = getWorkflowStatus(overview);
 
-  if (isProblemPaymentRequest(overview)) return 0;
-  if (isManualReviewRequest(overview)) return 1;
+  if (hasAnsweredQuestions(overview)) return 0;
+  if (isProblemPaymentRequest(overview)) return 1;
+  if (hasOpenQuestions(overview)) return 2;
+  if (isManualReviewRequest(overview)) return 3;
   if (overview.request.status === "received" || overview.request.status === "analysis_pending") {
-    return 2;
-  }
-  if (overview.request.ai_status === "running" || overview.request.status === "analysis_running") {
-    return 3;
-  }
-  if (overview.itemCount > 0 && (overview.matchCount > 0 || overview.offerItemCount > 0)) {
     return 4;
   }
-  if (workflow.area === "open") return 5;
-  if (isConfirmedRequest(overview) && isWaitingPaymentRequest(overview)) return 6;
-  if (isPackableRequest(overview)) return 7;
-  if (overview.request.picking_status === "picking") return 8;
-  if (overview.request.picking_status === "picked") return 9;
-  if (overview.request.picking_status === "packed") return 10;
-  if (overview.request.fulfillment_status === "ready_for_pickup") return 11;
-  if (overview.request.fulfillment_status === "shipping_ready") return 12;
+  if (overview.request.ai_status === "running" || overview.request.status === "analysis_running") {
+    return 5;
+  }
+  if (overview.itemCount > 0 && (overview.matchCount > 0 || overview.offerItemCount > 0)) {
+    return 6;
+  }
+  if (workflow.area === "open") return 7;
+  if (isConfirmedRequest(overview) && isWaitingPaymentRequest(overview)) return 8;
+  if (isPackableRequest(overview)) return 9;
+  if (overview.request.picking_status === "picking") return 10;
+  if (overview.request.picking_status === "picked") return 11;
+  if (overview.request.picking_status === "packed") return 12;
+  if (overview.request.fulfillment_status === "ready_for_pickup") return 13;
+  if (overview.request.fulfillment_status === "shipping_ready") return 14;
   if (isCompletedRequest(overview)) return 99;
 
   return 20;
@@ -1628,7 +1739,7 @@ function RequestCard({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
               <p className="text-xs font-bold text-[#52616F]">Erkannt</p>
               <p className="text-lg font-black text-[#102A43]">
@@ -1667,6 +1778,25 @@ function RequestCard({
               <p className="text-xs font-bold text-[#52616F]">Offen</p>
               <p className="text-lg font-black text-[#102A43]">
                 {overview.manualReviewCount}
+              </p>
+            </div>
+
+            <div
+              className={`rounded-2xl border px-3 py-2 ${
+                overview.answeredQuestionCount > 0
+                  ? "border-[#BFE3CD] bg-[#F0FFF6]"
+                  : overview.openQuestionCount > 0
+                  ? "border-[#F1D1A8] bg-[#FFF8EE]"
+                  : "border-[#E8DED2] bg-white"
+              }`}
+            >
+              <p className="text-xs font-bold text-[#52616F]">Rückfragen</p>
+              <p className="text-lg font-black text-[#102A43]">
+                {overview.answeredQuestionCount > 0
+                  ? `${overview.answeredQuestionCount} Antwort`
+                  : overview.openQuestionCount > 0
+                  ? `${overview.openQuestionCount} offen`
+                  : overview.questionCount}
               </p>
             </div>
           </div>
@@ -1769,6 +1899,7 @@ export default async function AdminRequestsPage({
   let matches: RequestMatch[] = [];
   let offerItems: OfferItem[] = [];
   let events: EventRow[] = [];
+  let questions: RequestQuestion[] = [];
 
   if (requestIds.length > 0) {
     const [
@@ -1776,6 +1907,7 @@ export default async function AdminRequestsPage({
       { data: itemsData, error: itemsError },
       { data: offerItemsData, error: offerItemsError },
       { data: eventsData, error: eventsError },
+      { data: questionsData, error: questionsError },
     ] = await Promise.all([
       supabase
         .from("school_request_files")
@@ -1797,6 +1929,12 @@ export default async function AdminRequestsPage({
 
       supabase
         .from("school_request_events")
+        .select("*")
+        .in("request_id", requestIds)
+        .order("created_at", { ascending: false }),
+
+      supabase
+        .from("school_request_item_questions")
         .select("*")
         .in("request_id", requestIds)
         .order("created_at", { ascending: false }),
@@ -1826,10 +1964,17 @@ export default async function AdminRequestsPage({
       );
     }
 
+    if (questionsError) {
+      throw new Error(
+        `Rückfragen konnten nicht geladen werden: ${questionsError.message}`
+      );
+    }
+
     files = (filesData || []) as RequestFile[];
     items = (itemsData || []) as RequestItem[];
     offerItems = (offerItemsData || []) as OfferItem[];
     events = (eventsData || []) as EventRow[];
+    questions = (questionsData || []) as RequestQuestion[];
 
     const itemIds = items.map((item) => item.id);
 
@@ -1853,6 +1998,7 @@ export default async function AdminRequestsPage({
   const itemsByRequest = new Map<string, RequestItem[]>();
   const offerItemsByRequest = new Map<string, OfferItem[]>();
   const eventsByRequest = new Map<string, EventRow[]>();
+  const questionsByRequest = new Map<string, RequestQuestion[]>();
   const matchesByItem = new Map<string, RequestMatch[]>();
 
   for (const file of files) {
@@ -1879,6 +2025,12 @@ export default async function AdminRequestsPage({
     eventsByRequest.set(event.request_id, current);
   }
 
+  for (const question of questions) {
+    const current = questionsByRequest.get(question.request_id) || [];
+    current.push(question);
+    questionsByRequest.set(question.request_id, current);
+  }
+
   for (const match of matches) {
     const current = matchesByItem.get(match.request_item_id) || [];
     current.push(match);
@@ -1890,6 +2042,7 @@ export default async function AdminRequestsPage({
     const requestItems = itemsByRequest.get(request.id) || [];
     const requestOfferItems = offerItemsByRequest.get(request.id) || [];
     const requestEvents = eventsByRequest.get(request.id) || [];
+    const requestQuestions = questionsByRequest.get(request.id) || [];
 
     const offerItemsByRequestItem = new Map<string, OfferItem[]>();
 
@@ -1945,6 +2098,18 @@ export default async function AdminRequestsPage({
       );
     });
 
+    const openQuestionCount = requestQuestions.filter(
+      (question) => question.status === "pending"
+    ).length;
+
+    const answeredQuestionCount = requestQuestions.filter(
+      (question) => question.status === "answered"
+    ).length;
+
+    const resolvedQuestionCount = requestQuestions.filter(
+      (question) => question.status === "resolved"
+    ).length;
+
     return {
       request,
       fileCount: requestFiles.length,
@@ -1958,6 +2123,11 @@ export default async function AdminRequestsPage({
       openWithMatchesCount,
       latestEvent: requestEvents[0] || null,
       events: requestEvents,
+      questions: requestQuestions,
+      questionCount: requestQuestions.length,
+      openQuestionCount,
+      answeredQuestionCount,
+      resolvedQuestionCount,
       totalPrice,
       hasAdminEdits: adminManualCount > 0 || hasAdminEditEvent,
     };
@@ -1974,6 +2144,8 @@ export default async function AdminRequestsPage({
   const totalRequests = overviews.length;
   const openCount = openOverviews.length;
   const fulfillmentCount = fulfillmentOverviews.length;
+  const answeredQuestionsCount = overviews.filter(hasAnsweredQuestions).length;
+  const openQuestionsCount = overviews.filter(hasOpenQuestions).length;
   const manualCount = overviews.filter(isManualReviewRequest).length;
   const shippingCount = overviews.filter(isShippingRequest).length;
   const pickupCount = overviews.filter(isPickupRequest).length;
@@ -2060,7 +2232,7 @@ export default async function AdminRequestsPage({
           </div>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-8">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-10">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               Gesamt
@@ -2080,6 +2252,20 @@ export default async function AdminRequestsPage({
               Prüfung
             </p>
             <p className="mt-2 text-3xl font-black">{manualCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+              Antworten
+            </p>
+            <p className="mt-2 text-3xl font-black">{answeredQuestionsCount}</p>
+          </div>
+
+          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Rückfragen
+            </p>
+            <p className="mt-2 text-3xl font-black">{openQuestionsCount}</p>
           </div>
 
           <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
@@ -2144,6 +2330,20 @@ export default async function AdminRequestsPage({
               label="Alle"
               count={totalRequests}
               active={activeFilter === "all"}
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=questions-answered"
+              label="Antworten eingegangen"
+              count={answeredQuestionsCount}
+              active={activeFilter === "questions-answered"}
+              tone="green"
+            />
+            <FilterPill
+              href="/admin/anfragen?filter=questions-open"
+              label="Rückfragen offen"
+              count={openQuestionsCount}
+              active={activeFilter === "questions-open"}
+              tone="amber"
             />
             <FilterPill
               href="/admin/anfragen?filter=manual"
