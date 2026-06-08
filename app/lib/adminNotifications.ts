@@ -199,6 +199,25 @@ export async function sendAdminShopOrderNotification(
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.5;">
+      <div style="background:#102A43;border-radius:24px;padding:22px 24px;color:#ffffff;margin-bottom:22px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <tr>
+            <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+              <img
+                src="${buildAdminUrl("/handzettel-logo.png")}"
+                alt="Handzettel-Schulen.de"
+                width="64"
+                style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+              />
+            </td>
+            <td valign="middle" style="padding:0;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Neue Shop-Bestellung eingegangen</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <h1 style="margin: 0 0 16px; color: #102A43;">Neue Shop-Bestellung eingegangen</h1>
 
       <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #FBF7F0; margin-bottom: 16px;">
@@ -319,6 +338,25 @@ export async function sendAdminQuestionAnswerNotification(
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.5;">
+      <div style="background:#102A43;border-radius:24px;padding:22px 24px;color:#ffffff;margin-bottom:22px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <tr>
+            <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+              <img
+                src="${buildAdminUrl("/handzettel-logo.png")}"
+                alt="Handzettel-Schulen.de"
+                width="64"
+                style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+              />
+            </td>
+            <td valign="middle" style="padding:0;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Eine Rückfrage wurde beantwortet</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <h1 style="margin: 0 0 16px; color: #102A43;">Eine Rückfrage wurde beantwortet</h1>
 
       <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #FBF7F0; margin-bottom: 16px;">

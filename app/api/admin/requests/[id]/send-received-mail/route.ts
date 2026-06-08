@@ -80,6 +80,14 @@ function getClassName(request: AnyRecord) {
   return pickFirst(request, ["class_name", "class"], "");
 }
 
+
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://www.handzettel-schulen.de"
+  );
+}
+
 function createTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -294,9 +302,23 @@ function createMailHtml(params: {
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #eadfce;">
             <tr>
-              <td style="background:#102A43;padding:28px 30px;color:#ffffff;">
-                <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;">Handzettel-Schulen.de</div>
-                <div style="margin-top:6px;font-size:14px;color:#F7EFE6;">${escapeHtml(subtitle)}</div>
+              <td style="background:#102A43;padding:24px 30px;color:#ffffff;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+                      <img
+                        src="${getSiteUrl()}/handzettel-logo.png"
+                        alt="Handzettel-Schulen.de"
+                        width="64"
+                        style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+                      />
+                    </td>
+                    <td valign="middle" style="padding:0;">
+                      <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">${escapeHtml(subtitle)}</div>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
 
@@ -335,7 +357,7 @@ function createMailHtml(params: {
 
                 <p style="margin:26px 0 0;font-size:16px;line-height:1.55;">
                   Viele Grüße<br />
-                  Dein Team von Handzettel-Schulen.de
+                  Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span>
                 </p>
               </td>
             </tr>

@@ -130,6 +130,25 @@ function buildOfferEmail(input: {
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.6; max-width: 640px;">
+      <div style="background:#102A43;border-radius:24px;padding:22px 24px;color:#ffffff;margin-bottom:22px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <tr>
+            <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+              <img
+                src="${getSiteUrl()}/handzettel-logo.png"
+                alt="Handzettel-Schulen.de"
+                width="64"
+                style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+              />
+            </td>
+            <td valign="middle" style="padding:0;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein persönlicher Link zu Deiner Schulmaterialliste</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <h2 style="color: #102A43; margin-bottom: 12px;">Dein persönlicher Link zu Deiner Schulmaterialliste</h2>
 
       <p>${escapeHtml(greeting)}</p>
@@ -177,7 +196,7 @@ function buildOfferEmail(input: {
 
       <p>
         Viele Grüße<br />
-        <strong>Dein Team von Handzettel-Schulen.de</strong>
+        <strong>Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span></strong>
       </p>
     </div>
   `;
@@ -238,6 +257,25 @@ function buildAdminUploadNotificationEmail(input: {
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.5; max-width: 680px;">
+      <div style="background:#102A43;border-radius:24px;padding:22px 24px;color:#ffffff;margin-bottom:22px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+          <tr>
+            <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+              <img
+                src="${getSiteUrl()}/handzettel-logo.png"
+                alt="Handzettel-Schulen.de"
+                width="64"
+                style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+              />
+            </td>
+            <td valign="middle" style="padding:0;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Neue Materialliste eingegangen</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <h1 style="margin: 0 0 16px; color: #102A43;">Neue Materialliste eingegangen</h1>
 
       <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #FBF7F0; margin-bottom: 16px;">

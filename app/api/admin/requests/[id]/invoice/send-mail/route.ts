@@ -118,6 +118,14 @@ function getPaymentIntro(invoice: InvoiceRow) {
   return "Bitte wähle Deine Zahlungsart über den Zahlungslink.";
 }
 
+
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://www.handzettel-schulen.de"
+  );
+}
+
 async function insertRequestEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
@@ -279,8 +287,23 @@ function buildMailContent(params: {
     <div style="margin:0;padding:0;background:#FBF7F0;font-family:Arial,sans-serif;color:#102A43;">
       <div style="max-width:680px;margin:0 auto;padding:28px 18px;">
         <div style="background:#ffffff;border:1px solid #E8DED2;border-radius:28px;padding:28px;">
-          <div style="display:inline-block;background:#FBF7F0;color:#A75B28;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
-            Handzettel-Schulen.de
+          <div style="background:#102A43;border-radius:24px;padding:22px 24px;color:#ffffff;margin-bottom:24px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              <tr>
+                <td width="72" valign="middle" style="width:72px;padding:0 16px 0 0;">
+                  <img
+                    src="${getSiteUrl()}/handzettel-logo.png"
+                    alt="Handzettel-Schulen.de"
+                    width="64"
+                    style="display:block;width:64px;max-width:64px;height:auto;border:0;background:#ffffff;border-radius:16px;padding:6px;"
+                  />
+                </td>
+                <td valign="middle" style="padding:0;">
+                  <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
+                  <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Deine Rechnung zu Deinem Schulpaket</div>
+                </td>
+              </tr>
+            </table>
           </div>
 
           <h1 style="margin:18px 0 8px;font-size:28px;line-height:1.15;color:#102A43;">
@@ -354,7 +377,7 @@ function buildMailContent(params: {
 
           <p style="margin:26px 0 0;font-size:15px;line-height:1.6;color:#52616F;">
             Viele Grüße<br />
-            <strong style="color:#102A43;">Dein Team von Handzettel-Schulen.de</strong>
+            <strong style="color:#102A43;">Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span></strong>
           </p>
         </div>
       </div>
