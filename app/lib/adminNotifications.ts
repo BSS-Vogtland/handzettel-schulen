@@ -31,6 +31,20 @@ export type AdminShopOrderNotificationParams = {
   customerMessage: string | null;
 };
 
+export type AdminQuestionAnswerNotificationParams = {
+  requestId: string;
+  requestNumber: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  childName: string | null;
+  schoolName: string | null;
+  className: string | null;
+  requestItemTitle: string;
+  questionText: string;
+  answerText: string;
+};
+
 function getFirstEnv(names: string[]) {
   for (const name of names) {
     const value = process.env[name];
@@ -228,6 +242,112 @@ export async function sendAdminShopOrderNotification(
       <p>
         <a href="${adminRequestUrl}" style="color: #A75B28; font-weight: bold;">
           Admin-Anfragen öffnen
+        </a>
+      </p>
+    </div>
+  `;
+
+  const info = await transporter.sendMail({
+    from: mailConfig.from,
+    to: mailConfig.to,
+    subject,
+    text,
+    html,
+  });
+
+  return {
+    ok: true,
+    skipped: false,
+    messageId: info.messageId,
+  };
+}
+
+export async function sendAdminQuestionAnswerNotification(
+  params: AdminQuestionAnswerNotificationParams
+) {
+  const mailConfig = getMailConfig();
+
+  if (!mailConfig) {
+    return {
+      ok: false,
+      skipped: true,
+      message: "Mailversand übersprungen, weil SMTP nicht konfiguriert ist.",
+    };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: mailConfig.host,
+    port: mailConfig.port,
+    secure: mailConfig.secure,
+    auth: {
+      user: mailConfig.user,
+      pass: mailConfig.password,
+    },
+  });
+
+  const adminRequestUrl = buildAdminUrl(
+    `/admin/anfragen/${encodeURIComponent(params.requestId)}`
+  );
+
+  const requestLabel =
+    params.requestNumber || params.customerName || params.requestId;
+
+  const subject = `Antwort auf Rückfrage: ${requestLabel}`;
+
+  const text = [
+    "Eine Rückfrage wurde beantwortet",
+    "",
+    `Anfrage: ${params.requestNumber || params.requestId}`,
+    `Kunde: ${params.customerName || "nicht angegeben"}`,
+    `E-Mail: ${params.customerEmail || "nicht angegeben"}`,
+    `Telefon: ${params.customerPhone || "nicht angegeben"}`,
+    "",
+    `Kind: ${params.childName || "nicht angegeben"}`,
+    `Schule: ${params.schoolName || "nicht angegeben"}`,
+    `Klasse: ${params.className || "nicht angegeben"}`,
+    "",
+    `Position: ${params.requestItemTitle}`,
+    "",
+    "Gestellte Rückfrage:",
+    params.questionText,
+    "",
+    "Antwort des Kunden:",
+    params.answerText,
+    "",
+    `Admin öffnen: ${adminRequestUrl}`,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #102A43; line-height: 1.5;">
+      <h1 style="margin: 0 0 16px; color: #102A43;">Eine Rückfrage wurde beantwortet</h1>
+
+      <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #FBF7F0; margin-bottom: 16px;">
+        <p><strong>Anfrage:</strong> ${escapeHtml(params.requestNumber || params.requestId)}</p>
+        <p><strong>Kunde:</strong> ${escapeHtml(params.customerName || "nicht angegeben")}</p>
+        <p><strong>E-Mail:</strong> ${escapeHtml(params.customerEmail || "nicht angegeben")}</p>
+        <p><strong>Telefon:</strong> ${escapeHtml(params.customerPhone || "nicht angegeben")}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #ffffff; margin-bottom: 16px;">
+        <p><strong>Kind:</strong> ${escapeHtml(params.childName || "nicht angegeben")}</p>
+        <p><strong>Schule:</strong> ${escapeHtml(params.schoolName || "nicht angegeben")}</p>
+        <p><strong>Klasse:</strong> ${escapeHtml(params.className || "nicht angegeben")}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #F1D1A8; border-radius: 16px; background: #FFF8EE; margin-bottom: 16px;">
+        <p><strong>Position:</strong> ${escapeHtml(params.requestItemTitle)}</p>
+        <p style="margin-top: 14px;"><strong>Gestellte Rückfrage:</strong></p>
+        <p>${escapeHtml(params.questionText)}</p>
+      </div>
+
+      <div style="padding: 16px; border: 1px solid #BFE3CD; border-radius: 16px; background: #F0FFF6; margin-bottom: 16px;">
+        <p><strong>Antwort des Kunden:</strong></p>
+        <p style="font-size: 18px; font-weight: bold; white-space: pre-wrap;">${escapeHtml(params.answerText)}</p>
+      </div>
+
+      <p>
+        <a href="${adminRequestUrl}" style="display: inline-block; padding: 12px 18px; background: #102A43; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: bold;">
+          Anfrage im Admin öffnen
         </a>
       </p>
     </div>
