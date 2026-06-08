@@ -2154,6 +2154,16 @@ export default async function AdminRequestsPage({
   const problemPaymentCount = overviews.filter(isProblemPaymentRequest).length;
   const packableCount = overviews.filter(isPackableRequest).length;
   const completedCount = overviews.filter(isCompletedRequest).length;
+  const actionRequiredCount = overviews.filter((overview) => {
+    return (
+      hasAnsweredQuestions(overview) ||
+      isProblemPaymentRequest(overview) ||
+      hasOpenQuestions(overview) ||
+      isManualReviewRequest(overview) ||
+      isWaitingPaymentRequest(overview) ||
+      isPackableRequest(overview)
+    );
+  }).length;
 
   const filteredOverviews = filterOverviews(overviews, activeFilter);
   const refreshedAt = new Date().toISOString();
@@ -2232,168 +2242,197 @@ export default async function AdminRequestsPage({
           </div>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-10">
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Gesamt
-            </p>
-            <p className="mt-2 text-3xl font-black">{totalRequests}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Offen
-            </p>
-            <p className="mt-2 text-3xl font-black">{openCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Prüfung
-            </p>
-            <p className="mt-2 text-3xl font-black">{manualCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Antworten
-            </p>
-            <p className="mt-2 text-3xl font-black">{answeredQuestionsCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Rückfragen
-            </p>
-            <p className="mt-2 text-3xl font-black">{openQuestionsCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Zahlung offen
-            </p>
-            <p className="mt-2 text-3xl font-black">{waitingPaymentCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Bezahlt
-            </p>
-            <p className="mt-2 text-3xl font-black">{paidCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-              Packen
-            </p>
-            <p className="mt-2 text-3xl font-black">{packableCount}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Abwicklung
-            </p>
-            <p className="mt-2 text-3xl font-black">{fulfillmentCount}</p>
-          </div>
-
-          <div
-            className={`rounded-[28px] border p-5 shadow-sm ${
-              problemPaymentCount > 0
-                ? "border-[#F2B8B8] bg-[#FFF1F1]"
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/admin/anfragen"
+            className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
+              activeFilter === "all"
+                ? "border-[#102A43] bg-white"
                 : "border-[#E8DED2] bg-white"
             }`}
           >
-            <p
-              className={`text-xs font-black uppercase tracking-[0.16em] ${
-                problemPaymentCount > 0 ? "text-[#B5282D]" : "text-[#2F7D50]"
-              }`}
-            >
-              Problem
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Gesamt
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {totalRequests}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
+              Alle aktuellen Anfragen in der Übersicht.
             </p>
-            <p className="mt-2 text-3xl font-black">{problemPaymentCount}</p>
+          </Link>
+
+          <div className="rounded-[30px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Jetzt bearbeiten
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {actionRequiredCount}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#8A4A1F]">
+              Vorgänge mit Rückfrage, Prüfung, Zahlung, Problem oder Packfreigabe.
+            </p>
           </div>
+
+          <Link
+            href="/admin/anfragen?filter=questions-answered"
+            className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
+              activeFilter === "questions-answered"
+                ? "border-[#2F7D50] bg-[#F0FFF6]"
+                : "border-[#BFE3CD] bg-[#F0FFF6]"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                  Antworten
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {answeredQuestionsCount}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#2F7D50]">
+              Kundenantworten, die Du prüfen und erledigen musst.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/anfragen?filter=questions-open"
+            className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
+              activeFilter === "questions-open"
+                ? "border-[#A75B28] bg-[#FFF8EE]"
+                : "border-[#F1D1A8] bg-[#FFF8EE]"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Wartet auf Kunde
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {openQuestionsCount}
+                </p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                <MailCheck className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#8A4A1F]">
+              Rückfragen, die bereits gestellt wurden und noch offen sind.
+            </p>
+          </Link>
         </section>
 
         <section className="rounded-[30px] border border-[#E8DED2] bg-white p-4 shadow-sm">
-          <div className="mb-3 flex flex-col gap-1">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-              Arbeitsfilter
+          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+                Arbeitsfilter
+              </p>
+              <h2 className="text-xl font-black text-[#102A43]">
+                Schnellansicht für den Tagesbetrieb
+              </h2>
+            </div>
+
+            <p className="max-w-xl text-sm font-semibold leading-6 text-[#52616F]">
+              Oben siehst Du nur die wichtigsten Signale. Hier filterst Du die
+              Detailphasen, ohne die Übersicht mit Kennzahlen zu überladen.
             </p>
-            <h2 className="text-xl font-black text-[#102A43]">
-              Schnellansicht für den Tagesbetrieb
-            </h2>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <FilterPill
-              href="/admin/anfragen"
-              label="Alle"
-              count={totalRequests}
-              active={activeFilter === "all"}
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=questions-answered"
-              label="Antworten eingegangen"
-              count={answeredQuestionsCount}
-              active={activeFilter === "questions-answered"}
-              tone="green"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=questions-open"
-              label="Rückfragen offen"
-              count={openQuestionsCount}
-              active={activeFilter === "questions-open"}
-              tone="amber"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=manual"
-              label="Manuelle Prüfung"
-              count={manualCount}
-              active={activeFilter === "manual"}
-              tone="amber"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=payment-open"
-              label="Wartet auf Zahlung"
-              count={waitingPaymentCount}
-              active={activeFilter === "payment-open"}
-              tone="amber"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=paid"
-              label="Bezahlt"
-              count={paidCount}
-              active={activeFilter === "paid"}
-              tone="green"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=packable"
-              label="Packen möglich"
-              count={packableCount}
-              active={activeFilter === "packable"}
-              tone="green"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=shipping"
-              label="Versand"
-              count={shippingCount}
-              active={activeFilter === "shipping"}
-              tone="blue"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=pickup"
-              label="Abholung"
-              count={pickupCount}
-              active={activeFilter === "pickup"}
-              tone="green"
-            />
-            <FilterPill
-              href="/admin/anfragen?filter=completed"
-              label="Abgeschlossen"
-              count={completedCount}
-              active={activeFilter === "completed"}
-              tone="green"
-            />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              <FilterPill
+                href="/admin/anfragen"
+                label="Alle"
+                count={totalRequests}
+                active={activeFilter === "all"}
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=questions-answered"
+                label="Antworten eingegangen"
+                count={answeredQuestionsCount}
+                active={activeFilter === "questions-answered"}
+                tone="green"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=questions-open"
+                label="Rückfragen offen"
+                count={openQuestionsCount}
+                active={activeFilter === "questions-open"}
+                tone="amber"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=manual"
+                label="Prüfung"
+                count={manualCount}
+                active={activeFilter === "manual"}
+                tone="amber"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2 border-t border-[#E8DED2] pt-4">
+              <FilterPill
+                href="/admin/anfragen?filter=payment-open"
+                label="Zahlung offen"
+                count={waitingPaymentCount}
+                active={activeFilter === "payment-open"}
+                tone="amber"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=paid"
+                label="Bezahlt"
+                count={paidCount}
+                active={activeFilter === "paid"}
+                tone="green"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=packable"
+                label="Packen"
+                count={packableCount}
+                active={activeFilter === "packable"}
+                tone="green"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=shipping"
+                label="Versand"
+                count={shippingCount}
+                active={activeFilter === "shipping"}
+                tone="blue"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=pickup"
+                label="Abholung"
+                count={pickupCount}
+                active={activeFilter === "pickup"}
+                tone="green"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=completed"
+                label="Abgeschlossen"
+                count={completedCount}
+                active={activeFilter === "completed"}
+                tone="green"
+              />
+            </div>
           </div>
         </section>
 
