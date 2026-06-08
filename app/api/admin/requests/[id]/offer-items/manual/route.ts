@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { createUniqueProductSku } from "../../../../../../lib/productSku";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,6 +125,26 @@ function splitKeywords(value: unknown) {
     .split(" ")
     .filter((word) => word.length >= 2)
     .slice(0, 12);
+}
+
+function getMissingNewProductFields(input: {
+  productName: string;
+  productPrice: number;
+  productCategory: string;
+  productType: string;
+  quantity: number;
+  unit: string;
+}) {
+  const missingFields: string[] = [];
+
+  if (!input.productName) missingFields.push("Produktname");
+  if (input.productPrice <= 0) missingFields.push("Einzelpreis größer 0");
+  if (!input.productCategory) missingFields.push("Kategorie");
+  if (!input.productType) missingFields.push("Produkttyp");
+  if (input.quantity <= 0) missingFields.push("Menge größer 0");
+  if (!input.unit) missingFields.push("Einheit");
+
+  return missingFields;
 }
 
 async function createRequestEvent(
@@ -379,11 +400,23 @@ export async function POST(request: NextRequest, context: Params) {
     const productColor = String(body.productColor || "").trim();
     const productLineature = String(body.productLineature || "").trim();
 
+    if (!existingProductId && !saveAsProduct) {
+      return jsonResponse(
+        {
+          ok: false,
+          message:
+            "Bitte suche zuerst ein Bestandsprodukt. Wenn der Artikel nicht vorhanden ist, öffne bewusst „Neues Produkt erfassen“.",
+        },
+        400
+      );
+    }
+
     if (!productName && !existingProductId) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.",
+          message:
+            "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.",
         },
         400
       );
@@ -397,6 +430,29 @@ export async function POST(request: NextRequest, context: Params) {
         },
         400
       );
+    }
+
+    if (saveAsProduct && !existingProductId) {
+      const missingFields = getMissingNewProductFields({
+        productName,
+        productPrice,
+        productCategory,
+        productType,
+        quantity,
+        unit,
+      });
+
+      if (missingFields.length > 0) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
+              ", "
+            )}.`,
+          },
+          400
+        );
+      }
     }
 
     const { data: schoolRequest, error: requestError } = await supabase
@@ -496,8 +552,34 @@ export async function POST(request: NextRequest, context: Params) {
       productName = getProductName(product);
       productSku = getProductSku(product) || productSku;
       productPrice = getProductPrice(product);
+
+      if (productPrice <= 0) {
+        return jsonResponse(
+          {
+            ok: false,
+            message:
+              "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+          },
+          400
+        );
+      }
+
       productWasExisting = true;
     } else if (saveAsProduct) {
+      if (!productSku) {
+        productSku = await createUniqueProductSku({
+          supabase,
+          input: {
+            productName,
+            category: productCategory,
+            productType,
+            format: productFormat,
+            color: productColor,
+            lineature: productLineature,
+          },
+        });
+      }
+
       const alreadyExisting = await findExistingProductBySkuOrName(
         supabase,
         productName,
@@ -509,6 +591,18 @@ export async function POST(request: NextRequest, context: Params) {
         productName = getProductName(alreadyExisting);
         productSku = getProductSku(alreadyExisting) || productSku;
         productPrice = getProductPrice(alreadyExisting);
+
+        if (productPrice <= 0) {
+          return jsonResponse(
+            {
+              ok: false,
+              message:
+                "Ein gleiches Bestandsprodukt wurde gefunden, hat aber keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+            },
+            400
+          );
+        }
+
         productWasExisting = true;
       } else {
         const aliasText =
@@ -557,7 +651,7 @@ export async function POST(request: NextRequest, context: Params) {
         product_price: productPrice,
         quantity,
         unit: unit || null,
-        source: productWasExisting ? "admin_existing_product" : "admin_manual",
+        source: productId ? "admin_existing_product" : "admin_manual",
         status: "draft",
         notes:
           notes ||

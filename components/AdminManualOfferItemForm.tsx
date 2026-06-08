@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   ImageIcon,
   Loader2,
@@ -52,6 +53,16 @@ function toInputNumber(
   return String(value).replace(".", ",");
 }
 
+function parseGermanNumber(value: string) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
@@ -89,8 +100,8 @@ export default function AdminManualOfferItemForm({
   const [productLineature, setProductLineature] = useState("");
 
   const [aliasText, setAliasText] = useState(defaultProductName || "");
-  const [saveAsProduct, setSaveAsProduct] = useState(false);
   const [rememberForFuture, setRememberForFuture] = useState(true);
+  const [createProductMode, setCreateProductMode] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(defaultProductName || "");
   const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([]);
@@ -107,6 +118,10 @@ export default function AdminManualOfferItemForm({
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const hasSelectedProduct = Boolean(selectedProductId);
+  const isCreatingNewProduct = createProductMode && !selectedProductId;
+  const showProductFields = hasSelectedProduct || isCreatingNewProduct;
 
   useEffect(() => {
     if (!isOpen) {
@@ -131,7 +146,7 @@ export default function AdminManualOfferItemForm({
       setSelectedProductLabel(null);
       setSelectedProductImageUrl(null);
 
-      setSaveAsProduct(false);
+      setCreateProductMode(false);
       setRememberForFuture(true);
     }
   }, [defaultProductName, defaultQuantity, isOpen]);
@@ -144,6 +159,7 @@ export default function AdminManualOfferItemForm({
 
     setIsSearching(true);
     setErrorMessage(null);
+    setFeedback(null);
 
     try {
       const response = await fetch(
@@ -197,15 +213,79 @@ export default function AdminManualOfferItemForm({
     setProductColor(product.color || "");
     setProductLineature(product.lineature || "");
 
-    setSaveAsProduct(false);
+    setCreateProductMode(false);
     setRememberForFuture(true);
     setSearchResults([]);
+    setErrorMessage(null);
   }
 
   function clearSelectedProduct() {
     setSelectedProductId(null);
     setSelectedProductLabel(null);
     setSelectedProductImageUrl(null);
+  }
+
+  function startCreateProductMode() {
+    clearSelectedProduct();
+    setCreateProductMode(true);
+    setProductName((current) => current || searchQuery || defaultProductName || "");
+    setAliasText((current) => current || searchQuery || defaultProductName || "");
+    setErrorMessage(null);
+    setFeedback(null);
+  }
+
+  function stopCreateProductMode() {
+    setCreateProductMode(false);
+    setProductName(defaultProductName || "");
+    setProductSku("");
+    setProductPrice("");
+    setUnit("");
+    setNotes("");
+    setProductCategory("");
+    setProductType("");
+    setProductFormat("");
+    setProductColor("");
+    setProductLineature("");
+    setAliasText(defaultProductName || "");
+  }
+
+  function validateBeforeSubmit() {
+    const priceNumber = parseGermanNumber(productPrice);
+    const quantityNumber = parseGermanNumber(quantity);
+
+    if (!selectedProductId && !createProductMode) {
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf „Neues Produkt erfassen“. ";
+    }
+
+    if (!productName.trim() && !selectedProductId) {
+      return "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.";
+    }
+
+    if (quantityNumber <= 0) {
+      return "Bitte gib eine Menge größer als 0 ein.";
+    }
+
+    if (selectedProductId && priceNumber <= 0) {
+      return "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
+    }
+
+    if (createProductMode && !selectedProductId) {
+      const missingFields: string[] = [];
+
+      if (!productName.trim()) missingFields.push("Produktname");
+      if (priceNumber <= 0) missingFields.push("Einzelpreis größer 0");
+      if (!productCategory.trim()) missingFields.push("Kategorie");
+      if (!productType.trim()) missingFields.push("Produkttyp");
+      if (!unit.trim()) missingFields.push("Einheit");
+
+      if (missingFields.length > 0) {
+        return `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
+          ", "
+        )}.`;
+      }
+    }
+
+    return null;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -216,10 +296,10 @@ export default function AdminManualOfferItemForm({
     setFeedback(null);
     setErrorMessage(null);
 
-    if (!productName.trim() && !selectedProductId) {
-      setErrorMessage(
-        "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus."
-      );
+    const validationError = validateBeforeSubmit();
+
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
@@ -243,7 +323,7 @@ export default function AdminManualOfferItemForm({
             notes: notes.trim(),
 
             existingProductId: selectedProductId,
-            saveAsProduct,
+            saveAsProduct: createProductMode && !selectedProductId,
             rememberForFuture,
 
             productCategory: productCategory.trim(),
@@ -332,11 +412,12 @@ export default function AdminManualOfferItemForm({
             Manuelle Paketposition
           </p>
           <h4 className="mt-1 font-black text-[#102A43]">
-            Produkt verwenden oder neu speichern
+            Erst Bestandsprodukt suchen, dann bewusst erfassen
           </h4>
           <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Du kannst ein Bestandsprodukt mit Bild suchen oder ein neues Produkt
-            direkt für zukünftige Anfragen speichern.
+            Suche zuerst im Produktkatalog. Nur wenn der Artikel dort wirklich
+            nicht vorhanden ist, kannst Du ein neues Produkt mit Pflichtfeldern
+            anlegen.
           </p>
         </div>
 
@@ -352,7 +433,7 @@ export default function AdminManualOfferItemForm({
 
       <div className="mb-5 rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
         <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-          Bestandsprodukt suchen
+          1. Bestandsprodukt suchen
         </p>
 
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -466,247 +547,333 @@ export default function AdminManualOfferItemForm({
             ))}
           </div>
         ) : null}
+
+        {!selectedProductId && !createProductMode ? (
+          <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-[#8A4A1F]">
+                    Produkt nicht gefunden?
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#8A4A1F]">
+                    Lege nur dann ein neues Bestandsprodukt an, wenn Du vorher
+                    gesucht hast und der Artikel wirklich nicht im Shop ist.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={startCreateProductMode}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <PackagePlus className="h-4 w-4" />
+                Neues Produkt erfassen
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <div className="grid gap-4">
-        <div>
-          <label
-            htmlFor={`manual-product-name-${fieldKey}`}
-            className="mb-2 block text-sm font-black text-[#102A43]"
-          >
-            Produktname*
-          </label>
-          <input
-            id={`manual-product-name-${fieldKey}`}
-            type="text"
-            value={productName}
-            onChange={(event) => {
-              setProductName(event.target.value);
-              clearSelectedProduct();
-            }}
-            placeholder="z. B. Umschlag A5 rot"
-            className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-          />
-        </div>
+      {showProductFields ? (
+        <div className="grid gap-4">
+          {isCreatingNewProduct ? (
+            <div className="rounded-[22px] border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                    2. Neues Bestandsprodukt erfassen
+                  </p>
+                  <p className="mt-1 text-sm font-bold leading-6 text-[#8A4A1F]">
+                    Pflichtfelder: Produktname, Einzelpreis, Kategorie,
+                    Produkttyp, Menge und Einheit. Die Artikelnummer wird
+                    automatisch erzeugt, wenn Du sie leer lässt.
+                  </p>
+                </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label
-              htmlFor={`manual-product-sku-${fieldKey}`}
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Art.-Nr.
-            </label>
-            <input
-              id={`manual-product-sku-${fieldKey}`}
-              type="text"
-              value={productSku}
-              onChange={(event) => {
-                setProductSku(event.target.value);
-                clearSelectedProduct();
-              }}
-              placeholder="optional"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </div>
+                <button
+                  type="button"
+                  onClick={stopCreateProductMode}
+                  className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-black text-[#B5282D]"
+                >
+                  Zurück zur Suche
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div>
             <label
-              htmlFor={`manual-product-price-${fieldKey}`}
+              htmlFor={`manual-product-name-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
             >
-              Einzelpreis
+              Produktname*
             </label>
             <input
-              id={`manual-product-price-${fieldKey}`}
+              id={`manual-product-name-${fieldKey}`}
               type="text"
-              value={productPrice}
-              onChange={(event) => {
-                setProductPrice(event.target.value);
-                clearSelectedProduct();
-              }}
-              placeholder="z. B. 0,39"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              value={productName}
+              readOnly={hasSelectedProduct}
+              onChange={(event) => setProductName(event.target.value)}
+              placeholder="z. B. Umschlag A5 rot"
+              className={`min-h-12 w-full rounded-2xl border border-[#D8C8B8] px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10 ${
+                hasSelectedProduct ? "bg-[#FBF7F0]" : "bg-white"
+              }`}
             />
           </div>
 
-          <div>
-            <label
-              htmlFor={`manual-quantity-${fieldKey}`}
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Menge*
-            </label>
-            <input
-              id={`manual-quantity-${fieldKey}`}
-              type="text"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-              placeholder="1"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label
+                htmlFor={`manual-product-sku-${fieldKey}`}
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Art.-Nr.
+              </label>
+              <input
+                id={`manual-product-sku-${fieldKey}`}
+                type="text"
+                value={productSku}
+                readOnly={hasSelectedProduct}
+                onChange={(event) => setProductSku(event.target.value)}
+                placeholder={
+                  isCreatingNewProduct ? "wird automatisch erzeugt" : "optional"
+                }
+                className={`min-h-12 w-full rounded-2xl border border-[#D8C8B8] px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10 ${
+                  hasSelectedProduct ? "bg-[#FBF7F0]" : "bg-white"
+                }`}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`manual-product-price-${fieldKey}`}
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Einzelpreis*
+              </label>
+              <input
+                id={`manual-product-price-${fieldKey}`}
+                type="text"
+                value={productPrice}
+                readOnly={hasSelectedProduct}
+                onChange={(event) => setProductPrice(event.target.value)}
+                placeholder="z. B. 0,39"
+                className={`min-h-12 w-full rounded-2xl border border-[#D8C8B8] px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10 ${
+                  hasSelectedProduct ? "bg-[#FBF7F0]" : "bg-white"
+                }`}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`manual-quantity-${fieldKey}`}
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Menge*
+              </label>
+              <input
+                id={`manual-quantity-${fieldKey}`}
+                type="text"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                placeholder="1"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
-          <div>
-            <label
-              htmlFor={`manual-unit-${fieldKey}`}
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Einheit
-            </label>
-            <input
-              id={`manual-unit-${fieldKey}`}
-              type="text"
-              value={unit}
-              onChange={(event) => setUnit(event.target.value)}
-              placeholder="z. B. Stück"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+            <div>
+              <label
+                htmlFor={`manual-unit-${fieldKey}`}
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Einheit{isCreatingNewProduct ? "*" : ""}
+              </label>
+              <input
+                id={`manual-unit-${fieldKey}`}
+                type="text"
+                value={unit}
+                onChange={(event) => setUnit(event.target.value)}
+                placeholder="z. B. Stück"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`manual-notes-${fieldKey}`}
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Notiz
+              </label>
+              <input
+                id={`manual-notes-${fieldKey}`}
+                type="text"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="optional, z. B. Ersatzartikel"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
           </div>
 
-          <div>
-            <label
-              htmlFor={`manual-notes-${fieldKey}`}
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Notiz
-            </label>
-            <input
-              id={`manual-notes-${fieldKey}`}
-              type="text"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="optional, z. B. Ersatzartikel"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </div>
-        </div>
+          {isCreatingNewProduct ? (
+            <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Produktdaten für Katalog & Matching
+              </p>
 
-        <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            Für zukünftige Anfragen merken
-          </p>
+              <div className="grid gap-4 sm:grid-cols-5">
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-xs font-black text-[#102A43]">
+                    Kategorie*
+                  </label>
+                  <input
+                    type="text"
+                    value={productCategory}
+                    onChange={(event) => setProductCategory(event.target.value)}
+                    placeholder="z. B. Basteln"
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                  />
+                </div>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-3">
-            <input
-              type="checkbox"
-              checked={rememberForFuture}
-              onChange={(event) => setRememberForFuture(event.target.checked)}
-              className="mt-1 h-4 w-4"
-            />
-            <span>
-              <span className="block text-sm font-black text-[#102A43]">
-                Zuordnung für spätere Listen merken
-              </span>
-              <span className="mt-1 block text-xs font-semibold leading-5 text-[#52616F]">
-                Speichert die erkannte Listenposition als Alias zum gewählten
-                Produkt. Dadurch wird dieses Produkt bei ähnlichen Listen künftig
-                besser vorgeschlagen. Bei Ergänzungen ohne erkannte Position wird
-                der angegebene Alias/Suchbegriff verwendet.
-              </span>
-            </span>
-          </label>
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-xs font-black text-[#102A43]">
+                    Produkttyp*
+                  </label>
+                  <input
+                    type="text"
+                    value={productType}
+                    onChange={(event) => setProductType(event.target.value)}
+                    placeholder="z. B. Malkittel"
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                  />
+                </div>
 
-          {!selectedProductId ? (
-            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-3">
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-xs font-black text-[#102A43]">
+                    Format
+                  </label>
+                  <input
+                    type="text"
+                    value={productFormat}
+                    onChange={(event) => setProductFormat(event.target.value)}
+                    placeholder="z. B. A4"
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-xs font-black text-[#102A43]">
+                    Farbe
+                  </label>
+                  <input
+                    type="text"
+                    value={productColor}
+                    onChange={(event) => setProductColor(event.target.value)}
+                    placeholder="z. B. weiß"
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-1">
+                  <label className="mb-2 block text-xs font-black text-[#102A43]">
+                    Lineatur
+                  </label>
+                  <input
+                    type="text"
+                    value={productLineature}
+                    onChange={(event) => setProductLineature(event.target.value)}
+                    placeholder="z. B. 8f"
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Für zukünftige Anfragen merken
+            </p>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-3">
               <input
                 type="checkbox"
-                checked={saveAsProduct}
-                onChange={(event) => setSaveAsProduct(event.target.checked)}
+                checked={rememberForFuture}
+                onChange={(event) => setRememberForFuture(event.target.checked)}
                 className="mt-1 h-4 w-4"
               />
               <span>
                 <span className="block text-sm font-black text-[#102A43]">
-                  Als neues Bestandsprodukt speichern
+                  Zuordnung für spätere Listen merken
                 </span>
                 <span className="mt-1 block text-xs font-semibold leading-5 text-[#52616F]">
-                  Das Produkt wird in Deiner Produkttabelle angelegt und kann
-                  künftig automatisch vorgeschlagen oder gesucht werden.
+                  Speichert die erkannte Listenposition als Alias zum gewählten
+                  Produkt. Dadurch wird dieses Produkt bei ähnlichen Listen künftig
+                  besser vorgeschlagen.
                 </span>
               </span>
             </label>
-          ) : null}
 
-          <div className="mt-4">
-            <label className="mb-2 block text-sm font-black text-[#102A43]">
-              Alias / Suchbegriff
-            </label>
-            <input
-              type="text"
-              value={aliasText}
-              onChange={(event) => setAliasText(event.target.value)}
-              placeholder="z. B. Umschlag A5 rot"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </div>
-
-          {saveAsProduct && !selectedProductId ? (
-            <div className="mt-4 grid gap-4 sm:grid-cols-5">
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-black text-[#102A43]">
+                Alias / Suchbegriff
+              </label>
               <input
                 type="text"
-                value={productCategory}
-                onChange={(event) => setProductCategory(event.target.value)}
-                placeholder="Kategorie"
-                className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
-              />
-              <input
-                type="text"
-                value={productType}
-                onChange={(event) => setProductType(event.target.value)}
-                placeholder="Typ"
-                className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
-              />
-              <input
-                type="text"
-                value={productFormat}
-                onChange={(event) => setProductFormat(event.target.value)}
-                placeholder="Format"
-                className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
-              />
-              <input
-                type="text"
-                value={productColor}
-                onChange={(event) => setProductColor(event.target.value)}
-                placeholder="Farbe"
-                className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
-              />
-              <input
-                type="text"
-                value={productLineature}
-                onChange={(event) => setProductLineature(event.target.value)}
-                placeholder="Lineatur"
-                className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+                value={aliasText}
+                onChange={(event) => setAliasText(event.target.value)}
+                placeholder="z. B. Umschlag A5 rot"
+                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </div>
-          ) : null}
-        </div>
-
-        {errorMessage ? (
-          <div className="rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#B5282D]">
-            {errorMessage}
           </div>
-        ) : null}
 
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Wird gespeichert …
-            </>
-          ) : (
-            <>
-              <PackagePlus className="h-4 w-4" />
-              In Paketwunsch übernehmen
-            </>
-          )}
-        </button>
-      </div>
+          {errorMessage ? (
+            <div className="rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#B5282D]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {feedback ? (
+            <div className="flex items-start gap-2 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-semibold text-[#2F7D50]">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{feedback}</span>
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Wird gespeichert …
+              </>
+            ) : (
+              <>
+                <PackagePlus className="h-4 w-4" />
+                In Paketwunsch übernehmen
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
+          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, öffnest Du die
+          Erfassung für ein neues Bestandsprodukt.
+        </div>
+      )}
     </form>
   );
 }
