@@ -20,6 +20,7 @@ import ConfirmOfferButton from "@/components/ConfirmOfferButton";
 import CustomerProductSearch from "@/components/CustomerProductSearch";
 import CustomerRemoveOfferItemButton from "@/components/CustomerRemoveOfferItemButton";
 import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButton";
+import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
 import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,21 @@ type OfferItem = {
   source: string | null;
   status: string | null;
   notes: string | null;
+};
+
+type RequestItemQuestion = {
+  id: string;
+  request_id: string;
+  request_item_id: string | null;
+  offer_item_id?: string | null;
+  question_text: string;
+  answer_text: string | null;
+  status: "pending" | "answered" | "resolved" | "cancelled" | string;
+  channel: string | null;
+  created_at: string | null;
+  answered_at: string | null;
+  resolved_at: string | null;
+  updated_at?: string | null;
 };
 
 type ProductRow = {
@@ -592,6 +608,19 @@ function getOfferItemSourceLabel(source: string | null) {
   }
 }
 
+function getQuestionStatusLabel(status: string | null) {
+  switch (status) {
+    case "pending":
+      return "Bitte beantworten";
+    case "answered":
+      return "Antwort gespeichert";
+    case "resolved":
+      return "Erledigt";
+    default:
+      return status || "Rückfrage";
+  }
+}
+
 function uniqueCleanStrings(values: Array<string | null | undefined>) {
   return Array.from(
     new Set(
@@ -819,8 +848,12 @@ export default async function CustomerOfferPage({ params }: Params) {
 
   const request = schoolRequest as SchoolRequest;
 
-  const [{ data: files }, { data: requestItems }, { data: offerItems }] =
-    await Promise.all([
+  const [
+    { data: files },
+    { data: requestItems },
+    { data: offerItems },
+    { data: questionsData },
+  ] = await Promise.all([
       supabase
         .from("school_request_files")
         .select("*")
@@ -838,13 +871,29 @@ export default async function CustomerOfferPage({ params }: Params) {
         .select("*")
         .eq("request_id", request.id)
         .order("created_at", { ascending: true }),
+
+      supabase
+        .from("school_request_item_questions")
+        .select("*")
+        .eq("request_id", request.id)
+        .in("status", ["pending", "answered"])
+        .order("created_at", { ascending: true }),
     ]);
 
   const items = (requestItems || []) as RequestItem[];
   let selectedOfferItems = ((offerItems || []) as OfferItem[]).sort(
     compareOfferItemsStable
   );
+  const questions = ((questionsData || []) as RequestItemQuestion[]).filter(
+    (question) => question.status !== "cancelled" && question.status !== "resolved"
+  );
   const uploadedFiles = (files || []) as RequestFile[];
+
+  const requestItemByIdForQuestions = new Map<string, RequestItem>();
+
+  for (const item of items) {
+    requestItemByIdForQuestions.set(item.id, item);
+  }
 
   const itemIds = items.map((item) => item.id);
 
@@ -1341,6 +1390,77 @@ export default async function CustomerOfferPage({ params }: Params) {
             </p>
           </div>
         </section>
+
+        {questions.length > 0 && !isConfirmed ? (
+          <section className="rounded-[34px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Kurze Rückfrage
+                </p>
+                <h2 className="text-2xl font-black text-[#102A43]">
+                  Wir brauchen noch eine kurze Info von Dir
+                </h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                  Bitte beantworte die Rückfrage direkt hier. Dann können wir
+                  die betroffene Position sauber prüfen und Dein Paket fertigstellen.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {questions.map((question) => {
+                const relatedItem = question.request_item_id
+                  ? requestItemByIdForQuestions.get(question.request_item_id)
+                  : null;
+
+                return (
+                  <article
+                    key={question.id}
+                    className="rounded-[28px] border border-[#E8DED2] bg-white p-4"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                          {relatedItem
+                            ? `Position: ${getRequestItemTitle(relatedItem)}`
+                            : "Allgemeine Rückfrage"}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-base font-black leading-7 text-[#102A43]">
+                          {question.question_text}
+                        </p>
+                      </div>
+
+                      <span className="inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#A75B28]">
+                        {getQuestionStatusLabel(question.status)}
+                      </span>
+                    </div>
+
+                    {question.status === "pending" ? (
+                      <CustomerQuestionAnswerForm
+                        token={token}
+                        questionId={question.id}
+                      />
+                    ) : question.answer_text ? (
+                      <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                          Deine Antwort wurde gespeichert
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#102A43]">
+                          {question.answer_text}
+                        </p>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">

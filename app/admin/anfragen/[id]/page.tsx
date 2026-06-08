@@ -30,6 +30,8 @@ import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
 import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
 import AdminReanalyzeRequestButton from "@/components/AdminReanalyzeRequestButton";
 import AdminAdoptSafeMatchesButton from "@/components/AdminAdoptSafeMatchesButton";
+import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
+import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -161,6 +163,23 @@ type EventRow = {
   description?: string | null;
   metadata?: unknown;
   created_at: string | null;
+};
+
+type RequestItemQuestion = {
+  id: string;
+  request_id: string;
+  request_item_id: string | null;
+  offer_item_id?: string | null;
+  question_text: string;
+  answer_text: string | null;
+  status: "pending" | "answered" | "resolved" | "cancelled" | string;
+  channel: string | null;
+  created_by?: string | null;
+  created_at: string | null;
+  answered_at: string | null;
+  resolved_at: string | null;
+  cancelled_at?: string | null;
+  updated_at?: string | null;
 };
 
 const BUCKET_NAME = "school-request-files";
@@ -375,6 +394,36 @@ function getEventText(event: EventRow) {
   return event.description || event.message || null;
 }
 
+function getQuestionStatusLabel(status: string | null) {
+  switch (status) {
+    case "pending":
+      return "Wartet auf Kundenantwort";
+    case "answered":
+      return "Antwort erhalten";
+    case "resolved":
+      return "Erledigt";
+    case "cancelled":
+      return "Zurückgezogen";
+    default:
+      return status || "Unbekannt";
+  }
+}
+
+function getQuestionStatusClasses(status: string | null) {
+  switch (status) {
+    case "pending":
+      return "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]";
+    case "answered":
+      return "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]";
+    case "resolved":
+      return "border-[#D6E7EF] bg-[#F5FAFD] text-[#12395F]";
+    case "cancelled":
+      return "border-[#E8DED2] bg-white text-[#52616F]";
+    default:
+      return "border-[#E8DED2] bg-white text-[#52616F]";
+  }
+}
+
 export default async function AdminRequestDetailPage({ params }: Params) {
   const { id } = await params;
   const supabase = getSupabaseAdmin();
@@ -399,6 +448,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
     { data: filesData, error: filesError },
     { data: itemsData, error: itemsError },
     { data: offerItemsData, error: offerItemsError },
+    { data: questionsData, error: questionsError },
     { data: eventsData, error: eventsError },
   ] = await Promise.all([
     supabase
@@ -417,6 +467,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
       .from("school_offer_items")
       .select("*")
       .eq("request_id", request.id)
+      .order("created_at", { ascending: true }),
+
+    supabase
+      .from("school_request_item_questions")
+      .select("*")
+      .eq("request_id", request.id)
+      .neq("status", "cancelled")
       .order("created_at", { ascending: true }),
 
     supabase
@@ -441,6 +498,12 @@ export default async function AdminRequestDetailPage({ params }: Params) {
     );
   }
 
+  if (questionsError) {
+    throw new Error(
+      `Rückfragen konnten nicht geladen werden: ${questionsError.message}`
+    );
+  }
+
   if (eventsError) {
     throw new Error(`Events konnten nicht geladen werden: ${eventsError.message}`);
   }
@@ -448,7 +511,22 @@ export default async function AdminRequestDetailPage({ params }: Params) {
   const files = (filesData || []) as RequestFile[];
   const items = (itemsData || []) as RequestItem[];
   const offerItems = (offerItemsData || []) as OfferItem[];
+  const questions = (questionsData || []) as RequestItemQuestion[];
   const events = (eventsData || []) as EventRow[];
+
+  const questionsByRequestItem = new Map<string, RequestItemQuestion[]>();
+  const generalQuestions: RequestItemQuestion[] = [];
+
+  for (const question of questions) {
+    if (!question.request_item_id) {
+      generalQuestions.push(question);
+      continue;
+    }
+
+    const current = questionsByRequestItem.get(question.request_item_id) || [];
+    current.push(question);
+    questionsByRequestItem.set(question.request_item_id, current);
+  }
 
   const itemIds = items.map((item) => item.id);
 
@@ -977,6 +1055,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   {items.map((item, index) => {
                     const itemMatches = matchesByItem.get(item.id) || [];
                     const selectedItems = offerItemsByRequestItem.get(item.id) || [];
+                    const itemQuestions = questionsByRequestItem.get(item.id) || [];
 
                     return (
                       <article
@@ -1023,6 +1102,88 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                             {item.notes}
                           </p>
                         ) : null}
+
+                        <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-white p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                                Rückfragen
+                              </p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                                Stelle hier eine konkrete Rückfrage zu dieser Listenposition.
+                                Die Antwort erscheint danach direkt an dieser Position.
+                              </p>
+                            </div>
+
+                            <AdminRequestItemQuestionForm
+                              requestId={request.id}
+                              requestItemId={item.id}
+                              itemLabel={getRequestItemTitle(item)}
+                            />
+                          </div>
+
+                          {itemQuestions.length > 0 ? (
+                            <div className="mt-4 grid gap-3">
+                              {itemQuestions.map((question) => (
+                                <div
+                                  key={question.id}
+                                  className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                                >
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                                        <span
+                                          className={`rounded-full border px-3 py-1 text-xs font-black ${getQuestionStatusClasses(
+                                            question.status
+                                          )}`}
+                                        >
+                                          {getQuestionStatusLabel(question.status)}
+                                        </span>
+
+                                        {question.created_at ? (
+                                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#52616F]">
+                                            {formatDateTime(question.created_at)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+
+                                      <p className="text-sm font-black text-[#102A43]">
+                                        Frage
+                                      </p>
+                                      <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#52616F]">
+                                        {question.question_text}
+                                      </p>
+
+                                      {question.answer_text ? (
+                                        <div className="mt-3 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-3">
+                                          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                                            Kundenantwort
+                                          </p>
+                                          <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#102A43]">
+                                            {question.answer_text}
+                                          </p>
+                                          {question.answered_at ? (
+                                            <p className="mt-2 text-xs font-bold text-[#52616F]">
+                                              Beantwortet am {formatDateTime(question.answered_at)}
+                                            </p>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
+                                    </div>
+
+                                    {question.status !== "resolved" &&
+                                    question.status !== "cancelled" ? (
+                                      <AdminResolveQuestionButton
+                                        requestId={request.id}
+                                        questionId={question.id}
+                                      />
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
 
                         {selectedItems.length > 0 ? (
                           <div className="mt-4 grid gap-3">
