@@ -439,6 +439,8 @@ export async function POST(_request: Request, context: Params) {
       productId,
       productName,
       productSku,
+      aliases,
+      matchKeywords,
       aliasCount: aliases.length,
       matchKeywordCount: matchKeywords.length,
       message: `Keywords wurden erzeugt. ${aliases.length} Suchbegriffe und ${matchKeywords.length} Match-Keywords wurden aktualisiert.`,

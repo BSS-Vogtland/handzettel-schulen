@@ -12,6 +12,8 @@ type AdminRegenerateProductKeywordsButtonProps = {
 type RegenerateResponse = {
   ok?: boolean;
   message?: string;
+  aliases?: string[];
+  matchKeywords?: string[];
   aliasCount?: number;
   matchKeywordCount?: number;
 };
@@ -65,11 +67,25 @@ export default function AdminRegenerateProductKeywordsButton({
         );
       }
 
+      const aliases = Array.isArray(payload.aliases) ? payload.aliases : [];
+
       const successMessage =
         payload.message ||
         `Keywords wurden erzeugt. Aliase: ${
-          payload.aliasCount ?? 0
+          payload.aliasCount ?? aliases.length
         }, Match-Keywords: ${payload.matchKeywordCount ?? 0}.`;
+
+      window.dispatchEvent(
+        new CustomEvent("product-keywords-regenerated", {
+          detail: {
+            productId,
+            aliases,
+            message: successMessage,
+            aliasCount: payload.aliasCount ?? aliases.length,
+            matchKeywordCount: payload.matchKeywordCount ?? 0,
+          },
+        })
+      );
 
       setMessage(successMessage);
       window.alert(successMessage);

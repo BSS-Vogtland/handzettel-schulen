@@ -42,6 +42,14 @@ type FeedbackState =
     }
   | null;
 
+type ProductKeywordsRegeneratedEventDetail = {
+  productId?: string;
+  aliases?: string[];
+  message?: string;
+  aliasCount?: number;
+  matchKeywordCount?: number;
+};
+
 async function readJsonSafely(response: Response) {
   const rawText = await response.text();
 
@@ -97,26 +105,26 @@ export default function AdminEditProductForm({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   function buildInitialFormData() {
-  return {
-    productName,
-    productSku: productSku || "",
-    ean: ean || "",
-    productPrice: formatPriceInput(productPrice),
-    category: category || "",
-    productType: productType || "",
-    format: format || "",
-    color: color || "",
-    lineature: lineature || "",
-    bookWidthMm: bookWidthMm || "",
-    bookHeightMm: bookHeightMm || "",
-    bookSizeNote: bookSizeNote || "",
-    imageUrl: imageUrl || "",
-    active,
-    aliases: aliases.join("\n"),
-  };
-}
+    return {
+      productName,
+      productSku: productSku || "",
+      ean: ean || "",
+      productPrice: formatPriceInput(productPrice),
+      category: category || "",
+      productType: productType || "",
+      format: format || "",
+      color: color || "",
+      lineature: lineature || "",
+      bookWidthMm: bookWidthMm || "",
+      bookHeightMm: bookHeightMm || "",
+      bookSizeNote: bookSizeNote || "",
+      imageUrl: imageUrl || "",
+      active,
+      aliases: aliases.join("\n"),
+    };
+  }
 
-const [formData, setFormData] = useState(buildInitialFormData);
+  const [formData, setFormData] = useState(buildInitialFormData);
 
   useEffect(() => {
     if (!productImage) {
@@ -131,29 +139,81 @@ const [formData, setFormData] = useState(buildInitialFormData);
       URL.revokeObjectURL(objectUrl);
     };
   }, [productImage]);
-  useEffect(() => {
-  if (isSaving) return;
 
-  setFormData(buildInitialFormData());
-}, [
-  productId,
-  productName,
-  productSku,
-  ean,
-  productPrice,
-  category,
-  productType,
-  format,
-  color,
-  lineature,
-  bookWidthMm,
-  bookHeightMm,
-  bookSizeNote,
-  imageUrl,
-  active,
-  aliases,
-  isSaving,
-]);
+  useEffect(() => {
+    if (isSaving) return;
+
+    setFormData(buildInitialFormData());
+  }, [
+    productId,
+    productName,
+    productSku,
+    ean,
+    productPrice,
+    category,
+    productType,
+    format,
+    color,
+    lineature,
+    bookWidthMm,
+    bookHeightMm,
+    bookSizeNote,
+    imageUrl,
+    active,
+    aliases,
+    isSaving,
+  ]);
+
+  useEffect(() => {
+    function handleKeywordsRegenerated(event: Event) {
+      const customEvent =
+        event as CustomEvent<ProductKeywordsRegeneratedEventDetail>;
+
+      const detail = customEvent.detail;
+
+      if (!detail || detail.productId !== productId) {
+        return;
+      }
+
+      const nextAliases = Array.isArray(detail.aliases) ? detail.aliases : [];
+
+      if (nextAliases.length === 0) {
+        setFeedback({
+          type: "error",
+          message:
+            detail.message ||
+            "Keywords wurden erzeugt, aber es wurden keine Aliase zurückgegeben.",
+        });
+        return;
+      }
+
+      setFormData((current) => ({
+        ...current,
+        aliases: nextAliases.join("\n"),
+      }));
+
+      setIsOpen(true);
+
+      setFeedback({
+        type: "success",
+        message:
+          detail.message ||
+          `${nextAliases.length} Suchbegriffe wurden in das Alias-Feld übernommen.`,
+      });
+    }
+
+    window.addEventListener(
+      "product-keywords-regenerated",
+      handleKeywordsRegenerated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "product-keywords-regenerated",
+        handleKeywordsRegenerated
+      );
+    };
+  }, [productId]);
 
   function updateField(field: keyof typeof formData, value: string | boolean) {
     setFormData((current) => ({
@@ -288,6 +348,13 @@ const [formData, setFormData] = useState(buildInitialFormData);
         setFormData((current) => ({
           ...current,
           imageUrl: payload.imageUrl,
+        }));
+      }
+
+      if (Array.isArray(payload?.aliases)) {
+        setFormData((current) => ({
+          ...current,
+          aliases: payload.aliases.join("\n"),
         }));
       }
 
@@ -734,12 +801,13 @@ const [formData, setFormData] = useState(buildInitialFormData);
             <textarea
               value={formData.aliases}
               onChange={(event) => updateField("aliases", event.target.value)}
-              rows={4}
+              rows={6}
               className="w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 py-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
             <span className="mt-1 block text-xs font-semibold text-[#52616F]">
               Mehrere Suchbegriffe kannst Du mit Komma, Semikolon oder neuer
-              Zeile trennen.
+              Zeile trennen. Der Button „Keywords erzeugen“ füllt dieses Feld
+              automatisch neu.
             </span>
           </label>
 
