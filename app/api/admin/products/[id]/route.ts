@@ -855,25 +855,27 @@ export async function PATCH(request: NextRequest, context: Params) {
     await replaceProductAliases(supabase, id, automaticAliases);
 
     return jsonResponse({
-      ok: true,
-      message: payload.productImage
-        ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
-        : imageWasChanged
-          ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
-          : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
-      productSku,
-      ean,
-      imageUrl,
-      originalImageUrl,
-      aliasCount: automaticAliases.length,
-      matchKeywordCount: matchKeywords.length,
-      imageOptimization: uploadedImage
-        ? {
-            originalSizeBytes: uploadedImage.originalSizeBytes,
-            optimizedSizeBytes: uploadedImage.optimizedSizeBytes,
-          }
-        : null,
-    });
+  ok: true,
+  message: payload.productImage
+    ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+    : imageWasChanged
+      ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+      : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
+  productSku,
+  ean,
+  imageUrl,
+  originalImageUrl,
+  aliases: automaticAliases,
+  matchKeywords,
+  aliasCount: automaticAliases.length,
+  matchKeywordCount: matchKeywords.length,
+  imageOptimization: uploadedImage
+    ? {
+        originalSizeBytes: uploadedImage.originalSizeBytes,
+        optimizedSizeBytes: uploadedImage.optimizedSizeBytes,
+      }
+    : null,
+});
   } catch (error) {
     console.error("Admin product update error:", error);
 

@@ -344,30 +344,35 @@ export default function AdminEditProductForm({
         return;
       }
 
-      if (payload?.imageUrl) {
-        setFormData((current) => ({
-          ...current,
-          imageUrl: payload.imageUrl,
-        }));
-      }
+      const nextAliases = Array.isArray(payload?.aliases)
+  ? payload.aliases.join("\n")
+  : formData.aliases;
 
-      if (Array.isArray(payload?.aliases)) {
-        setFormData((current) => ({
-          ...current,
-          aliases: payload.aliases.join("\n"),
-        }));
-      }
+setFormData((current) => ({
+  ...current,
+  imageUrl: payload?.imageUrl || current.imageUrl,
+  aliases: nextAliases,
+}));
 
-      setProductImage(null);
-      setPreviewUrl(null);
+setProductImage(null);
+setPreviewUrl(null);
 
-      setFeedback({
-        type: "success",
-        message: payload?.message || "Produkt wurde gespeichert.",
-      });
+setFeedback({
+  type: "success",
+  message:
+    payload?.message ||
+    "Produkt wurde gespeichert. Die Suchbegriffe bleiben im Feld erhalten.",
+});
 
-      setIsSaving(false);
-      router.refresh();
+setIsSaving(false);
+
+/*
+  Wichtig:
+  Kein sofortiger router.refresh() nach dem Speichern.
+  Der Refresh hat das Alias-Feld wieder mit alten/leeren Server-Props überschrieben.
+  Die Produktdaten und Aliase sind serverseitig gespeichert; das offene Formular
+  behält die gespeicherten Suchbegriffe sichtbar im Feld.
+*/
     } catch (error) {
       setFeedback({
         type: "error",
