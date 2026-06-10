@@ -13,6 +13,7 @@ import {
 import AdminQuickProductForm from "@/components/AdminQuickProductForm";
 import AdminEditProductForm from "@/components/AdminEditProductForm";
 import AdminProductPreviewImage from "@/components/AdminProductPreviewImage";
+import AdminDeleteProductButton from "@/components/AdminDeleteProductButton";
 
 export const dynamic = "force-dynamic";
 
@@ -47,30 +48,6 @@ type ProductRow = {
   created_at?: string | null;
   updated_at?: string | null;
 };
-
-type AdminProductsPageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
-
-type ProductFilterStatus =
-  | "all"
-  | "active"
-  | "inactive";
-
-type ProductImageFilter =
-  | "all"
-  | "missing-styled"
-  | "with-styled"
-  | "no-image"
-  | "has-image";
-
-type ProductDataFilter =
-  | "all"
-  | "no-ean"
-  | "no-sku"
-  | "no-price"
-  | "no-category"
-  | "book-measure";
 
 type AliasRow = {
   id?: string;
@@ -199,94 +176,7 @@ function hasStyledProductImage(product: ProductRow) {
   return Boolean(cleanImageUrl(product.image_styled_url));
 }
 
-function normalizeSearchText(value: unknown) {
-  return String(value ?? "")
-    .toLowerCase()
-    .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getSingleSearchParam(
-  params: Record<string, string | string[] | undefined>,
-  key: string,
-) {
-  const value = params[key];
-
-  if (Array.isArray(value)) {
-    return value[0] || "";
-  }
-
-  return value || "";
-}
-
-function isValidFilterValue<T extends string>(
-  value: string,
-  validValues: readonly T[],
-  fallback: T,
-): T {
-  return validValues.includes(value as T) ? (value as T) : fallback;
-}
-
-function getProductSearchText(product: ProductRow, aliasTexts: string[]) {
-  return normalizeSearchText(
-    [
-      getProductName(product),
-      getProductSku(product),
-      product.ean,
-      product.category,
-      product.product_type,
-      product.format,
-      product.color,
-      product.lineature,
-      product.book_width_mm,
-      product.book_height_mm,
-      product.book_size_note,
-      formatMoney(getProductPrice(product)),
-      ...aliasTexts,
-    ].join(" "),
-  );
-}
-
-function getProductImageStatus(product: ProductRow) {
-  const imageCandidates = getProductImageCandidates(product);
-  const hasAnyImage = imageCandidates.length > 0;
-  const hasStyledImage = hasStyledProductImage(product);
-
-  return {
-    hasAnyImage,
-    hasStyledImage,
-    missingStyledImage: hasAnyImage && !hasStyledImage,
-  };
-}
-
-export default async function AdminProductsPage({
-  searchParams,
-}: AdminProductsPageProps) {
-  const resolvedSearchParams = (await searchParams) || {};
-  const searchQuery = getSingleSearchParam(resolvedSearchParams, "q");
-  const selectedCategory = getSingleSearchParam(resolvedSearchParams, "category");
-  const statusFilter = isValidFilterValue<ProductFilterStatus>(
-    getSingleSearchParam(resolvedSearchParams, "status"),
-    ["all", "active", "inactive"] as const,
-    "all",
-  );
-  const imageFilter = isValidFilterValue<ProductImageFilter>(
-    getSingleSearchParam(resolvedSearchParams, "image"),
-    ["all", "missing-styled", "with-styled", "no-image", "has-image"] as const,
-    "all",
-  );
-  const dataFilter = isValidFilterValue<ProductDataFilter>(
-    getSingleSearchParam(resolvedSearchParams, "data"),
-    ["all", "no-ean", "no-sku", "no-price", "no-category", "book-measure"] as const,
-    "all",
-  );
-
+export default async function AdminProductsPage() {
   const supabase = getSupabaseAdmin();
 
   const { data: productsData, error: productsError } = await supabase
@@ -330,103 +220,6 @@ export default async function AdminProductsPage({
     current.push(alias);
     aliasesByProduct.set(alias.product_id, current);
   }
-
-  const normalizedSearchQuery = normalizeSearchText(searchQuery);
-
-  const categoryOptions = Array.from(
-    new Set(
-      products
-        .map((product) => String(product.category || "").trim())
-        .filter(Boolean),
-    ),
-  ).sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
-
-  const totalCount = products.length;
-  const activeCount = products.filter((product) => product.active !== false).length;
-  const inactiveCount = products.filter((product) => product.active === false).length;
-  const withoutStyledImageCount = products.filter((product) => {
-    const imageStatus = getProductImageStatus(product);
-    return imageStatus.missingStyledImage;
-  }).length;
-  const withoutImageCount = products.filter((product) => {
-    const imageStatus = getProductImageStatus(product);
-    return !imageStatus.hasAnyImage;
-  }).length;
-  const withoutEanCount = products.filter((product) => !product.ean).length;
-  const withoutSkuCount = products.filter((product) => !getProductSku(product)).length;
-
-  const filteredProducts = products.filter((product) => {
-    const aliasTexts = (aliasesByProduct.get(product.id) || [])
-      .map((alias) => getAliasText(alias))
-      .filter(Boolean);
-
-    if (normalizedSearchQuery) {
-      const productSearchText = getProductSearchText(product, aliasTexts);
-
-      if (!productSearchText.includes(normalizedSearchQuery)) {
-        return false;
-      }
-    }
-
-    if (selectedCategory && String(product.category || "") !== selectedCategory) {
-      return false;
-    }
-
-    if (statusFilter === "active" && product.active === false) {
-      return false;
-    }
-
-    if (statusFilter === "inactive" && product.active !== false) {
-      return false;
-    }
-
-    const imageStatus = getProductImageStatus(product);
-
-    if (imageFilter === "missing-styled" && !imageStatus.missingStyledImage) {
-      return false;
-    }
-
-    if (imageFilter === "with-styled" && !imageStatus.hasStyledImage) {
-      return false;
-    }
-
-    if (imageFilter === "no-image" && imageStatus.hasAnyImage) {
-      return false;
-    }
-
-    if (imageFilter === "has-image" && !imageStatus.hasAnyImage) {
-      return false;
-    }
-
-    if (dataFilter === "no-ean" && product.ean) {
-      return false;
-    }
-
-    if (dataFilter === "no-sku" && getProductSku(product)) {
-      return false;
-    }
-
-    if (dataFilter === "no-price" && getProductPrice(product) > 0) {
-      return false;
-    }
-
-    if (dataFilter === "no-category" && product.category) {
-      return false;
-    }
-
-    if (dataFilter === "book-measure" && !getBookMeasureLabel(product)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  const hasActiveFilters =
-    Boolean(searchQuery) ||
-    Boolean(selectedCategory) ||
-    statusFilter !== "all" ||
-    imageFilter !== "all" ||
-    dataFilter !== "all";
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
@@ -488,26 +281,11 @@ export default async function AdminProductsPage({
                 Produktbestand
               </p>
               <p className="mt-2 text-3xl font-black text-[#102A43]">
-                {totalCount}
+                {products.length}
               </p>
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
                 geladene Produkte
               </p>
-
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-black">
-                <div className="rounded-2xl bg-white px-3 py-2 text-[#2F7D50]">
-                  Aktiv: {activeCount}
-                </div>
-                <div className="rounded-2xl bg-white px-3 py-2 text-[#B5282D]">
-                  Inaktiv: {inactiveCount}
-                </div>
-                <div className="rounded-2xl bg-white px-3 py-2 text-[#A75B28]">
-                  Ohne KI: {withoutStyledImageCount}
-                </div>
-                <div className="rounded-2xl bg-white px-3 py-2 text-[#A75B28]">
-                  Ohne Bild: {withoutImageCount}
-                </div>
-              </div>
 
               <Link
                 href="/admin/produkte/mobile"
@@ -553,151 +331,15 @@ export default async function AdminProductsPage({
               <div className="rounded-2xl bg-[#FBF7F0] px-4 py-3">
                 <div className="flex items-center gap-2 text-sm font-black text-[#12395F]">
                   <Search className="h-4 w-4" />
-                  {filteredProducts.length} von {totalCount} Produkten sichtbar
+                  Suche folgt im nächsten Feinschliff
                 </div>
               </div>
             </div>
           </div>
 
-          <form
-            method="GET"
-            className="mb-6 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
-          >
-            <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_auto]">
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                  Suche
-                </span>
-                <input
-                  name="q"
-                  defaultValue={searchQuery}
-                  placeholder="Name, Art.-Nr., EAN, Farbe, Maß, Alias..."
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                  Kategorie
-                </span>
-                <select
-                  name="category"
-                  defaultValue={selectedCategory}
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-                >
-                  <option value="">Alle Kategorien</option>
-                  {categoryOptions.map((categoryOption) => (
-                    <option key={categoryOption} value={categoryOption}>
-                      {categoryOption}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                  Status
-                </span>
-                <select
-                  name="status"
-                  defaultValue={statusFilter}
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-                >
-                  <option value="all">Alle</option>
-                  <option value="active">Nur aktive</option>
-                  <option value="inactive">Nur inaktive</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                  Bildstatus
-                </span>
-                <select
-                  name="image"
-                  defaultValue={imageFilter}
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-                >
-                  <option value="all">Alle Bilder</option>
-                  <option value="missing-styled">Ohne KI-Hintergrund</option>
-                  <option value="with-styled">Mit KI-Hintergrund</option>
-                  <option value="no-image">Ohne Bild</option>
-                  <option value="has-image">Mit Bild</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                  Datenprüfung
-                </span>
-                <select
-                  name="data"
-                  defaultValue={dataFilter}
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-                >
-                  <option value="all">Alle Daten</option>
-                  <option value="no-ean">Ohne EAN</option>
-                  <option value="no-sku">Ohne Art.-Nr.</option>
-                  <option value="no-price">Ohne Preis / 0 €</option>
-                  <option value="no-category">Ohne Kategorie</option>
-                  <option value="book-measure">Mit Buchmaß</option>
-                </select>
-              </label>
-
-              <div className="flex flex-col justify-end gap-2">
-                <button
-                  type="submit"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                >
-                  <Search className="h-4 w-4" />
-                  Filtern
-                </button>
-
-                {hasActiveFilters ? (
-                  <Link
-                    href="/admin/produkte"
-                    className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
-                  >
-                    Zurücksetzen
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Link
-                href="/admin/produkte?image=missing-styled"
-                className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#A75B28] ring-1 ring-[#F1D1A8] transition hover:bg-[#FFF8EE]"
-              >
-                Ohne KI-Hintergrund: {withoutStyledImageCount}
-              </Link>
-
-              <Link
-                href="/admin/produkte?image=no-image"
-                className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#A75B28] ring-1 ring-[#F1D1A8] transition hover:bg-[#FFF8EE]"
-              >
-                Ohne Bild: {withoutImageCount}
-              </Link>
-
-              <Link
-                href="/admin/produkte?data=no-ean"
-                className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] ring-1 ring-[#D6E7EF] transition hover:bg-[#F5FAFD]"
-              >
-                Ohne EAN: {withoutEanCount}
-              </Link>
-
-              <Link
-                href="/admin/produkte?data=no-sku"
-                className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] ring-1 ring-[#D6E7EF] transition hover:bg-[#F5FAFD]"
-              >
-                Ohne Art.-Nr.: {withoutSkuCount}
-              </Link>
-            </div>
-          </form>
-
-          {filteredProducts.length > 0 ? (
+          {products.length > 0 ? (
             <div className="grid gap-3">
-              {filteredProducts.map((product) => {
+              {products.map((product) => {
                 const productAliases = aliasesByProduct.get(product.id) || [];
                 const aliasTexts = productAliases
                   .map((alias) => getAliasText(alias))
@@ -889,6 +531,11 @@ export default async function AdminProductsPage({
                             Aktiv
                           </p>
                         )}
+
+                        <AdminDeleteProductButton
+                          productId={product.id}
+                          productName={getProductName(product)}
+                        />
                       </div>
                     </div>
                   </article>
@@ -902,33 +549,22 @@ export default async function AdminProductsPage({
               </div>
 
               <h3 className="text-xl font-black text-[#102A43]">
-                {totalCount > 0
-                  ? "Keine Produkte für diese Filter gefunden."
-                  : "Noch keine Produkte vorhanden."}
+                Noch keine Produkte vorhanden.
               </h3>
 
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                {totalCount > 0
-                  ? "Passe die Suche oder Filter an, um wieder Produkte anzuzeigen."
-                  : "Lege oben Dein erstes Produkt an oder nutze die mobile Produkterfassung mit Kamera. Danach kann es in Kundenlisten gefunden und manuell übernommen werden."}
+                Lege oben Dein erstes Produkt an oder nutze die mobile
+                Produkterfassung mit Kamera. Danach kann es in Kundenlisten
+                gefunden und manuell übernommen werden.
               </p>
 
-              {totalCount > 0 ? (
-                <Link
-                  href="/admin/produkte"
-                  className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                >
-                  Filter zurücksetzen
-                </Link>
-              ) : (
-                <Link
-                  href="/admin/produkte/mobile"
-                  className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                >
-                  <Camera className="h-4 w-4" />
-                  Erstes Produkt per Kamera erfassen
-                </Link>
-              )}
+              <Link
+                href="/admin/produkte/mobile"
+                className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <Camera className="h-4 w-4" />
+                Erstes Produkt per Kamera erfassen
+              </Link>
             </div>
           )}
         </section>
