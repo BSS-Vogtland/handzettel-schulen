@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -22,8 +21,6 @@ export default function AdminRegenerateProductKeywordsButton({
   productId,
   productName,
 }: AdminRegenerateProductKeywordsButtonProps) {
-  const router = useRouter();
-
   const [isRunning, setIsRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -46,6 +43,7 @@ export default function AdminRegenerateProductKeywordsButton({
         )}/regenerate-keywords`,
         {
           method: "POST",
+          cache: "no-store",
         }
       );
 
@@ -89,7 +87,14 @@ export default function AdminRegenerateProductKeywordsButton({
 
       setMessage(successMessage);
       window.alert(successMessage);
-      router.refresh();
+
+      /*
+        Wichtig:
+        Kein router.refresh() hier.
+        Der Refresh hat das gerade gefüllte Alias-Feld wieder mit den alten/leeren
+        Server-Props überschrieben. Die API speichert die Aliase bereits in der DB,
+        das offene Formular bekommt sie direkt per Browser-Event.
+      */
     } catch (error) {
       const errorText =
         error instanceof Error
