@@ -15,6 +15,7 @@ import AdminQuickProductForm from "@/components/AdminQuickProductForm";
 import AdminEditProductForm from "@/components/AdminEditProductForm";
 import AdminProductPreviewImage from "@/components/AdminProductPreviewImage";
 import AdminDeleteProductButton from "@/components/AdminDeleteProductButton";
+import AdminRegenerateProductKeywordsButton from "@/components/AdminRegenerateProductKeywordsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -849,7 +850,10 @@ export default async function AdminProductsPage({
                             Aktiv
                           </p>
                         )}
-
+<AdminRegenerateProductKeywordsButton
+  productId={product.id}
+  productName={getProductName(product)}
+/>
                         <AdminDeleteProductButton
                           productId={product.id}
                           productName={getProductName(product)}
