@@ -88,6 +88,26 @@ function toOptionalInteger(value: unknown): number | null {
   return Math.max(0, Math.floor(parsed));
 }
 
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanAliasValue(value: unknown) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function splitAliases(value: unknown) {
   const text = String(value ?? "");
 
@@ -95,10 +115,140 @@ function splitAliases(value: unknown) {
     new Set(
       text
         .split(/[\n;,]+/g)
-        .map((entry) => entry.trim())
+        .map((entry) => cleanAliasValue(entry))
         .filter((entry) => entry.length > 0)
     )
   );
+}
+
+function splitKeywords(value: unknown) {
+  return normalizeText(value)
+    .split(" ")
+    .filter((word) => word.length >= 2)
+    .slice(0, 20);
+}
+
+function getBookSizeAliases(input: {
+  productName: string;
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  const aliases: string[] = [];
+
+  if (!input.bookWidthMm || !input.bookHeightMm) {
+    return aliases;
+  }
+
+  const width = String(input.bookWidthMm);
+  const height = String(input.bookHeightMm);
+  const sizeLabel = `${width} x ${height} mm`;
+
+  aliases.push(
+    sizeLabel,
+    `${width} x ${height}`,
+    `${width} ${height}`,
+    `${width}x${height}`,
+    `Buchmaß ${sizeLabel}`,
+    `Buchmass ${sizeLabel}`,
+    `Buchumschlag ${sizeLabel}`,
+    `Buchhülle ${sizeLabel}`,
+    `Buchhuelle ${sizeLabel}`,
+    `Umschlag ${sizeLabel}`,
+    `${input.productName} ${sizeLabel}`,
+    `${input.productName} ${width} x ${height}`,
+    `${input.productName} ${width}x${height}`
+  );
+
+  if (input.bookSizeNote) {
+    aliases.push(
+      `${input.productName} ${input.bookSizeNote}`,
+      `${sizeLabel} ${input.bookSizeNote}`
+    );
+  }
+
+  return aliases;
+}
+
+function buildAutomaticAliasList(input: {
+  productName: string;
+  productSku: string | null;
+  category: string | null;
+  productType: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  aliases: string[];
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  const generatedAliases = [
+    input.productName,
+    input.productSku,
+    `${input.productName} ${input.productSku || ""}`,
+    `${input.productName} ${input.category || ""}`,
+    `${input.productName} ${input.productType || ""}`,
+    `${input.productName} ${input.format || ""}`,
+    `${input.productName} ${input.color || ""}`,
+    `${input.productName} ${input.lineature || ""}`,
+    `${input.productName} ${input.format || ""} ${input.color || ""}`,
+    `${input.productName} ${input.format || ""} ${input.lineature || ""}`,
+    `${input.productName} ${input.color || ""} ${input.lineature || ""}`,
+    `${input.productType || ""} ${input.format || ""} ${input.color || ""} ${
+      input.lineature || ""
+    }`,
+    `${input.category || ""} ${input.format || ""} ${input.color || ""} ${
+      input.lineature || ""
+    }`,
+    ...getBookSizeAliases({
+      productName: input.productName,
+      bookWidthMm: input.bookWidthMm,
+      bookHeightMm: input.bookHeightMm,
+      bookSizeNote: input.bookSizeNote,
+    }),
+  ]
+    .map((alias) => cleanAliasValue(alias))
+    .filter((alias) => alias.length >= 2);
+
+  const manualAliases = input.aliases
+    .map((alias) => cleanAliasValue(alias))
+    .filter((alias) => alias.length >= 2);
+
+  return Array.from(new Set([...manualAliases, ...generatedAliases]));
+}
+
+function buildMatchKeywords(input: {
+  productName: string;
+  productSku: string | null;
+  category: string | null;
+  productType: string | null;
+  format: string | null;
+  color: string | null;
+  lineature: string | null;
+  aliases: string[];
+  bookWidthMm: number | null;
+  bookHeightMm: number | null;
+  bookSizeNote: string | null;
+}) {
+  return Array.from(
+    new Set([
+      ...splitKeywords(input.productName),
+      ...splitKeywords(input.productSku),
+      ...splitKeywords(input.category),
+      ...splitKeywords(input.productType),
+      ...splitKeywords(input.format),
+      ...splitKeywords(input.color),
+      ...splitKeywords(input.lineature),
+      ...splitKeywords(input.bookWidthMm),
+      ...splitKeywords(input.bookHeightMm),
+      ...splitKeywords(input.bookSizeNote),
+      ...input.aliases.flatMap((alias) => splitKeywords(alias)),
+      input.bookWidthMm && input.bookHeightMm
+        ? `${input.bookWidthMm}x${input.bookHeightMm}`
+        : "",
+    ])
+  ).filter(Boolean);
 }
 
 function hasColumn(product: ProductRow, columnName: string) {
@@ -489,7 +639,7 @@ export async function PATCH(request: NextRequest, context: Params) {
     let originalImageUrl: string | null = null;
     const price = toNumber(payload.productPrice, 0);
     const active = parseActive(payload.active);
-    const aliases = splitAliases(payload.aliases);
+    const manualAliases = splitAliases(payload.aliases);
 
     if (!productName) {
       return jsonResponse(
@@ -559,6 +709,34 @@ export async function PATCH(request: NextRequest, context: Params) {
         excludeProductId: id,
       }));
 
+    const automaticAliases = buildAutomaticAliasList({
+      productName,
+      productSku,
+      category,
+      productType,
+      format,
+      color,
+      lineature,
+      aliases: manualAliases,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
+    });
+
+    const matchKeywords = buildMatchKeywords({
+      productName,
+      productSku,
+      category,
+      productType,
+      format,
+      color,
+      lineature,
+      aliases: automaticAliases,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
+    });
+
     const previousImageUrl = cleanString(product.image_url);
 
     let uploadedImage: UploadedProductImage | null = null;
@@ -620,6 +798,8 @@ export async function PATCH(request: NextRequest, context: Params) {
       setIfColumnExists(updatePayload, product, "image_styled_at", null);
     }
 
+    setIfColumnExists(updatePayload, product, "match_keywords", matchKeywords);
+
     const seoPayload = await buildSeoPayload({
       supabase,
       productId: id,
@@ -672,19 +852,21 @@ export async function PATCH(request: NextRequest, context: Params) {
       );
     }
 
-    await replaceProductAliases(supabase, id, aliases);
+    await replaceProductAliases(supabase, id, automaticAliases);
 
     return jsonResponse({
       ok: true,
       message: payload.productImage
-        ? "Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert und die SEO-Daten wurden aktualisiert."
+        ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
         : imageWasChanged
-          ? "Produkt wurde aktualisiert. Bildverknüpfung und SEO-Daten wurden aktualisiert."
-          : "Produkt wurde aktualisiert. Die SEO-Daten wurden aktualisiert.",
+          ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+          : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
       productSku,
       ean,
       imageUrl,
       originalImageUrl,
+      aliasCount: automaticAliases.length,
+      matchKeywordCount: matchKeywords.length,
       imageOptimization: uploadedImage
         ? {
             originalSizeBytes: uploadedImage.originalSizeBytes,
