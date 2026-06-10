@@ -127,6 +127,47 @@ function splitKeywords(value: unknown) {
     .slice(0, 12);
 }
 
+function cleanAliasValue(value: unknown) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function buildAutomaticAliasList(input: {
+  productName: string;
+  productSku: string;
+  category: string;
+  productType: string;
+  format: string;
+  color: string;
+  lineature: string;
+  aliasText: string;
+}) {
+  const manualAliases = input.aliasText
+    .split(/[\n,;]+/)
+    .map((alias) => cleanAliasValue(alias))
+    .filter((alias) => alias.length >= 2);
+
+  const generatedAliases = [
+    input.productName,
+    input.productSku,
+    `${input.productName} ${input.productSku}`,
+    `${input.productName} ${input.category}`,
+    `${input.productName} ${input.productType}`,
+    `${input.productName} ${input.format}`,
+    `${input.productName} ${input.color}`,
+    `${input.productName} ${input.lineature}`,
+    `${input.productName} ${input.format} ${input.color}`,
+    `${input.productName} ${input.format} ${input.lineature}`,
+    `${input.productType} ${input.format} ${input.color} ${input.lineature}`,
+    `${input.category} ${input.format} ${input.color} ${input.lineature}`,
+  ]
+    .map((alias) => cleanAliasValue(alias))
+    .filter((alias) => alias.length >= 2);
+
+  return Array.from(new Set([...manualAliases, ...generatedAliases]));
+}
+
 function getMissingNewProductFields(input: {
   productName: string;
   productPrice: number;
@@ -323,7 +364,7 @@ async function createAliasFlexible(
 ) {
   const cleanedAlias = String(aliasText || "").trim();
 
-  if (!productId || !cleanedAlias) return;
+  if (!productId || !cleanedAlias) return false;
 
   const aliasVariants = [
     {
@@ -349,8 +390,10 @@ async function createAliasFlexible(
       .from("school_product_aliases")
       .insert(payload);
 
-    if (!error) return;
+    if (!error) return true;
   }
+
+  return false;
 }
 
 export async function POST(request: NextRequest, context: Params) {
@@ -517,6 +560,15 @@ export async function POST(request: NextRequest, context: Params) {
     let productId: string | null = null;
     let productWasCreated = false;
     let productWasExisting = false;
+    let productAliasList: string[] = [];
+
+    const requestItemAliasText = await getRequestItemText(
+      supabase,
+      requestItemId
+    );
+
+    const preferredAliasText =
+      String(body.aliasText || "").trim() || requestItemAliasText || productName;
 
     if (existingProductId) {
       const { data: existingProduct, error: existingProductError } =
@@ -564,6 +616,17 @@ export async function POST(request: NextRequest, context: Params) {
         );
       }
 
+      productAliasList = buildAutomaticAliasList({
+        productName,
+        productSku,
+        category: String(product.category || productCategory || "").trim(),
+        productType: String(product.product_type || productType || "").trim(),
+        format: String(product.format || productFormat || "").trim(),
+        color: String(product.color || productColor || "").trim(),
+        lineature: String(product.lineature || productLineature || "").trim(),
+        aliasText: preferredAliasText,
+      });
+
       productWasExisting = true;
     } else if (saveAsProduct) {
       if (!productSku) {
@@ -579,6 +642,17 @@ export async function POST(request: NextRequest, context: Params) {
           },
         });
       }
+
+      productAliasList = buildAutomaticAliasList({
+        productName,
+        productSku,
+        category: productCategory,
+        productType,
+        format: productFormat,
+        color: productColor,
+        lineature: productLineature,
+        aliasText: preferredAliasText,
+      });
 
       const alreadyExisting = await findExistingProductBySkuOrName(
         supabase,
@@ -603,13 +677,23 @@ export async function POST(request: NextRequest, context: Params) {
           );
         }
 
+        productAliasList = buildAutomaticAliasList({
+          productName,
+          productSku,
+          category: String(alreadyExisting.category || productCategory || "").trim(),
+          productType: String(
+            alreadyExisting.product_type || productType || ""
+          ).trim(),
+          format: String(alreadyExisting.format || productFormat || "").trim(),
+          color: String(alreadyExisting.color || productColor || "").trim(),
+          lineature: String(
+            alreadyExisting.lineature || productLineature || ""
+          ).trim(),
+          aliasText: preferredAliasText,
+        });
+
         productWasExisting = true;
       } else {
-        const aliasText =
-          String(body.aliasText || "").trim() ||
-          (await getRequestItemText(supabase, requestItemId)) ||
-          productName;
-
         const createdProduct = await createProductFlexible(supabase, {
           productName,
           productSku,
@@ -619,7 +703,7 @@ export async function POST(request: NextRequest, context: Params) {
           format: productFormat,
           color: productColor,
           lineature: productLineature,
-          aliasText,
+          aliasText: productAliasList.join("\n"),
         });
 
         productId = createdProduct.id;
@@ -630,45 +714,46 @@ export async function POST(request: NextRequest, context: Params) {
       }
     }
 
-    const aliasText =
-      String(body.aliasText || "").trim() ||
-      (await getRequestItemText(supabase, requestItemId)) ||
-      productName;
+    let aliasCount = 0;
 
     if ((rememberForFuture || saveAsProduct || productWasExisting) && productId) {
-      await createAliasFlexible(supabase, productId, aliasText);
+      for (const alias of productAliasList) {
+        const created = await createAliasFlexible(supabase, productId, alias);
+        if (created) aliasCount += 1;
+      }
     }
 
     if (productId && requestItemId) {
-  const { data: duplicateItem, error: duplicateError } = await supabase
-    .from("school_offer_items")
-    .select("id, product_name")
-    .eq("request_id", id)
-    .eq("request_item_id", requestItemId)
-    .eq("product_id", productId)
-    .maybeSingle();
+      const { data: duplicateItem, error: duplicateError } = await supabase
+        .from("school_offer_items")
+        .select("id, product_name")
+        .eq("request_id", id)
+        .eq("request_item_id", requestItemId)
+        .eq("product_id", productId)
+        .maybeSingle();
 
-  if (duplicateError) {
-    return jsonResponse(
-      {
-        ok: false,
-        message: `Bestehende Paketposition konnte nicht geprüft werden: ${duplicateError.message}`,
-      },
-      500
-    );
-  }
+      if (duplicateError) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: `Bestehende Paketposition konnte nicht geprüft werden: ${duplicateError.message}`,
+          },
+          500
+        );
+      }
 
-  if (duplicateItem) {
-    return jsonResponse(
-      {
-        ok: false,
-        message:
-          "Dieses Produkt wurde für diese Listenposition bereits in den Paketwunsch übernommen.",
-      },
-      409
-    );
-  }
-}
+      if (duplicateItem) {
+        return jsonResponse(
+          {
+            ok: false,
+            message:
+              "Dieses Produkt wurde für diese Listenposition bereits in den Paketwunsch übernommen.",
+          },
+          409
+        );
+      }
+    }
+
     const { data: insertedItem, error: insertError } = await supabase
       .from("school_offer_items")
       .insert({
@@ -726,7 +811,9 @@ export async function POST(request: NextRequest, context: Params) {
         productWasCreated,
         productWasExisting,
         rememberForFuture,
-        aliasText,
+        aliasText: preferredAliasText,
+        aliasCount,
+        aliases: productAliasList,
         requestWasConfirmed:
           schoolRequest.status === "confirmed" ||
           schoolRequest.offer_status === "confirmed",
@@ -739,10 +826,11 @@ export async function POST(request: NextRequest, context: Params) {
       productId,
       productWasCreated,
       productWasExisting,
+      aliasCount,
       message: productWasCreated
-        ? "Position wurde hinzugefügt und als neues Produkt gespeichert."
+        ? `Position wurde hinzugefügt und als neues Produkt gespeichert. ${aliasCount} Suchbegriffe wurden erzeugt.`
         : productWasExisting
-          ? "Bestandsprodukt wurde übernommen und für zukünftige Anfragen gemerkt."
+          ? `Bestandsprodukt wurde übernommen und für zukünftige Anfragen gemerkt. ${aliasCount} Suchbegriffe wurden erzeugt.`
           : "Manuelle Position wurde dem Paketwunsch hinzugefügt.",
     });
   } catch (error) {
