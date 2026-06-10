@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Camera,
+  Filter,
   ImageIcon,
   PackagePlus,
   Search,
@@ -58,6 +59,22 @@ type AliasRow = {
   name?: string | null;
 };
 
+type AdminProductsPageProps = {
+  searchParams?: Promise<{
+    q?: string | string[];
+    filter?: string | string[];
+  }>;
+};
+
+type ProductFilter =
+  | "all"
+  | "active"
+  | "inactive"
+  | "missing-price"
+  | "missing-image"
+  | "missing-styled"
+  | "with-styled";
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -102,6 +119,47 @@ function formatDate(value: string | null | undefined) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function cleanString(value: unknown) {
+  const cleaned = String(value || "").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getSearchParam(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return String(raw || "").trim();
+}
+
+function getFilterParam(value: string | string[] | undefined): ProductFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+
+  if (
+    raw === "active" ||
+    raw === "inactive" ||
+    raw === "missing-price" ||
+    raw === "missing-image" ||
+    raw === "missing-styled" ||
+    raw === "with-styled"
+  ) {
+    return raw;
+  }
+
+  return "all";
 }
 
 function getProductName(product: ProductRow) {
@@ -176,7 +234,134 @@ function hasStyledProductImage(product: ProductRow) {
   return Boolean(cleanImageUrl(product.image_styled_url));
 }
 
-export default async function AdminProductsPage() {
+function hasAnyProductImage(product: ProductRow) {
+  return getProductImageCandidates(product).length > 0;
+}
+
+function productMatchesFilter(product: ProductRow, filter: ProductFilter) {
+  switch (filter) {
+    case "active":
+      return product.active !== false;
+    case "inactive":
+      return product.active === false;
+    case "missing-price":
+      return getProductPrice(product) <= 0;
+    case "missing-image":
+      return !hasAnyProductImage(product);
+    case "missing-styled":
+      return !hasStyledProductImage(product);
+    case "with-styled":
+      return hasStyledProductImage(product);
+    default:
+      return true;
+  }
+}
+
+function productMatchesSearch(
+  product: ProductRow,
+  aliasTexts: string[],
+  query: string
+) {
+  const normalizedQuery = normalizeText(query);
+
+  if (!normalizedQuery) return true;
+
+  const bookMeasureLabel = getBookMeasureLabel(product);
+
+  const searchableText = normalizeText(
+    [
+      getProductName(product),
+      getProductSku(product),
+      product.ean,
+      product.category,
+      product.product_type,
+      product.format,
+      product.color,
+      product.lineature,
+      bookMeasureLabel,
+      product.book_size_note,
+      ...aliasTexts,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  if (searchableText.includes(normalizedQuery)) return true;
+
+  const queryWords = normalizedQuery
+    .split(" ")
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 2);
+
+  if (queryWords.length === 0) return true;
+
+  return queryWords.every((word) => searchableText.includes(word));
+}
+
+function buildProductFilterHref(filter: ProductFilter, query: string) {
+  const params = new URLSearchParams();
+
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+
+  if (filter !== "all") {
+    params.set("filter", filter);
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `/admin/produkte?${queryString}` : "/admin/produkte";
+}
+
+function ProductFilterPill({
+  href,
+  label,
+  count,
+  active,
+  tone = "neutral",
+}: {
+  href: string;
+  label: string;
+  count: number;
+  active: boolean;
+  tone?: "neutral" | "green" | "amber" | "blue" | "red";
+}) {
+  const activeClass =
+    tone === "green"
+      ? "border-[#2F7D50] bg-[#F0FFF6] text-[#1F5D3A]"
+      : tone === "amber"
+      ? "border-[#A75B28] bg-[#FFF8EE] text-[#8A4A1F]"
+      : tone === "blue"
+      ? "border-[#12395F] bg-[#EEF4FA] text-[#12395F]"
+      : tone === "red"
+      ? "border-[#B5282D] bg-[#FFF1F1] text-[#B5282D]"
+      : "border-[#102A43] bg-white text-[#102A43]";
+
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-black transition hover:brightness-105 ${
+        active
+          ? activeClass
+          : "border-[#E8DED2] bg-white text-[#52616F] hover:border-[#D8C8B8]"
+      }`}
+    >
+      {label}
+      <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white/80" : "bg-[#FBF7F0]"}`}>
+        {count}
+      </span>
+    </Link>
+  );
+}
+
+export default async function AdminProductsPage({
+  searchParams,
+}: AdminProductsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const searchQuery = getSearchParam(resolvedSearchParams.q);
+  const activeFilter = getFilterParam(resolvedSearchParams.filter);
+
   const supabase = getSupabaseAdmin();
 
   const { data: productsData, error: productsError } = await supabase
@@ -220,6 +405,42 @@ export default async function AdminProductsPage() {
     current.push(alias);
     aliasesByProduct.set(alias.product_id, current);
   }
+
+  function getAliasTextsForProduct(productId: string) {
+    return (aliasesByProduct.get(productId) || [])
+      .map((alias) => getAliasText(alias))
+      .filter(Boolean);
+  }
+
+  const filteredProducts = products.filter((product) => {
+    const aliasTexts = getAliasTextsForProduct(product.id);
+
+    return (
+      productMatchesFilter(product, activeFilter) &&
+      productMatchesSearch(product, aliasTexts, searchQuery)
+    );
+  });
+
+  const countByFilter = {
+    all: products.length,
+    active: products.filter((product) => productMatchesFilter(product, "active"))
+      .length,
+    inactive: products.filter((product) =>
+      productMatchesFilter(product, "inactive")
+    ).length,
+    missingPrice: products.filter((product) =>
+      productMatchesFilter(product, "missing-price")
+    ).length,
+    missingImage: products.filter((product) =>
+      productMatchesFilter(product, "missing-image")
+    ).length,
+    missingStyled: products.filter((product) =>
+      productMatchesFilter(product, "missing-styled")
+    ).length,
+    withStyled: products.filter((product) =>
+      productMatchesFilter(product, "with-styled")
+    ).length,
+  };
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
@@ -287,6 +508,10 @@ export default async function AdminProductsPage() {
                 geladene Produkte
               </p>
 
+              <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F]">
+                Aktuell sichtbar: {filteredProducts.length}
+              </p>
+
               <Link
                 href="/admin/produkte/mobile"
                 className="mt-4 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
@@ -313,33 +538,126 @@ export default async function AdminProductsPage() {
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
-                Öffne bei einem Produkt den Bearbeiten-Bereich, um Stammdaten,
-                Preis, Aliase, Produktbild, Buchmaße oder den Aktivstatus zu
-                ändern.
+                Suche nach Produktname, Art.-Nr., EAN, Kategorie, Farbe,
+                Format, Lineatur, Buchmaß oder Alias. Nutze die Filter, um
+                gezielt unfertige Produkte oder Produkte ohne KI-Hintergrund zu
+                finden.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:items-end">
-              <Link
-                href="/admin/produkte/mobile"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-              >
-                <Camera className="h-4 w-4" />
-                Neues Produkt per Kamera
-              </Link>
-
-              <div className="rounded-2xl bg-[#FBF7F0] px-4 py-3">
-                <div className="flex items-center gap-2 text-sm font-black text-[#12395F]">
-                  <Search className="h-4 w-4" />
-                  Suche folgt im nächsten Feinschliff
-                </div>
-              </div>
-            </div>
+            <Link
+              href="/admin/produkte/mobile"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+            >
+              <Camera className="h-4 w-4" />
+              Neues Produkt per Kamera
+            </Link>
           </div>
 
-          {products.length > 0 ? (
+          <div className="mb-5 rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+            <form action="/admin/produkte" className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+              <div>
+                <label
+                  htmlFor="product-search"
+                  className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]"
+                >
+                  Produktsuche
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#52616F]" />
+                  <input
+                    id="product-search"
+                    name="q"
+                    type="search"
+                    defaultValue={searchQuery}
+                    placeholder="Produkt, Art.-Nr., EAN, Alias, Farbe, Format ..."
+                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white pl-12 pr-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+                  />
+                </div>
+              </div>
+
+              {activeFilter !== "all" ? (
+                <input type="hidden" name="filter" value={activeFilter} />
+              ) : null}
+
+              <button
+                type="submit"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <Search className="h-4 w-4" />
+                Suchen
+              </button>
+
+              <Link
+                href="/admin/produkte"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
+              >
+                Zurücksetzen
+              </Link>
+            </form>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ProductFilterPill
+                href={buildProductFilterHref("all", searchQuery)}
+                label="Alle"
+                count={countByFilter.all}
+                active={activeFilter === "all"}
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("active", searchQuery)}
+                label="Aktiv"
+                count={countByFilter.active}
+                active={activeFilter === "active"}
+                tone="green"
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("inactive", searchQuery)}
+                label="Inaktiv"
+                count={countByFilter.inactive}
+                active={activeFilter === "inactive"}
+                tone="red"
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("missing-price", searchQuery)}
+                label="Ohne Preis"
+                count={countByFilter.missingPrice}
+                active={activeFilter === "missing-price"}
+                tone="red"
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("missing-image", searchQuery)}
+                label="Ohne Bild"
+                count={countByFilter.missingImage}
+                active={activeFilter === "missing-image"}
+                tone="amber"
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("missing-styled", searchQuery)}
+                label="Ohne KI-Hintergrund"
+                count={countByFilter.missingStyled}
+                active={activeFilter === "missing-styled"}
+                tone="amber"
+              />
+              <ProductFilterPill
+                href={buildProductFilterHref("with-styled", searchQuery)}
+                label="Mit KI-Hintergrund"
+                count={countByFilter.withStyled}
+                active={activeFilter === "with-styled"}
+                tone="blue"
+              />
+            </div>
+
+            {(searchQuery || activeFilter !== "all") ? (
+              <p className="mt-4 text-sm font-bold text-[#52616F]">
+                Ergebnis: {filteredProducts.length} von {products.length} Produkten
+                {searchQuery ? ` · Suche: „${searchQuery}“` : ""}
+              </p>
+            ) : null}
+          </div>
+
+          {filteredProducts.length > 0 ? (
             <div className="grid gap-3">
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const productAliases = aliasesByProduct.get(product.id) || [];
                 const aliasTexts = productAliases
                   .map((alias) => getAliasText(alias))
@@ -545,6 +863,31 @@ export default async function AdminProductsPage() {
           ) : (
             <div className="rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-8 text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#A75B28]">
+                <Filter className="h-6 w-6" />
+              </div>
+
+              <h3 className="text-xl font-black text-[#102A43]">
+                Keine passenden Produkte gefunden.
+              </h3>
+
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
+                Ändere die Suche oder setze den Filter zurück. Wenn das Produkt
+                wirklich fehlt, kannst Du es über die Produkterfassung neu
+                anlegen.
+              </p>
+
+              <Link
+                href="/admin/produkte"
+                className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                Filter zurücksetzen
+              </Link>
+            </div>
+          )}
+
+          {products.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-8 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#A75B28]">
                 <Sparkles className="h-6 w-6" />
               </div>
 
@@ -566,7 +909,7 @@ export default async function AdminProductsPage() {
                 Erstes Produkt per Kamera erfassen
               </Link>
             </div>
-          )}
+          ) : null}
         </section>
       </section>
     </main>
