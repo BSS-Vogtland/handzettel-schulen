@@ -96,7 +96,8 @@ export default function AdminEditProductForm({
   const [productImage, setProductImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  function buildInitialFormData() {
+  return {
     productName,
     productSku: productSku || "",
     ean: ean || "",
@@ -111,8 +112,11 @@ export default function AdminEditProductForm({
     bookSizeNote: bookSizeNote || "",
     imageUrl: imageUrl || "",
     active,
-    aliases: aliases.join(", "),
-  });
+    aliases: aliases.join("\n"),
+  };
+}
+
+const [formData, setFormData] = useState(buildInitialFormData);
 
   useEffect(() => {
     if (!productImage) {
@@ -127,6 +131,29 @@ export default function AdminEditProductForm({
       URL.revokeObjectURL(objectUrl);
     };
   }, [productImage]);
+  useEffect(() => {
+  if (isSaving) return;
+
+  setFormData(buildInitialFormData());
+}, [
+  productId,
+  productName,
+  productSku,
+  ean,
+  productPrice,
+  category,
+  productType,
+  format,
+  color,
+  lineature,
+  bookWidthMm,
+  bookHeightMm,
+  bookSizeNote,
+  imageUrl,
+  active,
+  aliases,
+  isSaving,
+]);
 
   function updateField(field: keyof typeof formData, value: string | boolean) {
     setFormData((current) => ({
