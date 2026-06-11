@@ -21,6 +21,7 @@ import {
 import AdminManualOfferItemForm from "@/components/AdminManualOfferItemForm";
 import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton";
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
+import AdminOfferItemSpecialInstructionsForm from "@/components/AdminOfferItemSpecialInstructionsForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
 import AdminSendRequestReceivedMailButton from "@/components/AdminSendRequestReceivedMailButton";
@@ -149,7 +150,9 @@ type OfferItem = {
   source: string | null;
   status: string | null;
   notes: string | null;
-  created_at: string | null;
+    customer_note?: string | null;
+  customer_note_updated_at?: string | null;
+created_at: string | null;
   updated_at: string | null;
 };
 
@@ -957,6 +960,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         unit={item.unit}
                         notes={item.notes}
                       />
+                            <AdminOfferItemSpecialInstructionsForm
+                              requestId={request.id}
+                              itemId={item.id}
+                              productName={item.product_name}
+                              initialNote={item.customer_note || ""}
+                              compact
+                            />
 
                       <AdminDeleteOfferItemButton
                         requestId={request.id}
