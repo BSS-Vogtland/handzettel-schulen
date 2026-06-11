@@ -61,6 +61,7 @@ function isAuthorized(request: Request) {
     cronHeader === archiveCronSecret
   );
 }
+
 function isPaid(row: SchoolRequestRow) {
   return (
     row.payment_status === "payment_received" ||
@@ -125,6 +126,7 @@ export async function GET(request: Request) {
 
     let archivedCount = 0;
     const archivedIds: string[] = [];
+    const skippedIds: string[] = [];
 
     for (const row of candidates) {
       const { data: updatedRequest, error: updateError } = await supabase
@@ -146,6 +148,7 @@ export async function GET(request: Request) {
           requestId: row.id,
           error: updateError.message,
         });
+        skippedIds.push(row.id);
         continue;
       }
 
@@ -153,23 +156,33 @@ export async function GET(request: Request) {
         console.error("Auto-Archivierung hat keine Zeile aktualisiert:", {
           requestId: row.id,
         });
+        skippedIds.push(row.id);
         continue;
       }
 
-      await supabase.from("school_request_events").insert({
-        request_id: row.id,
-        event_type: "request_auto_archived_unpaid",
-        title: "Anfrage automatisch archiviert",
-        message:
-          "Die Anfrage wurde automatisch archiviert, weil sie länger als 14 Tage nicht als bezahlt markiert wurde.",
-        metadata: {
-          archiveReason: ARCHIVE_REASON,
-          cutoffIso,
-          previousStatus: row.status || null,
-          paymentStatus: row.payment_status || null,
-        },
-        created_at: nowIso,
-      });
+      const { error: eventError } = await supabase
+        .from("school_request_events")
+        .insert({
+          request_id: row.id,
+          event_type: "request_auto_archived_unpaid",
+          title: "Anfrage automatisch archiviert",
+          message:
+            "Die Anfrage wurde automatisch archiviert, weil sie länger als 14 Tage nicht als bezahlt markiert wurde.",
+          metadata: {
+            archiveReason: ARCHIVE_REASON,
+            cutoffIso,
+            previousStatus: row.status || null,
+            paymentStatus: row.payment_status || null,
+          },
+          created_at: nowIso,
+        });
+
+      if (eventError) {
+        console.error("Archiv-Event konnte nicht geschrieben werden:", {
+          requestId: row.id,
+          error: eventError.message,
+        });
+      }
 
       archivedCount += 1;
       archivedIds.push(row.id);
@@ -183,6 +196,7 @@ export async function GET(request: Request) {
       candidateCount: candidates.length,
       archivedCount,
       archivedIds,
+      skippedIds,
     });
   } catch (error) {
     return jsonResponse(
