@@ -594,7 +594,7 @@ export default function AdminMobileProductCapture() {
 
     if ((width && !height) || (!width && height)) {
       setErrorMessage(
-        "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer."
+        "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer."
       );
       return;
     }
@@ -681,8 +681,7 @@ export default function AdminMobileProductCapture() {
 
         <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
           Für schnelles Arbeiten am Handy: Foto aufnehmen, Produktname eintragen,
-          speichern, nächstes Produkt. Optional kannst Du Buchmaße für passende
-          Umschläge erfassen.
+          speichern, nächstes Produkt. Optional kannst Du zusätzliche Produktdetails fürs Matching erfassen.
         </p>
       </div>
 
@@ -903,34 +902,34 @@ export default function AdminMobileProductCapture() {
           </label>
         </section>
 
-        <section className="rounded-[28px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+                        <section className="rounded-[28px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
           <div className="mb-3">
-            <div className="mb-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
               Optional
             </div>
 
-            <h3 className="text-base font-black text-[#102A43]">
-              Buchmaße für passende Umschläge
+            <h3 className="font-black text-[#102A43]">
+              Optionale Produktdetails fürs Matching
             </h3>
 
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              Trage Breite und Höhe in Millimetern ein, wenn das Produkt ein
-              Buch, Arbeitsheft oder passender Buchumschlag ist. Beispiel:{" "}
-              <span className="font-black text-[#102A43]">230 x 440 mm</span>.
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+              Erfasse hier Maße, Material, Packungsinhalt, Besonderheiten oder
+              zusätzliche Suchbegriffe. Diese Angaben werden beim Speichern in
+              Suchbegriffen und Matching-Keywords berücksichtigt.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_2fr]">
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#102A43]">
                 Breite mm
               </span>
               <input
                 type="text"
-                inputMode="numeric"
                 value={bookWidthMm}
                 onChange={(event) => handleBookWidthChange(event.target.value)}
-                placeholder="z. B. 230"
+                inputMode="numeric"
+                placeholder="Optional, z. B. 230"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </label>
@@ -941,31 +940,43 @@ export default function AdminMobileProductCapture() {
               </span>
               <input
                 type="text"
-                inputMode="numeric"
                 value={bookHeightMm}
                 onChange={(event) => handleBookHeightChange(event.target.value)}
-                placeholder="z. B. 440"
+                inputMode="numeric"
+                placeholder="Optional, z. B. 440"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </label>
 
-            <label className="block sm:col-span-2">
+            <label className="block">
               <span className="mb-2 block text-sm font-black text-[#102A43]">
-                Hinweis zum Buchmaß
+                Details / Suchhinweise
               </span>
-              <input
-                type="text"
+              <textarea
                 value={bookSizeNote}
                 onChange={(event) => setBookSizeNote(event.target.value)}
-                placeholder="z. B. passend für großes Arbeitsbuch"
-                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                rows={3}
+                placeholder={
+                  "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
+                }
+                className="min-h-[92px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </label>
           </div>
 
-          {bookWidthMm && bookHeightMm ? (
+          {(bookWidthMm && bookHeightMm) || bookSizeNote.trim() ? (
             <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
-              Erfasstes Buchmaß: {bookWidthMm} x {bookHeightMm} mm
+              {bookWidthMm && bookHeightMm ? (
+                <p>
+                  Erfasstes Maß: {bookWidthMm} x {bookHeightMm} mm
+                </p>
+              ) : null}
+
+              {bookSizeNote.trim() ? (
+                <p className={bookWidthMm && bookHeightMm ? "mt-1" : ""}>
+                  Details: {bookSizeNote.trim()}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -981,7 +992,7 @@ export default function AdminMobileProductCapture() {
                 Suchbegriffe
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                Werden automatisch aus den Produktdaten erzeugt. Buchmaße werden
+                Werden automatisch aus den Produktdaten erzeugt. Optionale Produktdetails werden
                 ebenfalls berücksichtigt. Du kannst sie bei Bedarf überschreiben.
               </p>
             </div>

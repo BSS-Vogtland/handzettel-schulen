@@ -556,7 +556,7 @@ export default function AdminQuickProductForm() {
 
     if ((width && !height) || (!width && height)) {
       setErrorMessage(
-        "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer."
+        "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer."
       );
       return;
     }
@@ -643,7 +643,7 @@ export default function AdminQuickProductForm() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
             Lege Produkte inklusive Bild schnell an. Suchbegriffe werden
             automatisch aus Produktname, Kategorie, Typ, Format, Farbe, Lineatur
-            und optionalen Buchmaßen erzeugt.
+            und optionalen Produktdetails erzeugt.
           </p>
         </div>
 
@@ -817,13 +817,13 @@ export default function AdminQuickProductForm() {
             </div>
 
             <h3 className="text-sm font-black text-[#102A43]">
-              Buchmaße für passende Umschläge
+              Optionale Produktdetails fürs Matching
             </h3>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Trage hier Maße in Millimetern ein, wenn das Produkt ein Buch,
-              Arbeitsheft oder ein passender Buchumschlag ist. Beispiel:{" "}
-              <span className="font-black text-[#102A43]">230 x 440 mm</span>.
+              Erfasse hier Maße, Material, Packungsinhalt, Besonderheiten oder
+              zusätzliche Suchbegriffe. Diese Angaben werden beim Speichern in
+              Suchbegriffen und Matching-Keywords berücksichtigt.
             </p>
           </div>
 
@@ -837,7 +837,7 @@ export default function AdminQuickProductForm() {
                 inputMode="numeric"
                 value={bookWidthMm}
                 onChange={(event) => handleBookWidthChange(event.target.value)}
-                placeholder="z. B. 230"
+                placeholder="Optional, z. B. 230"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </div>
@@ -851,32 +851,43 @@ export default function AdminQuickProductForm() {
                 inputMode="numeric"
                 value={bookHeightMm}
                 onChange={(event) => handleBookHeightChange(event.target.value)}
-                placeholder="z. B. 440"
+                placeholder="Optional, z. B. 440"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-black text-[#102A43]">
-                Hinweis
+                Details / Suchhinweise
               </label>
-              <input
-                type="text"
+              <textarea
                 value={bookSizeNote}
                 onChange={(event) => setBookSizeNote(event.target.value)}
-                placeholder="z. B. für Buchumschlag passend"
-                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                rows={3}
+                placeholder={
+                  "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
+                }
+                className="min-h-[92px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 py-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
             </div>
           </div>
 
-          {bookWidthMm && bookHeightMm ? (
+          {(bookWidthMm && bookHeightMm) || bookSizeNote.trim() ? (
             <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
-              Erfasstes Buchmaß: {bookWidthMm} x {bookHeightMm} mm
+              {bookWidthMm && bookHeightMm ? (
+                <p>
+                  Erfasstes Maß: {bookWidthMm} x {bookHeightMm} mm
+                </p>
+              ) : null}
+
+              {bookSizeNote.trim() ? (
+                <p className={bookWidthMm && bookHeightMm ? "mt-1" : ""}>
+                  Details: {bookSizeNote.trim()}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
-
         <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>

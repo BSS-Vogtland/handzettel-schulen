@@ -445,7 +445,7 @@ export default function AdminEditProductForm({
       setFeedback({
         type: "error",
         message:
-          "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
+          "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer.",
       });
       return;
     }
@@ -722,7 +722,7 @@ export default function AdminEditProductForm({
             </label>
           </div>
 
-          <section className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+                              <section className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
             <div className="mb-3">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
                 Optional
@@ -733,9 +733,10 @@ export default function AdminEditProductForm({
               </h3>
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-                Nutze diese Felder für Maße, Material, Packungsinhalt, Besonderheiten
-                oder zusätzliche Suchbegriffe. Die Angaben werden beim Speichern in
-                SEO-Daten, Suchbegriffen und Matching-Keywords berücksichtigt.
+                Nutze diese Felder für Maße, Material, Packungsinhalt,
+                Besonderheiten oder zusätzliche Suchbegriffe. Die Angaben werden
+                beim Speichern in SEO-Daten, Suchbegriffen und Matching-Keywords
+                berücksichtigt.
               </p>
             </div>
 
