@@ -31,6 +31,7 @@ import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
 import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
 import AdminReanalyzeRequestButton from "@/components/AdminReanalyzeRequestButton";
 import AdminAdoptSafeMatchesButton from "@/components/AdminAdoptSafeMatchesButton";
+import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendationsPanel";
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 
@@ -1361,6 +1362,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 </div>
               )}
             </section>
+
+            <AdminOfferRecommendationsPanel requestId={request.id} />
 
             <section className="rounded-[28px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm">
               <div className="flex items-start gap-3">

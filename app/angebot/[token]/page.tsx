@@ -22,6 +22,7 @@ import CustomerRemoveOfferItemButton from "@/components/CustomerRemoveOfferItemB
 import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButton";
 import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
 import CustomerOfferItemNoteForm from "@/components/CustomerOfferItemNoteForm";
+import CustomerOfferRecommendations from "@/components/CustomerOfferRecommendations";
 import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
@@ -1374,6 +1375,11 @@ if (productIds.length > 0) {
             </aside>
           </div>
         </header>
+
+        <CustomerOfferRecommendations
+          token={token}
+          disabled={isConfirmed}
+        />
 
         <section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
