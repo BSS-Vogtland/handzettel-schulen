@@ -34,6 +34,7 @@ import AdminAdoptSafeMatchesButton from "@/components/AdminAdoptSafeMatchesButto
 import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendationsPanel";
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
+import AdminPackageChecklistPanel from "@/components/AdminPackageChecklistPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -1037,6 +1038,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               </div>
             </section>
 
+
+            <AdminPackageChecklistPanel requestId={request.id} />
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
