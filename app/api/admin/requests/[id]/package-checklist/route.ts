@@ -40,6 +40,14 @@ type OfferItem = {
   notes: string | null;
 };
 
+type ProductRow = {
+  id: string;
+  name?: string | null;
+  image_styled_url?: string | null;
+  image_url?: string | null;
+  image_original_url?: string | null;
+};
+
 type ChecklistItem = {
   id: string;
   request_id: string;
@@ -106,16 +114,21 @@ function getRequestItemTitle(item: RequestItem) {
 }
 
 function getRequestItemOriginalText(item: RequestItem) {
-  const facts: string[] = [];
+  const parts: string[] = [];
 
-  facts.push(`${toNumber(item.quantity, 1)}x ${getRequestItemTitle(item)}`);
+  parts.push(`${toNumber(item.quantity, 1)}x ${getRequestItemTitle(item)}`);
 
-  if (item.format) facts.push(`Format: ${item.format}`);
-  if (item.lineature) facts.push(`Lineatur: ${item.lineature}`);
-  if (item.color) facts.push(`Farbe: ${item.color}`);
-  if (item.notes) facts.push(`Hinweis: ${item.notes}`);
+  const details: string[] = [];
 
-  return facts.join(" · ");
+  if (item.format) details.push(`Format: ${item.format}`);
+  if (item.lineature) details.push(`Lineatur: ${item.lineature}`);
+  if (item.color) details.push(`Farbe: ${item.color}`);
+
+  if (details.length > 0) {
+    parts.push(details.join(" · "));
+  }
+
+  return parts.join("\n");
 }
 
 function getOfferItemText(item: OfferItem) {
@@ -123,10 +136,11 @@ function getOfferItemText(item: OfferItem) {
 
   parts.push(`${toNumber(item.quantity, 1)}x ${item.product_name}`);
 
-  if (item.product_sku) parts.push(`Art.-Nr.: ${item.product_sku}`);
-  if (item.notes) parts.push(`Hinweis: ${item.notes}`);
+  if (item.product_sku) {
+    parts.push(`Art.-Nr.: ${item.product_sku}`);
+  }
 
-  return parts.join(" · ");
+  return parts.join("\n");
 }
 
 function getStatusLabel(status: string) {
@@ -146,6 +160,17 @@ function getStatusLabel(status: string) {
     default:
       return status || "Manuell geprüft";
   }
+}
+
+function getProductImageUrl(product: ProductRow | null | undefined) {
+  if (!product) return null;
+
+  return (
+    cleanText(product.image_styled_url) ||
+    cleanText(product.image_url) ||
+    cleanText(product.image_original_url) ||
+    null
+  );
 }
 
 function isRequestItemResolved(item: RequestItem, offerItems: OfferItem[]) {
@@ -308,6 +333,49 @@ async function loadChecklistData(requestId: string) {
   const offerItems = (offerItemsData || []) as OfferItem[];
   const checklistItems = (checklistItemsData || []) as ChecklistItem[];
 
+  const productIds = Array.from(
+    new Set(
+      offerItems
+        .map((item) => cleanText(item.product_id))
+        .filter(Boolean)
+    )
+  );
+
+  let products: ProductRow[] = [];
+
+  if (productIds.length > 0) {
+    const { data: productsData, error: productsError } = await supabase
+      .from("school_products")
+      .select("*")
+      .in("id", productIds);
+
+    if (productsError) {
+      throw new Error(`Produktbilder konnten nicht geladen werden: ${productsError.message}`);
+    }
+
+    products = (productsData || []) as ProductRow[];
+  }
+
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const offerItemById = new Map(offerItems.map((item) => [item.id, item]));
+
+  const enrichedChecklistItems = checklistItems.map((item) => {
+    const offerItem = item.offer_item_id
+      ? offerItemById.get(item.offer_item_id)
+      : undefined;
+
+    const product = offerItem?.product_id
+      ? productById.get(offerItem.product_id)
+      : undefined;
+
+    return {
+      ...item,
+      productImageUrl: getProductImageUrl(product),
+      productName: offerItem?.product_name || null,
+      productSku: offerItem?.product_sku || null,
+    };
+  });
+
   const unresolvedItems = requestItems
     .filter((item) => !isRequestItemResolved(item, offerItems))
     .map((item) => ({
@@ -328,7 +396,7 @@ async function loadChecklistData(requestId: string) {
     request: requestData,
     requestItems,
     offerItems,
-    checklistItems,
+    checklistItems: enrichedChecklistItems,
     unresolvedItems,
     canGenerate,
     checkedCount,

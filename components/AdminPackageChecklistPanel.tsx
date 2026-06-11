@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -8,6 +9,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Loader2,
+  PackageCheck,
   RefreshCw,
 } from "lucide-react";
 
@@ -24,6 +26,9 @@ type ChecklistItem = {
   checked_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  productImageUrl?: string | null;
+  productName?: string | null;
+  productSku?: string | null;
 };
 
 type UnresolvedItem = {
@@ -71,17 +76,17 @@ function getItemStatusLabel(status: string | null | undefined) {
     case "in_package":
       return "Im Paket";
     case "alternative_selected":
-      return "Alternative gewählt";
+      return "Alternative";
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht benötigt";
+      return "Nicht nötig";
     case "question_required":
-      return "Rückfrage nötig";
+      return "Rückfrage";
     case "manual_check":
-      return "Manuell geprüft";
+      return "Geprüft";
     default:
-      return status || "Manuell geprüft";
+      return status || "Geprüft";
   }
 }
 
@@ -107,8 +112,6 @@ function getItemStatusClasses(status: string | null | undefined) {
     case "not_available":
     case "question_required":
       return "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]";
-    case "not_needed":
-      return "border-[#E8DED2] bg-white text-[#52616F]";
     default:
       return "border-[#E8DED2] bg-white text-[#52616F]";
   }
@@ -124,6 +127,40 @@ function formatDateTime(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function splitLines(value: string | null | undefined) {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getOriginalTitle(item: ChecklistItem) {
+  return splitLines(item.original_text)[0] || "Listenposition";
+}
+
+function getOriginalDetails(item: ChecklistItem) {
+  return splitLines(item.original_text).slice(1);
+}
+
+function getResolvedTitle(item: ChecklistItem) {
+  return (
+    item.productName ||
+    splitLines(item.resolved_text)[0] ||
+    "Keine Paketposition hinterlegt"
+  );
+}
+
+function getResolvedDetails(item: ChecklistItem) {
+  const lines = splitLines(item.resolved_text);
+  const details = lines.slice(1);
+
+  if (item.productSku && !details.some((line) => line.includes(item.productSku || ""))) {
+    details.unshift(`Art.-Nr.: ${item.productSku}`);
+  }
+
+  return details;
 }
 
 export default function AdminPackageChecklistPanel({
@@ -177,7 +214,8 @@ export default function AdminPackageChecklistPanel({
   const status = data?.status || "not_created";
   const checkedCount = data?.checkedCount || 0;
   const totalCount = data?.totalCount || 0;
-  const progressPercent = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+  const progressPercent =
+    totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
   const isCompleted = status === "completed";
   const canComplete = totalCount > 0 && checkedCount === totalCount && !isCompleted;
 
@@ -243,7 +281,8 @@ export default function AdminPackageChecklistPanel({
       return {
         ...current,
         items: nextItems,
-        checkedCount: nextItems.filter((currentItem) => currentItem.is_checked).length,
+        checkedCount: nextItems.filter((currentItem) => currentItem.is_checked)
+          .length,
         totalCount: nextItems.length,
       };
     });
@@ -375,8 +414,8 @@ export default function AdminPackageChecklistPanel({
             </h2>
 
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              Vor dem Versand der Paketwunsch-Mail wird hier die eingereichte Liste
-              gegen den fertigen Paketwunsch geprüft. Kurz, digital, zum Abhaken.
+              Kurzprüfung vor dem Versand der Paketwunsch-Mail: Listenposition,
+              Paketprodukt, Bild, abhaken.
             </p>
           </div>
         </div>
@@ -509,74 +548,126 @@ export default function AdminPackageChecklistPanel({
           </div>
 
           <div className="grid gap-3">
-            {sortedItems.map((item) => (
-              <article
-                key={item.id}
-                className={`rounded-[24px] border p-4 ${
-                  item.is_checked
-                    ? "border-[#BFE3CD] bg-[#F0FFF6]"
-                    : "border-[#E8DED2] bg-[#FBF7F0]"
-                }`}
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <label className="flex min-w-0 cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={item.is_checked}
-                      disabled={isCompleted}
-                      onChange={(event) => toggleItem(item, event.target.checked)}
-                      className="mt-1 h-5 w-5 rounded border-[#D8C8B8] text-[#2F7D50]"
-                    />
+            {sortedItems.map((item) => {
+              const originalTitle = getOriginalTitle(item);
+              const originalDetails = getOriginalDetails(item);
+              const resolvedTitle = getResolvedTitle(item);
+              const resolvedDetails = getResolvedDetails(item);
 
-                    <div className="min-w-0">
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-black ${getItemStatusClasses(
-                            item.status
-                          )}`}
-                        >
-                          {getItemStatusLabel(item.status)}
-                        </span>
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-[24px] border p-4 transition ${
+                    item.is_checked
+                      ? "border-[#BFE3CD] bg-[#F0FFF6]"
+                      : "border-[#E8DED2] bg-[#FBF7F0]"
+                  }`}
+                >
+                  <div className="grid gap-4 lg:grid-cols-[1fr_120px_230px] lg:items-start">
+                    <label className="flex min-w-0 cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={item.is_checked}
+                        disabled={isCompleted}
+                        onChange={(event) => toggleItem(item, event.target.checked)}
+                        className="mt-1 h-5 w-5 shrink-0 rounded border-[#D8C8B8] text-[#2F7D50]"
+                      />
 
-                        {item.is_checked ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-[#2F7D50]">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            geprüft
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-black ${getItemStatusClasses(
+                              item.status
+                            )}`}
+                          >
+                            {getItemStatusLabel(item.status)}
                           </span>
+
+                          {item.is_checked ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-[#2F7D50]">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              geprüft
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                          Listenposition
+                        </p>
+
+                        <p className="mt-1 text-base font-black leading-6 text-[#102A43]">
+                          {originalTitle}
+                        </p>
+
+                        {originalDetails.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {originalDetails.slice(0, 4).map((detail) => (
+                              <span
+                                key={detail}
+                                className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#52616F]"
+                              >
+                                {detail}
+                              </span>
+                            ))}
+                          </div>
                         ) : null}
+
+                        <div className="mt-4 rounded-2xl border border-[#D8E8D8] bg-white p-3">
+                          <p className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                            <PackageCheck className="h-3.5 w-3.5" />
+                            Paket
+                          </p>
+
+                          <p className="text-sm font-black leading-6 text-[#102A43]">
+                            {resolvedTitle}
+                          </p>
+
+                          {resolvedDetails.length > 0 ? (
+                            <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                              {resolvedDetails.slice(0, 2).join(" · ")}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        Listenposition
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm font-black leading-6 text-[#102A43]">
-                        {item.original_text || "Ohne Originaltext"}
-                      </p>
-
-                      <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                        Paket / Entscheidung
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#52616F]">
-                        {item.resolved_text || "Keine Entscheidung hinterlegt"}
-                      </p>
-                    </div>
-                  </label>
-
-                  <div className="lg:w-[280px]">
-                    <label className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                      Kurznotiz
                     </label>
-                    <textarea
-                      defaultValue={item.note || ""}
-                      disabled={isCompleted}
-                      onBlur={(event) => saveNote(item, event.target.value)}
-                      placeholder="Optionaler interner Hinweis..."
-                      className="mt-2 min-h-[84px] w-full rounded-2xl border border-[#E8DED2] bg-white px-3 py-2 text-sm font-semibold text-[#102A43] outline-none transition focus:border-[#A75B28] disabled:opacity-70"
-                    />
+
+                    <div className="flex h-[110px] w-[110px] items-center justify-center overflow-hidden rounded-3xl border border-[#E8DED2] bg-white">
+                      {item.productImageUrl ? (
+                        <Image
+                          src={item.productImageUrl}
+                          alt={resolvedTitle}
+                          width={110}
+                          height={110}
+                          unoptimized
+                          className="h-full w-full object-contain p-2"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[#A75B28]">
+                          <PackageCheck className="h-7 w-7" />
+                          <span className="text-center text-[10px] font-black uppercase tracking-[0.12em]">
+                            Kein Bild
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Kurznotiz
+                      </label>
+
+                      <textarea
+                        defaultValue={item.note || ""}
+                        disabled={isCompleted}
+                        onBlur={(event) => saveNote(item, event.target.value)}
+                        placeholder="Optional..."
+                        className="mt-2 min-h-[92px] w-full rounded-2xl border border-[#E8DED2] bg-white px-3 py-2 text-sm font-semibold text-[#102A43] outline-none transition focus:border-[#A75B28] disabled:opacity-70"
+                      />
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
