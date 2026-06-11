@@ -1399,7 +1399,8 @@ function getFilterValue(rawFilter: string | string[] | undefined): AdminFilter {
     value === "packable" ||
     value === "shipping" ||
     value === "pickup" ||
-    value === "completed"
+    value === "completed" ||
+    value === "archived"
   ) {
     return value;
   }
@@ -1923,6 +1924,19 @@ export default async function AdminRequestsPage({
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "http://localhost:3000";
 
+  const { count: archivedRequestCount, error: archivedCountError } =
+    await supabase
+      .from("school_requests")
+      .select("id", { count: "exact", head: true })
+      .or("is_active.eq.false,status.eq.archived,archived_at.not.is.null");
+
+  if (archivedCountError) {
+    throw new Error(
+      `Archivierte Anfragen konnten nicht gezählt werden: ${archivedCountError.message}`
+    );
+  }
+
+
   let requestsQuery = supabase
     .from("school_requests")
     .select("*")
@@ -2209,7 +2223,7 @@ export default async function AdminRequestsPage({
   const problemPaymentCount = overviews.filter(isProblemPaymentRequest).length;
   const packableCount = overviews.filter(isPackableRequest).length;
   const completedCount = overviews.filter(isCompletedRequest).length;
-  const archivedCount = overviews.filter(isArchivedRequest).length;
+  const archivedCount = archivedRequestCount || 0;
   const actionRequiredCount = overviews.filter((overview) => {
     return (
       hasAnsweredQuestions(overview) ||
