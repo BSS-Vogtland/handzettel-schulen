@@ -1115,6 +1115,12 @@ if (productIds.length > 0) {
           <CustomerPreparePackageButton token={token} requestId={request.id} />
         </section>
 
+
+        <CustomerOfferRecommendations
+          token={token}
+          disabled={isConfirmed}
+        />
+
         <LegalFooter />
       </main>
     );
@@ -1238,6 +1244,12 @@ if (productIds.length > 0) {
             </div>
           </section>
         </section>
+
+
+        <CustomerOfferRecommendations
+          token={token}
+          disabled={isConfirmed}
+        />
 
         <LegalFooter />
       </main>
@@ -1375,13 +1387,7 @@ if (productIds.length > 0) {
             </aside>
           </div>
         </header>
-
-        <CustomerOfferRecommendations
-          token={token}
-          disabled={isConfirmed}
-        />
-
-        <section className="grid gap-4 md:grid-cols-4">
+<section className="grid gap-4 md:grid-cols-4">
           <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               Erkannte Positionen
