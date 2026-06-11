@@ -183,10 +183,18 @@ export default function AdminOfferWorkflowStatus(
   const hasUpdatedOfferConfirmed = Boolean(latestConfirmedEvent);
 
   const updateMailWasSent =
-    Boolean(latestUpdateMailEvent) || offerStatus === "offer_sent";
+    Boolean(latestUpdateMailEvent) ||
+    requestStatus === "offer_sent" ||
+    offerStatus === "offer_sent" ||
+    offerStatus === "customer_selection";
 
   const updateMailDate =
-    latestUpdateMailEvent?.created_at || (offerStatus === "offer_sent" ? updatedAt : null);
+    latestUpdateMailEvent?.created_at ||
+    (requestStatus === "offer_sent" ||
+    offerStatus === "offer_sent" ||
+    offerStatus === "customer_selection"
+      ? updatedAt
+      : null);
 
   const confirmedAfterUpdate =
     confirmed &&

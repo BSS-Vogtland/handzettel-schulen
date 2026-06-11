@@ -743,10 +743,16 @@ function getOperationalHint(overview: RequestOverview) {
     };
   }
 
-  if (hasEvent(overview, isPackageWishlistMailEvent)) {
+  const packageWishlistWasSent =
+    hasEvent(overview, isPackageWishlistMailEvent) ||
+    request.status === "offer_sent" ||
+    request.offer_status === "offer_sent" ||
+    request.offer_status === "customer_selection";
+
+  if (packageWishlistWasSent) {
     return {
       label: "Wartet auf Kunde",
-      text: "Der Paketwunsch-Link wurde gesendet. Kunde muss Paketwunsch prüfen und bestätigen.",
+      text: "Der Paketwunsch-Link wurde gesendet. Der Vorgang wartet auf Prüfung und Bestätigung durch den Kunden.",
       className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
     };
   }
@@ -899,7 +905,9 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
 
   const hasPackageWishlistMail =
     hasEvent(overview, isPackageWishlistMailEvent) ||
-    request.offer_status === "offer_sent";
+    request.status === "offer_sent" ||
+    request.offer_status === "offer_sent" ||
+    request.offer_status === "customer_selection";
 
   if (isProblemPaymentRequest(overview)) {
     return {
@@ -1273,7 +1281,9 @@ function getSmallInfoBadges(overview: RequestOverview) {
 
   if (
     hasEvent(overview, isPackageWishlistMailEvent) ||
-    overview.request.offer_status === "offer_sent"
+    overview.request.status === "offer_sent" ||
+    overview.request.offer_status === "offer_sent" ||
+    overview.request.offer_status === "customer_selection"
   ) {
     badges.push({
       label: "Paketwunsch-Mail gesendet",
