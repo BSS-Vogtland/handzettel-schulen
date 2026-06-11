@@ -21,6 +21,7 @@ import CustomerProductSearch from "@/components/CustomerProductSearch";
 import CustomerRemoveOfferItemButton from "@/components/CustomerRemoveOfferItemButton";
 import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButton";
 import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
+import CustomerOfferItemNoteForm from "@/components/CustomerOfferItemNoteForm";
 import LegalFooter from "@/components/LegalFooter";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +101,8 @@ type OfferItem = {
   source: string | null;
   status: string | null;
   notes: string | null;
+  customer_note?: string | null;
+  customer_note_updated_at?: string | null;
 };
 
 type RequestItemQuestion = {
@@ -1663,6 +1666,14 @@ if (productIds.length > 0) {
                               ) : null}
                             </div>
                           </div>
+
+                          <CustomerOfferItemNoteForm
+                            token={token}
+                            itemId={item.id}
+                            productName={item.product_name}
+                            initialNote={item.customer_note || ""}
+                            disabled={isConfirmed}
+                          />
                         </article>
                       );
                     })}
@@ -1788,6 +1799,14 @@ if (productIds.length > 0) {
                               ) : null}
                             </div>
                           </div>
+
+                          <CustomerOfferItemNoteForm
+                            token={token}
+                            itemId={item.id}
+                            productName={item.product_name}
+                            initialNote={item.customer_note || ""}
+                            disabled={isConfirmed}
+                          />
                         </article>
                       );
                     })}
