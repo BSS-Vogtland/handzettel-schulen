@@ -27,14 +27,10 @@ type RecommendationRow = {
 type ProductRow = {
   id: string;
   name?: string | null;
-  product_name?: string | null;
   title?: string | null;
   sku?: string | null;
-  product_sku?: string | null;
   price?: number | string | null;
-  product_price?: number | string | null;
   sale_price?: number | string | null;
-  sale_price_gross?: number | string | null;
   image_url?: string | null;
   image_original_url?: string | null;
   image_styled_url?: string | null;
@@ -79,26 +75,15 @@ function toNumber(value: unknown, fallback = 0) {
 }
 
 function getProductName(product: ProductRow) {
-  return (
-    cleanText(product.name) ||
-    cleanText(product.product_name) ||
-    cleanText(product.title) ||
-    "Unbenanntes Produkt"
-  );
+  return cleanText(product.name) || cleanText(product.title) || "Unbenanntes Produkt";
 }
 
 function getProductSku(product: ProductRow) {
-  return cleanText(product.sku) || cleanText(product.product_sku);
+  return cleanText(product.sku);
 }
 
 function getProductPrice(product: ProductRow) {
-  return toNumber(
-    product.price ??
-      product.product_price ??
-      product.sale_price_gross ??
-      product.sale_price,
-    0
-  );
+  return toNumber(product.price ?? product.sale_price, 0);
 }
 
 function getPreferredImageUrl(product: ProductRow) {
@@ -119,6 +104,7 @@ export async function GET(_request: Request, context: Params) {
         {
           ok: false,
           message: "Kein Angebotstoken übergeben.",
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         400
       );
@@ -137,6 +123,7 @@ export async function GET(_request: Request, context: Params) {
         {
           ok: false,
           message: `Anfrage konnte nicht geladen werden: ${requestError.message}`,
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         500
       );
@@ -147,6 +134,7 @@ export async function GET(_request: Request, context: Params) {
         {
           ok: false,
           message: "Anfrage wurde nicht gefunden.",
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         404
       );
@@ -161,6 +149,7 @@ export async function GET(_request: Request, context: Params) {
       return jsonResponse({
         ok: true,
         recommendations: [],
+        debugVersion: "customer-recommendations-v3-no-product-name",
       });
     }
 
@@ -176,6 +165,7 @@ export async function GET(_request: Request, context: Params) {
         {
           ok: false,
           message: `Paketpositionen konnten nicht geprüft werden: ${offerItemsError.message}`,
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         500
       );
@@ -202,6 +192,7 @@ export async function GET(_request: Request, context: Params) {
         {
           ok: false,
           message: `Empfehlungen konnten nicht geladen werden: ${recommendationsError.message}`,
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         500
       );
@@ -221,13 +212,14 @@ export async function GET(_request: Request, context: Params) {
       return jsonResponse({
         ok: true,
         recommendations: [],
+        debugVersion: "customer-recommendations-v3-no-product-name",
       });
     }
 
     const { data: productsData, error: productsError } = await supabase
       .from("school_products")
       .select(
-        "id, name, product_name, title, sku, product_sku, price, product_price, sale_price, sale_price_gross, image_styled_url, image_url, image_original_url"
+        "id, name, title, sku, price, sale_price, image_styled_url, image_url, image_original_url"
       )
       .in("id", productIds);
 
@@ -235,7 +227,8 @@ export async function GET(_request: Request, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: `Empfehlungsprodukte konnten nicht geladen werden: ${productsError.message}`,
+          message: `Empfehlungsprodukte konnten nicht geladen werden [V3]: ${productsError.message}`,
+          debugVersion: "customer-recommendations-v3-no-product-name",
         },
         500
       );
@@ -270,6 +263,7 @@ export async function GET(_request: Request, context: Params) {
     return jsonResponse({
       ok: true,
       recommendations,
+      debugVersion: "customer-recommendations-v3-no-product-name",
     });
   } catch (error) {
     console.error("Customer recommendations load error:", error);
@@ -281,6 +275,7 @@ export async function GET(_request: Request, context: Params) {
           error instanceof Error
             ? error.message
             : "Empfehlungen konnten nicht geladen werden.",
+        debugVersion: "customer-recommendations-v3-no-product-name",
       },
       500
     );
