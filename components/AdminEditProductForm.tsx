@@ -303,12 +303,44 @@ export default function AdminEditProductForm({
         submitData.append("productImage", productImage);
       }
 
-      const response = await fetch(`/api/admin/products/${productId}`, {
+      let response = await fetch(`/api/admin/products/${productId}`, {
         method: "PATCH",
         body: submitData,
       });
 
-      const payload = await readJsonSafely(response);
+      let payload = await readJsonSafely(response);
+
+      if (
+        response.status === 409 &&
+        payload?.code === "PRICE_USED_IN_ACTIVE_REQUESTS"
+      ) {
+        const activeRequestCount = Number(payload?.activeRequestCount || 0);
+        const activeOfferItemCount = Number(payload?.activeOfferItemCount || 0);
+
+        const shouldApplyToActiveRequests = window.confirm(
+          [
+            "Dieses Produkt ist bereits in aktiven Kundenvorgängen enthalten.",
+            "",
+            `Aktive Kundenvorgänge: ${activeRequestCount}`,
+            `Aktive Paketpositionen: ${activeOfferItemCount}`,
+            "",
+            "OK = Preis trotzdem auch in aktiven Kundenvorgängen ändern.",
+            "Abbrechen = Nur Produktstamm ändern; aktive Kundenvorgänge behalten den alten Preis.",
+          ].join("\n")
+        );
+
+        submitData.set(
+          "priceUpdateMode",
+          shouldApplyToActiveRequests ? "active_offer_items" : "product_only"
+        );
+
+        response = await fetch(`/api/admin/products/${productId}`, {
+          method: "PATCH",
+          body: submitData,
+        });
+
+        payload = await readJsonSafely(response);
+      }
 
       if (!response.ok || payload?.ok === false) {
         setFeedback({

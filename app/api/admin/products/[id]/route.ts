@@ -481,6 +481,7 @@ async function readPatchPayload(request: NextRequest) {
       imageUrl: formData.get("imageUrl"),
       active: formData.get("active"),
       aliases: formData.get("aliases"),
+      priceUpdateMode: formData.get("priceUpdateMode"),
       productImage,
     };
   }
@@ -608,6 +609,123 @@ async function buildSeoPayload(params: {
   return payload;
 }
 
+
+function normalizePriceUpdateMode(value: unknown) {
+  const text = String(value || "").trim();
+
+  if (text === "product_only" || text === "active_offer_items") {
+    return text;
+  }
+
+  return null;
+}
+
+function getExistingProductPrice(product: ProductRow) {
+  return toNumber(
+    product.price ??
+      product.product_price ??
+      product.sale_price_gross ??
+      product.sale_price,
+    0
+  );
+}
+
+function isActiveCustomerRequest(request: Record<string, unknown>) {
+  const status = String(request.status || "").trim();
+  const offerStatus = String(request.offer_status || "").trim();
+
+  const inactiveStatuses = new Set([
+    "cancelled",
+    "canceled",
+    "archived",
+    "completed",
+    "deleted",
+  ]);
+
+  const inactiveOfferStatuses = new Set([
+    "cancelled",
+    "canceled",
+    "archived",
+  ]);
+
+  if (inactiveStatuses.has(status)) return false;
+  if (inactiveOfferStatuses.has(offerStatus)) return false;
+
+  return true;
+}
+
+async function getActiveProductOfferItemUsage(params: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId: string;
+}) {
+  const { data: offerItemsData, error: offerItemsError } = await params.supabase
+    .from("school_offer_items")
+    .select("id, request_id, product_id, product_name, product_sku, product_price, quantity")
+    .eq("product_id", params.productId);
+
+  if (offerItemsError) {
+    throw new Error(
+      `Aktive Kundenvorgänge konnten nicht geprüft werden: ${offerItemsError.message}`
+    );
+  }
+
+  const offerItems = (offerItemsData || []) as Array<Record<string, unknown>>;
+  const requestIds = Array.from(
+    new Set(
+      offerItems
+        .map((item) => String(item.request_id || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (requestIds.length === 0) {
+    return {
+      activeRequests: [] as Array<Record<string, unknown>>,
+      activeOfferItems: [] as Array<Record<string, unknown>>,
+      activeRequestCount: 0,
+      activeOfferItemCount: 0,
+      examples: [] as Array<Record<string, unknown>>,
+    };
+  }
+
+  const { data: requestsData, error: requestsError } = await params.supabase
+    .from("school_requests")
+    .select("id, request_number, status, offer_status, customer_name, child_name, email, created_at")
+    .in("id", requestIds);
+
+  if (requestsError) {
+    throw new Error(
+      `Aktive Kundenvorgänge konnten nicht geladen werden: ${requestsError.message}`
+    );
+  }
+
+  const activeRequests = ((requestsData || []) as Array<Record<string, unknown>>).filter(
+    isActiveCustomerRequest
+  );
+
+  const activeRequestIds = new Set(
+    activeRequests.map((request) => String(request.id || "").trim()).filter(Boolean)
+  );
+
+  const activeOfferItems = offerItems.filter((item) =>
+    activeRequestIds.has(String(item.request_id || "").trim())
+  );
+
+  return {
+    activeRequests,
+    activeOfferItems,
+    activeRequestCount: activeRequests.length,
+    activeOfferItemCount: activeOfferItems.length,
+    examples: activeRequests.slice(0, 5).map((request) => ({
+      id: request.id,
+      requestNumber: request.request_number || null,
+      customerName: request.customer_name || null,
+      childName: request.child_name || null,
+      status: request.status || null,
+      offerStatus: request.offer_status || null,
+    })),
+  };
+}
 export async function PATCH(request: NextRequest, context: Params) {
   try {
     const { id } = await context.params;
@@ -694,6 +812,40 @@ export async function PATCH(request: NextRequest, context: Params) {
     }
 
     const product = existingProduct as ProductRow;
+
+    const previousPrice = getExistingProductPrice(product);
+    const priceWasChanged = Math.abs(previousPrice - price) >= 0.005;
+    const priceUpdateMode = normalizePriceUpdateMode(payload.priceUpdateMode);
+
+    let activePriceUsage: Awaited<
+      ReturnType<typeof getActiveProductOfferItemUsage>
+    > | null = null;
+
+    if (priceWasChanged) {
+      activePriceUsage = await getActiveProductOfferItemUsage({
+        supabase,
+        productId: id,
+      });
+
+      if (
+        activePriceUsage.activeOfferItemCount > 0 &&
+        priceUpdateMode === null
+      ) {
+        return jsonResponse(
+          {
+            ok: false,
+            code: "PRICE_USED_IN_ACTIVE_REQUESTS",
+            message: `Dieses Produkt ist in ${activePriceUsage.activeRequestCount} aktiven Kundenvorgang/Kundenvorgängen enthalten. Soll der neue Preis auch dort übernommen werden?`,
+            previousPrice,
+            newPrice: price,
+            activeRequestCount: activePriceUsage.activeRequestCount,
+            activeOfferItemCount: activePriceUsage.activeOfferItemCount,
+            examples: activePriceUsage.examples,
+          },
+          409
+        );
+      }
+    }
 
     const productSku =
       requestedProductSku ||
@@ -842,6 +994,55 @@ const matchKeywords = keywordData.matchKeywords;
       );
     }
 
+    let updatedActiveOfferItemCount = 0;
+
+    if (
+      priceWasChanged &&
+      priceUpdateMode === "active_offer_items" &&
+      activePriceUsage &&
+      activePriceUsage.activeOfferItems.length > 0
+    ) {
+      const now = new Date().toISOString();
+
+      for (const offerItem of activePriceUsage.activeOfferItems) {
+        const quantity = toNumber(offerItem.quantity, 1);
+
+        const { error: offerItemUpdateError } = await supabase
+          .from("school_offer_items")
+          .update({
+            product_price: price,
+            total_price: quantity * price,
+            updated_at: now,
+          })
+          .eq("id", offerItem.id);
+
+        if (offerItemUpdateError) {
+          throw new Error(
+            `Aktive Paketposition konnte nicht aktualisiert werden: ${offerItemUpdateError.message}`
+          );
+        }
+
+        updatedActiveOfferItemCount += 1;
+      }
+
+      await supabase.from("school_request_events").insert(
+        activePriceUsage.activeRequests.map((activeRequest) => ({
+          request_id: activeRequest.id,
+          event_type: "active_offer_item_price_updated",
+          title: "Preis aus Produktstamm übernommen",
+          message: `Der Preis für „${productName}“ wurde im Produktstamm geändert und in aktive Paketpositionen übernommen.`,
+          metadata: {
+            productId: id,
+            productName,
+            previousPrice,
+            newPrice: price,
+            priceUpdateMode,
+          },
+          created_at: now,
+        }))
+      );
+    }
+
     await replaceProductAliases(supabase, id, automaticAliases);
 
     return jsonResponse({
@@ -859,6 +1060,16 @@ const matchKeywords = keywordData.matchKeywords;
   matchKeywords,
   aliasCount: automaticAliases.length,
   matchKeywordCount: matchKeywords.length,
+  priceChanged: priceWasChanged,
+  priceUpdateMode: priceWasChanged ? priceUpdateMode || "product_only" : "unchanged",
+  activeCustomerUsage: activePriceUsage
+    ? {
+        activeRequestCount: activePriceUsage.activeRequestCount,
+        activeOfferItemCount: activePriceUsage.activeOfferItemCount,
+        examples: activePriceUsage.examples,
+      }
+    : null,
+  updatedActiveOfferItemCount,
   imageOptimization: uploadedImage
     ? {
         originalSizeBytes: uploadedImage.originalSizeBytes,
