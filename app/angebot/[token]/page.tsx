@@ -47,6 +47,9 @@ type SchoolRequest = {
   offer_token: string | null;
   ai_status: string | null;
   offer_status: string | null;
+  is_active?: boolean | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
   created_at: string | null;
 };
 
@@ -839,6 +842,14 @@ function ReorderButtonBlock({
   );
 }
 
+function isArchivedCustomerRequest(request: SchoolRequest) {
+  return (
+    request.is_active === false ||
+    request.status === "archived" ||
+    Boolean(request.archived_at)
+  );
+}
+
 export default async function CustomerOfferPage({ params }: Params) {
   const { token } = await params;
   const supabase = getSupabaseAdmin();
@@ -860,6 +871,36 @@ export default async function CustomerOfferPage({ params }: Params) {
   }
 
   const request = schoolRequest as SchoolRequest;
+
+  if (isArchivedCustomerRequest(request)) {
+    return (
+      <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+        <section className="mx-auto flex min-h-[70vh] w-full max-w-4xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
+          <div className="rounded-[36px] border border-[#E8DED2] bg-white p-6 text-center shadow-sm sm:p-10">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FFF1F1] text-[#B5282D]">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#B5282D]">
+              Paketwunsch abgelaufen
+            </p>
+
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-[#102A43] sm:text-5xl">
+              Dieser Paketwunsch ist nicht mehr aktiv.
+            </h1>
+
+            <p className="mx-auto mt-4 max-w-2xl text-base font-semibold leading-7 text-[#52616F]">
+              Der Vorgang wurde archiviert, weil er nicht innerhalb der vorgesehenen
+              Frist bezahlt wurde. Bitte stelle bei Bedarf eine neue Anfrage oder
+              kontaktiere uns direkt.
+            </p>
+          </div>
+        </section>
+
+        <LegalFooter />
+      </main>
+    );
+  }
 
   const [
     { data: files },

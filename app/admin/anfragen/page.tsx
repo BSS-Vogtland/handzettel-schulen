@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import DeleteRequestButton from "@/components/DeleteRequestButton";
+import RestoreRequestButton from "@/components/RestoreRequestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,12 @@ type SchoolRequest = {
   payment_due_at?: string | null;
   cash_pickup_due_at?: string | null;
   payment_received_at?: string | null;
+
+  is_active?: boolean | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archived_previous_status?: string | null;
+  restored_at?: string | null;
 
   created_at: string | null;
   updated_at: string | null;
@@ -198,7 +205,8 @@ type AdminFilter =
   | "packable"
   | "shipping"
   | "pickup"
-  | "completed";
+  | "completed"
+  | "archived";
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -633,6 +641,23 @@ function hasOpenQuestions(overview: RequestOverview) {
 
 function hasResolvedQuestions(overview: RequestOverview) {
   return overview.resolvedQuestionCount > 0;
+}
+
+function isArchivedRequest(overview: RequestOverview) {
+  return (
+    overview.request.is_active === false ||
+    overview.request.status === "archived" ||
+    Boolean(overview.request.archived_at)
+  );
+}
+
+function getArchiveReasonLabel(reason?: string | null) {
+  switch (reason) {
+    case "auto_unpaid_14_days":
+      return "Automatisch archiviert: länger als 14 Tage nicht bezahlt";
+    default:
+      return reason || "Archiviert";
+  }
 }
 
 function getOperationalHint(overview: RequestOverview) {
@@ -1831,6 +1856,25 @@ function RequestCard({
             </p>
           </div>
 
+          {isArchivedRequest(overview) ? (
+            <div className="rounded-[24px] border border-[#F2B8B8] bg-[#FFF1F1] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#B5282D]">
+                Archiviert
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#7A1D1D]">
+                {getArchiveReasonLabel(request.archive_reason)}
+              </p>
+              {request.archived_at ? (
+                <p className="mt-1 text-xs font-semibold text-[#7A1D1D]">
+                  Archiviert am: {formatDateTime(request.archived_at)}
+                </p>
+              ) : null}
+              <div className="mt-3">
+                <RestoreRequestButton requestId={request.id} />
+              </div>
+            </div>
+          ) : null}
+
           <PaymentStatusCard request={request} />
 
           <InvoiceFulfillmentMiniCard request={request} />
@@ -1879,11 +1923,22 @@ export default async function AdminRequestsPage({
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "http://localhost:3000";
 
-  const { data: requestRows, error: requestError } = await supabase
+  let requestsQuery = supabase
     .from("school_requests")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (activeFilter === "archived") {
+    requestsQuery = requestsQuery.or("is_active.eq.false,status.eq.archived,archived_at.not.is.null");
+  } else {
+    requestsQuery = requestsQuery
+      .neq("status", "archived")
+      .is("archived_at", null)
+      .neq("is_active", false);
+  }
+
+  const { data: requestRows, error: requestError } = await requestsQuery;
 
   if (requestError) {
     throw new Error(
@@ -2154,6 +2209,7 @@ export default async function AdminRequestsPage({
   const problemPaymentCount = overviews.filter(isProblemPaymentRequest).length;
   const packableCount = overviews.filter(isPackableRequest).length;
   const completedCount = overviews.filter(isCompletedRequest).length;
+  const archivedCount = overviews.filter(isArchivedRequest).length;
   const actionRequiredCount = overviews.filter((overview) => {
     return (
       hasAnsweredQuestions(overview) ||
@@ -2431,6 +2487,13 @@ export default async function AdminRequestsPage({
                 count={completedCount}
                 active={activeFilter === "completed"}
                 tone="green"
+              />
+              <FilterPill
+                href="/admin/anfragen?filter=archived"
+                label="Archiviert"
+                count={archivedCount}
+                active={activeFilter === "archived"}
+                tone="red"
               />
             </div>
           </div>

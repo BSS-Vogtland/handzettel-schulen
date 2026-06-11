@@ -35,6 +35,7 @@ import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendatio
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 import AdminPackageChecklistPanel from "@/components/AdminPackageChecklistPanel";
+import RestoreRequestButton from "@/components/RestoreRequestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,12 @@ type SchoolRequest = {
   cash_on_pickup_allowed_at?: string | null;
   cash_on_pickup_allowed_note?: string | null;
   cash_on_pickup_allowed_by?: string | null;
+
+  is_active?: boolean | null;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  archived_previous_status?: string | null;
+  restored_at?: string | null;
 
   created_at: string | null;
   updated_at: string | null;
@@ -429,6 +436,23 @@ function getQuestionStatusClasses(status: string | null) {
   }
 }
 
+function isArchivedSchoolRequest(request: SchoolRequest) {
+  return (
+    request.is_active === false ||
+    request.status === "archived" ||
+    Boolean(request.archived_at)
+  );
+}
+
+function getArchiveReasonLabel(reason?: string | null) {
+  switch (reason) {
+    case "auto_unpaid_14_days":
+      return "Automatisch archiviert: länger als 14 Tage nicht bezahlt";
+    default:
+      return reason || "Archiviert";
+  }
+}
+
 export default async function AdminRequestDetailPage({ params }: Params) {
   const { id } = await params;
   const supabase = getSupabaseAdmin();
@@ -625,10 +649,38 @@ export default async function AdminRequestDetailPage({ params }: Params) {
   );
 
   const refreshedAt = new Date().toISOString();
+  const isArchived = isArchivedSchoolRequest(request);
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {isArchived ? (
+          <section className="rounded-[32px] border border-[#F2B8B8] bg-[#FFF1F1] p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#B5282D]">
+                  Archivierte Anfrage
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                  Diese Anfrage ist inaktiv.
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
+                  {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
+                  keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
+                  Vorgangszähler mehr.
+                </p>
+                {request.archived_at ? (
+                  <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
+                    Archiviert am: {formatDateTime(request.archived_at)}
+                  </p>
+                ) : null}
+              </div>
+
+              <RestoreRequestButton requestId={request.id} />
+            </div>
+          </section>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href="/admin/anfragen"

@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/social/send-review-reminders?secret=socialpilot_2026_7Fh92KpL_reminder_SECRET_45jZ",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/archive-unpaid-requests?secret=socialpilot_2026_7Fh92KpL_reminder_SECRET_45jZ",
+      "schedule": "0 3 * * *"
     }
   ]
 }
