@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/productSeo";
 import { tryStyleProductImageById } from "../../../../lib/productImageStyling";
 import { createUniqueProductSku } from "../../../../lib/productSku";
+import { buildProductKeywordData } from "../../../../lib/productKeywords";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,13 +128,6 @@ function normalizeText(value: unknown) {
     .trim();
 }
 
-function splitKeywords(value: unknown) {
-  return normalizeText(value)
-    .split(" ")
-    .filter((word) => word.length >= 2)
-    .slice(0, 20);
-}
-
 function hasColumn(product: ProductRow, columnName: string) {
   return Object.prototype.hasOwnProperty.call(product, columnName);
 }
@@ -162,81 +156,6 @@ function getProductPrice(product: ProductRow) {
     product.price ?? product.sale_price_gross ?? product.sale_price,
     0
   );
-}
-
-function getBookSizeAliases(input: {
-  productName: string;
-  bookWidthMm: number | null;
-  bookHeightMm: number | null;
-  bookSizeNote: string;
-}) {
-  const aliases: string[] = [];
-
-  if (!input.bookWidthMm || !input.bookHeightMm) {
-    return aliases;
-  }
-
-  const width = String(input.bookWidthMm);
-  const height = String(input.bookHeightMm);
-  const sizeLabel = `${width} x ${height} mm`;
-
-  aliases.push(
-    sizeLabel,
-    `${width} x ${height}`,
-    `${width} ${height}`,
-    `Buchmaß ${sizeLabel}`,
-    `Buchmass ${sizeLabel}`,
-    `Buchumschlag ${sizeLabel}`,
-    `Buchhülle ${sizeLabel}`,
-    `Umschlag ${sizeLabel}`,
-    `${input.productName} ${sizeLabel}`,
-    `${input.productName} ${width} x ${height}`
-  );
-
-  if (input.bookSizeNote) {
-    aliases.push(
-      `${input.productName} ${input.bookSizeNote}`,
-      `${sizeLabel} ${input.bookSizeNote}`
-    );
-  }
-
-  return aliases;
-}
-
-function buildAliasList(input: {
-  productName: string;
-  productSku: string;
-  category: string;
-  productType: string;
-  format: string;
-  color: string;
-  lineature: string;
-  aliases: string;
-  bookWidthMm: number | null;
-  bookHeightMm: number | null;
-  bookSizeNote: string;
-}) {
-  const manualAliases = input.aliases
-    .split(/[\n,;]+/)
-    .map((alias) => alias.trim())
-    .filter(Boolean);
-
-  const generatedAliases = [
-    input.productName,
-    `${input.productName} ${input.productSku}`,
-    `${input.productType} ${input.format} ${input.color} ${input.lineature}`,
-    `${input.category} ${input.format} ${input.color} ${input.lineature}`,
-    ...getBookSizeAliases({
-      productName: input.productName,
-      bookWidthMm: input.bookWidthMm,
-      bookHeightMm: input.bookHeightMm,
-      bookSizeNote: input.bookSizeNote,
-    }),
-  ]
-    .map((alias) => alias.trim().replace(/\s+/g, " "))
-    .filter((alias) => alias.length >= 2);
-
-  return Array.from(new Set([...manualAliases, ...generatedAliases]));
 }
 
 function sameOptionalText(left: unknown, right: unknown) {
@@ -642,7 +561,7 @@ async function createProductFlexible(
     format: string;
     color: string;
     lineature: string;
-    aliases: string;
+    matchKeywords: string[];
     imageUrl: string | null;
     originalImageUrl: string | null;
     bookWidthMm: number | null;
@@ -650,25 +569,6 @@ async function createProductFlexible(
     bookSizeNote: string;
   }
 ) {
-  const matchKeywords = Array.from(
-    new Set([
-      ...splitKeywords(input.productName),
-      ...splitKeywords(input.productSku),
-      ...splitKeywords(input.category),
-      ...splitKeywords(input.productType),
-      ...splitKeywords(input.format),
-      ...splitKeywords(input.color),
-      ...splitKeywords(input.lineature),
-      ...splitKeywords(input.aliases),
-      ...splitKeywords(input.bookWidthMm),
-      ...splitKeywords(input.bookHeightMm),
-      ...splitKeywords(input.bookSizeNote),
-      input.bookWidthMm && input.bookHeightMm
-        ? `${input.bookWidthMm}x${input.bookHeightMm}`
-        : "",
-    ])
-  ).filter(Boolean);
-
   const seoPayload = await buildSeoPayload({
     supabase,
     productId: null,
@@ -701,7 +601,7 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
-      match_keywords: matchKeywords,
+      match_keywords: input.matchKeywords,
       active: true,
       ...seoPayload,
     },
@@ -733,7 +633,7 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
-      match_keywords: matchKeywords,
+      match_keywords: input.matchKeywords,
       active: true,
     },
   ];
@@ -774,6 +674,7 @@ async function updateExistingProductFlexible(
     format: string;
     color: string;
     lineature: string;
+    matchKeywords: string[];
     imageUrl: string | null;
     originalImageUrl: string | null;
     bookWidthMm: number | null;
@@ -799,59 +700,66 @@ async function updateExistingProductFlexible(
     bookSizeNote: input.bookSizeNote || null,
   });
 
-  const fullPayload: Record<string, unknown> = {
-    sku: input.productSku || null,
-    ean: input.ean || null,
-    book_width_mm: input.bookWidthMm,
-    book_height_mm: input.bookHeightMm,
-    book_size_note: input.bookSizeNote || null,
-    updated_at: now,
-    ...seoPayload,
-  };
+  const updatePayload: Record<string, unknown> = {};
+
+  setIfColumnExists(updatePayload, product, "name", input.productName);
+  setIfColumnExists(updatePayload, product, "title", input.productName);
+
+  setIfColumnExists(updatePayload, product, "sku", input.productSku || null);
+  setIfColumnExists(updatePayload, product, "ean", input.ean || null);
+
+  setIfColumnExists(updatePayload, product, "price", input.productPrice);
+  setIfColumnExists(updatePayload, product, "sale_price", input.productPrice);
+  setIfColumnExists(updatePayload, product, "sale_price_gross", input.productPrice);
+
+  setIfColumnExists(updatePayload, product, "category", input.category || null);
+  setIfColumnExists(updatePayload, product, "product_type", input.productType || null);
+  setIfColumnExists(updatePayload, product, "format", input.format || null);
+  setIfColumnExists(updatePayload, product, "color", input.color || null);
+  setIfColumnExists(updatePayload, product, "lineature", input.lineature || null);
+
+  setIfColumnExists(updatePayload, product, "book_width_mm", input.bookWidthMm);
+  setIfColumnExists(updatePayload, product, "book_height_mm", input.bookHeightMm);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "book_size_note",
+    input.bookSizeNote || null
+  );
+
+  setIfColumnExists(updatePayload, product, "match_keywords", input.matchKeywords);
 
   if (input.imageUrl) {
-    fullPayload.image_url = input.imageUrl;
+    setIfColumnExists(updatePayload, product, "image_url", input.imageUrl);
   }
 
   if (input.originalImageUrl) {
-    fullPayload.image_original_url = input.originalImageUrl;
+    setIfColumnExists(
+      updatePayload,
+      product,
+      "image_original_url",
+      input.originalImageUrl
+    );
   }
 
   if (input.imageUrl || input.originalImageUrl) {
-    fullPayload.image_styled_url = null;
-    fullPayload.image_styled_at = null;
+    setIfColumnExists(updatePayload, product, "image_styled_url", null);
+    setIfColumnExists(updatePayload, product, "image_styled_at", null);
   }
 
-  const { error: fullUpdateError } = await supabase
+  Object.assign(updatePayload, seoPayload);
+
+  setIfColumnExists(updatePayload, product, "updated_at", now);
+
+  if (Object.keys(updatePayload).length === 0) return;
+
+  const { error } = await supabase
     .from("school_products")
-    .update(fullPayload)
+    .update(updatePayload)
     .eq("id", product.id);
 
-  if (!fullUpdateError) return;
-
-  const fallbackPayload: Record<string, unknown> = {
-    sku: input.productSku || null,
-    ean: input.ean || null,
-    updated_at: now,
-  };
-
-  if (input.imageUrl) {
-    fallbackPayload.image_url = input.imageUrl;
-  }
-
-  if (input.originalImageUrl) {
-    fallbackPayload.image_original_url = input.originalImageUrl;
-  }
-
-  const { error: fallbackError } = await supabase
-    .from("school_products")
-    .update(fallbackPayload)
-    .eq("id", product.id);
-
-  if (fallbackError) {
-    throw new Error(
-      `Produkt konnte nicht aktualisiert werden: ${fallbackError.message}`
-    );
+  if (error) {
+    throw new Error(`Produkt konnte nicht aktualisiert werden: ${error.message}`);
   }
 }
 
@@ -892,6 +800,26 @@ async function createAliasFlexible(
   }
 
   return false;
+}
+
+async function addAliasesFlexible(input: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  productId: string;
+  aliases: string[];
+}) {
+  let aliasCount = 0;
+
+  for (const alias of input.aliases) {
+    const created = await createAliasFlexible(
+      input.supabase,
+      input.productId,
+      alias
+    );
+
+    if (created) aliasCount += 1;
+  }
+
+  return aliasCount;
 }
 
 export async function POST(request: NextRequest) {
@@ -958,6 +886,20 @@ export async function POST(request: NextRequest) {
         },
       }));
 
+    const keywordData = buildProductKeywordData({
+      productName,
+      productSku,
+      category,
+      productType,
+      format,
+      color,
+      lineature,
+      aliases,
+      bookWidthMm,
+      bookHeightMm,
+      bookSizeNote,
+    });
+
     const uploadedImage = await uploadProductImage(
       supabase,
       imageFile,
@@ -989,6 +931,7 @@ export async function POST(request: NextRequest) {
         format,
         color,
         lineature,
+        matchKeywords: keywordData.matchKeywords,
         imageUrl: uploadedImage.imageUrl,
         originalImageUrl: uploadedImage.originalImageUrl,
         bookWidthMm,
@@ -996,31 +939,11 @@ export async function POST(request: NextRequest) {
         bookSizeNote,
       });
 
-      const aliasList = buildAliasList({
-        productName,
-        productSku,
-        category,
-        productType,
-        format,
-        color,
-        lineature,
-        aliases,
-        bookWidthMm,
-        bookHeightMm,
-        bookSizeNote,
+      const aliasCount = await addAliasesFlexible({
+        supabase,
+        productId: existingProduct.id,
+        aliases: keywordData.aliases,
       });
-
-      let aliasCount = 0;
-
-      for (const alias of aliasList) {
-        const created = await createAliasFlexible(
-          supabase,
-          existingProduct.id,
-          alias
-        );
-
-        if (created) aliasCount += 1;
-      }
 
       const autoStyle =
         uploadedImage.imageUrl && uploadedImage.originalImageUrl
@@ -1040,14 +963,17 @@ export async function POST(request: NextRequest) {
           productName: getProductName(existingProduct),
           productSku,
           ean,
-          productPrice: getProductPrice(existingProduct),
+          productPrice,
           imageUrl:
             uploadedImage.imageUrl ||
             existingProduct.image_url ||
             existingProduct.image_original_url ||
             null,
         },
+        aliases: keywordData.aliases,
+        matchKeywords: keywordData.matchKeywords,
         aliasCount,
+        matchKeywordCount: keywordData.matchKeywords.length,
         autoStyle,
         imageOptimization:
           uploadedImage.imageUrl && uploadedImage.originalImageUrl
@@ -1059,9 +985,9 @@ export async function POST(request: NextRequest) {
         message:
           uploadedImage.imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
             ? autoStyle.ok
-              ? "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe, SEO-Daten und KI-Hintergrund wurden aktualisiert."
-              : "Dieses Produkt existiert bereits. Bild, Buchmaße, Suchbegriffe und SEO-Daten wurden aktualisiert. Der KI-Hintergrund konnte nicht automatisch erzeugt werden."
-            : "Dieses Produkt existiert bereits. Suchbegriffe und SEO-Daten wurden aktualisiert.",
+              ? `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten, ${keywordData.aliases.length} Suchbegriffe und KI-Hintergrund wurden aktualisiert.`
+              : `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten und ${keywordData.aliases.length} Suchbegriffe wurden aktualisiert. Der KI-Hintergrund konnte nicht automatisch erzeugt werden.`
+            : `Dieses Produkt existiert bereits. ${keywordData.aliases.length} Suchbegriffe und SEO-Daten wurden aktualisiert.`,
       });
     }
 
@@ -1075,7 +1001,7 @@ export async function POST(request: NextRequest) {
       format,
       color,
       lineature,
-      aliases,
+      matchKeywords: keywordData.matchKeywords,
       imageUrl: uploadedImage.imageUrl,
       originalImageUrl: uploadedImage.originalImageUrl,
       bookWidthMm,
@@ -1083,26 +1009,11 @@ export async function POST(request: NextRequest) {
       bookSizeNote,
     });
 
-    const aliasList = buildAliasList({
-      productName,
-      productSku,
-      category,
-      productType,
-      format,
-      color,
-      lineature,
-      aliases,
-      bookWidthMm,
-      bookHeightMm,
-      bookSizeNote,
+    const aliasCount = await addAliasesFlexible({
+      supabase,
+      productId: product.id,
+      aliases: keywordData.aliases,
     });
-
-    let aliasCount = 0;
-
-    for (const alias of aliasList) {
-      const created = await createAliasFlexible(supabase, product.id, alias);
-      if (created) aliasCount += 1;
-    }
 
     const autoStyle =
       uploadedImage.imageUrl && uploadedImage.originalImageUrl
@@ -1127,7 +1038,10 @@ export async function POST(request: NextRequest) {
         seoSlug: product.seo_slug || null,
         seoTitle: product.seo_title || null,
       },
+      aliases: keywordData.aliases,
+      matchKeywords: keywordData.matchKeywords,
       aliasCount,
+      matchKeywordCount: keywordData.matchKeywords.length,
       autoStyle,
       imageOptimization:
         uploadedImage.imageUrl && uploadedImage.originalImageUrl
@@ -1138,9 +1052,9 @@ export async function POST(request: NextRequest) {
           : null,
       message: uploadedImage.imageUrl
         ? autoStyle.ok
-          ? "Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten und KI-Hintergrund angelegt."
-          : "Produkt wurde mit optimiertem Shopbild, Originalbild und SEO-Daten angelegt. Der KI-Hintergrund konnte nicht automatisch erzeugt werden und kann später im Produkt manuell erstellt werden."
-        : "Produkt wurde mit optionalen Buchmaßen und SEO-Daten angelegt und ist ab sofort verfügbar.",
+          ? `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten, ${keywordData.aliases.length} Suchbegriffen und KI-Hintergrund angelegt.`
+          : `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt. Der KI-Hintergrund konnte nicht automatisch erzeugt werden und kann später im Produkt manuell erstellt werden.`
+        : `Produkt wurde mit optionalen Buchmaßen, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt und ist ab sofort verfügbar.`,
     });
   } catch (error) {
     console.error("Quick product create error:", error);
