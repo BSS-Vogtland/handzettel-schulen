@@ -729,13 +729,13 @@ export default function AdminEditProductForm({
               </div>
 
               <h3 className="font-black text-[#102A43]">
-                Buchmaße für passende Umschläge
+                Optionale Produktdetails fürs Matching
               </h3>
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-                Breite und Höhe in Millimetern. Beispiel: 230 x 440 mm.
-                Diese Werte werden später für das automatische Umschlag-Matching
-                genutzt.
+                Nutze diese Felder für Maße, Material, Packungsinhalt, Besonderheiten
+                oder zusätzliche Suchbegriffe. Die Angaben werden beim Speichern in
+                SEO-Daten, Suchbegriffen und Matching-Keywords berücksichtigt.
               </p>
             </div>
 
@@ -748,7 +748,7 @@ export default function AdminEditProductForm({
                   value={formData.bookWidthMm}
                   onChange={(event) => updateBookWidth(event.target.value)}
                   inputMode="numeric"
-                  placeholder="z. B. 230"
+                  placeholder="Optional, z. B. 230"
                   className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
                 />
               </label>
@@ -761,30 +761,48 @@ export default function AdminEditProductForm({
                   value={formData.bookHeightMm}
                   onChange={(event) => updateBookHeight(event.target.value)}
                   inputMode="numeric"
-                  placeholder="z. B. 440"
+                  placeholder="Optional, z. B. 440"
                   className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#12395F]">
-                  Hinweis
+                  Details / Suchhinweise
                 </span>
-                <input
+                <textarea
                   value={formData.bookSizeNote}
                   onChange={(event) =>
                     updateField("bookSizeNote", event.target.value)
                   }
-                  placeholder="z. B. passend für großes Arbeitsbuch"
-                  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+                  rows={3}
+                  placeholder={
+                    "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
+                  }
+                  className="min-h-[88px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 py-3 text-sm font-bold outline-none transition focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
                 />
               </label>
             </div>
 
-            {formData.bookWidthMm && formData.bookHeightMm ? (
+            {(formData.bookWidthMm && formData.bookHeightMm) ||
+            formData.bookSizeNote.trim() ? (
               <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
-                Erfasstes Buchmaß: {formData.bookWidthMm} x{" "}
-                {formData.bookHeightMm} mm
+                {formData.bookWidthMm && formData.bookHeightMm ? (
+                  <p>
+                    Erfasstes Maß: {formData.bookWidthMm} x{" "}
+                    {formData.bookHeightMm} mm
+                  </p>
+                ) : null}
+
+                {formData.bookSizeNote.trim() ? (
+                  <p
+                    className={
+                      formData.bookWidthMm && formData.bookHeightMm ? "mt-1" : ""
+                    }
+                  >
+                    Details: {formData.bookSizeNote.trim()}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </section>
