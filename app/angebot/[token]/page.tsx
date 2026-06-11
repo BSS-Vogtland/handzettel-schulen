@@ -120,6 +120,8 @@ type RequestItemQuestion = {
 type ProductRow = {
   id: string;
   image_url?: string | null;
+  image_original_url?: string | null;
+  image_styled_url?: string | null;
 };
 
 const AUTO_PRESELECT_MIN_SCORE = 85;
@@ -630,7 +632,14 @@ function uniqueCleanStrings(values: Array<string | null | undefined>) {
     )
   );
 }
-
+function getPreferredProductImageUrl(product: ProductRow) {
+  return (
+    cleanText(product.image_styled_url, "") ||
+    cleanText(product.image_url, "") ||
+    cleanText(product.image_original_url, "") ||
+    null
+  );
+}
 function getItemFacts(item: RequestItem | null | undefined) {
   if (!item) return [];
 
@@ -1024,16 +1033,22 @@ export default async function CustomerOfferPage({ params }: Params) {
 
   const productImageById = new Map<string, string | null>();
 
-  if (productIds.length > 0) {
-    const { data: productRows } = await supabase
-      .from("school_products")
-      .select("id, image_url")
-      .in("id", productIds);
+if (productIds.length > 0) {
+  const { data: productRows, error: productRowsError } = await supabase
+    .from("school_products")
+    .select("id, image_styled_url, image_url, image_original_url")
+    .in("id", productIds);
 
-    for (const product of (productRows || []) as ProductRow[]) {
-      productImageById.set(product.id, product.image_url || null);
-    }
+  if (productRowsError) {
+    throw new Error(
+      `Produktbilder konnten nicht geladen werden: ${productRowsError.message}`
+    );
   }
+
+  for (const product of (productRows || []) as ProductRow[]) {
+    productImageById.set(product.id, getPreferredProductImageUrl(product));
+  }
+}
 
   const selectedMatchIds = new Set(
     selectedOfferItems
