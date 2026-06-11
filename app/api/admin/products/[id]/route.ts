@@ -6,6 +6,7 @@ import {
   slugifyProductText,
 } from "../../../../lib/productSeo";
 import { createUniqueProductSku } from "../../../../lib/productSku";
+import { buildProductKeywordData } from "../../../../lib/productKeywords";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -709,33 +710,22 @@ export async function PATCH(request: NextRequest, context: Params) {
         excludeProductId: id,
       }));
 
-    const automaticAliases = buildAutomaticAliasList({
-      productName,
-      productSku,
-      category,
-      productType,
-      format,
-      color,
-      lineature,
-      aliases: manualAliases,
-      bookWidthMm,
-      bookHeightMm,
-      bookSizeNote,
-    });
+    const keywordData = buildProductKeywordData({
+  productName,
+  productSku,
+  category,
+  productType,
+  format,
+  color,
+  lineature,
+  aliases: manualAliases,
+  bookWidthMm,
+  bookHeightMm,
+  bookSizeNote,
+});
 
-    const matchKeywords = buildMatchKeywords({
-      productName,
-      productSku,
-      category,
-      productType,
-      format,
-      color,
-      lineature,
-      aliases: automaticAliases,
-      bookWidthMm,
-      bookHeightMm,
-      bookSizeNote,
-    });
+const automaticAliases = keywordData.aliases;
+const matchKeywords = keywordData.matchKeywords;
 
     const previousImageUrl = cleanString(product.image_url);
 
