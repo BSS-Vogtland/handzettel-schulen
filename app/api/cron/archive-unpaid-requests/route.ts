@@ -127,7 +127,7 @@ export async function GET(request: Request) {
     const archivedIds: string[] = [];
 
     for (const row of candidates) {
-      const { error: updateError } = await supabase
+      const { data: updatedRequest, error: updateError } = await supabase
         .from("school_requests")
         .update({
           is_active: false,
@@ -138,13 +138,20 @@ export async function GET(request: Request) {
           updated_at: nowIso,
         })
         .eq("id", row.id)
-        .neq("payment_status", "payment_received")
-        .neq("payment_status", "cash_paid");
+        .select("id")
+        .maybeSingle();
 
       if (updateError) {
         console.error("Auto-Archivierung fehlgeschlagen:", {
           requestId: row.id,
           error: updateError.message,
+        });
+        continue;
+      }
+
+      if (!updatedRequest) {
+        console.error("Auto-Archivierung hat keine Zeile aktualisiert:", {
+          requestId: row.id,
         });
         continue;
       }
