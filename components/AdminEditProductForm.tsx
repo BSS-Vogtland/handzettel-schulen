@@ -141,30 +141,6 @@ export default function AdminEditProductForm({
   }, [productImage]);
 
   useEffect(() => {
-    if (isSaving) return;
-
-    setFormData(buildInitialFormData());
-  }, [
-    productId,
-    productName,
-    productSku,
-    ean,
-    productPrice,
-    category,
-    productType,
-    format,
-    color,
-    lineature,
-    bookWidthMm,
-    bookHeightMm,
-    bookSizeNote,
-    imageUrl,
-    active,
-    aliases,
-    isSaving,
-  ]);
-
-  useEffect(() => {
     function handleKeywordsRegenerated(event: Event) {
       const customEvent =
         event as CustomEvent<ProductKeywordsRegeneratedEventDetail>;
