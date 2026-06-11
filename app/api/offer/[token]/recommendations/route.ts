@@ -217,11 +217,7 @@ export async function GET(_request: Request, context: Params) {
     }
 
     const { data: productsData, error: productsError } = await supabase
-      .from("school_products")
-      .select(
-        "id, name, title, sku, price, sale_price, image_styled_url, image_url, image_original_url"
-      )
-      .in("id", productIds);
+      .from("school_products").select("*").in("id", productIds);
 
     if (productsError) {
       return jsonResponse(
