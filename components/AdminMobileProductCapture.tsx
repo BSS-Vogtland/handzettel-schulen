@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   ChangeEvent,
   FormEvent,
+  KeyboardEvent,
   useEffect,
   useMemo,
   useRef,
@@ -576,6 +577,17 @@ export default function AdminMobileProductCapture() {
     setBookHeightMm(normalizeOptionalIntegerInput(value));
   }
 
+  function handleFormKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter") return;
+
+    const target = event.target as HTMLElement | null;
+    const tagName = target?.tagName?.toLowerCase();
+
+    if (tagName === "textarea") return;
+
+    event.preventDefault();
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -667,6 +679,7 @@ export default function AdminMobileProductCapture() {
   return (
     <form
       onSubmit={handleSubmit}
+      onKeyDown={handleFormKeyDown}
       className="rounded-[32px] border border-[#E8DED2] bg-white p-4 shadow-sm sm:p-6"
     >
       <div className="mb-5">

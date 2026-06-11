@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ImagePlus,
@@ -538,6 +538,17 @@ export default function AdminQuickProductForm() {
     setBookHeightMm(normalizeOptionalIntegerInput(value));
   }
 
+  function handleFormKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter") return;
+
+    const target = event.target as HTMLElement | null;
+    const tagName = target?.tagName?.toLowerCase();
+
+    if (tagName === "textarea") return;
+
+    event.preventDefault();
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -627,6 +638,7 @@ export default function AdminQuickProductForm() {
   return (
     <form
       onSubmit={handleSubmit}
+      onKeyDown={handleFormKeyDown}
       className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7"
     >
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
