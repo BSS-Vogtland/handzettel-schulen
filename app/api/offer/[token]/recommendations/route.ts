@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { rebuildOfferRecommendations } from "@/app/lib/offerRecommendations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -163,6 +164,8 @@ export async function GET(_request: Request, context: Params) {
       });
     }
 
+    await rebuildOfferRecommendations(requestId);
+
     const { data: offerItemsData, error: offerItemsError } = await supabase
       .from("school_offer_items")
       .select("product_id")
@@ -259,7 +262,7 @@ export async function GET(_request: Request, context: Params) {
           imageUrl: getPreferredImageUrl(product),
           title: cleanText(recommendation.title),
           reason: cleanText(recommendation.reason),
-          source: recommendation.source || "admin",
+          source: recommendation.source || "system",
         };
       })
       .filter(Boolean);

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { rebuildOfferRecommendations } from "@/app/lib/offerRecommendations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -151,6 +152,34 @@ export async function GET(_request: Request, context: Params) {
 
     const supabase = getSupabaseAdmin();
 
+    const { data: schoolRequest, error: requestError } = await supabase
+      .from("school_requests")
+      .select("id")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (requestError) {
+      return jsonResponse(
+        {
+          ok: false,
+          message: `Anfrage konnte nicht geladen werden: ${requestError.message}`,
+        },
+        500
+      );
+    }
+
+    if (!schoolRequest) {
+      return jsonResponse(
+        {
+          ok: false,
+          message: "Anfrage wurde nicht gefunden.",
+        },
+        404
+      );
+    }
+
+    await rebuildOfferRecommendations(requestId);
+
     const { data: recommendationsData, error: recommendationsError } =
       await supabase
         .from("school_offer_recommendations")
@@ -219,7 +248,7 @@ export async function GET(_request: Request, context: Params) {
         imageUrl: product ? getPreferredImageUrl(product) : null,
         title: recommendation.title || null,
         reason: recommendation.reason || null,
-        source: recommendation.source || "admin",
+        source: recommendation.source || "system",
         sortOrder: recommendation.sort_order || 100,
         isVisible: recommendation.is_visible !== false,
         addedToOfferItemId: recommendation.added_to_offer_item_id || null,

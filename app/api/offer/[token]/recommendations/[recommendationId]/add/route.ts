@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { rebuildOfferRecommendations } from "@/app/lib/offerRecommendations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -281,6 +282,8 @@ export async function POST(_request: Request, context: Params) {
         })
         .eq("id", cleanRecommendationId);
 
+      await rebuildOfferRecommendations(requestId);
+
       return jsonResponse({
         ok: true,
         alreadyAdded: true,
@@ -342,6 +345,8 @@ export async function POST(_request: Request, context: Params) {
       requestId,
       productName,
     });
+
+    await rebuildOfferRecommendations(requestId);
 
     return jsonResponse({
       ok: true,
