@@ -1,3 +1,5 @@
+// app/lib/offerRecommendations.ts
+
 import { createClient } from "@supabase/supabase-js";
 
 type RequestItem = {
@@ -32,6 +34,10 @@ type ProductRow = {
   format?: string | null;
   color?: string | null;
   lineature?: string | null;
+  description?: string | null;
+  short_description?: string | null;
+  alias_names?: string[] | string | null;
+  keywords?: string[] | string | null;
   active?: boolean | null;
 };
 
@@ -89,6 +95,14 @@ function cleanText(value: unknown) {
   return String(value || "").trim();
 }
 
+function arrayishToText(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).join(" ");
+  }
+
+  return cleanText(value);
+}
+
 function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
@@ -97,7 +111,6 @@ function normalizeText(value: unknown) {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -108,8 +121,9 @@ function includesAny(text: string, words: string[]) {
   return words.some((word) => normalizedText.includes(normalizeText(word)));
 }
 
-function hasFormat(text: string, format: "a4" | "a5" | "a3") {
-  return normalizeText(text).includes(format);
+function hasFormat(text: string, format: "a3" | "a4" | "a5") {
+  const normalized = normalizeText(text);
+  return normalized.includes(format);
 }
 
 function getProductName(product: ProductRow) {
@@ -134,6 +148,10 @@ function getProductText(product: ProductRow) {
       product.format,
       product.color,
       product.lineature,
+      product.description,
+      product.short_description,
+      arrayishToText(product.alias_names),
+      arrayishToText(product.keywords),
     ]
       .filter(Boolean)
       .join(" ")
@@ -167,19 +185,47 @@ function isEnvelopeText(text: string) {
   return includesAny(text, [
     "umschlag",
     "umschlaege",
-    "umschläge",
     "heftumschlag",
     "heftumschlaege",
-    "heftumschläge",
     "buchumschlag",
     "buchumschlaege",
-    "buchumschläge",
-    "hülle",
     "huelle",
+    "hülle",
     "hefthuelle",
     "hefthülle",
     "schutzhülle",
     "schutzhuelle",
+  ]);
+}
+
+function isFolderText(text: string) {
+  return includesAny(text, [
+    "schnellhefter",
+    "hefter",
+    "ordner",
+    "ringbuch",
+    "sammelmappe",
+    "mappe",
+  ]);
+}
+
+function isExerciseBookText(text: string) {
+  const normalized = normalizeText(text);
+
+  if (isEnvelopeText(normalized)) return false;
+  if (isFolderText(normalized)) return false;
+
+  return includesAny(normalized, [
+    "heft",
+    "schreibheft",
+    "schulheft",
+    "rechenheft",
+    "deutschheft",
+    "matheheft",
+    "linienheft",
+    "karierte",
+    "kariert",
+    "lineatur",
   ]);
 }
 
@@ -188,9 +234,9 @@ function productMatchesAny(productText: string, terms: string[]) {
 }
 
 function productMatchesFormat(productText: string, contextText: string) {
+  if (hasFormat(contextText, "a3")) return hasFormat(productText, "a3");
   if (hasFormat(contextText, "a4")) return hasFormat(productText, "a4");
   if (hasFormat(contextText, "a5")) return hasFormat(productText, "a5");
-  if (hasFormat(contextText, "a3")) return hasFormat(productText, "a3");
   return true;
 }
 
@@ -205,6 +251,33 @@ function stableHash(value: string) {
   return Math.abs(hash);
 }
 
+function scoreColorMatch(contextText: string, productText: string) {
+  let score = 0;
+
+  const colors = [
+    "blau",
+    "rot",
+    "gruen",
+    "grün",
+    "gelb",
+    "orange",
+    "lila",
+    "violett",
+    "schwarz",
+    "weiss",
+    "weiß",
+    "transparent",
+  ];
+
+  for (const color of colors) {
+    if (includesAny(contextText, [color]) && includesAny(productText, [color])) {
+      score += 4;
+    }
+  }
+
+  return score;
+}
+
 function buildCandidateForRule(input: {
   products: ProductRow[];
   selectedProductIds: Set<string>;
@@ -217,6 +290,7 @@ function buildCandidateForRule(input: {
   baseScore: number;
   maxCount?: number;
   blockEnvelopeProducts: boolean;
+  requireFormatMatch?: boolean;
 }) {
   const maxCount = input.maxCount || 1;
 
@@ -234,9 +308,16 @@ function buildCandidateForRule(input: {
       }
 
       if (!productMatchesAny(productText, input.productTerms)) return null;
-      if (!productMatchesFormat(productText, input.contextText)) return null;
+
+      if (input.requireFormatMatch !== false) {
+        if (!productMatchesFormat(productText, input.contextText)) return null;
+      }
 
       let score = input.baseScore;
+
+      if (hasFormat(input.contextText, "a3") && hasFormat(productText, "a3")) {
+        score += 10;
+      }
 
       if (hasFormat(input.contextText, "a4") && hasFormat(productText, "a4")) {
         score += 8;
@@ -246,33 +327,14 @@ function buildCandidateForRule(input: {
         score += 8;
       }
 
-      if (
-        includesAny(input.contextText, ["blau"]) &&
-        includesAny(productText, ["blau"])
-      ) {
-        score += 4;
-      }
-
-      if (
-        includesAny(input.contextText, ["rot"]) &&
-        includesAny(productText, ["rot"])
-      ) {
-        score += 4;
-      }
-
-      if (
-        includesAny(input.contextText, ["gruen", "grün"]) &&
-        includesAny(productText, ["gruen", "grün"])
-      ) {
-        score += 4;
-      }
+      score += scoreColorMatch(input.contextText, productText);
 
       return {
         product,
         reason: input.reason,
         score,
         requestItemId: input.requestItemId,
-      } satisfies RecommendationCandidate;
+      };
     })
     .filter((candidate): candidate is RecommendationCandidate =>
       Boolean(candidate)
@@ -308,8 +370,8 @@ function buildRecommendationsForText(input: {
     includesAny(text, [
       "fueller",
       "füller",
-      "füllhalter",
       "fuellhalter",
+      "füllhalter",
       "federhalter",
       "iridiumfeder",
     ])
@@ -322,6 +384,7 @@ function buildRecommendationsForText(input: {
           "Passt häufig zum Füller und kann zusätzlich für den Schulalltag sinnvoll sein.",
         baseScore: 95,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
@@ -331,7 +394,7 @@ function buildRecommendationsForText(input: {
       "farbkasten",
       "tuschkasten",
       "wasserfarbe",
-      "malkittel",
+      "malkasten",
       "malen",
       "kunst",
     ])
@@ -344,6 +407,7 @@ function buildRecommendationsForText(input: {
           "Passt häufig zum Farbkasten und wird im Kunstunterricht oft zusätzlich benötigt.",
         baseScore: 94,
         maxCount: 1,
+        requireFormatMatch: false,
       }),
       ...buildCandidateForRule({
         ...input,
@@ -352,6 +416,7 @@ function buildRecommendationsForText(input: {
           "Kann beim Malen mit Wasserfarben praktisch sein und ergänzt den Farbkasten sinnvoll.",
         baseScore: 86,
         maxCount: 1,
+        requireFormatMatch: false,
       }),
       ...buildCandidateForRule({
         ...input,
@@ -360,14 +425,16 @@ function buildRecommendationsForText(input: {
           "Ergänzt Mal- und Kunstmaterial sinnvoll, falls kein passender Pinsel vorhanden ist.",
         baseScore: 84,
         maxCount: 1,
+        requireFormatMatch: false,
       }),
       ...buildCandidateForRule({
         ...input,
-        productTerms: ["malkittel"],
+        productTerms: ["malkittel", "malschuerze", "malschürze"],
         reason:
           "Kann Kleidung beim Malen schützen und ist besonders für jüngere Kinder sinnvoll.",
         baseScore: 80,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
@@ -381,6 +448,7 @@ function buildRecommendationsForText(input: {
           "Passt häufig zu Bleistiften und ist als Ergänzung für die Federmappe sinnvoll.",
         baseScore: 90,
         maxCount: 1,
+        requireFormatMatch: false,
       }),
       ...buildCandidateForRule({
         ...input,
@@ -388,11 +456,12 @@ function buildRecommendationsForText(input: {
         reason: "Passt häufig zu Bleistiften und Buntstiften.",
         baseScore: 89,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
 
-  if (includesAny(text, ["buntstift", "buntstifte", "farbstift"])) {
+  if (includesAny(text, ["buntstift", "buntstifte", "farbstift", "farbstifte"])) {
     candidates.push(
       ...buildCandidateForRule({
         ...input,
@@ -401,22 +470,20 @@ function buildRecommendationsForText(input: {
           "Passt häufig zu Buntstiften und ist als Ergänzung für die Federmappe sinnvoll.",
         baseScore: 88,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
 
-  if (
-    !input.blockEnvelopeProducts &&
-    includesAny(text, ["heft", "schreibheft", "schulheft"]) &&
-    !isEnvelopeText(text)
-  ) {
+  if (!input.blockEnvelopeProducts && isExerciseBookText(text)) {
     candidates.push(
       ...buildCandidateForRule({
         ...input,
         productTerms: [
           "umschlag",
-          "hülle",
+          "umschlaege",
           "huelle",
+          "hülle",
           "hefthuelle",
           "hefthülle",
           "heftumschlag",
@@ -424,18 +491,20 @@ function buildRecommendationsForText(input: {
         reason: "Zu Heften wird häufig ein passender Umschlag benötigt.",
         baseScore: 82,
         maxCount: 1,
+        requireFormatMatch: true,
       })
     );
   }
 
-  if (includesAny(text, ["ordner", "hefter", "schnellhefter"])) {
+  if (isFolderText(text)) {
     candidates.push(
       ...buildCandidateForRule({
         ...input,
-        productTerms: ["trennblatt", "register"],
+        productTerms: ["trennblatt", "trennblaetter", "register"],
         reason: "Kann beim Sortieren von Unterlagen zusätzlich hilfreich sein.",
-        baseScore: 72,
+        baseScore: 76,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
@@ -444,10 +513,25 @@ function buildRecommendationsForText(input: {
     candidates.push(
       ...buildCandidateForRule({
         ...input,
-        productTerms: ["bastelmappe", "tonpapier", "zeichenblock"],
+        productTerms: ["bastelmappe", "tonpapier", "zeichenblock", "malblock"],
         reason: "Kann bei Bastel- und Kunstaufgaben ergänzend sinnvoll sein.",
+        baseScore: 72,
+        maxCount: 1,
+        requireFormatMatch: false,
+      })
+    );
+  }
+
+  if (includesAny(text, ["zirkel", "geodreieck", "lineal", "winkelmesser"])) {
+    candidates.push(
+      ...buildCandidateForRule({
+        ...input,
+        productTerms: ["zirkel", "geodreieck", "lineal", "winkelmesser"],
+        reason:
+          "Kann für Mathematik und Geometrie zusätzlich sinnvoll sein, falls es noch nicht im Paket enthalten ist.",
         baseScore: 70,
         maxCount: 1,
+        requireFormatMatch: false,
       })
     );
   }
@@ -492,6 +576,15 @@ function buildFallbackCandidates(input: {
 }) {
   if (input.neededCount <= 0) return [];
 
+  const weakFallbackBlockTerms = [
+    "lehrer",
+    "schueler",
+    "schüler",
+    "buch",
+    "buchumschlag",
+    "buchumschlaege",
+  ];
+
   return input.products
     .map((product): RecommendationCandidate | null => {
       const productText = getProductText(product);
@@ -506,24 +599,53 @@ function buildFallbackCandidates(input: {
         return null;
       }
 
+      if (includesAny(productText, weakFallbackBlockTerms)) {
+        return null;
+      }
+
       const productName = getProductName(product);
 
       if (!productName || productName === "Unbenanntes Produkt") {
         return null;
       }
 
+      let score = 10;
+
+      if (
+        includesAny(productText, [
+          "klebestift",
+          "radierer",
+          "spitzer",
+          "bleistift",
+          "lineal",
+          "geodreieck",
+          "zeichenblock",
+          "malblock",
+          "hefter",
+          "schnellhefter",
+        ])
+      ) {
+        score += 12;
+      }
+
+      if (includesAny(productText, ["set", "sortiment", "packung"])) {
+        score += 3;
+      }
+
       return {
         product,
         reason:
-          "Dieser Artikel könnte als zusätzliche Ergänzung für den Schulalltag sinnvoll sein.",
-        score: 10,
+          "Dieser Artikel könnte als zusätzliche Ergänzung für den Schulalltag sinnvoll sein. Bitte prüfe selbst, ob er wirklich benötigt wird.",
+        score,
         requestItemId: null,
-      } satisfies RecommendationCandidate;
+      };
     })
     .filter((candidate): candidate is RecommendationCandidate =>
       Boolean(candidate)
     )
     .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+
       const hashA = stableHash(`${input.requestId}:${a.product.id}`);
       const hashB = stableHash(`${input.requestId}:${b.product.id}`);
 
@@ -595,9 +717,7 @@ export async function rebuildOfferRecommendations(
   }
 
   if (productsError) {
-    throw new Error(
-      `Produkte konnten nicht geladen werden: ${productsError.message}`
-    );
+    throw new Error(`Produkte konnten nicht geladen werden: ${productsError.message}`);
   }
 
   const requestItems = (requestItemsData || []) as RequestItem[];
@@ -606,14 +726,24 @@ export async function rebuildOfferRecommendations(
   const existingRecommendations =
     (existingRecommendationsData || []) as ExistingRecommendation[];
 
+  const productById = new Map(products.map((product) => [product.id, product]));
+
   const selectedProductIds = new Set(
     offerItems
       .map((item) => String(item.product_id || "").trim())
       .filter(Boolean)
   );
 
-  const blockEnvelopeProducts = offerItems.some((item) =>
-    isEnvelopeText(getOfferItemText(item))
+  const selectedOfferTexts = offerItems.map((item) => {
+    const directText = getOfferItemText(item);
+    const product = item.product_id ? productById.get(item.product_id) : null;
+    const productText = product ? getProductText(product) : "";
+
+    return normalizeText([directText, productText].filter(Boolean).join(" "));
+  });
+
+  const blockEnvelopeProducts = selectedOfferTexts.some((text) =>
+    isEnvelopeText(text)
   );
 
   const adminRecommendationProductIds = new Set(
@@ -666,7 +796,10 @@ export async function rebuildOfferRecommendations(
   }
 
   for (const item of offerItems) {
-    const contextText = getOfferItemText(item);
+    const directText = getOfferItemText(item);
+    const product = item.product_id ? productById.get(item.product_id) : null;
+    const productText = product ? getProductText(product) : "";
+    const contextText = normalizeText([directText, productText].join(" "));
 
     if (!contextText) continue;
 
@@ -717,15 +850,13 @@ export async function rebuildOfferRecommendations(
   let hiddenCount = 0;
 
   for (const recommendation of existingOpenSystemRecommendations) {
+    const product = productById.get(recommendation.product_id);
+    const recommendationProductText = product ? getProductText(product) : "";
+
     const shouldHide =
       selectedProductIds.has(recommendation.product_id) ||
       !finalProductIds.has(recommendation.product_id) ||
-      (blockEnvelopeProducts &&
-        products.some(
-          (product) =>
-            product.id === recommendation.product_id &&
-            isEnvelopeText(getProductText(product))
-        ));
+      (blockEnvelopeProducts && isEnvelopeText(recommendationProductText));
 
     if (!shouldHide) continue;
 
