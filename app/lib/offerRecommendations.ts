@@ -1,7 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-type SupabaseAdminClient = ReturnType<typeof createSupabaseAdmin>;
-
 type RequestItem = {
   id: string;
   raw_text?: string | null;
@@ -65,6 +63,9 @@ export type RebuildOfferRecommendationsResult = {
   candidateCount: number;
   message: string;
 };
+
+const MIN_VISIBLE_RECOMMENDATIONS = 3;
+const MAX_RECOMMENDATIONS = 8;
 
 function createSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -162,6 +163,26 @@ function getOfferItemText(item: OfferItem) {
   );
 }
 
+function isEnvelopeText(text: string) {
+  return includesAny(text, [
+    "umschlag",
+    "umschlaege",
+    "umschläge",
+    "heftumschlag",
+    "heftumschlaege",
+    "heftumschläge",
+    "buchumschlag",
+    "buchumschlaege",
+    "buchumschläge",
+    "hülle",
+    "huelle",
+    "hefthuelle",
+    "hefthülle",
+    "schutzhülle",
+    "schutzhuelle",
+  ]);
+}
+
 function productMatchesAny(productText: string, terms: string[]) {
   return terms.some((term) => productText.includes(normalizeText(term)));
 }
@@ -173,26 +194,45 @@ function productMatchesFormat(productText: string, contextText: string) {
   return true;
 }
 
+function stableHash(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return Math.abs(hash);
+}
+
 function buildCandidateForRule(input: {
   products: ProductRow[];
   selectedProductIds: Set<string>;
   adminRecommendationProductIds: Set<string>;
+  hiddenSystemRecommendationProductIds: Set<string>;
   requestItemId: string | null;
   contextText: string;
   productTerms: string[];
   reason: string;
   baseScore: number;
   maxCount?: number;
+  blockEnvelopeProducts: boolean;
 }) {
   const maxCount = input.maxCount || 1;
 
   return input.products
-    .map((product) => {
+    .map((product): RecommendationCandidate | null => {
       const productText = getProductText(product);
 
       if (product.active === false) return null;
       if (input.selectedProductIds.has(product.id)) return null;
       if (input.adminRecommendationProductIds.has(product.id)) return null;
+      if (input.hiddenSystemRecommendationProductIds.has(product.id)) return null;
+
+      if (input.blockEnvelopeProducts && isEnvelopeText(productText)) {
+        return null;
+      }
+
       if (!productMatchesAny(productText, input.productTerms)) return null;
       if (!productMatchesFormat(productText, input.contextText)) return null;
 
@@ -256,8 +296,10 @@ function buildRecommendationsForText(input: {
   products: ProductRow[];
   selectedProductIds: Set<string>;
   adminRecommendationProductIds: Set<string>;
+  hiddenSystemRecommendationProductIds: Set<string>;
   requestItemId: string | null;
   contextText: string;
+  blockEnvelopeProducts: boolean;
 }) {
   const candidates: RecommendationCandidate[] = [];
   const text = input.contextText;
@@ -364,8 +406,9 @@ function buildRecommendationsForText(input: {
   }
 
   if (
+    !input.blockEnvelopeProducts &&
     includesAny(text, ["heft", "schreibheft", "schulheft"]) &&
-    !includesAny(text, ["umschlag", "huelle", "hülle", "hefthuelle"])
+    !isEnvelopeText(text)
   ) {
     candidates.push(
       ...buildCandidateForRule({
@@ -375,6 +418,7 @@ function buildRecommendationsForText(input: {
           "hülle",
           "huelle",
           "hefthuelle",
+          "hefthülle",
           "heftumschlag",
         ],
         reason: "Zu Heften wird häufig ein passender Umschlag benötigt.",
@@ -436,6 +480,67 @@ function dedupeCandidates(candidates: RecommendationCandidate[]) {
   });
 }
 
+function buildFallbackCandidates(input: {
+  requestId: string;
+  products: ProductRow[];
+  selectedProductIds: Set<string>;
+  adminRecommendationProductIds: Set<string>;
+  hiddenSystemRecommendationProductIds: Set<string>;
+  existingCandidateProductIds: Set<string>;
+  blockEnvelopeProducts: boolean;
+  neededCount: number;
+}) {
+  if (input.neededCount <= 0) return [];
+
+  return input.products
+    .map((product): RecommendationCandidate | null => {
+      const productText = getProductText(product);
+
+      if (product.active === false) return null;
+      if (input.selectedProductIds.has(product.id)) return null;
+      if (input.adminRecommendationProductIds.has(product.id)) return null;
+      if (input.hiddenSystemRecommendationProductIds.has(product.id)) return null;
+      if (input.existingCandidateProductIds.has(product.id)) return null;
+
+      if (input.blockEnvelopeProducts && isEnvelopeText(productText)) {
+        return null;
+      }
+
+      const productName = getProductName(product);
+
+      if (!productName || productName === "Unbenanntes Produkt") {
+        return null;
+      }
+
+      return {
+        product,
+        reason:
+          "Dieser Artikel könnte als zusätzliche Ergänzung für den Schulalltag sinnvoll sein.",
+        score: 10,
+        requestItemId: null,
+      } satisfies RecommendationCandidate;
+    })
+    .filter((candidate): candidate is RecommendationCandidate =>
+      Boolean(candidate)
+    )
+    .sort((a, b) => {
+      const hashA = stableHash(`${input.requestId}:${a.product.id}`);
+      const hashB = stableHash(`${input.requestId}:${b.product.id}`);
+
+      if (hashA !== hashB) return hashA - hashB;
+
+      return getProductName(a.product).localeCompare(
+        getProductName(b.product),
+        "de",
+        {
+          numeric: true,
+          sensitivity: "base",
+        }
+      );
+    })
+    .slice(0, input.neededCount);
+}
+
 export async function rebuildOfferRecommendations(
   requestId: string
 ): Promise<RebuildOfferRecommendationsResult> {
@@ -490,7 +595,9 @@ export async function rebuildOfferRecommendations(
   }
 
   if (productsError) {
-    throw new Error(`Produkte konnten nicht geladen werden: ${productsError.message}`);
+    throw new Error(
+      `Produkte konnten nicht geladen werden: ${productsError.message}`
+    );
   }
 
   const requestItems = (requestItemsData || []) as RequestItem[];
@@ -505,9 +612,22 @@ export async function rebuildOfferRecommendations(
       .filter(Boolean)
   );
 
+  const blockEnvelopeProducts = offerItems.some((item) =>
+    isEnvelopeText(getOfferItemText(item))
+  );
+
   const adminRecommendationProductIds = new Set(
     existingRecommendations
       .filter((recommendation) => recommendation.source === "admin")
+      .filter((recommendation) => !recommendation.added_to_offer_item_id)
+      .map((recommendation) => String(recommendation.product_id || "").trim())
+      .filter(Boolean)
+  );
+
+  const hiddenSystemRecommendationProductIds = new Set(
+    existingRecommendations
+      .filter((recommendation) => recommendation.source === "system")
+      .filter((recommendation) => recommendation.is_visible === false)
       .filter((recommendation) => !recommendation.added_to_offer_item_id)
       .map((recommendation) => String(recommendation.product_id || "").trim())
       .filter(Boolean)
@@ -537,8 +657,10 @@ export async function rebuildOfferRecommendations(
         products,
         selectedProductIds,
         adminRecommendationProductIds,
+        hiddenSystemRecommendationProductIds,
         requestItemId: item.id,
         contextText,
+        blockEnvelopeProducts,
       })
     );
   }
@@ -553,13 +675,37 @@ export async function rebuildOfferRecommendations(
         products,
         selectedProductIds,
         adminRecommendationProductIds,
+        hiddenSystemRecommendationProductIds,
         requestItemId: null,
         contextText,
+        blockEnvelopeProducts,
       })
     );
   }
 
-  const finalCandidates = dedupeCandidates(candidates).slice(0, 8);
+  let finalCandidates = dedupeCandidates(candidates);
+
+  if (finalCandidates.length < MIN_VISIBLE_RECOMMENDATIONS) {
+    const existingCandidateProductIds = new Set(
+      finalCandidates.map((candidate) => candidate.product.id)
+    );
+
+    const fallbackCandidates = buildFallbackCandidates({
+      requestId: cleanRequestId,
+      products,
+      selectedProductIds,
+      adminRecommendationProductIds,
+      hiddenSystemRecommendationProductIds,
+      existingCandidateProductIds,
+      blockEnvelopeProducts,
+      neededCount: MIN_VISIBLE_RECOMMENDATIONS - finalCandidates.length,
+    });
+
+    finalCandidates = dedupeCandidates([...finalCandidates, ...fallbackCandidates]);
+  }
+
+  finalCandidates = finalCandidates.slice(0, MAX_RECOMMENDATIONS);
+
   const finalProductIds = new Set(
     finalCandidates.map((candidate) => candidate.product.id)
   );
@@ -573,7 +719,13 @@ export async function rebuildOfferRecommendations(
   for (const recommendation of existingOpenSystemRecommendations) {
     const shouldHide =
       selectedProductIds.has(recommendation.product_id) ||
-      !finalProductIds.has(recommendation.product_id);
+      !finalProductIds.has(recommendation.product_id) ||
+      (blockEnvelopeProducts &&
+        products.some(
+          (product) =>
+            product.id === recommendation.product_id &&
+            isEnvelopeText(getProductText(product))
+        ));
 
     if (!shouldHide) continue;
 
@@ -592,17 +744,13 @@ export async function rebuildOfferRecommendations(
     const existing = existingSystemByProductId.get(candidate.product.id);
 
     if (existing) {
-      const preserveVisibility = existing.is_visible === false ? false : true;
-
       const { error } = await supabase
         .from("school_offer_recommendations")
         .update({
           request_item_id: candidate.requestItemId,
           reason: candidate.reason,
           sort_order: 10 + index,
-          is_visible: selectedProductIds.has(candidate.product.id)
-            ? false
-            : preserveVisibility,
+          is_visible: !selectedProductIds.has(candidate.product.id),
           updated_at: now,
         })
         .eq("id", existing.id);
