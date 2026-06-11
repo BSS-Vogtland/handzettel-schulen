@@ -50,6 +50,21 @@ type ProductKeywordsRegeneratedEventDetail = {
   matchKeywordCount?: number;
 };
 
+type PriceConflictState = {
+  activeRequestCount: number;
+  activeOfferItemCount: number;
+  previousPrice: number | null;
+  newPrice: number | null;
+  examples: Array<{
+    id?: string;
+    requestNumber?: string | null;
+    customerName?: string | null;
+    childName?: string | null;
+    status?: string | null;
+    offerStatus?: string | null;
+  }>;
+};
+
 async function readJsonSafely(response: Response) {
   const rawText = await response.text();
 
@@ -100,6 +115,9 @@ export default function AdminEditProductForm({
   const [isSaving, setIsSaving] = useState(false);
   const [isStyling, setIsStyling] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
+  const [priceConflict, setPriceConflict] = useState<PriceConflictState | null>(
+    null
+  );
 
   const [productImage, setProductImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -252,6 +270,161 @@ export default function AdminEditProductForm({
     }
   }
 
+  function buildSubmitData(
+    priceUpdateMode?: "product_only" | "active_offer_items"
+  ) {
+    const submitData = new FormData();
+
+    submitData.append("productName", formData.productName);
+    submitData.append("productSku", formData.productSku);
+    submitData.append("ean", formData.ean);
+    submitData.append("productPrice", formData.productPrice);
+    submitData.append("category", formData.category);
+    submitData.append("productType", formData.productType);
+    submitData.append("format", formData.format);
+    submitData.append("color", formData.color);
+    submitData.append("lineature", formData.lineature);
+    submitData.append("bookWidthMm", formData.bookWidthMm);
+    submitData.append("bookHeightMm", formData.bookHeightMm);
+    submitData.append("bookSizeNote", formData.bookSizeNote);
+    submitData.append("imageUrl", formData.imageUrl);
+    submitData.append("active", String(formData.active));
+    submitData.append("aliases", formData.aliases);
+
+    if (priceUpdateMode) {
+      submitData.append("priceUpdateMode", priceUpdateMode);
+    }
+
+    if (productImage) {
+      submitData.append("productImage", productImage);
+    }
+
+    return submitData;
+  }
+
+  function applySuccessfulSavePayload(payload: any) {
+    const nextAliases = Array.isArray(payload?.aliases)
+      ? payload.aliases.join("\n")
+      : formData.aliases;
+
+    setFormData((current) => ({
+      ...current,
+      imageUrl: payload?.imageUrl || current.imageUrl,
+      aliases: nextAliases,
+    }));
+
+    setProductImage(null);
+    setPreviewUrl(null);
+
+    const updatedActiveOfferItemCount = Number(
+      payload?.updatedActiveOfferItemCount || 0
+    );
+
+    setFeedback({
+      type: "success",
+      message:
+        updatedActiveOfferItemCount > 0
+          ? `Produkt wurde gespeichert. Der neue Preis wurde zusätzlich in ${updatedActiveOfferItemCount} aktiven Paketpositionen übernommen.`
+          : payload?.message ||
+            "Produkt wurde gespeichert. Die Suchbegriffe bleiben im Feld erhalten.",
+    });
+
+    router.refresh();
+  }
+
+  async function saveProductWithMode(
+    priceUpdateMode?: "product_only" | "active_offer_items"
+  ) {
+    const submitData = buildSubmitData(priceUpdateMode);
+
+    const response = await fetch(`/api/admin/products/${productId}`, {
+      method: "PATCH",
+      body: submitData,
+    });
+
+    const payload = await readJsonSafely(response);
+
+    if (
+      response.status === 409 &&
+      payload?.code === "PRICE_USED_IN_ACTIVE_REQUESTS"
+    ) {
+      setPriceConflict({
+        activeRequestCount: Number(payload?.activeRequestCount || 0),
+        activeOfferItemCount: Number(payload?.activeOfferItemCount || 0),
+        previousPrice:
+          typeof payload?.previousPrice === "number"
+            ? payload.previousPrice
+            : null,
+        newPrice:
+          typeof payload?.newPrice === "number" ? payload.newPrice : null,
+        examples: Array.isArray(payload?.examples) ? payload.examples : [],
+      });
+
+      return {
+        ok: false,
+        blockedByPriceConflict: true,
+        payload,
+      };
+    }
+
+    if (!response.ok || payload?.ok === false) {
+      return {
+        ok: false,
+        blockedByPriceConflict: false,
+        payload,
+      };
+    }
+
+    applySuccessfulSavePayload(payload);
+
+    return {
+      ok: true,
+      blockedByPriceConflict: false,
+      payload,
+    };
+  }
+
+  async function handlePriceConflictDecision(
+    mode: "product_only" | "active_offer_items" | "cancel"
+  ) {
+    if (mode === "cancel") {
+      setPriceConflict(null);
+      setIsSaving(false);
+      setFeedback({
+        type: "error",
+        message: "Speichern wurde abgebrochen. Es wurde nichts geändert.",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setFeedback(null);
+      setPriceConflict(null);
+
+      const result = await saveProductWithMode(mode);
+
+      if (!result.ok && !result.blockedByPriceConflict) {
+        setFeedback({
+          type: "error",
+          message:
+            result.payload?.message ||
+            "Das Produkt konnte nicht gespeichert werden.",
+        });
+      }
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Beim Speichern ist ein unerwarteter Fehler aufgetreten.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -280,107 +453,27 @@ export default function AdminEditProductForm({
     try {
       setIsSaving(true);
       setFeedback(null);
+      setPriceConflict(null);
 
-      const submitData = new FormData();
+      const result = await saveProductWithMode();
 
-      submitData.append("productName", formData.productName);
-      submitData.append("productSku", formData.productSku);
-      submitData.append("ean", formData.ean);
-      submitData.append("productPrice", formData.productPrice);
-      submitData.append("category", formData.category);
-      submitData.append("productType", formData.productType);
-      submitData.append("format", formData.format);
-      submitData.append("color", formData.color);
-      submitData.append("lineature", formData.lineature);
-      submitData.append("bookWidthMm", formData.bookWidthMm);
-      submitData.append("bookHeightMm", formData.bookHeightMm);
-      submitData.append("bookSizeNote", formData.bookSizeNote);
-      submitData.append("imageUrl", formData.imageUrl);
-      submitData.append("active", String(formData.active));
-      submitData.append("aliases", formData.aliases);
-
-      if (productImage) {
-        submitData.append("productImage", productImage);
+      if (result.blockedByPriceConflict) {
+        setIsSaving(false);
+        return;
       }
 
-      let response = await fetch(`/api/admin/products/${productId}`, {
-        method: "PATCH",
-        body: submitData,
-      });
-
-      let payload = await readJsonSafely(response);
-
-      if (
-        response.status === 409 &&
-        payload?.code === "PRICE_USED_IN_ACTIVE_REQUESTS"
-      ) {
-        const activeRequestCount = Number(payload?.activeRequestCount || 0);
-        const activeOfferItemCount = Number(payload?.activeOfferItemCount || 0);
-
-        const shouldApplyToActiveRequests = window.confirm(
-          [
-            "Dieses Produkt ist bereits in aktiven Kundenvorgängen enthalten.",
-            "",
-            `Aktive Kundenvorgänge: ${activeRequestCount}`,
-            `Aktive Paketpositionen: ${activeOfferItemCount}`,
-            "",
-            "OK = Preis trotzdem auch in aktiven Kundenvorgängen ändern.",
-            "Abbrechen = Nur Produktstamm ändern; aktive Kundenvorgänge behalten den alten Preis.",
-          ].join("\n")
-        );
-
-        submitData.set(
-          "priceUpdateMode",
-          shouldApplyToActiveRequests ? "active_offer_items" : "product_only"
-        );
-
-        response = await fetch(`/api/admin/products/${productId}`, {
-          method: "PATCH",
-          body: submitData,
-        });
-
-        payload = await readJsonSafely(response);
-      }
-
-      if (!response.ok || payload?.ok === false) {
+      if (!result.ok || result.payload?.ok === false) {
         setFeedback({
           type: "error",
           message:
-            payload?.message || "Das Produkt konnte nicht gespeichert werden.",
+            result.payload?.message ||
+            "Das Produkt konnte nicht gespeichert werden.",
         });
         setIsSaving(false);
         return;
       }
 
-      const nextAliases = Array.isArray(payload?.aliases)
-  ? payload.aliases.join("\n")
-  : formData.aliases;
-
-setFormData((current) => ({
-  ...current,
-  imageUrl: payload?.imageUrl || current.imageUrl,
-  aliases: nextAliases,
-}));
-
-setProductImage(null);
-setPreviewUrl(null);
-
-setFeedback({
-  type: "success",
-  message:
-    payload?.message ||
-    "Produkt wurde gespeichert. Die Suchbegriffe bleiben im Feld erhalten.",
-});
-
-setIsSaving(false);
-
-/*
-  Wichtig:
-  Kein sofortiger router.refresh() nach dem Speichern.
-  Der Refresh hat das Alias-Feld wieder mit alten/leeren Server-Props überschrieben.
-  Die Produktdaten und Aliase sind serverseitig gespeichert; das offene Formular
-  behält die gespeicherten Suchbegriffe sichtbar im Feld.
-*/
+      setIsSaving(false);
     } catch (error) {
       setFeedback({
         type: "error",
@@ -836,6 +929,103 @@ setIsSaving(false);
             </span>
           </label>
 
+          {priceConflict ? (
+            <section className="rounded-[24px] border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                    Preis in aktiven Kundenvorgängen
+                  </p>
+
+                  <h3 className="mt-1 text-lg font-black text-[#102A43]">
+                    Wie soll der neue Preis übernommen werden?
+                  </h3>
+
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                    Dieses Produkt ist in{" "}
+                    <span className="font-black text-[#102A43]">
+                      {priceConflict.activeRequestCount}
+                    </span>{" "}
+                    aktiven Kundenvorgang/Kundenvorgängen und{" "}
+                    <span className="font-black text-[#102A43]">
+                      {priceConflict.activeOfferItemCount}
+                    </span>{" "}
+                    aktiven Paketpositionen enthalten.
+                  </p>
+
+                  {priceConflict.previousPrice !== null &&
+                  priceConflict.newPrice !== null ? (
+                    <p className="mt-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#102A43]">
+                      Alter Preis:{" "}
+                      {String(priceConflict.previousPrice).replace(".", ",")} € ·
+                      Neuer Preis:{" "}
+                      {String(priceConflict.newPrice).replace(".", ",")} €
+                    </p>
+                  ) : null}
+
+                  {priceConflict.examples.length > 0 ? (
+                    <div className="mt-3 rounded-2xl bg-white p-3">
+                      <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                        Beispiele
+                      </p>
+
+                      <div className="grid gap-2">
+                        {priceConflict.examples.slice(0, 3).map((example, index) => (
+                          <p
+                            key={`${example.id || index}`}
+                            className="text-xs font-semibold text-[#52616F]"
+                          >
+                            {example.requestNumber
+                              ? `Anfrage ${example.requestNumber}`
+                              : "Kundenvorgang"}
+                            {example.customerName
+                              ? ` · ${example.customerName}`
+                              : ""}
+                            {example.childName ? ` · ${example.childName}` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 grid gap-2 lg:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => handlePriceConflictDecision("product_only")}
+                      disabled={isSaving || isStyling}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-2 text-xs font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Nur Produktstamm ändern
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handlePriceConflictDecision("active_offer_items")
+                      }
+                      disabled={isSaving || isStyling}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#12395F] px-4 py-2 text-xs font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Auch aktive Vorgänge ändern
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePriceConflictDecision("cancel")}
+                      disabled={isSaving || isStyling}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 py-2 text-xs font-black text-[#B5282D] ring-1 ring-[#E8DED2] transition hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Speichern abbrechen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
           <button
             type="submit"
             disabled={isSaving || isStyling}
