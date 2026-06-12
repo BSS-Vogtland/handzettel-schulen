@@ -48,7 +48,7 @@ type LogoOverlayPlan = {
 };
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
     value
   );
 }
@@ -91,6 +91,51 @@ async function loadBrandLogoBuffer() {
   }
 
   return readFile(logoPath);
+}
+
+function sanitizeBaseImagePrompt(value: string) {
+  const cleaned = cleanString(value);
+
+  if (!cleaned) return "";
+
+  return cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const lower = line.toLowerCase();
+
+      const blockedTerms = [
+        "child",
+        "children",
+        "school-age",
+        "kid",
+        "kids",
+        "minor",
+        "minors",
+        "junge",
+        "mädchen",
+        "kind",
+        "kinder",
+        "schulkind",
+        "schulkinder",
+        "parent-child",
+        "logo",
+        "brand name",
+        "branded",
+        "branding",
+        "label",
+        "sticker",
+        "white card",
+        "blank card",
+        "blank label",
+        "blank white",
+        "handzettel-schulen",
+      ];
+
+      return !blockedTerms.some((term) => lower.includes(term));
+    })
+    .join("\n");
 }
 
 function detectTopicCategory(post: SocialPostRow) {
@@ -224,46 +269,47 @@ function buildBrandingDirection(post: SocialPostRow, category: string) {
   const visibility = detectBrandVisibility(post, category);
 
   const visualPlacement = pickVariant(post.id + "-brand-panel", [
-    "a clean blank white rounded label on a school-supply package near the lower third of the image",
-    "a clean blank white brand card lying next to the printed school list near the lower third of the image",
-    "a clean blank white package insert card near the lower third of the composition",
-    "a clean blank white sticker area on a school-material bag near the lower third of the image",
-    "a clean blank white information card placed naturally on the table near the lower third of the image",
+    "a calm, uncluttered lower-left area with natural table surface, suitable for a real logo overlay added later",
+    "a clean lower-third area with simple school materials around it, suitable for a real logo overlay added later",
+    "a quiet lower-left composition area with enough negative space for a real logo badge added later",
+    "a realistic lower-third area on the table with no text, no labels and no blank white cards",
+    "a clean but natural lower area of the image with enough visual breathing room for a later logo overlay",
   ]);
 
   const visibilityText =
     visibility === "strong"
       ? `
-- Branding area visibility: strong but professional.
-- The blank branding area should be clearly visible and intentionally part of the composition.
-- It should be large enough for the real logo to be added later.
+- Logo overlay area visibility: strong but professional.
+- Leave a clearly usable lower-third area for the application to add the real logo later.
+- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
 `
       : visibility === "subtle"
         ? `
-- Branding area visibility: subtle.
-- The blank branding area should be visible but not dominant.
-- It should feel like a tasteful realistic label or card.
+- Logo overlay area visibility: subtle.
+- Leave only a tasteful amount of calm visual space for the application to add the real logo later.
+- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
 `
         : `
-- Branding area visibility: balanced.
-- The blank branding area should be clearly visible but still natural.
-- It should support trust and recognition without making the image look like a cheap advertisement.
+- Logo overlay area visibility: balanced.
+- Leave a clean but natural lower-third area for the application to add the real logo later.
+- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
 `;
 
   return {
     visibility,
     visualPlacement,
     prompt: `
-Branding area requirement for later real-logo overlay:
+Branding overlay requirement:
+- The real "${brandName}" logo will be added later by the application as a technical overlay.
 - Do NOT invent, draw, imitate, or render the "${brandName}" logo.
 - Do NOT create fake logo text.
 - Do NOT write "${brandName}" into the AI-generated image.
-- Instead, create a clean blank white branding area where the real logo will be added later by the application.
-- Use this exact placement idea: ${visualPlacement}.
+- Do NOT create a separate blank white label, blank white card, blank package insert, blank sticker, empty white rectangle, or empty branding panel inside the generated image.
+- Instead, leave natural negative space where the application can place the real logo overlay.
+- Use this exact composition idea: ${visualPlacement}.
 ${visibilityText}
-- The blank branding area must be simple, mostly white, rectangular or softly rounded, and free of text.
-- The blank branding area should have realistic lighting and perspective, but remain clean enough for a real logo overlay.
-- The blank branding area should appear in the lower third of the image whenever possible.
+- The lower part of the image should stay visually calm enough for a logo badge overlay.
+- The scene must still look realistic and complete, not like something is missing.
 - Keep the scene realistic, family-friendly, warm, and practical.
 - Do not use third-party brand logos.
 - Do not use competitor logos.
@@ -500,13 +546,13 @@ function buildOverlayPlan(
 ): LogoOverlayPlan {
   const panelWidth =
     brandVisibility === "strong"
-      ? Math.round(imageWidth * 0.62)
-      : Math.round(imageWidth * 0.52);
+      ? Math.round(imageWidth * 0.72)
+      : Math.round(imageWidth * 0.64);
 
   const panelHeight =
     brandVisibility === "strong"
-      ? Math.round(imageHeight * 0.105)
-      : Math.round(imageHeight * 0.085);
+      ? Math.round(imageHeight * 0.13)
+      : Math.round(imageHeight * 0.115);
 
   const margin = Math.round(imageWidth * 0.055);
 
@@ -517,22 +563,39 @@ function buildOverlayPlan(
     panelHeight,
     panelLeft: margin,
     panelTop: imageHeight - panelHeight - margin,
-    logoMaxWidth: Math.round(panelWidth * 0.78),
-    logoMaxHeight: Math.round(panelHeight * 0.62),
+    logoMaxWidth: Math.round(panelWidth * 0.9),
+    logoMaxHeight: Math.round(panelHeight * 0.78),
   };
 }
 
 async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
   const logoBuffer = await loadBrandLogoBuffer();
 
-  const logoPng = await sharp(logoBuffer, {
-    density: 300,
-  })
+  let trimmedLogoBuffer: Buffer;
+
+  try {
+    trimmedLogoBuffer = await sharp(logoBuffer, {
+      density: 300,
+    })
+      .rotate()
+      .trim({ threshold: 16 })
+      .png()
+      .toBuffer();
+  } catch {
+    trimmedLogoBuffer = await sharp(logoBuffer, {
+      density: 300,
+    })
+      .rotate()
+      .png()
+      .toBuffer();
+  }
+
+  const logoPng = await sharp(trimmedLogoBuffer)
     .resize({
       width: plan.logoMaxWidth,
       height: plan.logoMaxHeight,
       fit: "inside",
-      withoutEnlargement: true,
+      withoutEnlargement: false,
     })
     .png()
     .toBuffer();
@@ -548,24 +611,33 @@ async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
 
   return Buffer.from(`
 <svg width="${plan.panelWidth}" height="${plan.panelHeight}" viewBox="0 0 ${plan.panelWidth} ${plan.panelHeight}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="rgba(0,0,0,0.18)"/>
+    </filter>
+  </defs>
+
   <rect
     x="0"
     y="0"
     width="${plan.panelWidth}"
     height="${plan.panelHeight}"
-    rx="${Math.round(plan.panelHeight * 0.22)}"
-    fill="rgba(255,255,255,0.92)"
+    rx="${Math.round(plan.panelHeight * 0.24)}"
+    fill="rgba(255,255,255,0.94)"
+    filter="url(#shadow)"
   />
+
   <rect
     x="1"
     y="1"
     width="${plan.panelWidth - 2}"
     height="${plan.panelHeight - 2}"
-    rx="${Math.round(plan.panelHeight * 0.22)}"
+    rx="${Math.round(plan.panelHeight * 0.24)}"
     fill="none"
     stroke="rgba(16,42,67,0.12)"
     stroke-width="2"
   />
+
   <image
     href="data:image/png;base64,${logoBase64}"
     x="${logoX}"
@@ -615,7 +687,7 @@ async function applyLogoOverlay(
 }
 
 function buildImagePlan(post: SocialPostRow) {
-  const basePrompt = cleanString(post.image_prompt);
+  const basePrompt = sanitizeBaseImagePrompt(cleanString(post.image_prompt));
   const topic = cleanString(post.topic);
   const hook = cleanString(post.hook);
   const caption = cleanString(post.caption);
@@ -628,8 +700,15 @@ function buildImagePlan(post: SocialPostRow) {
   const brandingDirection = buildBrandingDirection(post, topicCategory);
   const brandName = getBrandName(post);
 
-  const finalPrompt = `
+  const basePromptSection = basePrompt
+    ? `
+Original creative direction after safety and branding cleanup:
 ${basePrompt}
+`
+    : "";
+
+  const finalPrompt = `
+${basePromptSection}
 
 Important social-media context:
 The image must visually support this exact hook:
@@ -680,8 +759,8 @@ Additional fixed production requirements:
 - Do not include third-party brand logos or competitor logos.
 - Do not include TikTok, Instagram or Facebook logos.
 - Avoid strong readable text.
-- The blank branding area should be visually available for a real logo overlay added later by the application.
-- Leave some clean negative space for later overlay text when possible.
+- Do not create artificial blank white cards, blank labels, empty sticker fields or empty branding rectangles inside the scene.
+- Leave natural lower-third negative space for the logo overlay, but the image must still look complete without it.
 - No exaggerated advertising style.
 `.trim();
 
@@ -885,8 +964,10 @@ export async function POST(
           brand_name: imagePlan.brandName,
           brand_visibility: imagePlan.brandVisibility,
           brand_placement: imagePlan.brandPlacement,
+          prompt_cleanup:
+            "Existing prompt was cleaned from logo, blank card and visible young-person instructions before generation.",
           safety_adjustment:
-            "Prompt avoids visible young people and focuses on adults, hands, materials, lists, packages and smartphone actions.",
+            "Prompt focuses on adults, hands, materials, lists, packages and smartphone actions.",
           logo_overlay: {
             enabled: true,
             logo_path: BRAND_LOGO_RELATIVE_PATH,
