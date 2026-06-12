@@ -426,6 +426,7 @@ export default function AdminMobileProductCapture() {
 
   const [productName, setProductName] = useState("");
   const [productSku, setProductSku] = useState("");
+  const [ean, setEan] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [category, setCategory] = useState("");
   const [productType, setProductType] = useState("");
@@ -494,6 +495,7 @@ export default function AdminMobileProductCapture() {
   function resetForm(keepSuccess = false) {
     setProductName("");
     setProductSku("");
+    setEan("");
     setProductPrice("");
     setCategory("");
     setProductType("");
@@ -618,6 +620,7 @@ export default function AdminMobileProductCapture() {
 
       formData.append("productName", productName.trim());
       formData.append("productSku", productSku.trim());
+      formData.append("ean", ean.trim());
       formData.append("productPrice", productPrice.trim());
       formData.append("category", category.trim());
       formData.append("productType", productType.trim());
@@ -814,6 +817,21 @@ export default function AdminMobileProductCapture() {
                 className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-base font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </label>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-black text-[#102A43]">
+              EAN
+            </label>
+            <input
+              type="text"
+              value={ean}
+              onChange={(event) =>
+                setEan(event.target.value.replace(/[^\d]/g, ""))
+              }
+              inputMode="numeric"
+              placeholder="Optional: Barcode / EAN"
+              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+            />
           </div>
         </section>
 
