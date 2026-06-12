@@ -812,17 +812,17 @@ Additional fixed production requirements:
 }
 
 export async function POST(
-  _request: Request,
-  context: { params: Promise<{ id: string }> }
+  request: Request,
+  context: { params?: Promise<{ id?: string }> | { id?: string } }
 ) {
   try {
-    const { id } = await context.params;
+    const id = await getPostIdFromRequest(request, context);
 
     if (!id || !isUuid(id)) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Ungültige Beitrags-ID.",
+          message: `Ungültige Beitrags-ID: ${id || "keine ID empfangen"}`,
         },
         { status: 400 }
       );
