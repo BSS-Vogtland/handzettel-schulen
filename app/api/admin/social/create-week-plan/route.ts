@@ -161,13 +161,43 @@ export async function POST() {
       );
     }
 
+    const { count: activeScheduledCount, error: scheduledCountError } =
+      await supabaseServer
+        .from("social_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", project.id)
+        .eq("status", "scheduled")
+        .not("scheduled_at", "is", null);
+
+    if (scheduledCountError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: scheduledCountError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if ((activeScheduledCount || 0) > 0) {
+      return NextResponse.json({
+        ok: true,
+        action: "already_has_week_plan",
+        message: `Es sind bereits ${activeScheduledCount} Beitrag${
+          activeScheduledCount === 1 ? "" : "e"
+        } geplant. Der Wochenplan wurde deshalb nicht erneut erstellt.`,
+        project,
+        plannedPosts: [],
+      });
+    }
+
     const { data: postsData, error: postsError } = await supabaseServer
       .from("social_posts")
       .select("id, created_at, status, review_status, topic, scheduled_at")
       .eq("project_id", project.id)
+      .eq("status", "approved")
       .eq("review_status", "approved")
       .is("scheduled_at", null)
-      .neq("status", "archived")
       .order("created_at", { ascending: true })
       .limit(MAX_POSTS_PER_PLAN);
 
@@ -186,8 +216,10 @@ export async function POST() {
     if (posts.length === 0) {
       return NextResponse.json({
         ok: true,
+        action: "nothing_to_plan",
         message:
           "Es wurden keine freigegebenen, ungeplanten Beiträge gefunden. Gib zuerst Beiträge im Review frei oder entferne bestehende Termine.",
+        project,
         plannedPosts: [],
       });
     }
@@ -206,6 +238,7 @@ export async function POST() {
         })
         .eq("id", post.id)
         .eq("project_id", project.id)
+        .eq("status", "approved")
         .eq("review_status", "approved")
         .is("scheduled_at", null)
         .select("id, topic, status, review_status, scheduled_at")
@@ -226,6 +259,7 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
+      action: "created",
       message: `${plannedPosts.length} freigegebene Beitrag${
         plannedPosts.length === 1 ? "" : "e"
       } wurden automatisch für die nächste Woche geplant. Maximal ${MAX_POSTS_PER_PLAN} Beiträge werden pro Wochenplan eingeplant.`,

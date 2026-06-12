@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialGenerateButton from "@/components/AdminSocialGenerateButton";
-
+import AdminSocialCreateWeekPlanButton from "@/components/AdminSocialCreateWeekPlanButton";
 export const dynamic = "force-dynamic";
 
 type SocialPostRow = {
@@ -324,6 +324,14 @@ export default async function AdminSocialPage() {
   const scheduledCount = posts.filter(
     (post) => post.status === "scheduled"
   ).length;
+    const approvedUnscheduledCount = posts.filter(
+    (post) =>
+      post.status !== "archived" &&
+      post.status !== "scheduled" &&
+      post.status !== "published" &&
+      post.review_status === "approved" &&
+      !post.scheduled_at
+  ).length;
   const publishedCount = posts.filter(
     (post) => post.status === "published"
   ).length;
@@ -398,7 +406,10 @@ export default async function AdminSocialPage() {
             <div className="flex flex-col items-start gap-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:flex-col">
                 <AdminSocialGenerateButton />
-
+                <AdminSocialCreateWeekPlanButton
+                  eligibleCount={approvedUnscheduledCount}
+                  scheduledCount={scheduledCount}
+                />
                 <Link
                   href="/admin/social/automation"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800 shadow-sm transition hover:bg-purple-100"
