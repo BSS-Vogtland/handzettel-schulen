@@ -39,6 +39,24 @@ type AliasInput = {
   bookSizeNote: string;
 };
 
+type InitialCopyProduct = {
+  sourceProductName?: string | null;
+  productName?: string | null;
+  productPrice?: number | string | null;
+  category?: string | null;
+  productType?: string | null;
+  format?: string | null;
+  color?: string | null;
+  lineature?: string | null;
+  bookWidthMm?: string | null;
+  bookHeightMm?: string | null;
+  bookSizeNote?: string | null;
+};
+
+type AdminQuickProductFormProps = {
+  initialCopyProduct?: InitialCopyProduct | null;
+};
+
 function cleanValue(value: unknown) {
   return String(value || "").trim();
 }
@@ -88,6 +106,19 @@ function normalizeOptionalIntegerInput(value: string) {
   }
 
   return cleaned;
+}
+
+function formatInitialPrice(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return "";
+    return String(value).replace(".", ",");
+  }
+
+  return String(value).trim().replace(".", ",");
 }
 
 function getBaseProductType(input: AliasInput) {
@@ -404,7 +435,9 @@ function generateRuleBasedAliases(input: AliasInput) {
   return uniqueList(aliases).slice(0, 36);
 }
 
-export default function AdminQuickProductForm() {
+export default function AdminQuickProductForm({
+  initialCopyProduct = null,
+}: AdminQuickProductFormProps) {
   const router = useRouter();
 
   const [productName, setProductName] = useState("");
@@ -474,6 +507,39 @@ export default function AdminQuickProductForm() {
       URL.revokeObjectURL(objectUrl);
     };
   }, [productImage]);
+
+  useEffect(() => {
+    if (!initialCopyProduct) return;
+
+    setProductName(cleanValue(initialCopyProduct.productName));
+    setProductSku("");
+    setProductPrice(formatInitialPrice(initialCopyProduct.productPrice));
+    setCategory(cleanValue(initialCopyProduct.category));
+    setProductType(cleanValue(initialCopyProduct.productType));
+    setFormat(cleanValue(initialCopyProduct.format));
+    setColor(cleanValue(initialCopyProduct.color));
+    setLineature(cleanValue(initialCopyProduct.lineature));
+    setBookWidthMm(
+      normalizeOptionalIntegerInput(cleanValue(initialCopyProduct.bookWidthMm))
+    );
+    setBookHeightMm(
+      normalizeOptionalIntegerInput(cleanValue(initialCopyProduct.bookHeightMm))
+    );
+    setBookSizeNote(cleanValue(initialCopyProduct.bookSizeNote));
+
+    setAliases("");
+    setAliasesWereManuallyEdited(false);
+    setProductImage(null);
+    setPreviewUrl(null);
+    setErrorMessage(null);
+    setFeedback(
+      `Artikelkopie vorbereitet: „${
+        cleanValue(initialCopyProduct.sourceProductName) ||
+        cleanValue(initialCopyProduct.productName) ||
+        "Artikel"
+      }“. Art.-Nr., EAN und Keywords werden nicht übernommen.`
+    );
+  }, [initialCopyProduct]);
 
   function resetForm() {
     setProductName("");

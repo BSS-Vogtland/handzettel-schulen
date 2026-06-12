@@ -64,6 +64,7 @@ type AdminProductsPageProps = {
   searchParams?: Promise<{
     q?: string | string[];
     filter?: string | string[];
+    copyProductId?: string | string[];
   }>;
 };
 
@@ -362,6 +363,7 @@ export default async function AdminProductsPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const searchQuery = getSearchParam(resolvedSearchParams.q);
   const activeFilter = getFilterParam(resolvedSearchParams.filter);
+  const copyProductId = getSearchParam(resolvedSearchParams.copyProductId);
 
   const supabase = getSupabaseAdmin();
 
@@ -394,6 +396,34 @@ export default async function AdminProductsPage({
       sensitivity: "base",
     });
   });
+
+  const copySourceProduct = copyProductId
+    ? products.find((product) => product.id === copyProductId) || null
+    : null;
+
+  const initialCopyProduct = copySourceProduct
+    ? {
+        sourceProductName: getProductName(copySourceProduct),
+        productName: getProductName(copySourceProduct),
+        productPrice: getProductPrice(copySourceProduct),
+        category: copySourceProduct.category || null,
+        productType: copySourceProduct.product_type || null,
+        format: copySourceProduct.format || null,
+        color: copySourceProduct.color || null,
+        lineature: copySourceProduct.lineature || null,
+        bookWidthMm:
+          copySourceProduct.book_width_mm !== null &&
+          copySourceProduct.book_width_mm !== undefined
+            ? String(copySourceProduct.book_width_mm)
+            : null,
+        bookHeightMm:
+          copySourceProduct.book_height_mm !== null &&
+          copySourceProduct.book_height_mm !== undefined
+            ? String(copySourceProduct.book_height_mm)
+            : null,
+        bookSizeNote: copySourceProduct.book_size_note || null,
+      }
+    : null;
 
   const aliases = (aliasesData || []) as AliasRow[];
 
@@ -524,7 +554,7 @@ export default async function AdminProductsPage({
           </div>
         </header>
 
-        <AdminQuickProductForm />
+        <AdminQuickProductForm initialCopyProduct={initialCopyProduct} />
 
         <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -850,6 +880,14 @@ export default async function AdminProductsPage({
                             Aktiv
                           </p>
                         )}
+                        <Link
+                          href={`/admin/produkte?copyProductId=${product.id}`}
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-3 py-2 text-xs font-black text-[#12395F] transition hover:bg-[#EEF4FA]"
+                        >
+                          <PackagePlus className="h-3.5 w-3.5" />
+                          Artikel kopieren
+                        </Link>
+
 <AdminRegenerateProductKeywordsButton
   productId={product.id}
   productName={getProductName(product)}
