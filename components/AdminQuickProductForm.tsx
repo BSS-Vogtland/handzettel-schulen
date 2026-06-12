@@ -442,6 +442,7 @@ export default function AdminQuickProductForm({
 
   const [productName, setProductName] = useState("");
   const [productSku, setProductSku] = useState("");
+  const [ean, setEan] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [category, setCategory] = useState("");
   const [productType, setProductType] = useState("");
@@ -513,6 +514,7 @@ export default function AdminQuickProductForm({
 
     setProductName(cleanValue(initialCopyProduct.productName));
     setProductSku("");
+    setEan("");
     setProductPrice(formatInitialPrice(initialCopyProduct.productPrice));
     setCategory(cleanValue(initialCopyProduct.category));
     setProductType(cleanValue(initialCopyProduct.productType));
@@ -544,6 +546,7 @@ export default function AdminQuickProductForm({
   function resetForm() {
     setProductName("");
     setProductSku("");
+    setEan("");
     setProductPrice("");
     setCategory("");
     setProductType("");
@@ -645,6 +648,7 @@ export default function AdminQuickProductForm({
 
       formData.append("productName", productName.trim());
       formData.append("productSku", productSku.trim());
+      formData.append("ean", ean.trim());
       formData.append("productPrice", productPrice.trim());
       formData.append("category", category.trim());
       formData.append("productType", productType.trim());
@@ -803,6 +807,21 @@ export default function AdminQuickProductForm({
               value={productSku}
               onChange={(event) => setProductSku(event.target.value)}
               placeholder="z. B. HS-HEFT-A5-8F-ROT"
+              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-black text-[#102A43]">
+              EAN
+            </label>
+            <input
+              type="text"
+              value={ean}
+              onChange={(event) =>
+                setEan(event.target.value.replace(/[^\d]/g, ""))
+              }
+              inputMode="numeric"
+              placeholder="Optional: Barcode / EAN"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
