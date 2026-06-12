@@ -48,6 +48,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
   },
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      {
+        url: "/apple-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
   openGraph: {
     type: "website",
     locale: "de_DE",
@@ -59,10 +73,10 @@ export const metadata: Metadata = {
       "Schulmaterialliste hochladen, passende Produkte vorbereiten lassen und den persönlichen Paketwunsch bequem online absenden.",
     images: [
       {
-        url: `${siteUrl}/handzettel-logo.png`,
+        url: "/og-handzettel-schulen.png",
         width: 1200,
         height: 630,
-        alt: "Handzettel-Schulen.de",
+        alt: "Handzettel-Schulen.de – Schulmaterialliste hochladen",
       },
     ],
   },
@@ -72,7 +86,7 @@ export const metadata: Metadata = {
       "Handzettel-Schulen.de | Schulmaterialliste hochladen & Schulpaket vorbereiten lassen",
     description:
       "Lade Deine Schulmaterialliste online hoch und lass Deinen Schulmaterial-Paketwunsch vorbereiten.",
-    images: [`${siteUrl}/handzettel-logo.png`],
+    images: ["/og-handzettel-schulen.png"],
   },
   robots: {
     index: true,
@@ -84,10 +98,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
       "max-video-preview": -1,
     },
-  },
-  icons: {
-    icon: "/handzettel-logo.png",
-    apple: "/handzettel-logo.png",
   },
 };
 
