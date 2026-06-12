@@ -159,6 +159,33 @@ function getProductStatus(product: ProductRow): string | null {
   return getStringValue(product, ["status", "product_status"]);
 }
 
+
+function slugify(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
+function getProductSlug(product: ProductRow): string {
+  const explicit = getStringValue(product, ["seo_slug", "slug", "product_slug"]);
+
+  if (explicit) {
+    return slugify(explicit);
+  }
+
+  const name = getProductName(product);
+  const sku = getProductSku(product);
+  const id = getProductId(product);
+
+  return slugify([name, sku || id].filter(Boolean).join(" "));
+}
 export default function ShopPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -588,6 +615,7 @@ export default function ShopPage() {
               const color = getProductColor(product);
               const lineature = getProductLineature(product);
               const wasRecentlyAdded = recentlyAddedProductId === productId;
+              const productDetailHref = `/shop/produkt/${getProductSlug(product)}`;
 
               return (
                 <article
@@ -675,7 +703,13 @@ export default function ShopPage() {
                         </p>
                       </div>
 
-                      <button
+                                            <Link
+                        href={productDetailHref}
+                        className="rounded-2xl bg-[#f7f1e8] px-4 py-3 text-center text-sm font-black text-[#172033] ring-1 ring-[#eadfce] transition hover:bg-white"
+                      >
+                        Details ansehen
+                      </Link>
+<button
                         type="button"
                         onClick={() => handleAddToCart(product)}
                         disabled={!productId}
