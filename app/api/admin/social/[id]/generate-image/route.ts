@@ -1,10 +1,17 @@
 import { randomUUID } from "crypto";
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+import path from "path";
+import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 const STORAGE_BUCKET = "social-assets";
+const BRAND_LOGO_RELATIVE_PATH =
+  process.env.SOCIAL_BRAND_LOGO_PATH ||
+  "public/brand/handzettel-schulen-logo.png";
 
 type BrandVisibility = "subtle" | "balanced" | "strong";
 
@@ -27,6 +34,17 @@ type OpenAiImageResponse = {
     message?: string;
     type?: string;
   };
+};
+
+type LogoOverlayPlan = {
+  brandName: string;
+  brandVisibility: BrandVisibility;
+  panelWidth: number;
+  panelHeight: number;
+  panelLeft: number;
+  panelTop: number;
+  logoMaxWidth: number;
+  logoMaxHeight: number;
 };
 
 function isUuid(value: string) {
@@ -57,6 +75,22 @@ function pickVariant<T>(input: string, variants: T[]) {
 
 function getBrandName(post: SocialPostRow) {
   return cleanString(post.brand_project) || "Handzettel-Schulen.de";
+}
+
+function getBrandLogoAbsolutePath() {
+  return path.join(process.cwd(), BRAND_LOGO_RELATIVE_PATH);
+}
+
+async function loadBrandLogoBuffer() {
+  const logoPath = getBrandLogoAbsolutePath();
+
+  if (!existsSync(logoPath)) {
+    throw new Error(
+      `Logo-Datei wurde nicht gefunden: ${BRAND_LOGO_RELATIVE_PATH}. Bitte echtes Logo dort ablegen oder SOCIAL_BRAND_LOGO_PATH setzen.`
+    );
+  }
+
+  return readFile(logoPath);
 }
 
 function detectTopicCategory(post: SocialPostRow) {
@@ -185,52 +219,52 @@ function buildBrandingDirection(post: SocialPostRow, category: string) {
   const brandName = getBrandName(post);
   const visibility = detectBrandVisibility(post, category);
 
-  const placement = pickVariant(post.id + "-brand-placement", [
-    `a small branded checklist card on the table showing the ${brandName} logo or readable brand name`,
-    `a school-supply package insert with the ${brandName} logo or readable brand name`,
-    `a realistic branded sticker or label on a school-material package showing ${brandName}`,
-    `a subtle branded website card on a smartphone or tablet screen showing ${brandName}`,
-    `a small desk sign or family-friendly information card with the ${brandName} logo or readable brand name`,
-    `a branded paper flyer next to the school supply list showing ${brandName}`,
-    `a discreet lower information panel with the ${brandName} logo or readable brand name`,
-    `a branded shopping bag or material bag in the scene showing ${brandName}`,
+  const visualPlacement = pickVariant(post.id + "-brand-panel", [
+    "a clean blank white rounded label on a school-supply package near the lower third of the image",
+    "a clean blank white brand card lying next to the printed school list near the lower third of the image",
+    "a clean blank white package insert card near the lower third of the composition",
+    "a clean blank white sticker area on a school-material bag near the lower third of the image",
+    "a clean blank white information card placed naturally on the table near the lower third of the image",
   ]);
 
   const visibilityText =
     visibility === "strong"
       ? `
-- Branding visibility: strong but professional.
-- Make the ${brandName} branding clearly recognizable and intentionally part of the composition.
-- The logo or readable brand name should be easy to notice without overpowering the people or story.
+- Branding area visibility: strong but professional.
+- The blank branding area should be clearly visible and intentionally part of the composition.
+- It should be large enough for the real logo to be added later.
 `
       : visibility === "subtle"
         ? `
-- Branding visibility: subtle.
-- The ${brandName} branding should be visible but not dominant.
-- Integrate it tastefully in a small realistic object.
+- Branding area visibility: subtle.
+- The blank branding area should be visible but not dominant.
+- It should feel like a tasteful realistic label or card.
 `
         : `
-- Branding visibility: balanced.
-- The ${brandName} branding should be clearly visible and readable if possible, but still natural.
+- Branding area visibility: balanced.
+- The blank branding area should be clearly visible but still natural.
 - It should support trust and recognition without making the image look like a cheap advertisement.
 `;
 
   return {
     visibility,
-    placement,
+    visualPlacement,
     prompt: `
-Branding requirement:
-- Include visible, natural branding for "${brandName}".
-- Use this specific brand placement direction: ${placement}.
+Branding area requirement for later real-logo overlay:
+- Do NOT invent, draw, imitate, or render the "${brandName}" logo.
+- Do NOT create fake logo text.
+- Do NOT write "${brandName}" into the AI-generated image.
+- Instead, create a clean blank white branding area where the real logo will be added later by the application.
+- Use this exact placement idea: ${visualPlacement}.
 ${visibilityText}
-- The branding must feel realistic, professional, family-friendly and integrated into the scene.
-- The image should still primarily tell the story of the post hook.
+- The blank branding area must be simple, mostly white, rectangular or softly rounded, and free of text.
+- The blank branding area should have realistic lighting and perspective, but remain clean enough for a real logo overlay.
+- The blank branding area should appear in the lower third of the image whenever possible.
+- Keep the scene realistic, family-friendly, warm, and practical.
 - Do not use third-party brand logos.
 - Do not use competitor logos.
 - Do not use TikTok, Instagram or Facebook logos.
 - Avoid random readable text.
-- If readable text appears, it should preferably only be the brand name "${brandName}".
-- The brand/logo element must not look pasted on afterwards.
 `.trim(),
   };
 }
@@ -455,6 +489,119 @@ function buildActionDirection(post: SocialPostRow) {
   ]).trim();
 }
 
+function buildOverlayPlan(
+  imageWidth: number,
+  imageHeight: number,
+  brandName: string,
+  brandVisibility: BrandVisibility
+): LogoOverlayPlan {
+  const panelWidth =
+    brandVisibility === "strong"
+      ? Math.round(imageWidth * 0.62)
+      : Math.round(imageWidth * 0.52);
+
+  const panelHeight =
+    brandVisibility === "strong"
+      ? Math.round(imageHeight * 0.105)
+      : Math.round(imageHeight * 0.085);
+
+  const margin = Math.round(imageWidth * 0.055);
+
+  return {
+    brandName,
+    brandVisibility,
+    panelWidth,
+    panelHeight,
+    panelLeft: margin,
+    panelTop: imageHeight - panelHeight - margin,
+    logoMaxWidth: Math.round(panelWidth * 0.78),
+    logoMaxHeight: Math.round(panelHeight * 0.62),
+  };
+}
+
+async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
+  const logoBuffer = await loadBrandLogoBuffer();
+
+  const logoPng = await sharp(logoBuffer, {
+    density: 300,
+  })
+    .resize({
+      width: plan.logoMaxWidth,
+      height: plan.logoMaxHeight,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .png()
+    .toBuffer();
+
+  const logoBase64 = logoPng.toString("base64");
+
+  const logoMeta = await sharp(logoPng).metadata();
+  const logoWidth = logoMeta.width || plan.logoMaxWidth;
+  const logoHeight = logoMeta.height || plan.logoMaxHeight;
+
+  const logoX = Math.round((plan.panelWidth - logoWidth) / 2);
+  const logoY = Math.round((plan.panelHeight - logoHeight) / 2);
+
+  return Buffer.from(`
+<svg width="${plan.panelWidth}" height="${plan.panelHeight}" viewBox="0 0 ${plan.panelWidth} ${plan.panelHeight}" xmlns="http://www.w3.org/2000/svg">
+  <rect
+    x="0"
+    y="0"
+    width="${plan.panelWidth}"
+    height="${plan.panelHeight}"
+    rx="${Math.round(plan.panelHeight * 0.22)}"
+    fill="rgba(255,255,255,0.92)"
+  />
+  <rect
+    x="1"
+    y="1"
+    width="${plan.panelWidth - 2}"
+    height="${plan.panelHeight - 2}"
+    rx="${Math.round(plan.panelHeight * 0.22)}"
+    fill="none"
+    stroke="rgba(16,42,67,0.12)"
+    stroke-width="2"
+  />
+  <image
+    href="data:image/png;base64,${logoBase64}"
+    x="${logoX}"
+    y="${logoY}"
+    width="${logoWidth}"
+    height="${logoHeight}"
+    preserveAspectRatio="xMidYMid meet"
+  />
+</svg>
+`);
+}
+
+async function applyLogoOverlay(imageBuffer: Buffer, brandName: string, brandVisibility: BrandVisibility) {
+  const image = sharp(imageBuffer);
+  const metadata = await image.metadata();
+
+  const width = metadata.width || 1024;
+  const height = metadata.height || 1536;
+
+  const overlayPlan = buildOverlayPlan(width, height, brandName, brandVisibility);
+  const overlaySvg = await createLogoOverlaySvg(overlayPlan);
+
+  const finalBuffer = await sharp(imageBuffer)
+    .composite([
+      {
+        input: overlaySvg,
+        left: overlayPlan.panelLeft,
+        top: overlayPlan.panelTop,
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  return {
+    finalBuffer,
+    overlayPlan,
+  };
+}
+
 function buildImagePlan(post: SocialPostRow) {
   const basePrompt = cleanString(post.image_prompt);
   const topic = cleanString(post.topic);
@@ -467,6 +614,7 @@ function buildImagePlan(post: SocialPostRow) {
   const hookSpecificDirection = buildHookSpecificDirection(topicCategory);
   const actionDirection = buildActionDirection(post);
   const brandingDirection = buildBrandingDirection(post, topicCategory);
+  const brandName = getBrandName(post);
 
   const finalPrompt = `
 ${basePrompt}
@@ -518,7 +666,8 @@ Additional fixed production requirements:
 - Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
 - Do not include third-party brand logos or competitor logos.
 - Do not include TikTok, Instagram or Facebook logos.
-- Avoid strong readable text except the intended brand name/logo placement.
+- Avoid strong readable text.
+- The blank branding area should be visually available for a real logo overlay added later by the application.
 - Leave some clean negative space for later overlay text when possible.
 - No exaggerated advertising style.
 `.trim();
@@ -528,8 +677,8 @@ Additional fixed production requirements:
     topicCategory,
     chosenSetting,
     brandVisibility: brandingDirection.visibility,
-    brandPlacement: brandingDirection.placement,
-    brandName: getBrandName(post),
+    brandPlacement: brandingDirection.visualPlacement,
+    brandName,
   };
 }
 
@@ -662,7 +811,14 @@ export async function POST(
       );
     }
 
-    const imageBuffer = Buffer.from(imageBase64, "base64");
+    const rawImageBuffer = Buffer.from(imageBase64, "base64");
+
+    const { finalBuffer: imageBuffer, overlayPlan } = await applyLogoOverlay(
+      rawImageBuffer,
+      imagePlan.brandName,
+      imagePlan.brandVisibility
+    );
+
     const storagePath = `social-posts/${id}/${Date.now()}-${randomUUID()}.png`;
 
     const { error: uploadError } = await supabaseServer.storage
@@ -715,6 +871,16 @@ export async function POST(
           brand_name: imagePlan.brandName,
           brand_visibility: imagePlan.brandVisibility,
           brand_placement: imagePlan.brandPlacement,
+          logo_overlay: {
+            enabled: true,
+            logo_path: BRAND_LOGO_RELATIVE_PATH,
+            panel_width: overlayPlan.panelWidth,
+            panel_height: overlayPlan.panelHeight,
+            panel_left: overlayPlan.panelLeft,
+            panel_top: overlayPlan.panelTop,
+            logo_max_width: overlayPlan.logoMaxWidth,
+            logo_max_height: overlayPlan.logoMaxHeight,
+          },
         },
       })
       .select("*")
@@ -732,7 +898,7 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      message: "Bild wurde erzeugt und gespeichert.",
+      message: "Bild wurde erzeugt, mit echtem Logo versehen und gespeichert.",
       asset: assetData,
     });
   } catch (error) {
