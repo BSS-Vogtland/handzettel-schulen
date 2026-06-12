@@ -135,6 +135,28 @@ async function loadActiveProject() {
   return data as SocialProjectRow;
 }
 
+function buildBrandingRules(project: SocialProjectRow) {
+  const brandName = project.name || FALLBACK_PROJECT.name;
+
+  return `
+Branding-Regeln für Bild- und Videoprompts:
+- Jeder image_prompt und jeder video_prompt muss sichtbares Branding für "${brandName}" enthalten.
+- Das Branding soll natürlich in der Szene auftauchen, nicht billig oder aufgeklebt wirken.
+- Das Logo bzw. der Markenname "${brandName}" soll sichtbar und möglichst lesbar erscheinen.
+- Erlaubte Platzierungen: auf einem Schulmaterial-Paket, Versandlabel, Beileger, Flyer, Checklistenkarte, Website-Karte auf Tablet/Smartphone, kleiner Aufsteller, Tasche, Paketaufkleber, dezente Infobox oder Lower-Third-Element.
+- Keine fremden Markenlogos.
+- Keine TikTok-, Instagram- oder Facebook-Logos.
+- Möglichst wenig sonstiger lesbarer Text im Bild.
+- Wenn lesbarer Text erscheint, dann bevorzugt nur der Markenname "${brandName}".
+- Die Branding-Stärke soll zum Beitrag passen:
+  - informative/erklärende Beiträge: dezent, aber sichtbar
+  - Standard-Servicebeiträge: ausgewogen sichtbar
+  - CTA-/Upload-/Paketwunsch-/Kampagnen-Beiträge: klar und prominent, aber hochwertig
+- Das Bild darf nicht wie eine billige Anzeige wirken.
+- Die Szene muss weiterhin zuerst die Botschaft des Hooks transportieren.
+`.trim();
+}
+
 function buildSystemPrompt(project: SocialProjectRow) {
   return `
 Du bist ein erfahrener deutscher Social-Media-Stratege und Creative Director.
@@ -174,6 +196,8 @@ ${formatList(project.taboo_topics, "- Keine falschen Versprechen\n- Keine unseri
 CTA-Beispiele:
 ${formatList(project.cta_examples, "- Mehr erfahren")}
 
+${buildBrandingRules(project)}
+
 Wichtig:
 - Schreibe auf Deutsch.
 - Duze die Zielgruppe, außer das Projektprofil verlangt ausdrücklich etwas anderes.
@@ -184,10 +208,13 @@ Wichtig:
 - Bildprompts müssen zur jeweiligen Überschrift / zum Hook passen.
 - Jeder Bildprompt braucht eine eigene visuelle Idee.
 - Die Szene muss die Botschaft des Hooks ausdrücken, nicht nur schön aussehen.
+- Bild- und Videoprompts müssen Branding für die Marke enthalten.
 `;
 }
 
 function buildUserPrompt(project: SocialProjectRow) {
+  const brandName = project.name || FALLBACK_PROJECT.name;
+
   return `
 Erstelle 8 Social-Media-Beiträge für dieses Projekt:
 
@@ -232,16 +259,28 @@ Strenge Bildprompt-Regeln:
 - Nicht immer dieselbe Szene.
 - Nicht immer dieselbe Perspektive.
 - Nicht generisch, nicht austauschbar.
-- Keine echten Markenlogos.
+- Sichtbares Branding ist Pflicht.
+- Das Logo bzw. der Markenname "${brandName}" muss natürlich in die Szene integriert werden.
+- Nutze dafür realistische Platzierungen: Paketaufkleber, Flyer, Checklistenkarte, Website-Karte, Schulmaterial-Paket, Tasche, dezente Infobox, kleiner Aufsteller oder Lower-Third.
+- Keine fremden Markenlogos.
+- Keine TikTok-, Instagram- oder Facebook-Logos.
 - Möglichst wenig lesbarer Text im Bild.
+- Wenn Text erscheint, dann bevorzugt nur "${brandName}".
 - 9:16 vertical social media image.
 - Realistic, high-quality, emotionally believable.
+- Das Bild darf nicht nach billiger Werbung aussehen.
+- Die Branding-Stärke muss zum Beitrag passen:
+  - erklärende Beiträge: subtil, aber sichtbar
+  - Service-/Vertrauensbeiträge: ausgewogen sichtbar
+  - CTA-/Upload-/Paketwunsch-Beiträge: klar sichtbar und professionell
 
 Video Prompts:
 - Auf Englisch formulieren.
 - 8 Sekunden.
 - Ruhige Kamera.
 - Die Szene muss zum Hook passen.
+- Das Logo bzw. der Markenname "${brandName}" muss natürlich im Video sichtbar sein.
+- Mögliche Platzierung: Paket, Flyer, Website-Karte, dezenter Lower-Third, Kleidung, Tischaufsteller oder Material-Beileger.
 - Voice-over auf Deutsch möglich beschreiben.
 
 Antworte ausschließlich als valides JSON in dieser Struktur:
@@ -426,6 +465,9 @@ export async function POST() {
       performance_snapshot: {
         source_project: project.name,
         source_project_id: project.id || null,
+        branding_required: true,
+        branding_instruction:
+          "Generated image_prompt and video_prompt should include visible, natural brand/logo placement.",
       },
     }));
 

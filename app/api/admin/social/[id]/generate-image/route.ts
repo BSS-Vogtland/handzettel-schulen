@@ -6,6 +6,8 @@ export const runtime = "nodejs";
 
 const STORAGE_BUCKET = "social-assets";
 
+type BrandVisibility = "subtle" | "balanced" | "strong";
+
 type SocialPostRow = {
   id: string;
   status: string;
@@ -13,6 +15,7 @@ type SocialPostRow = {
   hook: string;
   caption: string;
   image_prompt: string | null;
+  brand_project: string | null;
 };
 
 type OpenAiImageResponse = {
@@ -50,6 +53,10 @@ function createDeterministicNumber(input: string) {
 function pickVariant<T>(input: string, variants: T[]) {
   const number = createDeterministicNumber(input);
   return variants[number % variants.length];
+}
+
+function getBrandName(post: SocialPostRow) {
+  return cleanString(post.brand_project) || "Handzettel-Schulen.de";
 }
 
 function detectTopicCategory(post: SocialPostRow) {
@@ -129,6 +136,103 @@ function detectTopicCategory(post: SocialPostRow) {
   }
 
   return "general-school-material";
+}
+
+function detectBrandVisibility(
+  post: SocialPostRow,
+  category: string
+): BrandVisibility {
+  const text =
+    `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(post.caption)}`.toLowerCase();
+
+  if (
+    text.includes("lade") ||
+    text.includes("hochladen") ||
+    text.includes("upload") ||
+    text.includes("paketwunsch") ||
+    text.includes("teste") ||
+    text.includes("service") ||
+    text.includes("lokal") ||
+    text.includes("so funktioniert") ||
+    text.includes("so geht") ||
+    text.includes("angebot") ||
+    text.includes("bestellung")
+  ) {
+    return "strong";
+  }
+
+  if (
+    category === "upload" ||
+    category === "how-it-works" ||
+    category === "local-service" ||
+    category === "relief-and-efficiency"
+  ) {
+    return "strong";
+  }
+
+  if (
+    category === "wrong-purchases" ||
+    category === "school-start-stress" ||
+    category === "general-school-material"
+  ) {
+    return "balanced";
+  }
+
+  return "balanced";
+}
+
+function buildBrandingDirection(post: SocialPostRow, category: string) {
+  const brandName = getBrandName(post);
+  const visibility = detectBrandVisibility(post, category);
+
+  const placement = pickVariant(post.id + "-brand-placement", [
+    `a small branded checklist card on the table showing the ${brandName} logo or readable brand name`,
+    `a school-supply package insert with the ${brandName} logo or readable brand name`,
+    `a realistic branded sticker or label on a school-material package showing ${brandName}`,
+    `a subtle branded website card on a smartphone or tablet screen showing ${brandName}`,
+    `a small desk sign or family-friendly information card with the ${brandName} logo or readable brand name`,
+    `a branded paper flyer next to the school supply list showing ${brandName}`,
+    `a discreet lower information panel with the ${brandName} logo or readable brand name`,
+    `a branded shopping bag or material bag in the scene showing ${brandName}`,
+  ]);
+
+  const visibilityText =
+    visibility === "strong"
+      ? `
+- Branding visibility: strong but professional.
+- Make the ${brandName} branding clearly recognizable and intentionally part of the composition.
+- The logo or readable brand name should be easy to notice without overpowering the people or story.
+`
+      : visibility === "subtle"
+        ? `
+- Branding visibility: subtle.
+- The ${brandName} branding should be visible but not dominant.
+- Integrate it tastefully in a small realistic object.
+`
+        : `
+- Branding visibility: balanced.
+- The ${brandName} branding should be clearly visible and readable if possible, but still natural.
+- It should support trust and recognition without making the image look like a cheap advertisement.
+`;
+
+  return {
+    visibility,
+    placement,
+    prompt: `
+Branding requirement:
+- Include visible, natural branding for "${brandName}".
+- Use this specific brand placement direction: ${placement}.
+${visibilityText}
+- The branding must feel realistic, professional, family-friendly and integrated into the scene.
+- The image should still primarily tell the story of the post hook.
+- Do not use third-party brand logos.
+- Do not use competitor logos.
+- Do not use TikTok, Instagram or Facebook logos.
+- Avoid random readable text.
+- If readable text appears, it should preferably only be the brand name "${brandName}".
+- The brand/logo element must not look pasted on afterwards.
+`.trim(),
+  };
 }
 
 function buildCompositionDirection(post: SocialPostRow) {
@@ -362,6 +466,7 @@ function buildImagePlan(post: SocialPostRow) {
   const compositionDirection = buildCompositionDirection(post);
   const hookSpecificDirection = buildHookSpecificDirection(topicCategory);
   const actionDirection = buildActionDirection(post);
+  const brandingDirection = buildBrandingDirection(post, topicCategory);
 
   const finalPrompt = `
 ${basePrompt}
@@ -392,6 +497,8 @@ ${compositionDirection}
 
 ${actionDirection}
 
+${brandingDirection.prompt}
+
 Additional fixed production requirements:
 - Vertical portrait social media image.
 - Format optimized for TikTok, Instagram Reels and Facebook stories.
@@ -409,9 +516,9 @@ Additional fixed production requirements:
 - No corporate office feeling.
 - Not business-like.
 - Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
-- No real brand logos.
-- No TikTok, Instagram or Facebook logos.
-- Avoid strong readable text inside the image.
+- Do not include third-party brand logos or competitor logos.
+- Do not include TikTok, Instagram or Facebook logos.
+- Avoid strong readable text except the intended brand name/logo placement.
 - Leave some clean negative space for later overlay text when possible.
 - No exaggerated advertising style.
 `.trim();
@@ -420,6 +527,9 @@ Additional fixed production requirements:
     finalPrompt,
     topicCategory,
     chosenSetting,
+    brandVisibility: brandingDirection.visibility,
+    brandPlacement: brandingDirection.placement,
+    brandName: getBrandName(post),
   };
 }
 
@@ -454,7 +564,7 @@ export async function POST(
 
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
-      .select("id, status, topic, hook, caption, image_prompt")
+      .select("id, status, topic, hook, caption, image_prompt, brand_project")
       .eq("id", id)
       .single();
 
@@ -601,6 +711,10 @@ export async function POST(
           revised_prompt: openAiJson.data?.[0]?.revised_prompt || null,
           topic_category: imagePlan.topicCategory,
           chosen_setting: imagePlan.chosenSetting,
+          brand_required: true,
+          brand_name: imagePlan.brandName,
+          brand_visibility: imagePlan.brandVisibility,
+          brand_placement: imagePlan.brandPlacement,
         },
       })
       .select("*")
