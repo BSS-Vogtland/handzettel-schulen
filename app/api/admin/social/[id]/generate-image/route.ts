@@ -52,7 +52,44 @@ function isUuid(value: string) {
     value
   );
 }
+async function getPostIdFromRequest(
+  request: Request,
+  context: { params?: Promise<{ id?: string }> | { id?: string } }
+) {
+  let contextId = "";
 
+  try {
+    const rawParams = context.params;
+
+    let params: { id?: string } | undefined;
+
+    if (!rawParams) {
+      params = undefined;
+    } else if (
+      typeof (rawParams as Promise<{ id?: string }>).then === "function"
+    ) {
+      params = await (rawParams as Promise<{ id?: string }>);
+    } else {
+      params = rawParams as { id?: string };
+    }
+
+    contextId = cleanString(params?.id);
+  } catch {
+    contextId = "";
+  }
+
+  const url = new URL(request.url);
+  const match = url.pathname.match(
+    /\/api\/admin\/social\/([^/]+)\/generate-image\/?$/
+  );
+
+  const pathId = match?.[1] ? decodeURIComponent(match[1]) : "";
+
+  return cleanString(contextId || pathId)
+    .replace(/^"+/, "")
+    .replace(/"+$/, "")
+    .trim();
+}
 function cleanString(value: unknown) {
   if (typeof value !== "string") return "";
   return value.trim();
