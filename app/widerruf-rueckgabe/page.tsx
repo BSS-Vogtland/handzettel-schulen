@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 const companyName = "Handzettel-Schulen.de / Bürotechnik Schwalm";
-const contactEmail = "kontakt@handzettel-schulen.de";
+const contactEmail = "kontakt@bss-vogtland.de";
 const siteUrl = "https://www.handzettel-schulen.de";
 
 export default function WiderrufRueckgabePage() {
