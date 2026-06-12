@@ -174,6 +174,35 @@ function getProductImageUrl(product: ProductRow) {
   ]);
 }
 
+function normalizeMerchantDescription(value: unknown) {
+  const raw = cleanText(value)
+    .replace(/…/g, "")
+    .replace(/\.\.\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.length <= 5000) {
+    return raw;
+  }
+
+  const shortened = raw.slice(0, 4990);
+  const lastSentenceEnd = Math.max(
+    shortened.lastIndexOf("."),
+    shortened.lastIndexOf("!"),
+    shortened.lastIndexOf("?")
+  );
+
+  if (lastSentenceEnd > 120) {
+    return shortened.slice(0, lastSentenceEnd + 1).trim();
+  }
+
+  return shortened.trim();
+}
+
 function getProductDescription(product: ProductRow) {
   const direct =
     getStringValue(product, [
@@ -186,7 +215,7 @@ function getProductDescription(product: ProductRow) {
     ]) || "";
 
   if (direct) {
-    return direct.slice(0, 5000);
+    return normalizeMerchantDescription(direct);
   }
 
   const name = getProductName(product);
@@ -202,11 +231,11 @@ function getProductDescription(product: ProductRow) {
     .filter(Boolean)
     .join(", ");
 
-  return (
+  return normalizeMerchantDescription(
     details
       ? `${name} für die Schulmaterialliste. Details: ${details}.`
       : `${name} für die Schulmaterialliste bequem online nachkaufen.`
-  ).slice(0, 5000);
+  );
 }
 
 function getProductSlug(product: ProductRow) {
