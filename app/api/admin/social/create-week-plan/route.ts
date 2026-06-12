@@ -16,10 +16,16 @@ const WEEK_SLOTS = [
   { dayOffset: 6, hour: 19, minute: 15 },
 ];
 
+type SocialProjectRow = {
+  id: string;
+  name: string;
+};
+
 type SocialPostRow = {
   id: string;
   created_at: string;
   status: string;
+  review_status: string | null;
   topic: string;
   scheduled_at: string | null;
 };
@@ -125,13 +131,43 @@ function createScheduleDate(slotIndex: number) {
   );
 }
 
+async function loadActiveProject() {
+  const { data, error } = await supabaseServer
+    .from("social_projects")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as SocialProjectRow | null;
+}
+
 export async function POST() {
   try {
+    const project = await loadActiveProject();
+
+    if (!project?.id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Kein aktives Social-Projekt gefunden.",
+        },
+        { status: 404 }
+      );
+    }
+
     const { data: postsData, error: postsError } = await supabaseServer
       .from("social_posts")
-      .select("id, created_at, status, topic, scheduled_at")
-      .in("status", ["draft", "approved"])
+      .select("id, created_at, status, review_status, topic, scheduled_at")
+      .eq("project_id", project.id)
+      .eq("review_status", "approved")
       .is("scheduled_at", null)
+      .neq("status", "archived")
       .order("created_at", { ascending: true })
       .limit(MAX_POSTS_PER_PLAN);
 
@@ -151,7 +187,7 @@ export async function POST() {
       return NextResponse.json({
         ok: true,
         message:
-          "Es wurden keine offenen, ungeplanten Entwürfe gefunden. Erzeuge zuerst neue Beiträge oder entferne bestehende Termine.",
+          "Es wurden keine freigegebenen, ungeplanten Beiträge gefunden. Gib zuerst Beiträge im Review frei oder entferne bestehende Termine.",
         plannedPosts: [],
       });
     }
@@ -169,7 +205,10 @@ export async function POST() {
           scheduled_at: scheduledAt,
         })
         .eq("id", post.id)
-        .select("id, topic, status, scheduled_at")
+        .eq("project_id", project.id)
+        .eq("review_status", "approved")
+        .is("scheduled_at", null)
+        .select("id, topic, status, review_status, scheduled_at")
         .single();
 
       if (updateError) {
@@ -187,9 +226,10 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
-      message: `${plannedPosts.length} Beitrag${
+      message: `${plannedPosts.length} freigegebene Beitrag${
         plannedPosts.length === 1 ? "" : "e"
-      } wurden automatisch für die nächste Woche geplant.`,
+      } wurden automatisch für die nächste Woche geplant. Maximal ${MAX_POSTS_PER_PLAN} Beiträge werden pro Wochenplan eingeplant.`,
+      project,
       plannedPosts,
     });
   } catch (error) {
