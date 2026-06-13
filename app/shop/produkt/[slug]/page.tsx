@@ -350,6 +350,47 @@ export default async function ProductDetailPage({ params }: Params) {
       price: price > 0 ? price.toFixed(2) : "0.00",
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "DE",
+        },
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "5.95",
+          currency: "EUR",
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 1,
+            maxValue: 2,
+            unitCode: "DAY",
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 1,
+            maxValue: 3,
+            unitCode: "DAY",
+          },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "DE",
+        returnPolicyCategory:
+          "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 14,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/ReturnShippingFees",
+        customerRemorseReturnFees: "https://schema.org/ReturnShippingFees",
+        itemDefectReturnFees: "https://schema.org/FreeReturn",
+        refundType: "https://schema.org/FullRefund",
+        merchantReturnLink:
+          "https://www.handzettel-schulen.de/widerruf-rueckgabe",
+      },
     },
   };
 
