@@ -387,6 +387,11 @@ export default async function ProductDetailPage({ params }: Params) {
         returnFees: "https://schema.org/ReturnShippingFees",
         customerRemorseReturnFees: "https://schema.org/ReturnShippingFees",
         itemDefectReturnFees: "https://schema.org/FreeReturn",
+        returnShippingFeesAmount: {
+          "@type": "MonetaryAmount",
+          value: "5.95",
+          currency: "EUR",
+        },
         refundType: "https://schema.org/FullRefund",
         merchantReturnLink:
           "https://www.handzettel-schulen.de/widerruf-rueckgabe",
