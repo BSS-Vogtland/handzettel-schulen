@@ -286,7 +286,7 @@ export default function AdminOfferWorkflowStatus(
 
     if (openItemsCurrent) {
       return {
-        title: "Offene Positionen",
+        title: "Manuelle Prüfung",
         label: `${manualReviewItemsCount} offen`,
         description:
           "Es gibt noch erkannte Positionen ohne sichere Produktzuordnung. Diese müssen manuell geprüft oder ergänzt werden.",
@@ -429,8 +429,8 @@ const tiles = [
     },
     {
       key: "openItems",
-      title: "Offene Positionen",
-      description: "Manuelle Ergänzung ist noch nötig",
+      title: "Manuelle Prüfung",
+      description: "Offene Positionen prüfen",
       icon: AlertTriangle,
       status: tileStatus.openItems,
     },
@@ -466,42 +466,69 @@ const tiles = [
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex items-start gap-4">
-        <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${headerClasses.iconWrap}`}
-        >
-          <HeaderIcon className="h-6 w-6" />
-        </div>
+      {headerState.title === "Manuelle Prüfung" ? (
+        <div className="mb-5 rounded-[28px] border border-[#E16B6B] bg-[#FFF1F1] px-5 py-6 text-center">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C62828] text-2xl font-black leading-none text-white shadow-sm">
+              !
+            </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Angebotsstatus
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#B42318]">
+                Angebotsstatus
+              </p>
+
+              <span className="rounded-full bg-[#FEE4E2] px-3 py-1 text-xs font-black text-[#B42318] ring-1 ring-[#FECDCA]">
+                {headerState.label}
+              </span>
+            </div>
+
+            <h2 className="text-2xl font-black tracking-tight text-[#8E1C1C]">
+              {headerState.title}
+            </h2>
+
+            <p className="max-w-2xl text-sm font-bold leading-6 text-[#8E1C1C]">
+              {headerState.description}
             </p>
-
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-black ${headerClasses.badge}`}
-            >
-              {headerState.label}
-            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-5 flex items-start gap-4">
+          <div
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${headerClasses.iconWrap}`}
+          >
+            <HeaderIcon className="h-6 w-6" />
           </div>
 
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-[#102A43]">
-            {headerState.title}
-          </h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Angebotsstatus
+              </p>
 
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            {headerState.description}
-          </p>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-black ${headerClasses.badge}`}
+              >
+                {headerState.label}
+              </span>
+            </div>
 
-          {headerState.dateLabel ? (
-            <p className="mt-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#102A43]">
-              {headerState.dateLabel}
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#102A43]">
+              {headerState.title}
+            </h2>
+
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+              {headerState.description}
             </p>
-          ) : null}
-        </div>
-      </div>
 
+            {headerState.dateLabel ? (
+              <p className="mt-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black text-[#102A43]">
+                {headerState.dateLabel}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {tiles.map((tile) => {
           const Icon = tile.icon;
