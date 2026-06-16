@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getMetaConfigStatus, verifyMetaConnection } from "@/lib/social/metaPublishing";
 
 export const runtime = "nodejs";
@@ -36,3 +36,4 @@ export async function GET(request: Request) {
     );
   }
 }
+

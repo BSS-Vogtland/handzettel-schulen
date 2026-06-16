@@ -67,7 +67,7 @@ export default function AdminSocialMetaPublishButton({
 
         if (!response.ok || !payload?.ok) {
           throw new Error(
-            payload?.message || "Meta-Konfiguration konnte nicht geprÃ¼ft werden."
+            payload?.message || "Meta-Konfiguration konnte nicht geprüft werden."
           );
         }
 
@@ -77,7 +77,7 @@ export default function AdminSocialMetaPublishButton({
         setStatusError(
           error instanceof Error
             ? error.message
-            : "Meta-Konfiguration konnte nicht geprÃ¼ft werden."
+            : "Meta-Konfiguration konnte nicht geprüft werden."
         );
       } finally {
         if (isMounted) setIsLoadingStatus(false);
@@ -105,13 +105,13 @@ export default function AdminSocialMetaPublishButton({
     if (publishingKey) return;
 
     if (disabled) {
-      window.alert(disabledReason || "Meta-VerÃ¶ffentlichung ist aktuell gesperrt.");
+      window.alert(disabledReason || "Meta-Veröffentlichung ist aktuell gesperrt.");
       return;
     }
 
     if (platforms.length === 0) {
       window.alert(
-        "Keine Meta-Plattform ist vollstÃ¤ndig konfiguriert. Bitte Vercel ENV prÃ¼fen."
+        "Keine Meta-Plattform ist vollständig konfiguriert. Bitte Vercel ENV prüfen."
       );
       return;
     }
@@ -121,7 +121,7 @@ export default function AdminSocialMetaPublishButton({
       .join(" und ");
 
     const confirmed = window.confirm(
-      `Soll dieser Beitrag jetzt Ã¼ber Meta auf ${platformLabel} verÃ¶ffentlicht werden?\n\nNach erfolgreicher VerÃ¶ffentlichung wird der Beitrag im SocialPilot als verÃ¶ffentlicht markiert.`
+      `Soll dieser Beitrag jetzt über Meta auf ${platformLabel} veröffentlicht werden?\n\nNach erfolgreicher Veröffentlichung wird der Beitrag im SocialPilot als veröffentlicht markiert.`
     );
 
     if (!confirmed) return;
@@ -152,20 +152,20 @@ export default function AdminSocialMetaPublishButton({
           .join("\n");
 
         window.alert(
-          `${payload?.message || "Meta-VerÃ¶ffentlichung ist fehlgeschlagen."}${
+          `${payload?.message || "Meta-Veröffentlichung ist fehlgeschlagen."}${
             detail ? `\n\n${detail}` : ""
           }`
         );
         return;
       }
 
-      window.alert(payload.message || "Meta-VerÃ¶ffentlichung abgeschlossen.");
+      window.alert(payload.message || "Meta-Veröffentlichung abgeschlossen.");
       router.refresh();
     } catch (error) {
       window.alert(
         error instanceof Error
           ? error.message
-          : "Unbekannter Fehler bei der Meta-VerÃ¶ffentlichung."
+          : "Unbekannter Fehler bei der Meta-Veröffentlichung."
       );
     } finally {
       setPublishingKey(null);
@@ -179,9 +179,9 @@ export default function AdminSocialMetaPublishButton({
           <Send className="h-4 w-4" />
         </div>
         <div>
-          <h3 className="text-sm font-black">Meta-VerÃ¶ffentlichung V1</h3>
+          <h3 className="text-sm font-black">Meta-Veröffentlichung V1</h3>
           <p className="mt-1 text-xs font-bold leading-5 text-blue-900/80">
-            Postet das vorhandene Social-Bild mit Plattformtext direkt Ã¼ber die
+            Postet das vorhandene Social-Bild mit Plattformtext direkt über die
             Meta Graph API. Token werden nur serverseitig aus Vercel ENV gelesen.
           </p>
         </div>
@@ -190,7 +190,7 @@ export default function AdminSocialMetaPublishButton({
       {isLoadingStatus ? (
         <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-blue-800">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Meta-Konfiguration wird geprÃ¼ft ...
+          Meta-Konfiguration wird geprüft ...
         </div>
       ) : statusError ? (
         <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold leading-5 text-red-900">
@@ -200,8 +200,8 @@ export default function AdminSocialMetaPublishButton({
       ) : availablePlatforms.length === 0 ? (
         <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          Meta ist noch nicht vollstÃ¤ndig Ã¼ber Vercel ENV konfiguriert.
-          BenÃ¶tigt werden mindestens Facebook Page-ID/Token oder Instagram
+          Meta ist noch nicht vollständig über Vercel ENV konfiguriert.
+          Benötigt werden mindestens Facebook Page-ID/Token oder Instagram
           Business Account-ID/Token.
         </div>
       ) : null}
@@ -220,8 +220,8 @@ export default function AdminSocialMetaPublishButton({
               <Share2 className="h-4 w-4" />
             )}
             {publishingKey === "facebook"
-              ? "Facebook wird verÃ¶ffentlicht ..."
-              : "Auf Facebook verÃ¶ffentlichen"}
+              ? "Facebook wird veröffentlicht ..."
+              : "Auf Facebook veröffentlichen"}
           </button>
         ) : null}
 
@@ -238,8 +238,8 @@ export default function AdminSocialMetaPublishButton({
               <Camera className="h-4 w-4" />
             )}
             {publishingKey === "instagram"
-              ? "Instagram wird verÃ¶ffentlicht ..."
-              : "Auf Instagram verÃ¶ffentlichen"}
+              ? "Instagram wird veröffentlicht ..."
+              : "Auf Instagram veröffentlichen"}
           </button>
         ) : null}
 
@@ -256,8 +256,8 @@ export default function AdminSocialMetaPublishButton({
               <Send className="h-4 w-4" />
             )}
             {publishingKey === "facebook+instagram"
-              ? "Meta wird verÃ¶ffentlicht ..."
-              : "Auf Facebook + Instagram verÃ¶ffentlichen"}
+              ? "Meta wird veröffentlicht ..."
+              : "Auf Facebook + Instagram veröffentlichen"}
           </button>
         ) : null}
       </div>
@@ -270,6 +270,7 @@ export default function AdminSocialMetaPublishButton({
     </div>
   );
 }
+
 
 
 

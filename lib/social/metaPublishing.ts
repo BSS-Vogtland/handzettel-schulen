@@ -1,4 +1,4 @@
-type MetaPlatform = "facebook" | "instagram";
+﻿type MetaPlatform = "facebook" | "instagram";
 
 type MetaConfig = {
   graphApiVersion: string;
@@ -332,3 +332,4 @@ export async function publishInstagramImage({
     raw: publishPayload,
   };
 }
+

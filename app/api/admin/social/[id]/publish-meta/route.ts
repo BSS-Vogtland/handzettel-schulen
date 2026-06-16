@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   getConfiguredMetaPlatforms,
@@ -366,3 +366,4 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
