@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -19,6 +19,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialCopyButton from "@/components/AdminSocialCopyButton";
 import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishedButton";
 import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdCampaignButton";
+import AdminSocialMetaPublishButton from "@/components/AdminSocialMetaPublishButton";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ type SocialAssetRow = {
 };
 
 function formatDateTime(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
@@ -106,7 +107,7 @@ function getStatusLabel(status: string) {
     case "scheduled":
       return "Geplant";
     case "published":
-      return "Veröffentlicht";
+      return "VerÃ¶ffentlicht";
     case "failed":
       return "Fehler";
     case "archived":
@@ -140,7 +141,7 @@ function getReviewLabel(status: string | null) {
     case "approved":
       return "Review freigegeben";
     case "needs_changes":
-      return "Überarbeitung nötig";
+      return "Ãœberarbeitung nÃ¶tig";
     case "rejected":
       return "Review abgelehnt";
     case "not_reviewed":
@@ -215,7 +216,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-bold leading-6 text-[#102A43]">
-            {hook || "—"}
+            {hook || "â€”"}
           </p>
 
           <div className="mt-3">
@@ -230,7 +231,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-bold leading-6 text-[#102A43]">
-            {hashtagsText || "—"}
+            {hashtagsText || "â€”"}
           </p>
 
           <div className="mt-3">
@@ -248,7 +249,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-            {caption || "—"}
+            {caption || "â€”"}
           </p>
 
           <div className="mt-3">
@@ -324,14 +325,14 @@ export default async function AdminSocialPostingPage({
 
   const reviewGateReason = isReviewApproved
     ? undefined
-    : "Content-Review ist noch nicht freigegeben. Bitte zuerst Review öffnen und den Beitrag freigeben.";
+    : "Content-Review ist noch nicht freigegeben. Bitte zuerst Review Ã¶ffnen und den Beitrag freigeben.";
 
   const imageGateReason = hasReadyImage
     ? undefined
-    : "Es ist noch kein veröffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen.";
+    : "Es ist noch kein verÃ¶ffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen.";
 
   const publishDisabledReason = isPublished
-    ? "Dieser Beitrag ist bereits als veröffentlicht markiert."
+    ? "Dieser Beitrag ist bereits als verÃ¶ffentlicht markiert."
     : !isReviewApproved
       ? reviewGateReason
       : !hasReadyImage
@@ -341,7 +342,7 @@ export default async function AdminSocialPostingPage({
   const adDisabledReason = !isReviewApproved
     ? reviewGateReason
     : !hasReadyImage
-      ? "Für eine Ads-Kampagne sollte zuerst ein veröffentlichbares Social-Bild erzeugt werden."
+      ? "FÃ¼r eine Ads-Kampagne sollte zuerst ein verÃ¶ffentlichbares Social-Bild erzeugt werden."
       : undefined;
 
   return (
@@ -356,7 +357,7 @@ export default async function AdminSocialPostingPage({
                   className="inline-flex items-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-sm font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Zurück zum Beitrag
+                  ZurÃ¼ck zum Beitrag
                 </Link>
 
                 <Link
@@ -364,7 +365,7 @@ export default async function AdminSocialPostingPage({
                   className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  Review öffnen
+                  Review Ã¶ffnen
                 </Link>
 
                 <Link
@@ -385,10 +386,10 @@ export default async function AdminSocialPostingPage({
               </h1>
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
-                Hier findest Du alle Texte, Hashtags, Bild- und Promptdaten für
-                die manuelle Veröffentlichung. Veröffentlichung und
+                Hier findest Du alle Texte, Hashtags, Bild- und Promptdaten fÃ¼r
+                die manuelle VerÃ¶ffentlichung. VerÃ¶ffentlichung und
                 Ads-Vorbereitung sind erst nach freigegebenem Content-Review und
-                vorhandenem Social-Bild möglich.
+                vorhandenem Social-Bild mÃ¶glich.
               </p>
             </div>
 
@@ -429,7 +430,7 @@ export default async function AdminSocialPostingPage({
 
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-[#A23A2E]" />
-                  Veröffentlicht: {formatDateTime(post.published_at)}
+                  VerÃ¶ffentlicht: {formatDateTime(post.published_at)}
                 </div>
 
                 {post.reviewed_at ? (
@@ -442,6 +443,12 @@ export default async function AdminSocialPostingPage({
 
               <div className="mt-5 flex flex-col gap-3">
                 <AdminSocialMarkPublishedButton
+                  postId={post.id}
+                  disabled={Boolean(publishDisabledReason)}
+                  disabledReason={publishDisabledReason}
+                />
+
+                <AdminSocialMetaPublishButton
                   postId={post.id}
                   disabled={Boolean(publishDisabledReason)}
                   disabledReason={publishDisabledReason}
@@ -471,7 +478,7 @@ export default async function AdminSocialPostingPage({
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-amber-900">
                     Dieser Beitrag ist noch nicht freigegeben. Du kannst die
-                    Texte hier prüfen und kopieren, aber Veröffentlichung und
+                    Texte hier prÃ¼fen und kopieren, aber VerÃ¶ffentlichung und
                     Ads-Kampagnen-Erstellung sind blockiert, bis das
                     Content-Review freigegeben wurde.
                   </p>
@@ -483,7 +490,7 @@ export default async function AdminSocialPostingPage({
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
                 <ShieldCheck className="h-4 w-4" />
-                Review öffnen
+                Review Ã¶ffnen
               </Link>
             </div>
           </section>
@@ -501,8 +508,8 @@ export default async function AdminSocialPostingPage({
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-amber-900">
                     Das Review ist freigegeben, aber es ist noch kein
-                    veröffentlichbares Social-Bild vorhanden. Der Beitrag kann
-                    erst als veröffentlicht markiert oder für Ads vorbereitet
+                    verÃ¶ffentlichbares Social-Bild vorhanden. Der Beitrag kann
+                    erst als verÃ¶ffentlicht markiert oder fÃ¼r Ads vorbereitet
                     werden, wenn ein Bild erzeugt wurde.
                   </p>
                 </div>
@@ -513,7 +520,7 @@ export default async function AdminSocialPostingPage({
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
                 <ImageIcon className="h-4 w-4" />
-                Beitrag öffnen
+                Beitrag Ã¶ffnen
               </Link>
             </div>
           </section>
@@ -529,7 +536,7 @@ export default async function AdminSocialPostingPage({
                   Content-Review und Bild freigegeben
                 </h2>
                 <p className="mt-2 text-sm font-bold leading-6 text-emerald-900">
-                  Dieser Beitrag darf veröffentlicht oder als Grundlage für eine
+                  Dieser Beitrag darf verÃ¶ffentlicht oder als Grundlage fÃ¼r eine
                   Ads-Kampagne vorbereitet werden. Werbebudget wird trotzdem
                   separat im Ads-Modul freigegeben.
                 </p>
@@ -564,7 +571,7 @@ export default async function AdminSocialPostingPage({
 
                 <div className="space-y-4">
                   <p className="text-sm font-semibold leading-6 text-[#52616F]">
-                    Nutze dieses Bild für TikTok, Instagram oder Facebook. Für
+                    Nutze dieses Bild fÃ¼r TikTok, Instagram oder Facebook. FÃ¼r
                     Reels/TikTok kannst Du es als Standbild, Thumbnail oder
                     Story-Motiv verwenden.
                   </p>
@@ -575,7 +582,7 @@ export default async function AdminSocialPostingPage({
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                   >
-                    Bild öffnen
+                    Bild Ã¶ffnen
                     <ExternalLink className="h-4 w-4" />
                   </a>
 
@@ -584,7 +591,7 @@ export default async function AdminSocialPostingPage({
                       Bild-Prompt
                     </p>
                     <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-                      {post.image_prompt || "—"}
+                      {post.image_prompt || "â€”"}
                     </p>
 
                     <div className="mt-3">
@@ -603,7 +610,7 @@ export default async function AdminSocialPostingPage({
                   Noch kein Bild vorhanden
                 </h3>
                 <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
-                  Öffne den Beitrag und erzeuge zuerst ein Social-Bild. Danach
+                  Ã–ffne den Beitrag und erzeuge zuerst ein Social-Bild. Danach
                   erscheint es hier in der Posting-Vorbereitung.
                 </p>
 
@@ -611,7 +618,7 @@ export default async function AdminSocialPostingPage({
                   href={`/admin/social/${post.id}`}
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
-                  Beitrag öffnen
+                  Beitrag Ã¶ffnen
                 </Link>
               </div>
             )}
@@ -619,26 +626,26 @@ export default async function AdminSocialPostingPage({
 
           <aside className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
             <h2 className="text-2xl font-black text-[#102A43]">
-              Veröffentlichungs-Checkliste
+              VerÃ¶ffentlichungs-Checkliste
             </h2>
 
             <div className="mt-5 space-y-3 text-sm font-bold leading-6 text-[#52616F]">
-              <p>{isReviewApproved ? "✅" : "□"} Content-Review freigegeben</p>
-              <p>{hasReadyImage ? "✅" : "□"} Social-Bild vorhanden</p>
-              <p>□ Hook geprüft</p>
-              <p>□ Caption geprüft</p>
-              <p>□ Hashtags geprüft</p>
-              <p>□ Bild passt zur Botschaft</p>
-              <p>□ Landingpage / Link geprüft</p>
-              <p>□ Plattform ausgewählt</p>
-              <p>□ Veröffentlichungszeit geprüft</p>
-              <p>□ Beitrag nach Veröffentlichung markieren</p>
-              <p>□ Optional: Ads-Kampagne vorbereiten</p>
+              <p>{isReviewApproved ? "âœ…" : "â–¡"} Content-Review freigegeben</p>
+              <p>{hasReadyImage ? "âœ…" : "â–¡"} Social-Bild vorhanden</p>
+              <p>â–¡ Hook geprÃ¼ft</p>
+              <p>â–¡ Caption geprÃ¼ft</p>
+              <p>â–¡ Hashtags geprÃ¼ft</p>
+              <p>â–¡ Bild passt zur Botschaft</p>
+              <p>â–¡ Landingpage / Link geprÃ¼ft</p>
+              <p>â–¡ Plattform ausgewÃ¤hlt</p>
+              <p>â–¡ VerÃ¶ffentlichungszeit geprÃ¼ft</p>
+              <p>â–¡ Beitrag nach VerÃ¶ffentlichung markieren</p>
+              <p>â–¡ Optional: Ads-Kampagne vorbereiten</p>
             </div>
 
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
               Diese Seite postet noch nicht automatisch. Sie ist die saubere
-              Zwischenstufe für manuelle Veröffentlichung, spätere
+              Zwischenstufe fÃ¼r manuelle VerÃ¶ffentlichung, spÃ¤tere
               API-Anbindung und Ads-Vorbereitung.
             </div>
           </aside>
@@ -651,7 +658,7 @@ export default async function AdminSocialPostingPage({
           caption={tiktokCaption}
           cta={post.cta}
           hashtags={post.hashtags}
-          platformNote="Für TikTok kurz, klar und hooklastig halten. Der erste Satz muss sofort funktionieren."
+          platformNote="FÃ¼r TikTok kurz, klar und hooklastig halten. Der erste Satz muss sofort funktionieren."
         />
 
         <PostingBlock
@@ -661,7 +668,7 @@ export default async function AdminSocialPostingPage({
           caption={instagramCaption}
           cta={post.cta}
           hashtags={post.hashtags}
-          platformNote="Für Instagram eignen sich klare Reels-/Carousel-Texte mit emotionalem Einstieg und sauberem CTA."
+          platformNote="FÃ¼r Instagram eignen sich klare Reels-/Carousel-Texte mit emotionalem Einstieg und sauberem CTA."
         />
 
         <PostingBlock
@@ -671,7 +678,7 @@ export default async function AdminSocialPostingPage({
           caption={facebookCaption}
           cta={post.cta}
           hashtags={post.hashtags}
-          platformNote="Für Facebook darf die Erklärung etwas ausführlicher und vertrauensbildender sein."
+          platformNote="FÃ¼r Facebook darf die ErklÃ¤rung etwas ausfÃ¼hrlicher und vertrauensbildender sein."
         />
 
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
@@ -683,7 +690,7 @@ export default async function AdminSocialPostingPage({
           </div>
 
           <p className="whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-            {post.video_prompt || "—"}
+            {post.video_prompt || "â€”"}
           </p>
 
           <div className="mt-4">
