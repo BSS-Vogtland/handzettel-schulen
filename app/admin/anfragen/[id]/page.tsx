@@ -1345,8 +1345,20 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                             })}
                           </div>
                         ) : selectedItems.length === 0 ? (
-                          <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-white p-4 text-sm font-semibold text-[#52616F]">
-                            Kein passender Produktvorschlag vorhanden.
+                          <div className="mt-4 rounded-2xl border border-[#E16B6B] bg-[#FFF1F1] px-5 py-5 text-center">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#C62828] text-xl font-black leading-none text-white">
+                                !
+                              </div>
+
+                              <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#B42318]">
+                                Manuelle Prüfung
+                              </p>
+
+                              <p className="text-sm font-black leading-6 text-[#8E1C1C]">
+                                Kein passender Produktvorschlag vorhanden.
+                              </p>
+                            </div>
                           </div>
                         ) : null}
 
