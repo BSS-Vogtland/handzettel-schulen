@@ -753,7 +753,7 @@ function getOperationalHint(overview: RequestOverview) {
     return {
       label: "Wartet auf Kunde",
       text: "Der Paketwunsch-Link wurde gesendet. Der Vorgang wartet auf Prüfung und Bestätigung durch den Kunden.",
-      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
     };
   }
 
