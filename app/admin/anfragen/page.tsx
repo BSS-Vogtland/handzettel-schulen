@@ -681,9 +681,9 @@ function getOperationalHint(overview: RequestOverview) {
 
   if (isManualReviewRequest(overview)) {
     return {
-      label: "Manuelle Prüfung",
+      label: "! Manuelle Prüfung",
       text: "Es gibt offene Listenpositionen ohne sicheren Produktvorschlag.",
-      className: "border-[#F1D1A8] bg-[#FFF8EE] text-[#A75B28]",
+      className: "border-[#F2B8B8] bg-[#FFF1F1] text-[#B5282D] text-center",
     };
   }
 
