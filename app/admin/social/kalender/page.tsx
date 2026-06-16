@@ -1,9 +1,11 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
+  Clock,
   ImageIcon,
   Megaphone,
   Share2,
@@ -11,8 +13,11 @@ import {
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialSchedulePostForm from "@/components/AdminSocialSchedulePostForm";
+import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishedButton";
 
 export const dynamic = "force-dynamic";
+
+const SOCIAL_TIME_ZONE = "Europe/Berlin";
 
 type SocialPostRow = {
   id: string;
@@ -34,13 +39,68 @@ type SocialAssetRow = {
   post_id: string;
 };
 
+type CalendarPostMode =
+  | "overdue"
+  | "due_today"
+  | "this_week"
+  | "later"
+  | "ready"
+  | "blocked"
+  | "published";
+
 function formatDateTime(value: string | null) {
   if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
 
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value));
+    timeZone: SOCIAL_TIME_ZONE,
+  }).format(date);
+}
+
+function getLocalDateKey(value: Date | string | null | undefined) {
+  if (!value) return null;
+
+  const date = typeof value === "string" ? new Date(value) : value;
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("de-DE", {
+    timeZone: SOCIAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) return null;
+
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateKey(value: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(`${value}T12:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+  }).format(date);
 }
 
 function getStatusLabel(status: string) {
@@ -111,32 +171,133 @@ function getReviewClasses(status: string | null) {
   }
 }
 
+function getModeConfig(mode: CalendarPostMode) {
+  switch (mode) {
+    case "overdue":
+      return {
+        label: "Überfällig",
+        className: "border-red-200 bg-red-50 text-red-800",
+        panelClassName: "border-red-200 bg-red-50 text-red-900",
+        description:
+          "Der geplante Veröffentlichungszeitpunkt ist vorbei. Manuell posten oder neu planen.",
+      };
+    case "due_today":
+      return {
+        label: "Heute fällig",
+        className: "border-amber-200 bg-amber-50 text-amber-800",
+        panelClassName: "border-amber-200 bg-amber-50 text-amber-900",
+        description:
+          "Dieser Beitrag ist heute zur Veröffentlichung vorgesehen.",
+      };
+    case "this_week":
+      return {
+        label: "Diese Woche",
+        className: "border-purple-200 bg-purple-50 text-purple-800",
+        panelClassName: "border-purple-200 bg-purple-50 text-purple-900",
+        description:
+          "Dieser Beitrag ist innerhalb der nächsten Tage eingeplant.",
+      };
+    case "later":
+      return {
+        label: "Später geplant",
+        className: "border-blue-200 bg-blue-50 text-blue-800",
+        panelClassName: "border-blue-200 bg-blue-50 text-blue-900",
+        description:
+          "Dieser Beitrag ist geplant, aber noch nicht in der aktuellen Veröffentlichungswoche.",
+      };
+    case "ready":
+      return {
+        label: "Reserve / planbar",
+        className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        panelClassName: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        description:
+          "Freigegeben und ungeplant. Kann als Reserve genutzt oder eingeplant werden.",
+      };
+    case "blocked":
+      return {
+        label: "Blockiert",
+        className: "border-amber-200 bg-amber-50 text-amber-800",
+        panelClassName: "border-amber-200 bg-amber-50 text-amber-900",
+        description:
+          "Noch nicht freigegeben. Erst Review abschließen.",
+      };
+    case "published":
+      return {
+        label: "Veröffentlicht",
+        className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        panelClassName: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        description:
+          "Dieser Beitrag ist bereits als veröffentlicht markiert.",
+      };
+  }
+}
+
 function StatCard({
   title,
   value,
   description,
   tone = "neutral",
+  icon,
 }: {
   title: string;
   value: number;
   description: string;
-  tone?: "neutral" | "warning" | "success" | "blue";
+  tone?: "neutral" | "warning" | "danger" | "success" | "blue";
+  icon: ReactNode;
 }) {
   const classes = {
     neutral: "border-[#E7D8C3] bg-white text-[#102A43]",
     warning: "border-amber-200 bg-amber-50 text-amber-900",
+    danger: "border-red-200 bg-red-50 text-red-900",
     success: "border-emerald-200 bg-emerald-50 text-emerald-900",
     blue: "border-blue-200 bg-blue-50 text-blue-900",
   };
 
   return (
     <article className={`rounded-[1.5rem] border p-5 shadow-sm ${classes[tone]}`}>
-      <p className="text-sm font-semibold opacity-80">{title}</p>
-      <p className="mt-1 text-3xl font-black">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="rounded-2xl bg-white/70 p-3">{icon}</div>
+        <p className="text-3xl font-black">{value}</p>
+      </div>
+      <p className="mt-4 text-sm font-black uppercase tracking-[0.14em]">
+        {title}
+      </p>
       <p className="mt-2 text-sm font-semibold leading-6 opacity-80">
         {description}
       </p>
     </article>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div className="flex items-center gap-2">
+          {icon}
+          <h2 className="text-2xl font-black text-[#102A43]">{title}</h2>
+        </div>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function EmptySection({ children }: { children: ReactNode }) {
+  return (
+    <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-6 text-sm font-bold leading-6 text-[#52616F] shadow-sm">
+      {children}
+    </section>
   );
 }
 
@@ -147,10 +308,11 @@ function PostCard({
 }: {
   post: SocialPostRow;
   hasImage: boolean;
-  mode: "ready" | "scheduled" | "blocked" | "published";
+  mode: CalendarPostMode;
 }) {
   const isReviewApproved = post.review_status === "approved";
   const isPublished = post.status === "published";
+  const modeConfig = getModeConfig(mode);
 
   const scheduleDisabledReason = isPublished
     ? "Dieser Beitrag ist bereits veröffentlicht."
@@ -158,11 +320,27 @@ function PostCard({
       ? "Kalenderplanung ist blockiert, bis das Content-Review freigegeben wurde."
       : undefined;
 
+  const publishDisabledReason = isPublished
+    ? "Dieser Beitrag ist bereits als veröffentlicht markiert."
+    : !isReviewApproved
+      ? "Content-Review ist noch nicht freigegeben. Bitte zuerst Review öffnen und den Beitrag freigeben."
+      : !hasImage
+        ? "Es ist noch kein veröffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen."
+        : undefined;
+
+  const showPublishingAction = mode === "due_today" || mode === "overdue";
+
   return (
     <article className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-6">
-      <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${modeConfig.className}`}
+            >
+              {modeConfig.label}
+            </span>
+
             <span
               className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClasses(
                 post.status
@@ -195,6 +373,12 @@ function PostCard({
             {post.scheduled_at ? (
               <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-black text-purple-800">
                 Geplant: {formatDateTime(post.scheduled_at)}
+              </span>
+            ) : null}
+
+            {post.published_at ? (
+              <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+                Veröffentlicht: {formatDateTime(post.published_at)}
               </span>
             ) : null}
           </div>
@@ -243,21 +427,46 @@ function PostCard({
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4">
-          {mode === "blocked" ? (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
-                <p>
-                  Dieser Beitrag kann noch nicht geplant werden. Erst das
-                  Content-Review freigeben.
-                </p>
+        <div className="space-y-4 rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4">
+          <div
+            className={`rounded-2xl border p-4 text-sm font-bold leading-6 ${modeConfig.panelClassName}`}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              {mode === "overdue" ? (
+                <AlertTriangle className="h-5 w-5" />
+              ) : mode === "due_today" ? (
+                <Clock className="h-5 w-5" />
+              ) : (
+                <CalendarClock className="h-5 w-5" />
+              )}
+              <span>{modeConfig.label}</span>
+            </div>
+            {modeConfig.description}
+          </div>
+
+          {showPublishingAction ? (
+            <div className="rounded-2xl border border-[#E7D8C3] bg-white p-4">
+              <h3 className="text-sm font-black text-[#102A43]">
+                Veröffentlichung V1
+              </h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                Beitrag manuell auf der Plattform veröffentlichen, danach hier
+                als veröffentlicht markieren. Die API-Automatik kann später an
+                genau diese Stelle angebunden werden.
+              </p>
+
+              <div className="mt-4">
+                <AdminSocialMarkPublishedButton
+                  postId={post.id}
+                  disabled={Boolean(publishDisabledReason)}
+                  disabledReason={publishDisabledReason}
+                />
               </div>
             </div>
           ) : null}
 
           {mode === "published" ? (
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
               Bereits veröffentlicht: {formatDateTime(post.published_at)}
             </div>
           ) : null}
@@ -275,6 +484,9 @@ function PostCard({
 }
 
 export default async function AdminSocialCalendarPage() {
+  const todayKey = getLocalDateKey(new Date()) || "";
+  const weekEndKey = todayKey ? addDaysToDateKey(todayKey, 6) : "";
+
   const { data: postsData, error } = await supabaseServer
     .from("social_posts")
     .select(
@@ -296,7 +508,13 @@ export default async function AdminSocialCalendarPage() {
 
   const imagePostIds = new Set(assets.map((asset) => asset.post_id));
 
-  const publishedPosts = posts.filter((post) => post.status === "published");
+  const publishedPosts = posts
+    .filter((post) => post.status === "published")
+    .sort((a, b) => {
+      const aTime = a.published_at ? new Date(a.published_at).getTime() : 0;
+      const bTime = b.published_at ? new Date(b.published_at).getTime() : 0;
+      return bTime - aTime;
+    });
 
   const scheduledPosts = posts
     .filter((post) => post.status !== "published" && Boolean(post.scheduled_at))
@@ -305,6 +523,37 @@ export default async function AdminSocialCalendarPage() {
       const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
       return aTime - bTime;
     });
+
+  const overduePosts = scheduledPosts.filter((post) => {
+    const scheduledDateKey = getLocalDateKey(post.scheduled_at);
+    return Boolean(scheduledDateKey && todayKey && scheduledDateKey < todayKey);
+  });
+
+  const dueTodayPosts = scheduledPosts.filter((post) => {
+    const scheduledDateKey = getLocalDateKey(post.scheduled_at);
+    return Boolean(scheduledDateKey && todayKey && scheduledDateKey === todayKey);
+  });
+
+  const upcomingScheduledPosts = scheduledPosts.filter((post) => {
+    const scheduledDateKey = getLocalDateKey(post.scheduled_at);
+    return Boolean(scheduledDateKey && todayKey && scheduledDateKey > todayKey);
+  });
+
+  const thisWeekPosts = upcomingScheduledPosts.filter((post) => {
+    const scheduledDateKey = getLocalDateKey(post.scheduled_at);
+    return Boolean(
+      scheduledDateKey &&
+        todayKey &&
+        weekEndKey &&
+        scheduledDateKey > todayKey &&
+        scheduledDateKey <= weekEndKey
+    );
+  });
+
+  const laterPosts = upcomingScheduledPosts.filter((post) => {
+    const scheduledDateKey = getLocalDateKey(post.scheduled_at);
+    return Boolean(scheduledDateKey && weekEndKey && scheduledDateKey > weekEndKey);
+  });
 
   const readyPosts = posts.filter(
     (post) =>
@@ -319,6 +568,8 @@ export default async function AdminSocialCalendarPage() {
       !post.scheduled_at &&
       post.review_status !== "approved"
   );
+
+  const dueAndUpcomingThisWeekCount = dueTodayPosts.length + thisWeekPosts.length;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -342,23 +593,26 @@ export default async function AdminSocialCalendarPage() {
               </div>
 
               <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Beiträge planen
+                Veröffentlichungen steuern
               </h1>
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
-                Plane freigegebene Beiträge für TikTok, Instagram und Facebook.
-                Beiträge ohne freigegebenes Content-Review sind für die
-                Kalenderplanung technisch blockiert.
+                Dieser Bereich führt die manuelle Veröffentlichung: Heute
+                fällige und überfällige Beiträge stehen oben. Nach dem Posten
+                auf TikTok, Instagram oder Facebook markierst Du den Beitrag
+                hier als veröffentlicht. Die spätere Meta-/API-Automatik kann
+                an diesen Ablauf anschließen.
               </p>
             </div>
 
             <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
               <div className="mb-2 flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5" />
-                Review-Gate aktiv
+                Review- und Bild-Gate aktiv
               </div>
-              Nur Beiträge mit Review-Status „freigegeben“ können geplant
-              werden.
+              Veröffentlichung ist nur sinnvoll, wenn Review freigegeben und ein
+              Social-Bild vorhanden ist. Beides wird zusätzlich in der
+              Posting-Seite und API geprüft.
             </div>
           </div>
         </header>
@@ -369,63 +623,134 @@ export default async function AdminSocialCalendarPage() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatCard
-            title="Planbar"
-            value={readyPosts.length}
-            description="Freigegeben, aber noch nicht geplant."
-            tone={readyPosts.length > 0 ? "blue" : "neutral"}
+            title="Überfällig"
+            value={overduePosts.length}
+            description="Geplant, aber noch nicht veröffentlicht."
+            icon={<AlertTriangle className="h-5 w-5" />}
+            tone={overduePosts.length > 0 ? "danger" : "success"}
           />
 
           <StatCard
-            title="Geplant"
-            value={scheduledPosts.length}
-            description="Beiträge mit Veröffentlichungszeitpunkt."
-            tone="success"
+            title="Heute fällig"
+            value={dueTodayPosts.length}
+            description={`Heute: ${formatDateKey(todayKey)}.`}
+            icon={<Clock className="h-5 w-5" />}
+            tone={dueTodayPosts.length > 0 ? "warning" : "neutral"}
+          />
+
+          <StatCard
+            title="Diese Woche"
+            value={dueAndUpcomingThisWeekCount}
+            description="Heute plus kommende 6 Tage."
+            icon={<CalendarClock className="h-5 w-5" />}
+            tone={dueAndUpcomingThisWeekCount > 0 ? "blue" : "neutral"}
+          />
+
+          <StatCard
+            title="Reserve"
+            value={readyPosts.length}
+            description="Freigegeben, aber ungeplant."
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            tone={readyPosts.length > 0 ? "success" : "neutral"}
           />
 
           <StatCard
             title="Blockiert"
             value={blockedPosts.length}
-            description="Noch kein freigegebenes Review."
+            description="Review noch nicht freigegeben."
+            icon={<ShieldCheck className="h-5 w-5" />}
             tone={blockedPosts.length > 0 ? "warning" : "success"}
-          />
-
-          <StatCard
-            title="Veröffentlicht"
-            value={publishedPosts.length}
-            description="Bereits als veröffentlicht markiert."
-            tone="neutral"
           />
         </section>
 
-        {scheduledPosts.length > 0 ? (
+        {overduePosts.length > 0 ? (
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-purple-700" />
-              <h2 className="text-2xl font-black text-[#102A43]">
-                Bereits geplante Beiträge
-              </h2>
-            </div>
+            <SectionHeader
+              title="Überfällige Veröffentlichungen"
+              description="Diese Beiträge waren bereits eingeplant und sind noch nicht als veröffentlicht markiert. Entweder jetzt posten und markieren oder bewusst neu planen."
+              icon={<AlertTriangle className="h-5 w-5 text-red-700" />}
+            />
 
-            {scheduledPosts.map((post) => (
+            {overduePosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
                 hasImage={imagePostIds.has(post.id)}
-                mode="scheduled"
+                mode="overdue"
               />
             ))}
           </section>
         ) : null}
 
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-700" />
-            <h2 className="text-2xl font-black text-[#102A43]">
-              Planbare Beiträge
-            </h2>
-          </div>
+          <SectionHeader
+            title="Heute zu veröffentlichen"
+            description="Diese Beiträge sind heute fällig. Öffne die Posting-Vorbereitung, veröffentliche manuell und markiere sie danach als veröffentlicht."
+            icon={<Clock className="h-5 w-5 text-amber-700" />}
+          />
+
+          {dueTodayPosts.length > 0 ? (
+            dueTodayPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="due_today"
+              />
+            ))
+          ) : (
+            <EmptySection>
+              Für heute sind keine Veröffentlichungen fällig.
+            </EmptySection>
+          )}
+        </section>
+
+        {thisWeekPosts.length > 0 ? (
+          <section className="space-y-4">
+            <SectionHeader
+              title="Diese Woche geplant"
+              description="Diese Beiträge liegen in den nächsten Tagen. Sie sind noch nicht fällig, können aber vorbereitet oder bei Bedarf umgeplant werden."
+              icon={<CalendarClock className="h-5 w-5 text-purple-700" />}
+            />
+
+            {thisWeekPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="this_week"
+              />
+            ))}
+          </section>
+        ) : null}
+
+        {laterPosts.length > 0 ? (
+          <section className="space-y-4">
+            <SectionHeader
+              title="Später geplante Beiträge"
+              description="Diese Beiträge liegen außerhalb der aktuellen 7-Tage-Ansicht."
+              icon={<CalendarClock className="h-5 w-5 text-blue-700" />}
+            />
+
+            {laterPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                hasImage={imagePostIds.has(post.id)}
+                mode="later"
+              />
+            ))}
+          </section>
+        ) : null}
+
+        <section className="space-y-4">
+          <SectionHeader
+            title="Reserve / planbare Beiträge"
+            description="Freigegeben, aber noch nicht eingeplant. Diese Beiträge eignen sich als Reserve oder für den nächsten Wochenplan."
+            icon={<CheckCircle2 className="h-5 w-5 text-emerald-700" />}
+          />
 
           {readyPosts.length > 0 ? (
             readyPosts.map((post) => (
@@ -437,21 +762,19 @@ export default async function AdminSocialCalendarPage() {
               />
             ))
           ) : (
-            <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-6 text-sm font-bold leading-6 text-[#52616F] shadow-sm">
-              Aktuell gibt es keine freigegebenen, ungeplanten Beiträge. Öffne
-              ein Review und gib einen Beitrag frei, damit er hier planbar wird.
-            </section>
+            <EmptySection>
+              Aktuell gibt es keine freigegebenen, ungeplanten Beiträge.
+            </EmptySection>
           )}
         </section>
 
         {blockedPosts.length > 0 ? (
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-700" />
-              <h2 className="text-2xl font-black text-[#102A43]">
-                Für Planung blockiert
-              </h2>
-            </div>
+            <SectionHeader
+              title="Für Planung blockiert"
+              description="Diese Beiträge brauchen zuerst ein freigegebenes Content-Review. Danach werden sie planbar."
+              icon={<AlertTriangle className="h-5 w-5 text-amber-700" />}
+            />
 
             {blockedPosts.map((post) => (
               <PostCard
@@ -466,12 +789,11 @@ export default async function AdminSocialCalendarPage() {
 
         {publishedPosts.length > 0 ? (
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Share2 className="h-5 w-5 text-emerald-700" />
-              <h2 className="text-2xl font-black text-[#102A43]">
-                Veröffentlichte Beiträge
-              </h2>
-            </div>
+            <SectionHeader
+              title="Veröffentlichte Beiträge"
+              description="Die letzten veröffentlicht markierten Beiträge. Diese Liste dient als einfache Veröffentlichungshistorie."
+              icon={<Share2 className="h-5 w-5 text-emerald-700" />}
+            />
 
             {publishedPosts.slice(0, 10).map((post) => (
               <PostCard
