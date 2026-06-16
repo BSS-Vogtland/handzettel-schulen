@@ -197,6 +197,8 @@ export default async function AdminSocialAutomationEventsPage() {
   const sentCount = events.filter((event) => event.status === "sent").length;
   const skippedCount = events.filter((event) => event.status === "skipped").length;
   const failedCount = events.filter((event) => event.status === "failed").length;
+  const actionRequiredCount = pendingCount + failedCount;
+  const latestSentEvent = events.find((event) => event.status === "sent") || null;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
@@ -243,7 +245,7 @@ export default async function AdminSocialAutomationEventsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-center gap-2 text-amber-800">
                 <Clock className="h-4 w-4" />
@@ -295,6 +297,44 @@ export default async function AdminSocialAutomationEventsPage() {
                 Muss geprüft werden
               </p>
             </div>
+
+            <div
+              className={`rounded-2xl border p-4 ${
+                actionRequiredCount > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-bold">Aktion nötig</span>
+              </div>
+              <p className="mt-2 text-3xl font-black">{actionRequiredCount}</p>
+              <p className="mt-1 text-xs">
+                Pending + Fehler
+              </p>
+            </div>
+          </div>
+
+          <div
+            className={`rounded-2xl border p-4 text-sm font-bold leading-6 ${
+              actionRequiredCount > 0
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            {actionRequiredCount > 0 ? (
+              <p>
+                Es gibt Reminder-Events mit Aktionsbedarf. Prüfe vor allem
+                Fehler und Events, die länger als erwartet auf pending stehen.
+              </p>
+            ) : (
+              <p>
+                Reminder-Protokoll sauber. Keine failed Events und keine pending
+                Events. Letzter erfolgreicher Versand:{" "}
+                {latestSentEvent ? formatDateTime(latestSentEvent.updated_at) : "—"}.
+              </p>
+            )}
           </div>
         </div>
 

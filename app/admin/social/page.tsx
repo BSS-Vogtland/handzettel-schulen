@@ -8,9 +8,11 @@ import {
   CalendarClock,
   Camera,
   CheckCircle2,
+  Clock,
   FileText,
   Hash,
   ImageIcon,
+  Mail,
   Megaphone,
   PlugZap,
   Settings,
@@ -18,6 +20,7 @@ import {
   ShieldCheck,
   Sparkles,
   Video,
+  XCircle,
 } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialGenerateButton from "@/components/AdminSocialGenerateButton";
@@ -68,6 +71,19 @@ type SocialIntegrationRow = {
   status: string;
   provider_label: string;
   is_required: boolean;
+};
+
+type SocialReminderEventRow = {
+  id: string;
+  status: string;
+  reminder_type: string;
+  reminder_date_local: string;
+  reminder_time_local: string;
+  recipient_email: string | null;
+  open_review_count: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function formatDateTime(value: string | null) {
@@ -313,10 +329,19 @@ export default async function AdminSocialPage() {
     .select("id, status, provider_label, is_required")
     .limit(50);
 
+  const { data: reminderRows } = await supabaseServer
+    .from("social_reminder_events")
+    .select(
+      "id, status, reminder_type, reminder_date_local, reminder_time_local, recipient_email, open_review_count, error_message, created_at, updated_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(25);
+
   const posts = (data || []) as SocialPostRow[];
   const assets = (assetRows || []) as SocialAssetRow[];
   const ads = (adRows || []) as SocialAdCampaignRow[];
   const integrations = (integrationRows || []) as SocialIntegrationRow[];
+  const reminders = (reminderRows || []) as SocialReminderEventRow[];
 
   const imagePostIds = new Set(assets.map((asset) => asset.post_id));
 
@@ -324,11 +349,9 @@ export default async function AdminSocialPage() {
   const scheduledCount = posts.filter(
     (post) => post.status === "scheduled"
   ).length;
-    const approvedUnscheduledCount = posts.filter(
+  const approvedUnscheduledCount = posts.filter(
     (post) =>
-      post.status !== "archived" &&
-      post.status !== "scheduled" &&
-      post.status !== "published" &&
+      post.status === "approved" &&
       post.review_status === "approved" &&
       !post.scheduled_at
   ).length;
@@ -337,17 +360,24 @@ export default async function AdminSocialPage() {
   ).length;
 
   const postsWithoutImage = posts.filter(
-    (post) => post.status !== "archived" && !imagePostIds.has(post.id)
+    (post) =>
+      post.status !== "archived" &&
+      post.status !== "published" &&
+      !imagePostIds.has(post.id)
   );
 
   const postsWithoutReview = posts.filter(
     (post) =>
       post.status !== "archived" &&
+      post.status !== "published" &&
       (!post.review_status || post.review_status === "not_reviewed")
   );
 
   const postsNeedsChanges = posts.filter(
-    (post) => post.status !== "archived" && post.review_status === "needs_changes"
+    (post) =>
+      post.status !== "archived" &&
+      post.status !== "published" &&
+      post.review_status === "needs_changes"
   );
 
   const postsReviewApproved = posts.filter(
@@ -366,12 +396,36 @@ export default async function AdminSocialPage() {
     (integration) => integration.status !== "connected"
   );
 
-  const openTaskCount =
+  const pendingReminderCount = reminders.filter(
+    (reminder) => reminder.status === "pending"
+  ).length;
+
+  const failedReminderCount = reminders.filter(
+    (reminder) => reminder.status === "failed"
+  ).length;
+
+  const sentReminderCount = reminders.filter(
+    (reminder) => reminder.status === "sent"
+  ).length;
+
+  const latestReminder = reminders[0] || null;
+
+  const readyForPostingCount = posts.filter(
+    (post) =>
+      post.status !== "archived" &&
+      post.status !== "published" &&
+      post.review_status === "approved" &&
+      imagePostIds.has(post.id)
+  ).length;
+
+  const contentOpenTaskCount =
     postsWithoutImage.length +
     postsWithoutReview.length +
     postsNeedsChanges.length +
-    adsWaitingForApproval.length +
-    missingRequiredIntegrations.length;
+    adsWaitingForApproval.length;
+
+  const setupOpenTaskCount = missingRequiredIntegrations.length;
+  const automationAttentionCount = pendingReminderCount + failedReminderCount;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -473,23 +527,40 @@ export default async function AdminSocialPage() {
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Dieser Bereich führt den Kunden durch die nächsten sinnvollen
-                Schritte: fehlende Bilder, offene Reviews, offene
-                Ads-Freigaben und fehlende Pflicht-Konten.
+                Dieser Bereich trennt operative Content-Aufgaben sauber von
+                Setup-Hinweisen. Dadurch zählen fehlende Pflicht-Konten nicht
+                mehr als normale Content-Aufgabe.
               </p>
             </div>
 
-            <div
-              className={`rounded-2xl border px-5 py-4 ${
-                openTaskCount > 0
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
-              }`}
-            >
-              <p className="text-xs font-black uppercase tracking-[0.16em]">
-                Offene Aufgaben
-              </p>
-              <p className="mt-1 text-3xl font-black">{openTaskCount}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className={`rounded-2xl border px-5 py-4 ${
+                  contentOpenTaskCount + automationAttentionCount > 0
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Content-Aufgaben
+                </p>
+                <p className="mt-1 text-3xl font-black">
+                  {contentOpenTaskCount + automationAttentionCount}
+                </p>
+              </div>
+
+              <div
+                className={`rounded-2xl border px-5 py-4 ${
+                  setupOpenTaskCount > 0
+                    ? "border-blue-200 bg-blue-50 text-blue-900"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Setup-Hinweise
+                </p>
+                <p className="mt-1 text-3xl font-black">{setupOpenTaskCount}</p>
+              </div>
             </div>
           </div>
 
@@ -599,7 +670,51 @@ export default async function AdminSocialPage() {
             />
           </div>
 
-          {openTaskCount > 0 ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <DashboardCard
+              title="Bereit zum Posting"
+              value={readyForPostingCount}
+              description="Freigegebene Beiträge mit Bild, die veröffentlicht oder vorbereitet werden können."
+              icon={<Share2 className="h-5 w-5" />}
+              href="/admin/social/kalender"
+              linkLabel="Posting prüfen"
+              tone={readyForPostingCount > 0 ? "success" : "neutral"}
+            />
+
+            <DashboardCard
+              title="Freigegebene Reserve"
+              value={approvedUnscheduledCount}
+              description="Freigegebene, ungeplante Beiträge als Reserve für spätere Wochenpläne."
+              icon={<FileText className="h-5 w-5" />}
+              href="/admin/social"
+              linkLabel="Reserve ansehen"
+              tone={approvedUnscheduledCount > 0 ? "blue" : "neutral"}
+            />
+
+            <DashboardCard
+              title="Reminder-Protokoll"
+              value={`${pendingReminderCount}/${failedReminderCount}`}
+              description={`Pending/Fehler. Gesendet: ${sentReminderCount}. Letztes Event: ${
+                latestReminder ? formatDateTime(latestReminder.created_at) : "—"
+              }.`}
+              icon={<Mail className="h-5 w-5" />}
+              href="/admin/social/automation/events"
+              linkLabel="Events prüfen"
+              tone={automationAttentionCount > 0 ? "warning" : "success"}
+            />
+
+            <DashboardCard
+              title="Veröffentlicht"
+              value={publishedCount}
+              description="Beiträge, die bereits als veröffentlicht markiert wurden."
+              icon={<CheckCircle2 className="h-5 w-5" />}
+              href="/admin/social"
+              linkLabel="Beiträge ansehen"
+              tone="success"
+            />
+          </div>
+
+          {contentOpenTaskCount + automationAttentionCount > 0 ? (
             <div className="mt-6 space-y-3">
               {postsWithoutImage.length > 0 ? (
                 <TaskNotice
@@ -645,24 +760,73 @@ export default async function AdminSocialPage() {
                 />
               ) : null}
 
-              {missingRequiredIntegrations.length > 0 ? (
+              {failedReminderCount > 0 ? (
                 <TaskNotice
-                  title={`${missingRequiredIntegrations.length} Pflicht-Konto/Konten nicht verbunden`}
-                  description="OpenAI, Meta oder andere Pflicht-Konten sollten sauber vorbereitet sein, bevor automatische Abläufe angebunden werden."
-                  href="/admin/social/konten"
-                  linkLabel="Konten prüfen"
-                  icon={<PlugZap className="h-5 w-5" />}
+                  title={`${failedReminderCount} Reminder-Event(s) mit Fehler`}
+                  description="Prüfe das Reminder-Protokoll. Fehlerhafte Events deuten meistens auf Mailversand, SMTP oder Cron-Verarbeitung hin."
+                  href="/admin/social/automation/events"
+                  linkLabel="Events prüfen"
+                  icon={<XCircle className="h-5 w-5" />}
+                  tone="warning"
+                />
+              ) : null}
+
+              {pendingReminderCount > 0 ? (
+                <TaskNotice
+                  title={`${pendingReminderCount} Reminder-Event(s) pending`}
+                  description="Pending ist kurzfristig normal. Wenn Events dauerhaft pending bleiben, muss der Versand-Cron geprüft werden."
+                  href="/admin/social/automation/events"
+                  linkLabel="Events prüfen"
+                  icon={<Clock className="h-5 w-5" />}
                   tone="blue"
                 />
               ) : null}
             </div>
           ) : (
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
-              Aktuell sind keine dringenden Aufgaben offen. Du kannst neue
+              Aktuell sind keine dringenden Content-Aufgaben offen. Du kannst neue
               Beiträge erzeugen, bestehende Beiträge planen, die Automation
               prüfen oder Ads vorbereiten.
             </div>
           )}
+
+          <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold leading-6 text-blue-900">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="text-base font-black">Setup-Hinweise</h3>
+                <p className="mt-1 max-w-3xl">
+                  Diese Hinweise betreffen die technische Einrichtung. Sie sind
+                  bewusst getrennt von den Content-Aufgaben, damit Kunden den
+                  operativen Veröffentlichungsstand klarer erkennen.
+                </p>
+              </div>
+
+              <Link
+                href="/admin/social/konten"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
+              >
+                Konten prüfen
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="mt-4">
+              {missingRequiredIntegrations.length > 0 ? (
+                <TaskNotice
+                  title={`${missingRequiredIntegrations.length} Pflicht-Konto/Konten nicht verbunden`}
+                  description="OpenAI, Meta oder andere Pflicht-Konten sollten sauber vorbereitet sein. Für V1 ist das ein Setup-Hinweis, keine offene Content-Aufgabe."
+                  href="/admin/social/konten"
+                  linkLabel="Konten prüfen"
+                  icon={<PlugZap className="h-5 w-5" />}
+                  tone="blue"
+                />
+              ) : (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                  Pflicht-Konten sind vollständig vorbereitet.
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">
