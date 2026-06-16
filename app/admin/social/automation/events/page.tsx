@@ -58,6 +58,11 @@ type ReminderPayload = {
   open_review_posts?: ReminderPost[];
   approved_posts?: ReminderPost[];
   published_posts?: ReminderPost[];
+  publishing_posts?: ReminderPost[];
+  ready_to_publish_posts?: ReminderPost[];
+  blocked_publish_posts?: ReminderPost[];
+  overdue_posts?: ReminderPost[];
+  due_today_posts?: ReminderPost[];
 };
 
 type ReminderPost = {
@@ -68,11 +73,17 @@ type ReminderPost = {
   scheduled_at?: string | null;
   publish_date_local?: string | null;
   publish_weekday_local?: string | null;
+  publish_time_local?: string | null;
   reminder_date_local?: string | null;
   reminder_weekday_local?: string | null;
   needs_review?: boolean;
   is_review_approved?: boolean;
   is_published?: boolean;
+  is_overdue?: boolean;
+  is_due_today?: boolean;
+  has_image?: boolean;
+  is_publishable?: boolean;
+  blocked_reason?: string | null;
   review_url?: string | null;
   posting_url?: string | null;
 };
@@ -142,6 +153,33 @@ function getStatusConfig(status: string) {
   }
 }
 
+function getTypeConfig(type: string) {
+  switch (type) {
+    case "publishing_reminder":
+      return {
+        label: "Publishing-Reminder",
+        description:
+          "Erinnert am Veröffentlichungstag oder bei überfälligen Beiträgen.",
+        className: "border-blue-200 bg-blue-50 text-blue-800",
+      };
+
+    case "review_reminder":
+      return {
+        label: "Review-Reminder",
+        description:
+          "Erinnert vorab an noch nicht freigegebene geplante Beiträge.",
+        className: "border-purple-200 bg-purple-50 text-purple-800",
+      };
+
+    default:
+      return {
+        label: type || "Reminder",
+        description: "Allgemeines Reminder-Event.",
+        className: "border-slate-200 bg-slate-50 text-slate-700",
+      };
+  }
+}
+
 function safeNumber(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
@@ -150,20 +188,48 @@ function getProjectName(event: ReminderEventRow) {
   return event.payload?.project?.name || "SocialPilot";
 }
 
-function getOpenReviewPosts(event: ReminderEventRow) {
-  const posts = event.payload?.open_review_posts;
+function asPostList(value: unknown) {
+  if (!Array.isArray(value)) return [];
 
-  if (!Array.isArray(posts)) return [];
-
-  return posts.filter((post) => post && post.id);
+  return value.filter((post) => post && typeof post === "object" && "id" in post) as ReminderPost[];
 }
 
-function getPostsDueToday(event: ReminderEventRow) {
-  const posts = event.payload?.posts_due_today;
+function getPrimaryPosts(event: ReminderEventRow) {
+  if (event.reminder_type === "publishing_reminder") {
+    return asPostList(event.payload?.publishing_posts);
+  }
 
-  if (!Array.isArray(posts)) return [];
+  return asPostList(event.payload?.open_review_posts);
+}
 
-  return posts.filter((post) => post && post.id);
+function getSecondaryPosts(event: ReminderEventRow) {
+  if (event.reminder_type === "publishing_reminder") {
+    return asPostList(event.payload?.blocked_publish_posts);
+  }
+
+  return asPostList(event.payload?.posts_due_today);
+}
+
+function getSummaryLabels(event: ReminderEventRow) {
+  if (event.reminder_type === "publishing_reminder") {
+    return {
+      first: "Veröffentlichbar",
+      second: "Blockiert",
+      third: "Veröffentlicht",
+      firstValue: safeNumber(event.approved_count),
+      secondValue: safeNumber(event.open_review_count),
+      thirdValue: safeNumber(event.published_count),
+    };
+  }
+
+  return {
+    first: "Offene Reviews",
+    second: "Freigegeben",
+    third: "Veröffentlicht",
+    firstValue: safeNumber(event.open_review_count),
+    secondValue: safeNumber(event.approved_count),
+    thirdValue: safeNumber(event.published_count),
+  };
 }
 
 async function loadReminderEvents() {
@@ -171,7 +237,7 @@ async function loadReminderEvents() {
     .from("social_reminder_events")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(80);
 
   if (error) {
     throw new Error(error.message);
@@ -192,6 +258,13 @@ export default async function AdminSocialAutomationEventsPage() {
         ? error.message
         : "Reminder-Protokoll konnte nicht geladen werden.";
   }
+
+  const reviewEvents = events.filter(
+    (event) => event.reminder_type === "review_reminder"
+  );
+  const publishingEvents = events.filter(
+    (event) => event.reminder_type === "publishing_reminder"
+  );
 
   const pendingCount = events.filter((event) => event.status === "pending").length;
   const sentCount = events.filter((event) => event.status === "sent").length;
@@ -222,9 +295,8 @@ export default async function AdminSocialAutomationEventsPage() {
                   Reminder-Protokoll
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-[#486581] sm:text-base">
-                  Hier siehst Du, ob der Cron-Workflow Reminder berechnet,
-                  übersprungen, versendet oder fehlerhaft verarbeitet hat. Das
-                  ist der operative Kontrollbereich für die Review-Erinnerungen.
+                  Hier siehst Du Review-Reminder und Publishing-Reminder. Failed
+                  oder dauerhaft pending Events sind operative Prüfpunkte.
                 </p>
               </div>
             </div>
@@ -245,74 +317,41 @@ export default async function AdminSocialAutomationEventsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex items-center gap-2 text-amber-800">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm font-bold">Pending</span>
-              </div>
-              <p className="mt-2 text-3xl font-black text-amber-900">
-                {pendingCount}
-              </p>
-              <p className="mt-1 text-xs text-amber-800">
-                Wartet auf Mailversand
-              </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-900">
+              <p className="text-sm font-bold">Review</p>
+              <p className="mt-2 text-3xl font-black">{reviewEvents.length}</p>
+              <p className="mt-1 text-xs">Review-Reminder</p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <div className="flex items-center gap-2 text-emerald-800">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-sm font-bold">Gesendet</span>
-              </div>
-              <p className="mt-2 text-3xl font-black text-emerald-900">
-                {sentCount}
-              </p>
-              <p className="mt-1 text-xs text-emerald-800">
-                Erfolgreich versendet
-              </p>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+              <p className="text-sm font-bold">Publishing</p>
+              <p className="mt-2 text-3xl font-black">{publishingEvents.length}</p>
+              <p className="mt-1 text-xs">Publishing-Reminder</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center gap-2 text-slate-700">
-                <SkipForward className="h-4 w-4" />
-                <span className="text-sm font-bold">Übersprungen</span>
-              </div>
-              <p className="mt-2 text-3xl font-black text-slate-800">
-                {skippedCount}
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                Bewusst nicht versendet
-              </p>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+              <p className="text-sm font-bold">Pending</p>
+              <p className="mt-2 text-3xl font-black">{pendingCount}</p>
+              <p className="mt-1 text-xs">Wartet auf Versand</p>
             </div>
 
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-              <div className="flex items-center gap-2 text-red-800">
-                <XCircle className="h-4 w-4" />
-                <span className="text-sm font-bold">Fehler</span>
-              </div>
-              <p className="mt-2 text-3xl font-black text-red-900">
-                {failedCount}
-              </p>
-              <p className="mt-1 text-xs text-red-800">
-                Muss geprüft werden
-              </p>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+              <p className="text-sm font-bold">Gesendet</p>
+              <p className="mt-2 text-3xl font-black">{sentCount}</p>
+              <p className="mt-1 text-xs">Erfolgreich versendet</p>
             </div>
 
-            <div
-              className={`rounded-2xl border p-4 ${
-                actionRequiredCount > 0
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-bold">Aktion nötig</span>
-              </div>
-              <p className="mt-2 text-3xl font-black">{actionRequiredCount}</p>
-              <p className="mt-1 text-xs">
-                Pending + Fehler
-              </p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-800">
+              <p className="text-sm font-bold">Skipped</p>
+              <p className="mt-2 text-3xl font-black">{skippedCount}</p>
+              <p className="mt-1 text-xs">Bewusst übersprungen</p>
+            </div>
+
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">
+              <p className="text-sm font-bold">Fehler</p>
+              <p className="mt-2 text-3xl font-black">{failedCount}</p>
+              <p className="mt-1 text-xs">Muss geprüft werden</p>
             </div>
           </div>
 
@@ -357,8 +396,8 @@ export default async function AdminSocialAutomationEventsPage() {
               Noch keine Reminder-Events vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[#486581]">
-              Sobald der Cron-Workflow läuft, erscheinen hier pending, sent,
-              skipped oder failed Events.
+              Sobald der Cron-Workflow läuft, erscheinen hier Review- und
+              Publishing-Events.
             </p>
           </div>
         ) : null}
@@ -367,9 +406,11 @@ export default async function AdminSocialAutomationEventsPage() {
           <div className="flex flex-col gap-4">
             {events.map((event) => {
               const statusConfig = getStatusConfig(event.status);
+              const typeConfig = getTypeConfig(event.reminder_type);
               const StatusIcon = statusConfig.icon;
-              const openReviewPosts = getOpenReviewPosts(event);
-              const postsDueToday = getPostsDueToday(event);
+              const primaryPosts = getPrimaryPosts(event);
+              const secondaryPosts = getSecondaryPosts(event);
+              const labels = getSummaryLabels(event);
 
               return (
                 <article
@@ -386,8 +427,10 @@ export default async function AdminSocialAutomationEventsPage() {
                           {statusConfig.label}
                         </span>
 
-                        <span className="rounded-full border border-[#D7C3AA] bg-white px-3 py-1 text-xs font-semibold text-[#486581]">
-                          {event.reminder_type}
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${typeConfig.className}`}
+                        >
+                          {typeConfig.label}
                         </span>
 
                         <span className="rounded-full border border-[#D7C3AA] bg-white px-3 py-1 text-xs font-semibold text-[#486581]">
@@ -398,6 +441,10 @@ export default async function AdminSocialAutomationEventsPage() {
                       <h2 className="mt-3 truncate text-lg font-black text-[#102A43]">
                         {getProjectName(event)}
                       </h2>
+
+                      <p className="mt-1 text-sm text-[#486581]">
+                        {typeConfig.description}
+                      </p>
 
                       <p className="mt-1 text-sm text-[#486581]">
                         Reminder am{" "}
@@ -414,28 +461,28 @@ export default async function AdminSocialAutomationEventsPage() {
                     <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[360px]">
                       <div className="rounded-2xl border border-[#E7D8C5] bg-white p-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#829AB1]">
-                          Offene Reviews
+                          {labels.first}
                         </p>
                         <p className="mt-1 text-2xl font-black text-[#102A43]">
-                          {safeNumber(event.open_review_count)}
+                          {labels.firstValue}
                         </p>
                       </div>
 
                       <div className="rounded-2xl border border-[#E7D8C5] bg-white p-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#829AB1]">
-                          Freigegeben
+                          {labels.second}
                         </p>
                         <p className="mt-1 text-2xl font-black text-[#102A43]">
-                          {safeNumber(event.approved_count)}
+                          {labels.secondValue}
                         </p>
                       </div>
 
                       <div className="rounded-2xl border border-[#E7D8C5] bg-white p-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#829AB1]">
-                          Veröffentlicht
+                          {labels.third}
                         </p>
                         <p className="mt-1 text-2xl font-black text-[#102A43]">
-                          {safeNumber(event.published_count)}
+                          {labels.thirdValue}
                         </p>
                       </div>
                     </div>
@@ -501,16 +548,18 @@ export default async function AdminSocialAutomationEventsPage() {
 
                       <div className="rounded-2xl border border-[#E7D8C5] bg-white p-4">
                         <h3 className="text-sm font-black uppercase tracking-wide text-[#102A43]">
-                          Offene Review-Beiträge
+                          {event.reminder_type === "publishing_reminder"
+                            ? "Publishing-Beiträge"
+                            : "Offene Review-Beiträge"}
                         </h3>
 
-                        {openReviewPosts.length === 0 ? (
+                        {primaryPosts.length === 0 ? (
                           <p className="mt-3 text-sm text-[#829AB1]">
-                            Keine offenen Review-Beiträge in diesem Event.
+                            Keine Beiträge in diesem Event.
                           </p>
                         ) : (
                           <div className="mt-3 flex flex-col gap-3">
-                            {openReviewPosts.map((post) => (
+                            {primaryPosts.map((post) => (
                               <div
                                 key={post.id}
                                 className="rounded-2xl border border-[#E7D8C5] bg-[#FBF7F0] p-4"
@@ -523,20 +572,27 @@ export default async function AdminSocialAutomationEventsPage() {
                                     <p className="mt-1 text-xs text-[#829AB1]">
                                       Veröffentlichung:{" "}
                                       {post.publish_weekday_local || "—"}{" "}
-                                      {post.publish_date_local || "—"}
+                                      {post.publish_date_local || "—"}{" "}
+                                      {post.publish_time_local
+                                        ? `um ${post.publish_time_local}`
+                                        : ""}
                                     </p>
                                     <p className="mt-1 text-xs text-[#829AB1]">
-                                      Review-Status:{" "}
-                                      {post.review_status || "—"} · Status:{" "}
-                                      {post.status || "—"}
+                                      Review: {post.review_status || "—"} ·
+                                      Status: {post.status || "—"}
                                     </p>
+                                    {post.blocked_reason ? (
+                                      <p className="mt-2 text-xs font-bold leading-5 text-amber-800">
+                                        Blockiert: {post.blocked_reason}
+                                      </p>
+                                    ) : null}
                                   </div>
 
                                   <div className="flex shrink-0 flex-wrap gap-2">
                                     {post.review_url ? (
                                       <Link
                                         href={post.review_url}
-                                        className="inline-flex items-center justify-center rounded-full bg-[#102A43] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#243B53]"
+                                        className="inline-flex items-center justify-center rounded-full border border-[#D7C3AA] bg-white px-4 py-2 text-xs font-bold text-[#334E68] transition hover:bg-[#F8EFE4]"
                                       >
                                         Review öffnen
                                       </Link>
@@ -545,7 +601,7 @@ export default async function AdminSocialAutomationEventsPage() {
                                     {post.posting_url ? (
                                       <Link
                                         href={post.posting_url}
-                                        className="inline-flex items-center justify-center rounded-full border border-[#D7C3AA] bg-white px-4 py-2 text-xs font-bold text-[#334E68] transition hover:bg-[#F8EFE4]"
+                                        className="inline-flex items-center justify-center rounded-full bg-[#102A43] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#243B53]"
                                       >
                                         Posting ansehen
                                       </Link>
@@ -557,6 +613,30 @@ export default async function AdminSocialAutomationEventsPage() {
                           </div>
                         )}
                       </div>
+
+                      {event.reminder_type === "publishing_reminder" &&
+                      secondaryPosts.length > 0 ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                          <h3 className="text-sm font-black uppercase tracking-wide text-amber-950">
+                            Blockierte Publishing-Beiträge
+                          </h3>
+                          <div className="mt-3 flex flex-col gap-3">
+                            {secondaryPosts.map((post) => (
+                              <div
+                                key={post.id}
+                                className="rounded-2xl border border-amber-200 bg-white p-4"
+                              >
+                                <p className="font-bold text-[#102A43]">
+                                  {post.topic || "Ohne Titel"}
+                                </p>
+                                <p className="mt-1 text-xs font-bold leading-5 text-amber-800">
+                                  {post.blocked_reason || "Blockiert"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -570,12 +650,16 @@ export default async function AdminSocialAutomationEventsPage() {
                             <dt className="text-[#486581]">Fällige Beiträge</dt>
                             <dd className="font-black text-[#102A43]">
                               {event.payload?.summary?.posts_due_today ??
-                                postsDueToday.length}
+                                primaryPosts.length}
                             </dd>
                           </div>
 
                           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#FBF7F0] px-3 py-2">
-                            <dt className="text-[#486581]">Offene Reviews</dt>
+                            <dt className="text-[#486581]">
+                              {event.reminder_type === "publishing_reminder"
+                                ? "Blockiert"
+                                : "Offene Reviews"}
+                            </dt>
                             <dd className="font-black text-[#102A43]">
                               {event.payload?.summary?.open_reviews ??
                                 safeNumber(event.open_review_count)}
@@ -584,7 +668,9 @@ export default async function AdminSocialAutomationEventsPage() {
 
                           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#FBF7F0] px-3 py-2">
                             <dt className="text-[#486581]">
-                              Wartet auf Posting
+                              {event.reminder_type === "publishing_reminder"
+                                ? "Veröffentlichbar"
+                                : "Wartet auf Posting"}
                             </dt>
                             <dd className="font-black text-[#102A43]">
                               {event.payload?.summary
@@ -656,11 +742,11 @@ export default async function AdminSocialAutomationEventsPage() {
                               Praktische Bewertung
                             </h3>
                             <p className="mt-1 text-sm leading-6 text-[#486581]">
-                              Für den laufenden Betrieb sind besonders die
-                              Statuswerte <strong>failed</strong> und dauerhaft{" "}
-                              <strong>pending</strong> relevant. Skipped ist nur
-                              problematisch, wenn eigentlich offene Reviews
-                              vorhanden sein müssten.
+                              <strong>Review-Reminder</strong> lösen vorab aus.
+                              <br />
+                              <strong>Publishing-Reminder</strong> lösen am
+                              Veröffentlichungstag oder bei überfälligen
+                              Beiträgen aus.
                             </p>
                           </div>
                         </div>
