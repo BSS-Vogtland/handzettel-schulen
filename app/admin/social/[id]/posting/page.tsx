@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import {
   ArrowLeft,
-  BadgeEuro,
   CalendarClock,
   Camera,
   CheckCircle2,
@@ -55,7 +55,7 @@ type SocialAssetRow = {
   id: string;
   created_at: string;
   public_url: string | null;
-  storage_path: string;
+  storage_path: string | null;
   file_size: number | null;
   status: string;
 };
@@ -175,7 +175,7 @@ function PostingBlock({
   platformNote,
 }: {
   title: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   hook: string;
   caption: string;
   cta: string | null;
@@ -308,6 +308,7 @@ export default async function AdminSocialPostingPage({
 
   const assets = (assetsData || []) as SocialAssetRow[];
   const latestAsset = assets[0] || null;
+  const hasReadyImage = Boolean(latestAsset?.public_url?.trim());
 
   const tiktokHook = post.tiktok_hook || post.hook;
   const tiktokCaption = post.tiktok_caption || post.caption;
@@ -325,9 +326,23 @@ export default async function AdminSocialPostingPage({
     ? undefined
     : "Content-Review ist noch nicht freigegeben. Bitte zuerst Review öffnen und den Beitrag freigeben.";
 
+  const imageGateReason = hasReadyImage
+    ? undefined
+    : "Es ist noch kein veröffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen.";
+
   const publishDisabledReason = isPublished
     ? "Dieser Beitrag ist bereits als veröffentlicht markiert."
-    : reviewGateReason;
+    : !isReviewApproved
+      ? reviewGateReason
+      : !hasReadyImage
+        ? imageGateReason
+        : undefined;
+
+  const adDisabledReason = !isReviewApproved
+    ? reviewGateReason
+    : !hasReadyImage
+      ? "Für eine Ads-Kampagne sollte zuerst ein veröffentlichbares Social-Bild erzeugt werden."
+      : undefined;
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
@@ -372,8 +387,8 @@ export default async function AdminSocialPostingPage({
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Hier findest Du alle Texte, Hashtags, Bild- und Promptdaten für
                 die manuelle Veröffentlichung. Veröffentlichung und
-                Ads-Vorbereitung sind erst nach freigegebenem Content-Review
-                möglich.
+                Ads-Vorbereitung sind erst nach freigegebenem Content-Review und
+                vorhandenem Social-Bild möglich.
               </p>
             </div>
 
@@ -393,6 +408,16 @@ export default async function AdminSocialPostingPage({
                   )}`}
                 >
                   {getReviewLabel(post.review_status)}
+                </span>
+
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${
+                    hasReadyImage
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  {hasReadyImage ? "Bild vorhanden" : "Bild fehlt"}
                 </span>
               </div>
 
@@ -424,8 +449,8 @@ export default async function AdminSocialPostingPage({
 
                 <AdminSocialCreateAdCampaignButton
                   postId={post.id}
-                  disabled={!isReviewApproved}
-                  disabledReason={reviewGateReason}
+                  disabled={Boolean(adDisabledReason)}
+                  disabledReason={adDisabledReason}
                 />
               </div>
             </div>
@@ -462,6 +487,36 @@ export default async function AdminSocialPostingPage({
               </Link>
             </div>
           </section>
+        ) : !hasReadyImage ? (
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-700">
+                  <ImageIcon className="h-6 w-6" />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-black text-amber-950">
+                    Bild-Gate aktiv
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-amber-900">
+                    Das Review ist freigegeben, aber es ist noch kein
+                    veröffentlichbares Social-Bild vorhanden. Der Beitrag kann
+                    erst als veröffentlicht markiert oder für Ads vorbereitet
+                    werden, wenn ein Bild erzeugt wurde.
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href={`/admin/social/${post.id}`}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <ImageIcon className="h-4 w-4" />
+                Beitrag öffnen
+              </Link>
+            </div>
+          </section>
         ) : (
           <section className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-7">
             <div className="flex items-start gap-4">
@@ -471,7 +526,7 @@ export default async function AdminSocialPostingPage({
 
               <div>
                 <h2 className="text-xl font-black text-emerald-950">
-                  Content-Review freigegeben
+                  Content-Review und Bild freigegeben
                 </h2>
                 <p className="mt-2 text-sm font-bold leading-6 text-emerald-900">
                   Dieser Beitrag darf veröffentlicht oder als Grundlage für eine
@@ -569,6 +624,7 @@ export default async function AdminSocialPostingPage({
 
             <div className="mt-5 space-y-3 text-sm font-bold leading-6 text-[#52616F]">
               <p>{isReviewApproved ? "✅" : "□"} Content-Review freigegeben</p>
+              <p>{hasReadyImage ? "✅" : "□"} Social-Bild vorhanden</p>
               <p>□ Hook geprüft</p>
               <p>□ Caption geprüft</p>
               <p>□ Hashtags geprüft</p>
