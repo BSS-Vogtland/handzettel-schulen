@@ -1707,26 +1707,6 @@ function RequestCard({
             </p>
           </div>
 
-          {overview.manualReviewItems.length > 0 ? (
-            <div className="mb-4 rounded-[22px] border border-[#F2B8B8] bg-[#FFF1F1] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#B5282D]">
-                Offene Positionen direkt öffnen
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {overview.manualReviewItems.map((item, index) => (
-                  <a
-                    key={item.id}
-                    href={`/admin/anfragen/${request.id}#position-${item.id}`}
-                    className="inline-flex items-center justify-center rounded-full border border-[#F2B8B8] bg-white px-3 py-2 text-xs font-black text-[#B5282D] transition hover:bg-[#FFECEC]"
-                  >
-                    Position {index + 1}: {item.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {infoBadges.map((badge) => (
               <span
