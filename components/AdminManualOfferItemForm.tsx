@@ -84,7 +84,7 @@ export default function AdminManualOfferItemForm({
   requestItemId = null,
   defaultProductName,
   defaultQuantity,
-  buttonLabel = "Manuell Produkt ergÃƒÆ’Ã‚Â¤nzen",
+  buttonLabel = "Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzen",
 }: AdminManualOfferItemFormProps) {
   const router = useRouter();
 
@@ -184,7 +184,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produktsuche hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã‚Â¼fe bitte zusÃƒÆ’Ã‚Â¤tzlich das Terminal."
+          "Die Produktsuche hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlich das Terminal."
         );
       }
 
@@ -263,32 +263,32 @@ export default function AdminManualOfferItemForm({
     const quantityNumber = parseGermanNumber(quantity);
 
     if (!selectedProductId && !createProductMode) {
-      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Neues Produkt erfassenÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ. ";
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾Neues Produkt erfassenÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“. ";
     }
 
     if (!productName.trim() && !selectedProductId) {
-      return "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã‚Â¤hle ein Bestandsprodukt aus.";
+      return "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hle ein Bestandsprodukt aus.";
     }
 
     if (quantityNumber <= 0) {
-      return "Bitte gib eine Menge grÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸er als 0 ein.";
+      return "Bitte gib eine Menge grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸er als 0 ein.";
     }
 
     if (selectedProductId && priceNumber <= 0) {
-      return "Das gewÃƒÆ’Ã‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
+      return "Das gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
     }
 
     if (createProductMode && !selectedProductId) {
       const missingFields: string[] = [];
 
       if (!productName.trim()) missingFields.push("Produktname");
-      if (priceNumber <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸er 0");
+      if (priceNumber <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸er 0");
       if (!productCategory.trim()) missingFields.push("Kategorie");
       if (!productType.trim()) missingFields.push("Produkttyp");
       if (!unit.trim()) missingFields.push("Einheit");
 
       if (missingFields.length > 0) {
-        return `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
+        return `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
           ", "
         )}.`;
       }
@@ -353,7 +353,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Admin-Route hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã‚Â¼fe bitte zusÃƒÆ’Ã‚Â¤tzlich das Terminal."
+          "Die Admin-Route hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlich das Terminal."
         );
       }
 
@@ -364,39 +364,42 @@ export default function AdminManualOfferItemForm({
         );
       }
 
-      setFeedback(payload.message || "Manuelle Position wurde hinzugefÃƒÆ’Ã‚Â¼gt.");
+      setFeedback(payload.message || "Manuelle Position wurde hinzugefügt.");
 
-      if (payload.productId && payload.aliasText) {
-        setPendingAliasRemember({
-          productId: payload.productId,
-          requestItemId: payload.requestItemId || requestItemId || null,
-          aliasText: payload.aliasText,
-        });
+      const nextPendingAliasRemember =
+        payload.productId && payload.aliasText
+          ? {
+              productId: payload.productId,
+              requestItemId: payload.requestItemId || requestItemId || null,
+              aliasText: payload.aliasText,
+            }
+          : null;
+
+      if (nextPendingAliasRemember) {
+        setPendingAliasRemember(nextPendingAliasRemember);
+      } else {
+        // Wichtig für Sammelpositionen:
+        // Formular bleibt offen, damit direkt das nächste Produkt aus derselben
+        // Listenposition gesucht und übernommen werden kann.
+        setSelectedProductId(null);
+        setSelectedProductLabel(null);
+        setSelectedProductImageUrl(null);
+
+        setProductName("");
+        setProductSku("");
+        setProductPrice("");
+        setProductCategory("");
+        setProductType("");
+        setProductFormat("");
+        setProductColor("");
+        setProductLineature("");
+        setNotes("");
+        setQuantity(String(defaultQuantity || "1"));
+        setUnit("");
+        setAliasText(defaultProductName || "");
+
+        router.refresh();
       }
-
-// Wichtig fÃƒÆ’Ã‚Â¼r Sammelpositionen:
-// Formular bleibt offen, damit direkt das nÃƒÆ’Ã‚Â¤chste Produkt aus derselben
-// Listenposition gesucht und ÃƒÆ’Ã‚Â¼bernommen werden kann.
-setSelectedProductId(null);
-setSelectedProductLabel(null);
-setSelectedProductImageUrl(null);
-
-setProductName("");
-setProductSku("");
-setProductPrice("");
-setProductCategory("");
-setProductType("");
-setProductFormat("");
-setProductColor("");
-setProductLineature("");
-setNotes("");
-
-setCreateProductMode(false);
-setSearchResults([]);
-setSearchQuery("");
-setAliasText(defaultProductName || "");
-
-router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -439,7 +442,7 @@ router.refresh();
       }
 
       setFeedback(
-        payload.message || "Zuordnung wurde fÃƒÆ’Ã‚Â¼r spÃƒÆ’Ã‚Â¤tere Listen gespeichert."
+        payload.message || "Zuordnung wurde fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tere Listen gespeichert."
       );
       setPendingAliasRemember(null);
       router.refresh();
@@ -509,7 +512,7 @@ router.refresh();
           type="button"
           onClick={() => setIsOpen(false)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
-          aria-label="Formular schlieÃƒÆ’Ã…Â¸en"
+          aria-label="Formular schlieÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸en"
         >
           <X className="h-4 w-4" />
         </button>
@@ -538,7 +541,7 @@ router.refresh();
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Suche ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
+                Suche ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦
               </>
             ) : (
               <>
@@ -569,7 +572,7 @@ router.refresh();
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                    Bestandsprodukt gewÃƒÆ’Ã‚Â¤hlt
+                    Bestandsprodukt gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt
                   </p>
                   <p className="mt-1 font-black text-[#102A43]">
                     {selectedProductLabel}
@@ -676,7 +679,7 @@ router.refresh();
                   <p className="mt-1 text-sm font-bold leading-6 text-[#8A4A1F]">
                     Pflichtfelder: Produktname, Einzelpreis, Kategorie,
                     Produkttyp, Menge und Einheit. Die Artikelnummer wird
-                    automatisch erzeugt, wenn Du sie leer lÃƒÆ’Ã‚Â¤sst.
+                    automatisch erzeugt, wenn Du sie leer lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤sst.
                   </p>
                 </div>
 
@@ -685,7 +688,7 @@ router.refresh();
                   onClick={stopCreateProductMode}
                   className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-black text-[#B5282D]"
                 >
-                  ZurÃƒÆ’Ã‚Â¼ck zur Suche
+                  ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ck zur Suche
                 </button>
               </div>
             </div>
@@ -785,7 +788,7 @@ router.refresh();
                 type="text"
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                placeholder="z. B. StÃƒÆ’Ã‚Â¼ck"
+                placeholder="z. B. StÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ck"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </div>
@@ -811,7 +814,7 @@ router.refresh();
           {isCreatingNewProduct ? (
             <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Produktdaten fÃƒÆ’Ã‚Â¼r Katalog & Matching
+                Produktdaten fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r Katalog & Matching
               </p>
 
               <div className="grid gap-4 sm:grid-cols-5">
@@ -862,7 +865,7 @@ router.refresh();
                     type="text"
                     value={productColor}
                     onChange={(event) => setProductColor(event.target.value)}
-                    placeholder="z. B. weiÃƒÆ’Ã…Â¸"
+                    placeholder="z. B. weiÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸"
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
                   />
                 </div>
@@ -900,11 +903,11 @@ router.refresh();
           {pendingAliasRemember ? (
             <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Zuordnung fÃ¼r spÃ¤tere Listen merken?
+                Zuordnung fÃƒÂ¼r spÃƒÂ¤tere Listen merken?
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Soll diese erkannte Listenposition kÃ¼nftig automatisch besser diesem Produkt zugeordnet werden?
+                Soll diese erkannte Listenposition kÃƒÂ¼nftig automatisch besser diesem Produkt zugeordnet werden?
               </p>
 
               <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#102A43]">
@@ -932,7 +935,7 @@ router.refresh();
                   disabled={isRememberingAlias}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Nur diesmal Ã¼bernehmen
+                  Nur diesmal ÃƒÂ¼bernehmen
                 </button>
               </div>
             </div>
@@ -946,20 +949,20 @@ router.refresh();
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Wird gespeichert ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
+                Wird gespeichert ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦
               </>
             ) : (
               <>
                 <PackagePlus className="h-4 w-4" />
-                Produkt in Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen
+                Produkt in Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen
               </>
             )}
           </button>
         </div>
       ) : (
         <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
-          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, ÃƒÆ’Ã‚Â¶ffnest Du die
-          Erfassung fÃƒÆ’Ã‚Â¼r ein neues Bestandsprodukt.
+          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnest Du die
+          Erfassung fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r ein neues Bestandsprodukt.
         </div>
       )}
     </form>
