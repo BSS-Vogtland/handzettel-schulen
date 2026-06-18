@@ -24,6 +24,15 @@ type AdminManualOfferItemFormProps = {
 type ManualOfferItemResponse = {
   ok?: boolean;
   message?: string;
+  productId?: string | null;
+  requestItemId?: string | null;
+  aliasText?: string | null;
+};
+
+type PendingAliasRemember = {
+  productId: string;
+  requestItemId: string | null;
+  aliasText: string;
 };
 
 type ProductSearchResult = {
@@ -75,7 +84,7 @@ export default function AdminManualOfferItemForm({
   requestItemId = null,
   defaultProductName,
   defaultQuantity,
-  buttonLabel = "Manuell Produkt ergänzen",
+  buttonLabel = "Manuell Produkt ergÃƒÆ’Ã‚Â¤nzen",
 }: AdminManualOfferItemFormProps) {
   const router = useRouter();
 
@@ -100,7 +109,6 @@ export default function AdminManualOfferItemForm({
   const [productLineature, setProductLineature] = useState("");
 
   const [aliasText, setAliasText] = useState(defaultProductName || "");
-  const [rememberForFuture, setRememberForFuture] = useState(true);
   const [createProductMode, setCreateProductMode] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(defaultProductName || "");
@@ -118,13 +126,16 @@ export default function AdminManualOfferItemForm({
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingAliasRemember, setPendingAliasRemember] =
+    useState<PendingAliasRemember | null>(null);
+  const [isRememberingAlias, setIsRememberingAlias] = useState(false);
 
   const hasSelectedProduct = Boolean(selectedProductId);
   const isCreatingNewProduct = createProductMode && !selectedProductId;
   const showProductFields = hasSelectedProduct || isCreatingNewProduct;
 
   useEffect(() => {
-    if (!isOpen) {
+  if (!isOpen) {
       setProductName(defaultProductName || "");
       setQuantity(toInputNumber(defaultQuantity, "1"));
       setProductSku("");
@@ -147,7 +158,6 @@ export default function AdminManualOfferItemForm({
       setSelectedProductImageUrl(null);
 
       setCreateProductMode(false);
-      setRememberForFuture(true);
     }
   }, [defaultProductName, defaultQuantity, isOpen]);
 
@@ -174,7 +184,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produktsuche hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Produktsuche hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã‚Â¼fe bitte zusÃƒÆ’Ã‚Â¤tzlich das Terminal."
         );
       }
 
@@ -214,7 +224,6 @@ export default function AdminManualOfferItemForm({
     setProductLineature(product.lineature || "");
 
     setCreateProductMode(false);
-    setRememberForFuture(true);
     setSearchResults([]);
     setErrorMessage(null);
   }
@@ -254,32 +263,32 @@ export default function AdminManualOfferItemForm({
     const quantityNumber = parseGermanNumber(quantity);
 
     if (!selectedProductId && !createProductMode) {
-      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf „Neues Produkt erfassen“. ";
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Neues Produkt erfassenÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ. ";
     }
 
     if (!productName.trim() && !selectedProductId) {
-      return "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.";
+      return "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã‚Â¤hle ein Bestandsprodukt aus.";
     }
 
     if (quantityNumber <= 0) {
-      return "Bitte gib eine Menge größer als 0 ein.";
+      return "Bitte gib eine Menge grÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸er als 0 ein.";
     }
 
     if (selectedProductId && priceNumber <= 0) {
-      return "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
+      return "Das gewÃƒÆ’Ã‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
     }
 
     if (createProductMode && !selectedProductId) {
       const missingFields: string[] = [];
 
       if (!productName.trim()) missingFields.push("Produktname");
-      if (priceNumber <= 0) missingFields.push("Einzelpreis größer 0");
+      if (priceNumber <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸er 0");
       if (!productCategory.trim()) missingFields.push("Kategorie");
       if (!productType.trim()) missingFields.push("Produkttyp");
       if (!unit.trim()) missingFields.push("Einheit");
 
       if (missingFields.length > 0) {
-        return `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
+        return `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
           ", "
         )}.`;
       }
@@ -324,7 +333,7 @@ export default function AdminManualOfferItemForm({
 
             existingProductId: selectedProductId,
             saveAsProduct: createProductMode && !selectedProductId,
-            rememberForFuture,
+            rememberForFuture: false,
 
             productCategory: productCategory.trim(),
             productType: productType.trim(),
@@ -344,7 +353,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Admin-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Admin-Route hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã‚Â¼fe bitte zusÃƒÆ’Ã‚Â¤tzlich das Terminal."
         );
       }
 
@@ -355,11 +364,19 @@ export default function AdminManualOfferItemForm({
         );
       }
 
-      setFeedback(payload.message || "Manuelle Position wurde hinzugefügt.");
+      setFeedback(payload.message || "Manuelle Position wurde hinzugefÃƒÆ’Ã‚Â¼gt.");
 
-// Wichtig für Sammelpositionen:
-// Formular bleibt offen, damit direkt das nächste Produkt aus derselben
-// Listenposition gesucht und übernommen werden kann.
+      if (payload.productId && payload.aliasText) {
+        setPendingAliasRemember({
+          productId: payload.productId,
+          requestItemId: payload.requestItemId || requestItemId || null,
+          aliasText: payload.aliasText,
+        });
+      }
+
+// Wichtig fÃƒÆ’Ã‚Â¼r Sammelpositionen:
+// Formular bleibt offen, damit direkt das nÃƒÆ’Ã‚Â¤chste Produkt aus derselben
+// Listenposition gesucht und ÃƒÆ’Ã‚Â¼bernommen werden kann.
 setSelectedProductId(null);
 setSelectedProductLabel(null);
 setSelectedProductImageUrl(null);
@@ -391,6 +408,51 @@ router.refresh();
     }
   }
 
+  async function handleRememberAlias() {
+    if (!pendingAliasRemember || isRememberingAlias) return;
+
+    setIsRememberingAlias(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/admin/requests/${requestId}/offer-items/manual/remember`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: pendingAliasRemember.productId,
+            requestItemId: pendingAliasRemember.requestItemId,
+            aliasText: pendingAliasRemember.aliasText,
+          }),
+        }
+      );
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.message || "Zuordnung konnte nicht gespeichert werden."
+        );
+      }
+
+      setFeedback(
+        payload.message || "Zuordnung wurde fÃƒÆ’Ã‚Â¼r spÃƒÆ’Ã‚Â¤tere Listen gespeichert."
+      );
+      setPendingAliasRemember(null);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Zuordnung konnte nicht gespeichert werden."
+      );
+    } finally {
+      setIsRememberingAlias(false);
+    }
+  }
   if (!isOpen) {
     return (
       <div className="mt-4">
@@ -447,7 +509,7 @@ router.refresh();
           type="button"
           onClick={() => setIsOpen(false)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
-          aria-label="Formular schließen"
+          aria-label="Formular schlieÃƒÆ’Ã…Â¸en"
         >
           <X className="h-4 w-4" />
         </button>
@@ -476,7 +538,7 @@ router.refresh();
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Suche …
+                Suche ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
               </>
             ) : (
               <>
@@ -507,7 +569,7 @@ router.refresh();
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                    Bestandsprodukt gewählt
+                    Bestandsprodukt gewÃƒÆ’Ã‚Â¤hlt
                   </p>
                   <p className="mt-1 font-black text-[#102A43]">
                     {selectedProductLabel}
@@ -614,7 +676,7 @@ router.refresh();
                   <p className="mt-1 text-sm font-bold leading-6 text-[#8A4A1F]">
                     Pflichtfelder: Produktname, Einzelpreis, Kategorie,
                     Produkttyp, Menge und Einheit. Die Artikelnummer wird
-                    automatisch erzeugt, wenn Du sie leer lässt.
+                    automatisch erzeugt, wenn Du sie leer lÃƒÆ’Ã‚Â¤sst.
                   </p>
                 </div>
 
@@ -623,7 +685,7 @@ router.refresh();
                   onClick={stopCreateProductMode}
                   className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-black text-[#B5282D]"
                 >
-                  Zurück zur Suche
+                  ZurÃƒÆ’Ã‚Â¼ck zur Suche
                 </button>
               </div>
             </div>
@@ -723,7 +785,7 @@ router.refresh();
                 type="text"
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                placeholder="z. B. Stück"
+                placeholder="z. B. StÃƒÆ’Ã‚Â¼ck"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </div>
@@ -749,7 +811,7 @@ router.refresh();
           {isCreatingNewProduct ? (
             <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Produktdaten für Katalog & Matching
+                Produktdaten fÃƒÆ’Ã‚Â¼r Katalog & Matching
               </p>
 
               <div className="grid gap-4 sm:grid-cols-5">
@@ -800,7 +862,7 @@ router.refresh();
                     type="text"
                     value={productColor}
                     onChange={(event) => setProductColor(event.target.value)}
-                    placeholder="z. B. weiß"
+                    placeholder="z. B. weiÃƒÆ’Ã…Â¸"
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
                   />
                 </div>
@@ -821,43 +883,6 @@ router.refresh();
             </div>
           ) : null}
 
-          <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Für zukünftige Anfragen merken
-            </p>
-
-            <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-3">
-              <input
-                type="checkbox"
-                checked={rememberForFuture}
-                onChange={(event) => setRememberForFuture(event.target.checked)}
-                className="mt-1 h-4 w-4"
-              />
-              <span>
-                <span className="block text-sm font-black text-[#102A43]">
-                  Zuordnung für spätere Listen merken
-                </span>
-                <span className="mt-1 block text-xs font-semibold leading-5 text-[#52616F]">
-                  Speichert die erkannte Listenposition als Alias zum gewählten
-                  Produkt. Dadurch wird dieses Produkt bei ähnlichen Listen künftig
-                  besser vorgeschlagen.
-                </span>
-              </span>
-            </label>
-
-            <div className="mt-4">
-              <label className="mb-2 block text-sm font-black text-[#102A43]">
-                Alias / Suchbegriff
-              </label>
-              <input
-                type="text"
-                value={aliasText}
-                onChange={(event) => setAliasText(event.target.value)}
-                placeholder="z. B. Umschlag A5 rot"
-                className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-              />
-            </div>
-          </div>
 
           {errorMessage ? (
             <div className="rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#B5282D]">
@@ -872,6 +897,47 @@ router.refresh();
             </div>
           ) : null}
 
+          {pendingAliasRemember ? (
+            <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Zuordnung fÃ¼r spÃ¤tere Listen merken?
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                Soll diese erkannte Listenposition kÃ¼nftig automatisch besser diesem Produkt zugeordnet werden?
+              </p>
+
+              <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#102A43]">
+                {pendingAliasRemember.aliasText}
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleRememberAlias}
+                  disabled={isRememberingAlias}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isRememberingAlias ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  {isRememberingAlias ? "Speichere ..." : "Ja, Zuordnung merken"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPendingAliasRemember(null)}
+                  disabled={isRememberingAlias}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Nur diesmal Ã¼bernehmen
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <button
             type="submit"
             disabled={isSaving}
@@ -880,20 +946,20 @@ router.refresh();
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Wird gespeichert …
+                Wird gespeichert ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
               </>
             ) : (
               <>
                 <PackagePlus className="h-4 w-4" />
-                Produkt in Paketwunsch übernehmen
+                Produkt in Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen
               </>
             )}
           </button>
         </div>
       ) : (
         <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
-          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, öffnest Du die
-          Erfassung für ein neues Bestandsprodukt.
+          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, ÃƒÆ’Ã‚Â¶ffnest Du die
+          Erfassung fÃƒÆ’Ã‚Â¼r ein neues Bestandsprodukt.
         </div>
       )}
     </form>
