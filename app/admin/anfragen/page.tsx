@@ -168,6 +168,10 @@ type RequestOverview = {
   customerSelectedCount: number;
   adminManualCount: number;
   manualReviewCount: number;
+  manualReviewItems: {
+    id: string;
+    label: string;
+  }[];
   openWithMatchesCount: number;
   latestEvent: EventRow | null;
   events: EventRow[];
@@ -1703,6 +1707,26 @@ function RequestCard({
             </p>
           </div>
 
+          {overview.manualReviewItems.length > 0 ? (
+            <div className="mb-4 rounded-[22px] border border-[#F2B8B8] bg-[#FFF1F1] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#B5282D]">
+                Offene Positionen direkt öffnen
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {overview.manualReviewItems.map((item, index) => (
+                  <a
+                    key={item.id}
+                    href={`/admin/anfragen/${request.id}#position-${item.id}`}
+                    className="inline-flex items-center justify-center rounded-full border border-[#F2B8B8] bg-white px-3 py-2 text-xs font-black text-[#B5282D] transition hover:bg-[#FFECEC]"
+                  >
+                    Position {index + 1}: {item.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {infoBadges.map((badge) => (
               <span
@@ -2137,18 +2161,33 @@ export default async function AdminRequestsPage({
     let requestMatchCount = 0;
     let manualReviewCount = 0;
     let openWithMatchesCount = 0;
+    const manualReviewItems: {
+      id: string;
+      label: string;
+    }[] = [];
 
     for (const item of requestItems) {
       const itemMatches = matchesByItem.get(item.id) || [];
       const selected = offerItemsByRequestItem.get(item.id) || [];
+      const adminResolutionStatus = String(
+        (item as { admin_resolution_status?: string | null })
+          .admin_resolution_status || ""
+      ).trim();
 
       requestMatchCount += itemMatches.length;
 
-      if (selected.length === 0 && itemMatches.length === 0) {
+      if (!adminResolutionStatus && selected.length === 0 && itemMatches.length === 0) {
         manualReviewCount += 1;
+        manualReviewItems.push({
+          id: item.id,
+          label:
+            String(item.normalized_name || "").trim() ||
+            String(item.raw_text || "").trim() ||
+            "Unbekannte Listenposition",
+        });
       }
 
-      if (selected.length === 0 && itemMatches.length > 0) {
+      if (!adminResolutionStatus && selected.length === 0 && itemMatches.length > 0) {
         openWithMatchesCount += 1;
       }
     }
@@ -2199,6 +2238,7 @@ export default async function AdminRequestsPage({
       customerSelectedCount,
       adminManualCount,
       manualReviewCount,
+      manualReviewItems,
       openWithMatchesCount,
       latestEvent: requestEvents[0] || null,
       events: requestEvents,
