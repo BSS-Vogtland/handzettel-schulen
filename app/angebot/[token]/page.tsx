@@ -132,6 +132,49 @@ type ProductRow = {
 };
 
 const AUTO_PRESELECT_MIN_SCORE = 85;
+type CustomerVisibleResolutionStatus =
+  | "customer_supplies_self"
+  | "covered_by_alternative"
+  | "";
+
+function getCustomerVisibleResolutionStatus(item: RequestItem) {
+  const value = String(
+    (item as { admin_resolution_status?: string | null })
+      .admin_resolution_status || ""
+  ).trim();
+
+  if (
+    value === "customer_supplies_self" ||
+    value === "covered_by_alternative"
+  ) {
+    return value as CustomerVisibleResolutionStatus;
+  }
+
+  return "";
+}
+
+function getCustomerResolutionTitle(status: CustomerVisibleResolutionStatus) {
+  switch (status) {
+    case "customer_supplies_self":
+      return "Bitte selbst besorgen";
+    case "covered_by_alternative":
+      return "Bereits berücksichtigt";
+    default:
+      return "";
+  }
+}
+
+function getCustomerResolutionText(status: CustomerVisibleResolutionStatus) {
+  switch (status) {
+    case "customer_supplies_self":
+      return "Diesen Artikel führen wir aktuell nicht im Sortiment. Bitte besorge ihn separat.";
+    case "covered_by_alternative":
+      return "Diese Position ist durch einen passenden Alternativartikel oder eine Sammelposition im Paketwunsch abgedeckt.";
+    default:
+      return "";
+  }
+}
+
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1119,23 +1162,36 @@ if (productIds.length > 0) {
     const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
     const itemMatches = matchesByItem.get(item.id) || [];
     const selectableMatches = itemMatches.filter(isSelectableOpenMatch);
+    const adminResolutionStatus = getCustomerVisibleResolutionStatus(item);
 
-    return selectedForItem.length === 0 && selectableMatches.length > 0;
+    return (
+      !adminResolutionStatus &&
+      selectedForItem.length === 0 &&
+      selectableMatches.length > 0
+    );
   });
 
   const manualReviewItems = items.filter((item) => {
     const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
     const itemMatches = matchesByItem.get(item.id) || [];
+    const adminResolutionStatus = getCustomerVisibleResolutionStatus(item);
     const safeMatches = itemMatches.filter(isSafeAutoMatch);
     const selectableMatches = itemMatches.filter(isSelectableOpenMatch);
 
     return (
+      !adminResolutionStatus &&
       selectedForItem.length === 0 &&
       safeMatches.length === 0 &&
       selectableMatches.length === 0
     );
   });
 
+  const customerResolvedItems = items.filter((item) => {
+    const selectedForItem = selectedOfferItemsByRequestItem.get(item.id) || [];
+    const adminResolutionStatus = getCustomerVisibleResolutionStatus(item);
+
+    return adminResolutionStatus && selectedForItem.length === 0;
+  });
   const handledItemCount = new Set(
     selectedOfferItems
       .map((item) => item.request_item_id)
@@ -2033,6 +2089,83 @@ if (productIds.length > 0) {
                 </section>
               ) : null}
 
+              {!isConfirmed && customerResolvedItems.length > 0 ? (
+                <section className="rounded-[28px] border border-[#D8C8B8] bg-white p-4 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                      <span className="text-lg font-black">i</span>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Hinweis zu einzelnen Listenpositionen
+                      </p>
+                      <h2 className="mt-1 text-2xl font-black text-[#102A43]">
+                        Diese Positionen sind geklärt
+                      </h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                        Für diese Artikel ist keine weitere Auswahl durch Dich nötig.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
+                    {customerResolvedItems.map((item, index) => {
+                      const resolutionStatus =
+                        getCustomerVisibleResolutionStatus(item);
+                      const isCustomerSuppliesSelf =
+                        resolutionStatus === "customer_supplies_self";
+
+                      return (
+                        <article
+                          key={item.id}
+                          className={`rounded-[24px] border p-4 ${
+                            isCustomerSuppliesSelf
+                              ? "border-[#F1D1A8] bg-[#FFF8EE]"
+                              : "border-[#BFE3CD] bg-[#F0FFF6]"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p
+                                className={`text-xs font-black uppercase tracking-[0.16em] ${
+                                  isCustomerSuppliesSelf
+                                    ? "text-[#A75B28]"
+                                    : "text-[#2F7D50]"
+                                }`}
+                              >
+                                Listenposition {index + 1}
+                              </p>
+
+                              <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                                {getRequestItemTitle(item)}
+                              </h3>
+
+                              <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
+                                Menge: {item.quantity || 1}
+                              </p>
+                            </div>
+
+                            <div
+                              className={`rounded-2xl border bg-white px-4 py-3 text-sm font-black ${
+                                isCustomerSuppliesSelf
+                                  ? "border-[#F1D1A8] text-[#A75B28]"
+                                  : "border-[#BFE3CD] text-[#2F7D50]"
+                              }`}
+                            >
+                              {getCustomerResolutionTitle(resolutionStatus)}
+                            </div>
+                          </div>
+
+                          <p className="mt-4 text-sm font-semibold leading-6 text-[#102A43]">
+                            {getCustomerResolutionText(resolutionStatus)}
+                          </p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
               {!isConfirmed && manualReviewItems.length > 0 ? (
                 <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
                   <div className="mb-5 flex items-start gap-3">
