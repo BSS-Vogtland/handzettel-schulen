@@ -19,6 +19,7 @@ import {
   Wrench,
 } from "lucide-react";
 import AdminManualOfferItemForm from "@/components/AdminManualOfferItemForm";
+import AdminResolveRequestItemButton from "@/components/AdminResolveRequestItemButton";
 import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton";
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import AdminOfferItemSpecialInstructionsForm from "@/components/AdminOfferItemSpecialInstructionsForm";
@@ -609,8 +610,16 @@ export default async function AdminRequestDetailPage({ params }: Params) {
   const manualReviewItems = items.filter((item) => {
     const selected = offerItemsByRequestItem.get(item.id) || [];
     const itemMatches = matchesByItem.get(item.id) || [];
+    const adminResolutionStatus = String(
+      (item as { admin_resolution_status?: string | null }).admin_resolution_status ||
+        ""
+    ).trim();
 
-    return selected.length === 0 && itemMatches.length === 0;
+    return (
+      !adminResolutionStatus &&
+      selected.length === 0 &&
+      itemMatches.length === 0
+    );
   });
 
   const manualReviewCount =
@@ -1122,11 +1131,22 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                     const itemMatches = matchesByItem.get(item.id) || [];
                     const selectedItems = offerItemsByRequestItem.get(item.id) || [];
                     const itemQuestions = questionsByRequestItem.get(item.id) || [];
+                    const adminResolutionStatus = String(
+                      (item as { admin_resolution_status?: string | null })
+                        .admin_resolution_status || ""
+                    ).trim();
 
-                    return (
+                    const adminResolutionLabel =
+                      adminResolutionStatus === "customer_supplies_self"
+                        ? "Kunde besorgt selbst"
+                        : adminResolutionStatus === "covered_by_alternative"
+                        ? "Durch Alternative/Sammelposition abgedeckt"
+                        : "";
+return (
                       <article
+                        id={`position-${item.id}`}
                         key={item.id}
-                        className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                        className="scroll-mt-28 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
@@ -1167,6 +1187,30 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                           <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
                             {item.notes}
                           </p>
+                        ) : null}
+
+                        {adminResolutionStatus ? (
+                          <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
+                                  Position erledigt
+                                </p>
+                                <p className="mt-1 text-sm font-bold leading-6 text-[#102A43]">
+                                  {adminResolutionLabel}
+                                </p>
+                              </div>
+
+                              <AdminResolveRequestItemButton
+                                requestId={request.id}
+                                requestItemId={item.id}
+                                resolutionStatus="open"
+                                buttonLabel="Wieder öffnen"
+                                confirmMessage="Soll diese Position wieder als offen markiert werden?"
+                                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
+                              />
+                            </div>
+                          </div>
                         ) : null}
 
                         <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-white p-4">
