@@ -63,13 +63,9 @@ type ChecklistItem = {
   updated_at: string | null;
 };
 
-const RESOLVED_ADMIN_STATUSES = new Set([
-  "in_package",
-  "alternative_selected",
-  "not_available",
-  "not_needed",
-  "question_required",
-  "manual_check",
+const RESOLVED_ADMIN_STATUSES = new Set<string>([
+  "customer_supplies_self",
+  "covered_by_alternative",
 ]);
 
 function getSupabaseAdmin() {
