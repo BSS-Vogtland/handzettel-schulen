@@ -247,6 +247,18 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="mt-8 max-w-2xl overflow-hidden rounded-[2rem] border border-[#E8DED2] bg-white shadow-sm">
+            <video
+              src="/videos/website-spot.mp4"
+              controls
+              playsInline
+              preload="metadata"
+              className="h-auto w-full bg-black"
+            >
+              Dein Browser unterstützt das Video-Element nicht.
+            </video>
+          </div>
+
           <div className="mt-10 hidden max-w-xl rounded-[2rem] bg-white/70 p-5 ring-1 ring-[#E8DED2] lg:block">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FFF2E6] text-[#A75B28]">
