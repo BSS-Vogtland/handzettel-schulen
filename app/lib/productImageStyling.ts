@@ -77,6 +77,30 @@ const SLIM_PRODUCT_KEYWORDS = [
   "schere",
 ];
 
+
+const SCHOOL_BAG_SET_KEYWORDS = [
+  "schulranzenset",
+  "schulranzen set",
+  "schulranzen-set",
+  "ranzen set",
+  "ranzen-set",
+  "school-mood",
+  "school mood",
+  "step by step",
+  "ergobag",
+  "scooli",
+  "7 teilig",
+  "7-teilig",
+];
+
+const SCHOOL_BACKPACK_KEYWORDS = [
+  "schulrucksack",
+  "schulrucksack set",
+  "schulrucksack-set",
+  "rucksack set",
+  "rucksack-set",
+  "rucksack",
+];
 type ProductProfile = {
   label: string;
   maxWidth: number;
@@ -89,6 +113,7 @@ type ProductProfile = {
   shadowHeightFactor: number;
   shadowYOffset: number;
   preserveOriginal: boolean;
+  allowEnlargement: boolean;
 };
 
 const PRODUCT_PROFILES: Record<string, ProductProfile> = {
@@ -104,6 +129,7 @@ const PRODUCT_PROFILES: Record<string, ProductProfile> = {
     shadowHeightFactor: 0.042,
     shadowYOffset: 22,
     preserveOriginal: false,
+    allowEnlargement: false,
   },
   flat: {
     label: "flat",
@@ -117,6 +143,7 @@ const PRODUCT_PROFILES: Record<string, ProductProfile> = {
     shadowHeightFactor: 0.023,
     shadowYOffset: 17,
     preserveOriginal: false,
+    allowEnlargement: false,
   },
   flatTransparent: {
     label: "flat-transparent-original-preserved",
@@ -130,6 +157,7 @@ const PRODUCT_PROFILES: Record<string, ProductProfile> = {
     shadowHeightFactor: 0.016,
     shadowYOffset: 12,
     preserveOriginal: true,
+    allowEnlargement: false,
   },
   slim: {
     label: "slim",
@@ -143,6 +171,7 @@ const PRODUCT_PROFILES: Record<string, ProductProfile> = {
     shadowHeightFactor: 0.021,
     shadowYOffset: 13,
     preserveOriginal: false,
+    allowEnlargement: false,
   },
   slimLarge: {
     label: "slim-large",
@@ -156,6 +185,35 @@ const PRODUCT_PROFILES: Record<string, ProductProfile> = {
     shadowHeightFactor: 0.021,
     shadowYOffset: 13,
     preserveOriginal: false,
+    allowEnlargement: false,
+  },
+  schoolBagSetLarge: {
+    label: "school-bag-set-large",
+    maxWidth: 930,
+    maxHeight: 690,
+    minTop: LOGO_SAFE_BOTTOM_Y + 18,
+    bottomY: PRODUCT_BOTTOM_Y + 8,
+    padding: 8,
+    shadowOpacity: 0.18,
+    shadowWidthFactor: 0.42,
+    shadowHeightFactor: 0.045,
+    shadowYOffset: 20,
+    preserveOriginal: false,
+    allowEnlargement: true,
+  },
+  schoolBackpackLarge: {
+    label: "school-backpack-large",
+    maxWidth: 820,
+    maxHeight: 720,
+    minTop: LOGO_SAFE_BOTTOM_Y + 6,
+    bottomY: PRODUCT_BOTTOM_Y + 10,
+    padding: 8,
+    shadowOpacity: 0.17,
+    shadowWidthFactor: 0.39,
+    shadowHeightFactor: 0.044,
+    shadowYOffset: 20,
+    preserveOriginal: false,
+    allowEnlargement: true,
   },
 };
 
@@ -312,9 +370,21 @@ function getStyledStoragePath(product: ProductRow, sourceStoragePath: string) {
 }
 
 function getProductProfile(productName: string): ProductProfile {
+  const normalized = normalizeText(productName);
+
+  const isSchoolBagSet = hasKeyword(productName, SCHOOL_BAG_SET_KEYWORDS);
+  const isSchoolBackpack = hasKeyword(productName, SCHOOL_BACKPACK_KEYWORDS);
   const isFlat = hasKeyword(productName, FLAT_PRODUCT_KEYWORDS);
   const isTransparent = hasKeyword(productName, TRANSPARENT_PRODUCT_KEYWORDS);
   const isSlim = hasKeyword(productName, SLIM_PRODUCT_KEYWORDS);
+
+  if (isSchoolBagSet) {
+    return PRODUCT_PROFILES.schoolBagSetLarge;
+  }
+
+  if (isSchoolBackpack) {
+    return PRODUCT_PROFILES.schoolBackpackLarge;
+  }
 
   if (isFlat && isTransparent) {
     return PRODUCT_PROFILES.flatTransparent;
@@ -325,8 +395,6 @@ function getProductProfile(productName: string): ProductProfile {
   }
 
   if (isSlim) {
-    const normalized = normalizeText(productName);
-
     if (
       normalized.includes("pinsel sortiment") ||
       normalized.includes("pinselset") ||
@@ -528,7 +596,7 @@ async function composeProductOnBackground(productLayerBuffer: Buffer, productNam
       width: profile.maxWidth,
       height: safeMaxHeight,
       fit: "inside",
-      withoutEnlargement: true,
+      withoutEnlargement: !profile.allowEnlargement,
     })
     .png()
     .toBuffer({ resolveWithObject: true });
