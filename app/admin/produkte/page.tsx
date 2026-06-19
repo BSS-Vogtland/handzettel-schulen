@@ -16,6 +16,7 @@ import AdminEditProductForm from "@/components/AdminEditProductForm";
 import AdminProductPreviewImage from "@/components/AdminProductPreviewImage";
 import AdminDeleteProductButton from "@/components/AdminDeleteProductButton";
 import AdminRegenerateProductKeywordsButton from "@/components/AdminRegenerateProductKeywordsButton";
+import AdminProductAliasManager from "@/components/AdminProductAliasManager";
 
 export const dynamic = "force-dynamic";
 
@@ -826,6 +827,17 @@ export default async function AdminProductsPage({
                             Noch keine Aliase gespeichert.
                           </p>
                         )}
+
+                        <AdminProductAliasManager
+                          productId={product.id}
+                          productName={getProductName(product)}
+                          initialAliases={(aliasesByProduct.get(product.id) || [])
+                            .map((alias) => ({
+                              id: String(alias.id || ""),
+                              alias: getAliasText(alias),
+                            }))
+                            .filter((alias) => alias.id && alias.alias)}
+                        />
 
                         <AdminEditProductForm
                           productId={product.id}
