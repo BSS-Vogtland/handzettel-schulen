@@ -1,9 +1,10 @@
+﻿import Image from "next/image";
 import Link from "next/link";
 
 export default function LegalFooter() {
   return (
     <footer className="border-t border-[#E8DED2] bg-[#FBF7F0] px-4 py-8 text-[#52616F] sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-black text-[#102A43]">
             Handzettel-Schulen.de
@@ -14,21 +15,33 @@ export default function LegalFooter() {
           </p>
         </div>
 
-        <nav className="flex flex-wrap gap-3 text-xs font-black uppercase tracking-[0.14em]">
-          <Link
-            href="/impressum"
-            className="rounded-full bg-white px-4 py-2 text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
-          >
-            Impressum
-          </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative h-[52px] w-[360px] max-w-full sm:h-[48px] sm:w-[340px]">
+            <Image
+              src="/foerderung/efre-esf-sachsen.png"
+              alt="Kofinanziert von der Europäischen Union und dem Freistaat Sachsen"
+              fill
+              sizes="(max-width: 640px) 100vw, 340px"
+              className="object-contain object-left"
+            />
+          </div>
 
-          <Link
-            href="/datenschutz"
-            className="rounded-full bg-white px-4 py-2 text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
-          >
-            Datenschutz
-          </Link>
-        </nav>
+          <nav className="flex flex-wrap gap-3 text-xs font-black uppercase tracking-[0.14em]">
+            <Link
+              href="/impressum"
+              className="rounded-full bg-white px-4 py-2 text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
+            >
+              Impressum
+            </Link>
+
+            <Link
+              href="/datenschutz"
+              className="rounded-full bg-white px-4 py-2 text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
+            >
+              Datenschutz
+            </Link>
+          </nav>
+        </div>
       </div>
     </footer>
   );
