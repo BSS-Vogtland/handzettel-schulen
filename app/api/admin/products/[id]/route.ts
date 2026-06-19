@@ -42,7 +42,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -93,11 +93,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -150,10 +150,10 @@ function getBookSizeAliases(input: {
     `${width} x ${height}`,
     `${width} ${height}`,
     `${width}x${height}`,
-    `Buchmaß ${sizeLabel}`,
+    `BuchmaÃŸ ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
-    `Buchhülle ${sizeLabel}`,
+    `BuchhÃ¼lle ${sizeLabel}`,
     `Buchhuelle ${sizeLabel}`,
     `Umschlag ${sizeLabel}`,
     `${input.productName} ${sizeLabel}`,
@@ -171,52 +171,133 @@ function getBookSizeAliases(input: {
   return aliases;
 }
 
+function normalizeAliasWordsForQualityCheck(value: string) {
+  return cleanAliasValue(value)
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function hasRepeatedAliasWord(value: string) {
+  const words = normalizeAliasWordsForQualityCheck(value);
+
+  if (words.length <= 1) return false;
+
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    if (seen.has(word)) return true;
+    seen.add(word);
+  }
+
+  return false;
+}
+
+function isSkuLikeAlias(value: string) {
+  const cleaned = cleanAliasValue(value);
+  if (!cleaned) return false;
+
+  const upper = cleaned.toUpperCase();
+
+  if (/^[A-Z]{2,}[-_][A-Z0-9][A-Z0-9-_]+$/.test(upper)) return true;
+  if (upper.includes("HS-")) return true;
+  if (/[A-Z]{2,}[-_][A-Z0-9]+[-_][A-Z0-9]+/.test(upper)) return true;
+
+  return false;
+}
+
+function isLowQualityAutomaticAlias(value: string) {
+  const cleaned = cleanAliasValue(value);
+
+  if (cleaned.length < 2) return true;
+  if (cleaned.length > 80) return true;
+  if (hasRepeatedAliasWord(cleaned)) return true;
+  if (isSkuLikeAlias(cleaned)) return true;
+
+  return false;
+}
+
+function sanitizeAutomaticAliases(values: string[]) {
+  const unique = new Map<string, string>();
+
+  for (const value of values) {
+    const cleaned = cleanAliasValue(value);
+
+    if (isLowQualityAutomaticAlias(cleaned)) continue;
+
+    const key = normalizeAliasWordsForQualityCheck(cleaned).join(" ");
+    if (!key) continue;
+
+    if (!unique.has(key)) {
+      unique.set(key, cleaned);
+    }
+  }
+
+  return Array.from(unique.values()).slice(0, 30);
+}
+
 function buildAutomaticAliasList(input: {
   productName: string;
   productSku: string | null;
-  category: string | null;
-  productType: string | null;
-  format: string | null;
-  color: string | null;
-  lineature: string | null;
+  category: string;
+  productType: string;
+  format: string;
+  color: string;
+  lineature: string;
   aliases: string[];
-  bookWidthMm: number | null;
-  bookHeightMm: number | null;
-  bookSizeNote: string | null;
 }) {
-  const generatedAliases = [
-    input.productName,
-    input.productSku,
-    `${input.productName} ${input.productSku || ""}`,
-    `${input.productName} ${input.category || ""}`,
-    `${input.productName} ${input.productType || ""}`,
-    `${input.productName} ${input.format || ""}`,
-    `${input.productName} ${input.color || ""}`,
-    `${input.productName} ${input.lineature || ""}`,
-    `${input.productName} ${input.format || ""} ${input.color || ""}`,
-    `${input.productName} ${input.format || ""} ${input.lineature || ""}`,
-    `${input.productName} ${input.color || ""} ${input.lineature || ""}`,
-    `${input.productType || ""} ${input.format || ""} ${input.color || ""} ${
-      input.lineature || ""
-    }`,
-    `${input.category || ""} ${input.format || ""} ${input.color || ""} ${
-      input.lineature || ""
-    }`,
-    ...getBookSizeAliases({
-      productName: input.productName,
-      bookWidthMm: input.bookWidthMm,
-      bookHeightMm: input.bookHeightMm,
-      bookSizeNote: input.bookSizeNote,
-    }),
-  ]
-    .map((alias) => cleanAliasValue(alias))
-    .filter((alias) => alias.length >= 2);
+  const productName = cleanAliasValue(input.productName);
+  const category = cleanAliasValue(input.category);
+  const productType = cleanAliasValue(input.productType);
+  const format = cleanAliasValue(input.format);
+  const color = cleanAliasValue(input.color);
+  const lineature = cleanAliasValue(input.lineature);
 
-  const manualAliases = input.aliases
-    .map((alias) => cleanAliasValue(alias))
-    .filter((alias) => alias.length >= 2);
+  const generatedAliases: string[] = [
+    productName,
+    productType,
+    category,
+    format,
+    color,
+    lineature,
+    ...input.aliases,
+  ];
 
-  return Array.from(new Set([...manualAliases, ...generatedAliases]));
+  if (productName && productType && productName !== productType) {
+    generatedAliases.push(`${productName} ${productType}`);
+  }
+
+  if (productType && format) {
+    generatedAliases.push(`${productType} ${format}`);
+  }
+
+  if (productType && color) {
+    generatedAliases.push(`${productType} ${color}`);
+  }
+
+  if (productType && lineature) {
+    generatedAliases.push(`${productType} ${lineature}`);
+  }
+
+  if (productName && format) {
+    generatedAliases.push(`${productName} ${format}`);
+  }
+
+  if (productName && color) {
+    generatedAliases.push(`${productName} ${color}`);
+  }
+
+  if (productName && lineature) {
+    generatedAliases.push(`${productName} ${lineature}`);
+  }
+
+  return sanitizeAutomaticAliases(generatedAliases);
 }
 
 function buildMatchKeywords(input: {
@@ -235,7 +316,7 @@ function buildMatchKeywords(input: {
   return Array.from(
     new Set([
       ...splitKeywords(input.productName),
-      ...splitKeywords(input.productSku),
+
       ...splitKeywords(input.category),
       ...splitKeywords(input.productType),
       ...splitKeywords(input.format),
@@ -359,7 +440,7 @@ async function uploadProductImage(params: {
   const maxSize = 15 * 1024 * 1024;
 
   if (file.size > maxSize) {
-    throw new Error("Das Produktbild darf maximal 15 MB groß sein.");
+    throw new Error("Das Produktbild darf maximal 15 MB groÃŸ sein.");
   }
 
   const extension = getFileExtension(file);
@@ -409,7 +490,7 @@ async function replaceProductAliases(
 
   if (deleteError) {
     throw new Error(
-      `Alte Suchbegriffe konnten nicht gelöscht werden: ${deleteError.message}`
+      `Alte Suchbegriffe konnten nicht gelÃ¶scht werden: ${deleteError.message}`
     );
   }
 
@@ -665,7 +746,7 @@ async function getActiveProductOfferItemUsage(params: {
 
   if (offerItemsError) {
     throw new Error(
-      `Aktive Kundenvorgänge konnten nicht geprüft werden: ${offerItemsError.message}`
+      `Aktive KundenvorgÃ¤nge konnten nicht geprÃ¼ft werden: ${offerItemsError.message}`
     );
   }
 
@@ -695,7 +776,7 @@ async function getActiveProductOfferItemUsage(params: {
 
   if (requestsError) {
     throw new Error(
-      `Aktive Kundenvorgänge konnten nicht geladen werden: ${requestsError.message}`
+      `Aktive KundenvorgÃ¤nge konnten nicht geladen werden: ${requestsError.message}`
     );
   }
 
@@ -735,7 +816,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Produkt-ID übergeben.",
+          message: "Keine Produkt-ID Ã¼bergeben.",
         },
         400
       );
@@ -778,7 +859,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
+            "Bitte gib beim BuchmaÃŸ entweder Breite und HÃ¶he an oder lasse beide Felder leer.",
         },
         400
       );
@@ -835,7 +916,7 @@ export async function PATCH(request: NextRequest, context: Params) {
           {
             ok: false,
             code: "PRICE_USED_IN_ACTIVE_REQUESTS",
-            message: `Dieses Produkt ist in ${activePriceUsage.activeRequestCount} aktiven Kundenvorgang/Kundenvorgängen enthalten. Soll der neue Preis auch dort übernommen werden?`,
+            message: `Dieses Produkt ist in ${activePriceUsage.activeRequestCount} aktiven Kundenvorgang/KundenvorgÃ¤ngen enthalten. Soll der neue Preis auch dort Ã¼bernommen werden?`,
             previousPrice,
             newPrice: price,
             activeRequestCount: activePriceUsage.activeRequestCount,
@@ -1029,8 +1110,8 @@ const matchKeywords = keywordData.matchKeywords;
         activePriceUsage.activeRequests.map((activeRequest) => ({
           request_id: activeRequest.id,
           event_type: "active_offer_item_price_updated",
-          title: "Preis aus Produktstamm übernommen",
-          message: `Der Preis für „${productName}“ wurde im Produktstamm geändert und in aktive Paketpositionen übernommen.`,
+          title: "Preis aus Produktstamm Ã¼bernommen",
+          message: `Der Preis fÃ¼r â€ž${productName}â€œ wurde im Produktstamm geÃ¤ndert und in aktive Paketpositionen Ã¼bernommen.`,
           metadata: {
             productId: id,
             productName,
@@ -1050,7 +1131,7 @@ const matchKeywords = keywordData.matchKeywords;
   message: payload.productImage
     ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
     : imageWasChanged
-      ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+      ? `Produkt wurde aktualisiert. BildverknÃ¼pfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
       : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
   productSku,
   ean,

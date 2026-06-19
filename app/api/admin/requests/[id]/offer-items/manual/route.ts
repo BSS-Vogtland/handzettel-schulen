@@ -712,16 +712,7 @@ export async function POST(request: NextRequest, context: Params) {
         productPrice = getProductPrice(createdProduct);
         productWasCreated = true;
       }
-    }
-
-    let aliasCount = 0;
-
-    if (rememberForFuture && productId) {
-      for (const alias of productAliasList) {
-        const created = await createAliasFlexible(supabase, productId, alias);
-        if (created) aliasCount += 1;
-      }
-    }
+    }    const aliasCount = 0;
 
     if (productId && requestItemId) {
       const { data: duplicateItem, error: duplicateError } = await supabase
