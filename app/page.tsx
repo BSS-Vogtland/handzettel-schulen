@@ -114,6 +114,12 @@ const structuredData = {
   ],
 };
 
+const socialShareUrl = "https://www.handzettel-schulen.de/#eu-foerderung";
+const socialShareText =
+  "Handzettel-Schulen.de wird durch die Europäische Union kofinanziert und vom Freistaat Sachsen mitfinanziert. Ziel ist ein digitaler, einfacher und familienfreundlicher Weg, Schulmateriallisten online einzureichen und passende Schulmaterial-Paketwünsche vorzubereiten.";
+
+const encodedSocialShareUrl = encodeURIComponent(socialShareUrl);
+const encodedSocialShareText = encodeURIComponent(socialShareText);
 const cardBackgrounds = {
   upload: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82)), radial-gradient(circle at 82% 22%, rgba(18,57,95,0.20), transparent 32%), radial-gradient(circle at 86% 84%, rgba(181,40,45,0.16), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23fff7ec'/%3E%3Cg opacity='0.70'%3E%3Crect x='232' y='38' width='118' height='154' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M256 76h70M256 102h54M256 128h68M256 154h42' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.65'/%3E%3Cpath d='M196 184c26-42 60-42 86 0' fill='none' stroke='%23b5282d' stroke-width='10' stroke-linecap='round'/%3E%3Cpath d='M238 116v60M210 146h56' stroke='%232f7d50' stroke-width='11' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
   products: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 84% 18%, rgba(47,125,80,0.18), transparent 34%), radial-gradient(circle at 88% 84%, rgba(167,91,40,0.18), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23eef8f1'/%3E%3Cg opacity='0.76'%3E%3Crect x='218' y='62' width='58' height='112' rx='12' fill='%23ffffff' stroke='%2312395f' stroke-width='4'/%3E%3Crect x='286' y='78' width='58' height='96' rx='12' fill='%23ffffff' stroke='%23b5282d' stroke-width='4'/%3E%3Crect x='250' y='184' width='112' height='28' rx='14' fill='%23a75b28' opacity='0.25'/%3E%3Cpath d='M234 96h24M234 120h24M234 144h18M302 110h24M302 136h18' stroke='%23102a43' stroke-width='6' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='190' cy='130' r='34' fill='%232f7d50' opacity='0.25'/%3E%3Cpath d='M176 130l10 10 22-25' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E")`,
@@ -152,6 +158,18 @@ export default function Home() {
               <div className="hidden text-sm font-semibold text-[#A75B28] sm:block">
                 Materialliste hochladen. Schulpaket vorbereiten lassen.
               </div>
+            </div>
+          </div>
+
+          <div className="hidden flex-1 items-center justify-center px-6 xl:flex">
+            <div className="relative h-[54px] w-[390px] max-w-full">
+              <Image
+                src="/foerderung/efre-esf-sachsen.png"
+                alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
+                fill
+                sizes="390px"
+                className="object-contain"
+              />
             </div>
           </div>
 
@@ -279,6 +297,86 @@ export default function Home() {
 
         <div id="upload">
           <UploadForm />
+        </div>
+      </section>
+
+      <section
+        id="eu-foerderung"
+        className="border-y border-[#E8DED2] bg-white px-5 py-10 lg:px-8"
+      >
+        <div className="mx-auto grid max-w-7xl gap-6 rounded-[32px] border border-[#E8DED2] bg-[#FBF7F0] p-6 shadow-sm lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:p-8">
+          <div className="relative h-[92px] w-full max-w-[680px]">
+            <Image
+              src="/foerderung/efre-esf-sachsen.png"
+              alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
+              fill
+              sizes="(max-width: 1024px) 100vw, 680px"
+              className="object-contain object-left"
+            />
+          </div>
+
+          <article>
+            <p className="mb-3 inline-flex rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28] shadow-sm">
+              Europa fördert Sachsen
+            </p>
+
+            <h2 className="font-serif text-3xl font-black leading-tight text-[#102A43] sm:text-4xl">
+              Digitale Unterstützung für stressfreiere Schulmateriallisten.
+            </h2>
+
+            <p className="mt-4 text-sm font-semibold leading-7 text-[#40566D]">
+              Handzettel-Schulen.de wird durch die Europäische Union
+              kofinanziert und durch den Freistaat Sachsen mitfinanziert. Ziel
+              ist es, Eltern und Schulen einen einfachen digitalen Weg zu geben:
+              Schulmaterialliste hochladen, Artikel strukturiert erfassen lassen
+              und den persönlichen Paketwunsch anschließend bewusst prüfen.
+            </p>
+
+            <p className="mt-3 text-sm font-semibold leading-7 text-[#40566D]">
+              Das Vorhaben unterstützt den Aufbau eines digitalen Angebots, das
+              Schulmateriallisten verständlicher, schneller und familienfreundlicher
+              vorbereitet. Dadurch sollen manuelle Abstimmungen reduziert und
+              der Schulstart für Familien planbarer werden.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodedSocialShareUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-[#102A43] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#B5282D]"
+              >
+                Facebook teilen
+              </a>
+
+              <a
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedSocialShareUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
+              >
+                LinkedIn teilen
+              </a>
+
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodedSocialShareText}&url=${encodedSocialShareUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
+              >
+                X teilen
+              </a>
+
+              <a
+                href={`https://wa.me/?text=${encodedSocialShareText}%20${encodedSocialShareUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-[#2F7D50] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#102A43]"
+              >
+                WhatsApp teilen
+              </a>
+            </div>
+          </article>
         </div>
       </section>
 

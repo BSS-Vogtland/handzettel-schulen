@@ -16,12 +16,12 @@ export default function LegalFooter() {
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative h-[52px] w-[360px] max-w-full sm:h-[48px] sm:w-[340px]">
+          <div className="relative h-[88px] w-[620px] max-w-full sm:h-[82px] sm:w-[580px]">
             <Image
               src="/foerderung/efre-esf-sachsen.png"
-              alt="Kofinanziert von der Europäischen Union und dem Freistaat Sachsen"
+              alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
               fill
-              sizes="(max-width: 640px) 100vw, 340px"
+              sizes="(max-width: 640px) 100vw, 580px"
               className="object-contain object-left"
             />
           </div>
