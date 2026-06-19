@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function LegalFooter() {
@@ -16,12 +16,12 @@ export default function LegalFooter() {
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative h-[88px] w-[620px] max-w-full sm:h-[82px] sm:w-[580px]">
+          <div className="relative h-[104px] w-[740px] max-w-full sm:h-[96px] sm:w-[700px]">
             <Image
               src="/foerderung/efre-esf-sachsen.png"
               alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
               fill
-              sizes="(max-width: 640px) 100vw, 580px"
+              sizes="(max-width: 640px) 100vw, 700px"
               className="object-contain object-left"
             />
           </div>

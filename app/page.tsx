@@ -162,12 +162,12 @@ export default function Home() {
           </div>
 
           <div className="hidden flex-1 items-center justify-center px-6 xl:flex">
-            <div className="relative h-[54px] w-[390px] max-w-full">
+            <div className="relative h-[76px] w-[540px] max-w-full">
               <Image
                 src="/foerderung/efre-esf-sachsen.png"
                 alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
                 fill
-                sizes="390px"
+                sizes="540px"
                 className="object-contain"
               />
             </div>
@@ -305,12 +305,12 @@ export default function Home() {
         className="border-y border-[#E8DED2] bg-white px-5 py-10 lg:px-8"
       >
         <div className="mx-auto grid max-w-7xl gap-6 rounded-[32px] border border-[#E8DED2] bg-[#FBF7F0] p-6 shadow-sm lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:p-8">
-          <div className="relative h-[92px] w-full max-w-[680px]">
+          <div className="relative h-[108px] w-full max-w-[760px]">
             <Image
               src="/foerderung/efre-esf-sachsen.png"
               alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
               fill
-              sizes="(max-width: 1024px) 100vw, 680px"
+              sizes="(max-width: 1024px) 100vw, 760px"
               className="object-contain object-left"
             />
           </div>
@@ -350,21 +350,12 @@ export default function Home() {
               </a>
 
               <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedSocialShareUrl}`}
+                href="https://www.instagram.com/"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
               >
-                LinkedIn teilen
-              </a>
-
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodedSocialShareText}&url=${encodedSocialShareUrl}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
-              >
-                X teilen
+                Instagram öffnen
               </a>
 
               <a
