@@ -187,6 +187,64 @@ async function markPostPublished(postId: string) {
   return data;
 }
 
+
+function pickResultTextValue(result: MetaPublishPlatformResult, key: string) {
+  if (!result || typeof result !== "object") return null;
+
+  const value = (result as Record<string, unknown>)[key];
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+async function logMetaPublishEvent({
+  postId,
+  platform,
+  imageUrl,
+  result,
+}: {
+  postId: string;
+  platform: MetaPlatform;
+  imageUrl: string;
+  result: MetaPublishPlatformResult;
+}) {
+  try {
+    const now = new Date().toISOString();
+
+    const metaId = pickResultTextValue(result, "id");
+    const metaPostId = pickResultTextValue(result, "postId");
+    const metaCreationId = pickResultTextValue(result, "creationId");
+
+    const message = result.ok
+      ? "Meta-Veröffentlichung erfolgreich."
+      : result.message || "Meta-Veröffentlichung fehlgeschlagen.";
+
+    const { error } = await supabaseServer
+      .from("social_publish_events")
+      .insert({
+        post_id: postId,
+        platform,
+        event_type: "publish",
+        status: result.ok ? "success" : "failed",
+        meta_id: metaId,
+        meta_post_id: metaPostId,
+        meta_creation_id: metaCreationId,
+        image_url: imageUrl,
+        message,
+        error_message: result.ok ? null : message,
+        payload: JSON.parse(JSON.stringify(result || {})),
+        published_at: result.ok ? now : null,
+      });
+
+    if (error) {
+      console.error("[SocialPilot Meta Publish Log] Insert failed:", error.message);
+    }
+  } catch (error) {
+    console.error(
+      "[SocialPilot Meta Publish Log] Unexpected logging error:",
+      error instanceof Error ? error.message : error
+    );
+  }
+}
 async function publishToPlatform({
   platform,
   post,
@@ -322,7 +380,15 @@ export async function POST(request: Request, context: RouteContext) {
     const results: MetaPublishPlatformResult[] = [];
 
     for (const platform of platforms) {
-      results.push(await publishToPlatform({ platform, post, imageUrl }));
+      const result = await publishToPlatform({ platform, post, imageUrl });
+      results.push(result);
+
+      await logMetaPublishEvent({
+        postId: post.id,
+        platform,
+        imageUrl,
+        result,
+      });
     }
 
     const failedResults = results.filter((result) => !result.ok);
@@ -366,4 +432,5 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
 
