@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import UploadForm from "@/components/UploadForm";
 import LegalFooter from "@/components/LegalFooter";
+import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -339,34 +340,10 @@ export default function Home() {
               der Schulstart für Familien planbarer werden.
             </p>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodedSocialShareUrl}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-[#102A43] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#B5282D]"
-              >
-                Facebook teilen
-              </a>
-
-              <a
-                href="https://www.instagram.com/"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F] shadow-sm transition hover:text-[#B5282D]"
-              >
-                Instagram öffnen
-              </a>
-
-              <a
-                href={`https://wa.me/?text=${encodedSocialShareText}%20${encodedSocialShareUrl}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-[#2F7D50] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#102A43]"
-              >
-                WhatsApp teilen
-              </a>
-            </div>
+            <SocialShareButtons
+              shareText={socialShareText}
+              shareUrl={socialShareUrl}
+            />
           </article>
         </div>
       </section>
