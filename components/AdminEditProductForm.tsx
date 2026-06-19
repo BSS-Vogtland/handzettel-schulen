@@ -145,6 +145,24 @@ export default function AdminEditProductForm({
   const [formData, setFormData] = useState(buildInitialFormData);
 
   useEffect(() => {
+    const savedAliases = aliases
+      .map((alias) => String(alias || "").trim())
+      .filter(Boolean)
+      .join("\n");
+
+    if (!savedAliases) return;
+
+    setFormData((current) => {
+      if (current.aliases.trim()) return current;
+
+      return {
+        ...current,
+        aliases: savedAliases,
+      };
+    });
+  }, [aliases]);
+
+  useEffect(() => {
     if (!productImage) {
       setPreviewUrl(null);
       return;
