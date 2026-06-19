@@ -941,6 +941,11 @@ export default function AdminEditProductForm({
             <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
               Aliase / Suchbegriffe
             </span>
+            <div className="mb-2 rounded-xl border border-[#D6E7EF] bg-[#F5FAFD] px-3 py-2 text-xs font-bold text-[#12395F]">
+              Debug: übergebene Aliase: {aliases.length} · Textfeld-Zeichen:{" "}
+              {formData.aliases.length}
+            </div>
+
             <textarea
               value={formData.aliases}
               onChange={(event) => updateField("aliases", event.target.value)}
