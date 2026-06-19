@@ -245,6 +245,60 @@ async function logMetaPublishEvent({
     );
   }
 }
+
+type AlreadyPublishedMetaPublication = {
+  platform: MetaPlatform;
+  meta_id: string | null;
+  meta_post_id: string | null;
+  meta_creation_id: string | null;
+  published_at: string | null;
+  created_at: string | null;
+};
+
+async function getAlreadyPublishedMetaPublications({
+  postId,
+  platforms,
+}: {
+  postId: string;
+  platforms: MetaPlatform[];
+}) {
+  if (!postId || platforms.length === 0) return [];
+
+  const { data, error } = await supabaseServer
+    .from("social_publish_events")
+    .select(
+      "platform, meta_id, meta_post_id, meta_creation_id, published_at, created_at"
+    )
+    .eq("post_id", postId)
+    .eq("event_type", "publish")
+    .eq("status", "success")
+    .in("platform", platforms)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(
+      "[SocialPilot Meta Publish Guard] Could not check existing publications:",
+      error.message
+    );
+
+    throw new Error(
+      "Doppelveröffentlichungsschutz konnte nicht geprüft werden."
+    );
+  }
+
+  const seen = new Set<string>();
+  const rows = (data || []) as AlreadyPublishedMetaPublication[];
+  const uniqueRows: AlreadyPublishedMetaPublication[] = [];
+
+  for (const row of rows) {
+    if (!row.platform || seen.has(row.platform)) continue;
+
+    seen.add(row.platform);
+    uniqueRows.push(row);
+  }
+
+  return uniqueRows;
+}
 async function publishToPlatform({
   platform,
   post,
@@ -377,6 +431,33 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const alreadyPublishedPublications =
+      await getAlreadyPublishedMetaPublications({
+        postId: post.id,
+        platforms,
+      });
+
+    if (alreadyPublishedPublications.length > 0) {
+      const blockedPlatforms = alreadyPublishedPublications.map((event) => {
+        if (event.platform === "facebook") return "Facebook";
+        if (event.platform === "instagram") return "Instagram";
+        return event.platform;
+      });
+
+      return NextResponse.json(
+        {
+          ok: false,
+          blocked: true,
+          reason: "already_published",
+          message: `Doppelveröffentlichung blockiert: Dieser Beitrag wurde bereits auf ${blockedPlatforms.join(
+            ", "
+          )} veröffentlicht.`,
+          alreadyPublished: alreadyPublishedPublications,
+        },
+        { status: 409 }
+      );
+    }
+
     const results: MetaPublishPlatformResult[] = [];
 
     for (const platform of platforms) {
@@ -432,5 +513,8 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
+
+
 
 
