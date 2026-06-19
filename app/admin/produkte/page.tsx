@@ -865,7 +865,9 @@ export default async function AdminProductsPage({
                           bookSizeNote={product.book_size_note || null}
                           imageUrl={editableImageUrl}
                           active={product.active !== false}
-                          aliases={aliasTexts}
+                          aliases={(aliasesByProduct.get(product.id) || [])
+                            .map((alias) => getAliasText(alias))
+                            .filter(Boolean)}
                         />
                       </div>
 
