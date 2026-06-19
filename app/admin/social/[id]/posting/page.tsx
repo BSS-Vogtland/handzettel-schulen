@@ -61,6 +61,19 @@ type SocialAssetRow = {
   status: string;
 };
 
+type SocialPublishEventRow = {
+  id: string;
+  created_at: string;
+  platform: string;
+  event_type: string;
+  status: string;
+  meta_id: string | null;
+  meta_post_id: string | null;
+  meta_creation_id: string | null;
+  error_message: string | null;
+  published_at: string | null;
+};
+
 function formatDateTime(value: string | null) {
   if (!value) return "â€”";
 
@@ -164,6 +177,43 @@ function getReviewClasses(status: string | null) {
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
   }
+}
+
+function getPublishEventPlatformLabel(platform: string) {
+  switch (platform) {
+    case "facebook":
+      return "Facebook";
+    case "instagram":
+      return "Instagram";
+    default:
+      return platform || "Meta";
+  }
+}
+
+function getPublishEventStatusLabel(status: string) {
+  switch (status) {
+    case "success":
+      return "Erfolgreich";
+    case "failed":
+      return "Fehlgeschlagen";
+    default:
+      return status || "Unbekannt";
+  }
+}
+
+function getPublishEventStatusClasses(status: string) {
+  switch (status) {
+    case "success":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "failed":
+      return "border-red-200 bg-red-50 text-red-800";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+function getMetaReference(event: SocialPublishEventRow) {
+  return event.meta_post_id || event.meta_id || event.meta_creation_id || "-";
 }
 
 function PostingBlock({
@@ -310,6 +360,17 @@ export default async function AdminSocialPostingPage({
   const assets = (assetsData || []) as SocialAssetRow[];
   const latestAsset = assets[0] || null;
   const hasReadyImage = Boolean(latestAsset?.public_url?.trim());
+
+  const { data: publishEventsData } = await supabaseServer
+    .from("social_publish_events")
+    .select(
+      "id, created_at, platform, event_type, status, meta_id, meta_post_id, meta_creation_id, error_message, published_at"
+    )
+    .eq("post_id", id)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  const publishEvents = (publishEventsData || []) as SocialPublishEventRow[];
 
   const tiktokHook = post.tiktok_hook || post.hook;
   const tiktokCaption = post.tiktok_caption || post.caption;
@@ -649,6 +710,94 @@ export default async function AdminSocialPostingPage({
               API-Anbindung und Ads-Vorbereitung.
             </div>
           </aside>
+        </section>
+
+        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
+                Meta-Protokoll
+              </div>
+
+              <h2 className="mt-3 text-2xl font-black text-[#102A43]">
+                Meta-Veröffentlichungsprotokoll
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                Hier siehst Du die letzten Veröffentlichungsversuche für diesen Beitrag.
+                Gespeichert werden Plattform, Status, Meta-Referenz, Zeitpunkt und mögliche Fehler.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/social/automation/events"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-sm font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
+            >
+              Ereignisse öffnen
+            </Link>
+          </div>
+
+          {publishEvents.length > 0 ? (
+            <div className="overflow-hidden rounded-[1.5rem] border border-[#E7D8C3]">
+              <div className="grid gap-3 border-b border-[#E7D8C3] bg-[#FFFCF7] px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-[#8A5A35] md:grid-cols-[1fr_1fr_1.2fr_1fr]">
+                <span>Plattform</span>
+                <span>Status</span>
+                <span>Meta-Referenz</span>
+                <span>Zeitpunkt</span>
+              </div>
+
+              <div className="divide-y divide-[#E7D8C3] bg-white">
+                {publishEvents.map((event) => (
+                  <article key={event.id} className="px-4 py-4">
+                    <div className="grid gap-3 md:grid-cols-[1fr_1fr_1.2fr_1fr] md:items-center">
+                      <div className="text-sm font-black text-[#102A43]">
+                        {getPublishEventPlatformLabel(event.platform)}
+                      </div>
+
+                      <div>
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getPublishEventStatusClasses(
+                            event.status
+                          )}`}
+                        >
+                          {getPublishEventStatusLabel(event.status)}
+                        </span>
+                      </div>
+
+                      <div className="break-all rounded-xl border border-[#E7D8C3] bg-[#FFFCF7] px-3 py-2 text-xs font-bold leading-5 text-[#486581]">
+                        {getMetaReference(event)}
+                      </div>
+
+                      <div className="text-xs font-bold leading-5 text-[#627D98]">
+                        {formatDateTime(event.published_at || event.created_at)}
+                      </div>
+                    </div>
+
+                    {event.error_message ? (
+                      <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold leading-5 text-red-800">
+                        {event.error_message}
+                      </div>
+                    ) : null}
+
+                    {event.meta_creation_id && event.meta_creation_id !== getMetaReference(event) ? (
+                      <div className="mt-2 text-xs font-semibold leading-5 text-[#627D98]">
+                        Creation-ID: <span className="font-bold">{event.meta_creation_id}</span>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[1.5rem] border border-dashed border-[#D9C4A8] bg-[#FFFCF7] p-6 text-center">
+              <h3 className="text-lg font-black text-[#102A43]">
+                Noch keine Meta-Veröffentlichung protokolliert
+              </h3>
+              <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#627D98]">
+                Sobald Du diesen Beitrag über Facebook oder Instagram veröffentlichst, erscheint hier ein Protokolleintrag.
+              </p>
+            </div>
+          )}
         </section>
 
         <PostingBlock
