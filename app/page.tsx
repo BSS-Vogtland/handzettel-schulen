@@ -134,64 +134,86 @@ export default function Home() {
       />
 
       <header className="sticky top-0 z-40 border-b border-[#E8DED2] bg-[#FBF7F0]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/handzettel-logo.png"
-              alt="Handzettel-Schulen.de Logo"
-              width={96}
-              height={96}
-              className="h-20 w-20 object-contain sm:h-24 sm:w-24"
-              priority
-            />
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-3 lg:px-8">
+          <div className="flex items-center justify-between gap-5">
+            <Link href="/" className="flex min-w-0 items-center gap-4">
+              <Image
+                src="/handzettel-logo.png"
+                alt="Handzettel-Schulen.de Logo"
+                width={96}
+                height={96}
+                className="h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20"
+                priority
+              />
 
-            <div>
-              <div className="font-serif text-2xl font-black tracking-tight text-[#111827] sm:text-3xl">
-                Handzettel-Schulen.de
+              <div className="min-w-0">
+                <div className="truncate font-serif text-2xl font-black tracking-tight text-[#111827] sm:text-3xl">
+                  Handzettel-Schulen.de
+                </div>
+                <div className="hidden text-sm font-semibold text-[#A75B28] sm:block">
+                  Materialliste hochladen. Schulpaket vorbereiten lassen.
+                </div>
               </div>
-              <div className="hidden text-sm font-semibold text-[#A75B28] sm:block">
-                Materialliste hochladen. Schulpaket vorbereiten lassen.
-              </div>
-            </div>
+            </Link>
+
+            <nav className="hidden items-center gap-2 rounded-full border border-[#E8DED2] bg-white/80 px-2 py-2 text-xs font-black uppercase tracking-[0.10em] text-[#102A43] shadow-sm lg:flex">
+              <a
+                href="#ablauf"
+                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-[#FFF2E6] hover:text-[#B5282D]"
+              >
+                So funktioniert’s
+              </a>
+
+              <Link
+                href="/shop"
+                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-[#FFF2E6] hover:text-[#B5282D]"
+              >
+                Shop
+              </Link>
+
+              <a
+                href="#vertrauen"
+                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-[#FFF2E6] hover:text-[#B5282D]"
+              >
+                Sicherheit
+              </a>
+
+              <a
+                href="#videos"
+                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-[#FFF2E6] hover:text-[#B5282D]"
+              >
+                Hilfe & Videos
+              </a>
+
+              <a
+                href="#faq"
+                className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-[#FFF2E6] hover:text-[#B5282D]"
+              >
+                Fragen
+              </a>
+            </nav>
+
+            <button
+              type="button"
+              aria-label="Menü öffnen"
+              className="rounded-xl border border-[#D8C8B8] bg-white p-2 lg:hidden"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
           </div>
 
-          <div className="hidden flex-1 items-center justify-center px-6 xl:flex">
-            <div className="relative h-[76px] w-[540px] max-w-full">
+          <div className="flex justify-center border-t border-[#E8DED2]/80 pt-3">
+            <div className="relative h-[58px] w-full max-w-[720px]">
               <Image
                 src="/foerderung/efre-esf-sachsen.png"
                 alt="Kofinanziert von der Europäischen Union und mitfinanziert durch den Freistaat Sachsen"
                 fill
-                sizes="540px"
+                sizes="(max-width: 768px) 100vw, 720px"
                 className="object-contain"
+                priority
               />
             </div>
           </div>
-
-          <nav className="hidden items-center gap-8 text-sm font-semibold text-[#102A43] lg:flex">
-            <a href="#ablauf" className="transition hover:text-[#B5282D]">
-              So funktioniert’s
-            </a>
-            <Link href="/shop" className="transition hover:text-[#B5282D]">
-              Shop
-            </Link>
-            <a href="#vertrauen" className="transition hover:text-[#B5282D]">
-              Sicherheit
-            </a>
-            <a href="#videos" className="transition hover:text-[#B5282D]">
-              Hilfe & Videos
-            </a>
-            <a href="#faq" className="transition hover:text-[#B5282D]">
-              Fragen
-            </a>
-          </nav>
-
-          <button
-            type="button"
-            aria-label="Menü öffnen"
-            className="rounded-xl border border-[#D8C8B8] bg-white p-2 lg:hidden"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
         </div>
       </header>
 
