@@ -64,11 +64,11 @@ function cleanValue(value: unknown) {
 function normalizeValue(value: unknown) {
   return cleanValue(value)
     .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -136,7 +136,7 @@ function getBaseProductType(input: AliasInput) {
       "schutzumschlag",
       "buchumschlag",
       "buchhuelle",
-      "buchhülle",
+      "buchhÃ¼lle",
     ])
   ) {
     return "umschlag";
@@ -224,215 +224,172 @@ function getBookSizeLabel(input: AliasInput) {
   return `${width} x ${height} mm`;
 }
 
-function generateRuleBasedAliases(input: AliasInput) {
-  const productName = cleanValue(input.productName);
-  const sku = cleanValue(input.productSku);
-  const category = cleanValue(input.category);
-  const productType = cleanValue(input.productType);
-  const format = cleanValue(input.format).toUpperCase();
-  const color = cleanValue(input.color).toLowerCase();
-  const lineatureRaw = cleanValue(input.lineature);
-  const lineature = lineatureRaw
-    .replace(/^lineatur\s*/i, "")
-    .replace(/^lin\.\s*/i, "")
+function normalizeAliasText(value: unknown) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
     .trim();
+}
 
-  const bookWidth = cleanValue(input.bookWidthMm);
-  const bookHeight = cleanValue(input.bookHeightMm);
-  const bookSizeLabel = getBookSizeLabel(input);
-  const bookSizeNote = cleanValue(input.bookSizeNote);
+function normalizeAliasKey(value: string) {
+  return normalizeAliasText(value)
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
-  const baseType = getBaseProductType(input);
+function aliasWords(value: string) {
+  const key = normalizeAliasKey(value);
+  return key ? key.split(" ").filter(Boolean) : [];
+}
+
+function hasRepeatedAliasWord(value: string) {
+  const words = aliasWords(value);
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    if (seen.has(word)) return true;
+    seen.add(word);
+  }
+
+  return false;
+}
+
+function isSkuLikeAlias(value: string) {
+  const cleaned = normalizeAliasText(value);
+  const upper = cleaned.toUpperCase();
+
+  if (!upper) return false;
+  if (upper.includes("HS-")) return true;
+  if (/^[A-Z]{2,}[-_][A-Z0-9][A-Z0-9-_]+$/.test(upper)) return true;
+  if (/[A-Z]{2,}[-_][A-Z0-9]+[-_][A-Z0-9]+/.test(upper)) return true;
+
+  return false;
+}
+
+function buildAliasPart(...parts: Array<string | null | undefined>) {
+  return parts
+    .map((part) => normalizeAliasText(part))
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isLowQualityAlias(value: string) {
+  const cleaned = normalizeAliasText(value);
+  const words = aliasWords(cleaned);
+
+  if (cleaned.length < 2) return true;
+  if (cleaned.length > 70) return true;
+  if (words.length > 5) return true;
+  if (hasRepeatedAliasWord(cleaned)) return true;
+  if (isSkuLikeAlias(cleaned)) return true;
+
+  return false;
+}
+
+function uniqueCleanAliases(values: string[]) {
+  const result = new Map<string, string>();
+
+  for (const value of values) {
+    const cleaned = normalizeAliasText(value);
+
+    if (isLowQualityAlias(cleaned)) continue;
+
+    const key = normalizeAliasKey(cleaned);
+    if (!key) continue;
+
+    if (!result.has(key)) {
+      result.set(key, cleaned);
+    }
+  }
+
+  return Array.from(result.values()).slice(0, 18);
+}
+
+function generateRuleBasedAliases(input: AliasInput) {
+  const productName = normalizeAliasText(input.productName);
+  const category = normalizeAliasText(input.category);
+  const productType = normalizeAliasText(input.productType);
+  const format = normalizeAliasText(input.format);
+  const color = normalizeAliasText(input.color);
+  const lineature = normalizeAliasText(input.lineature);
+  const bookWidthMm = normalizeAliasText(input.bookWidthMm);
+  const bookHeightMm = normalizeAliasText(input.bookHeightMm);
+  const bookSizeNote = normalizeAliasText(input.bookSizeNote);
+
+  const baseType = normalizeAliasKey(productType || category || productName);
   const aliases: string[] = [];
 
-  if (productName) aliases.push(productName);
-  if (sku) aliases.push(sku);
+  aliases.push(productName);
+  aliases.push(productType);
+  aliases.push(category);
 
-  if (category && productName) aliases.push(`${category} ${productName}`);
-  if (productType && productName) aliases.push(`${productType} ${productName}`);
-
-  if (bookSizeLabel) {
-    aliases.push(
-      buildPart(productName, bookSizeLabel),
-      buildPart(productName, bookWidth, bookHeight),
-      buildPart(bookSizeLabel, productName),
-      buildPart(bookWidth, "x", bookHeight),
-      buildPart(bookWidth, bookHeight),
-      buildPart("Buchmaß", bookSizeLabel),
-      buildPart("Buchmass", bookSizeLabel)
-    );
+  if (productType && format) aliases.push(buildAliasPart(productType, format));
+  if (productType && color) aliases.push(buildAliasPart(productType, color));
+  if (productType && format && color) {
+    aliases.push(buildAliasPart(productType, format, color));
   }
 
-  if (bookSizeNote) {
-    aliases.push(buildPart(productName, bookSizeNote));
+  if (productName && format) aliases.push(buildAliasPart(productName, format));
+  if (productName && color) aliases.push(buildAliasPart(productName, color));
+  if (productName && format && color) {
+    aliases.push(buildAliasPart(productName, format, color));
   }
 
-  if (baseType === "umschlag") {
-    aliases.push(
-      buildPart("Umschlag", format, color),
-      buildPart("Heftumschlag", format, color),
-      buildPart("Buchumschlag", format, color),
-      buildPart("Buchhülle", format, color),
-      buildPart("Hefthülle", format, color),
-      buildPart("Heft Hülle", format, color),
-      buildPart("Schutzumschlag", format, color),
-      buildPart(format, "Umschlag", color),
-      buildPart(color, "Umschlag", format)
-    );
+  const isSchnellhefter = baseType.includes("schnellhefter");
 
-    if (bookSizeLabel) {
-      aliases.push(
-        buildPart("Umschlag", bookSizeLabel, color),
-        buildPart("Buchumschlag", bookSizeLabel, color),
-        buildPart("Buchhülle", bookSizeLabel, color),
-        buildPart("Schutzumschlag", bookSizeLabel, color),
-        buildPart("Umschlag", bookWidth, "x", bookHeight, color),
-        buildPart("Buchumschlag", bookWidth, "x", bookHeight, color)
-      );
-    }
+  const supportsLineature =
+    !isSchnellhefter &&
+    (baseType.includes("heft") ||
+      baseType.includes("block") ||
+      baseType.includes("papier"));
+
+  if (supportsLineature && lineature) {
+    if (productType) aliases.push(buildAliasPart(productType, lineature));
+    if (productType && format) aliases.push(buildAliasPart(productType, format, lineature));
+    if (productName) aliases.push(buildAliasPart(productName, lineature));
   }
 
-  if (baseType === "buch") {
-    aliases.push(
-      buildPart("Buch", productName),
-      buildPart("Schulbuch", productName),
-      buildPart("Arbeitsbuch", productName),
-      buildPart("Arbeitsheft", productName),
-      buildPart("Buch", bookSizeLabel),
-      buildPart("Schulbuch", bookSizeLabel),
-      buildPart("Arbeitsheft", bookSizeLabel)
-    );
+  const supportsBookSize =
+    baseType.includes("umschlag") ||
+    baseType.includes("hülle") ||
+    baseType.includes("huelle") ||
+    baseType.includes("buch");
+
+  if (supportsBookSize && bookWidthMm && bookHeightMm) {
+    const sizeLabel = `${bookWidthMm} x ${bookHeightMm} mm`;
+    aliases.push(buildAliasPart(productType || productName, sizeLabel));
+    aliases.push(buildAliasPart("Buchmaß", sizeLabel));
+    aliases.push(buildAliasPart("Buchmass", sizeLabel));
   }
 
-  if (baseType === "heft") {
-    aliases.push(
-      buildPart(
-        "Schulheft",
-        format,
-        lineature ? `Lineatur ${lineature}` : "",
-        color
-      ),
-      buildPart(
-        "Schreibheft",
-        format,
-        lineature ? `Lineatur ${lineature}` : "",
-        color
-      ),
-      buildPart("Heft", format, lineature ? `Lineatur ${lineature}` : "", color),
-      buildPart("Heft", format, lineature, color),
-      buildPart(
-        format,
-        "Heft",
-        lineature ? `Lineatur ${lineature}` : "",
-        color
-      ),
-      buildPart("Lineatur", lineature, format),
-      buildPart("Lin", lineature, format),
-      buildPart("L", lineature, format)
-    );
-
-    if (lineature === "8" || lineature.toLowerCase() === "8f") {
-      aliases.push(
-        buildPart("Schulheft", format, "Lineatur 8f", color),
-        buildPart("Schulheft", format, "Lineatur 8", color),
-        buildPart("Heft", format, "8f", color),
-        buildPart("Heft", format, "8", color)
-      );
-    }
-
-    if (lineature === "0") {
-      aliases.push(
-        buildPart("blanko Heft", format, color),
-        buildPart("unliniertes Heft", format, color),
-        buildPart("Heft ohne Lineatur", format, color),
-        buildPart("Heft", format, "Lineatur 0", color)
-      );
-    }
+  if (bookSizeNote && supportsBookSize) {
+    aliases.push(bookSizeNote);
+    aliases.push(buildAliasPart(productType || productName, bookSizeNote));
   }
 
-  if (baseType === "hausaufgabenheft") {
-    aliases.push(
-      buildPart("Hausaufgabenheft", format),
-      buildPart("Hausaufgaben Heft", format),
-      buildPart("Aufgabenheft", format),
-      buildPart("Schülerkalender", format)
-    );
+  if (isSchnellhefter) {
+    aliases.push(buildAliasPart("Schnellhefter", format, color));
+    aliases.push(buildAliasPart("Hefter", format, color));
+    aliases.push(buildAliasPart("Kartonhefter", format, color));
   }
 
-  if (baseType === "schnellhefter") {
-    aliases.push(
-      buildPart("Schnellhefter", format, color),
-      buildPart("Hefter", format, color),
-      buildPart("Plastik Schnellhefter", format, color),
-      buildPart("Schnellhefter", color),
-      buildPart("Hefter", color),
-      buildPart("Mappe", color)
-    );
+  const isUmschlag =
+    baseType.includes("umschlag") ||
+    baseType.includes("hülle") ||
+    baseType.includes("huelle");
+
+  if (isUmschlag) {
+    aliases.push(buildAliasPart("Umschlag", format, color));
+    aliases.push(buildAliasPart("Heftumschlag", format, color));
+    aliases.push(buildAliasPart("Buchumschlag", format, color));
   }
 
-  if (baseType === "block") {
-    aliases.push(
-      buildPart("Block", format, lineature ? `Lineatur ${lineature}` : ""),
-      buildPart("Schreibblock", format, lineature ? `Lineatur ${lineature}` : ""),
-      buildPart("Collegeblock", format, lineature ? `Lineatur ${lineature}` : ""),
-      buildPart("Notizblock", format),
-      buildPart(format, "Block", lineature)
-    );
-  }
-
-  if (baseType === "mappe") {
-    aliases.push(
-      buildPart("Mappe", format, color),
-      buildPart("Sammelmappe", format, color),
-      buildPart("Eckspanner", format, color),
-      buildPart("Ordner", format, color)
-    );
-  }
-
-  if (baseType === "stift") {
-    aliases.push(
-      buildPart("Stift", color),
-      buildPart("Schreibstift", color),
-      buildPart("Buntstift", color),
-      buildPart("Filzstift", color),
-      buildPart("Fineliner", color)
-    );
-  }
-
-  if (baseType === "geometrie") {
-    aliases.push(
-      buildPart("Geometrie", productName),
-      buildPart("Lineal", format),
-      buildPart("Geodreieck"),
-      buildPart("Zirkel")
-    );
-  }
-
-  if (baseType === "basteln") {
-    aliases.push(
-      buildPart("Basteln", productName),
-      buildPart("Kleber"),
-      buildPart("Klebestift"),
-      buildPart("Schere")
-    );
-  }
-
-  aliases.push(
-    buildPart(category, format, color),
-    buildPart(productType, format, color),
-    buildPart(productName, format),
-    buildPart(productName, color),
-    buildPart(productName, lineature ? `Lineatur ${lineature}` : ""),
-    buildPart(productName, format, color),
-    buildPart(
-      productName,
-      format,
-      lineature ? `Lineatur ${lineature}` : "",
-      color
-    )
-  );
-
-  return uniqueList(aliases).slice(0, 36);
+  return uniqueCleanAliases(aliases);
 }
 
 export default function AdminQuickProductForm({
@@ -535,11 +492,11 @@ export default function AdminQuickProductForm({
     setPreviewUrl(null);
     setErrorMessage(null);
     setFeedback(
-      `Artikelkopie vorbereitet: „${
+      `Artikelkopie vorbereitet: â€ž${
         cleanValue(initialCopyProduct.sourceProductName) ||
         cleanValue(initialCopyProduct.productName) ||
         "Artikel"
-      }“. Art.-Nr., EAN und Keywords werden nicht übernommen.`
+      }â€œ. Art.-Nr., EAN und Keywords werden nicht Ã¼bernommen.`
     );
   }, [initialCopyProduct]);
 
@@ -583,7 +540,7 @@ export default function AdminQuickProductForm({
     }
 
     if (!file.type.startsWith("image/")) {
-      setErrorMessage("Bitte wähle eine Bilddatei aus.");
+      setErrorMessage("Bitte wÃ¤hle eine Bilddatei aus.");
       event.target.value = "";
       return;
     }
@@ -591,7 +548,7 @@ export default function AdminQuickProductForm({
     const maxSize = 5 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      setErrorMessage("Das Produktbild darf maximal 5 MB groß sein.");
+      setErrorMessage("Das Produktbild darf maximal 5 MB groÃŸ sein.");
       event.target.value = "";
       return;
     }
@@ -636,7 +593,7 @@ export default function AdminQuickProductForm({
 
     if ((width && !height) || (!width && height)) {
       setErrorMessage(
-        "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer."
+        "Bitte gib bei MaÃŸangaben entweder Breite und HÃ¶he an oder lasse beide Felder leer."
       );
       return;
     }
@@ -677,7 +634,7 @@ export default function AdminQuickProductForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produkt-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Produkt-Route hat keine JSON-Antwort geliefert. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
         );
       }
 
@@ -781,7 +738,7 @@ export default function AdminQuickProductForm({
               <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-[#E8DED2] bg-white px-4 py-5 text-center transition hover:border-[#12395F]">
                 <ImagePlus className="mb-2 h-6 w-6 text-[#A75B28]" />
                 <span className="text-sm font-black text-[#102A43]">
-                  Bild auswählen
+                  Bild auswÃ¤hlen
                 </span>
                 <span className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
                   JPG, PNG oder WEBP bis 5 MB
@@ -914,13 +871,13 @@ export default function AdminQuickProductForm({
             </div>
 
             <h3 className="text-sm font-black text-[#102A43]">
-              Optionale Produktdetails fürs Matching
+              Optionale Produktdetails fÃ¼rs Matching
             </h3>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Erfasse hier Maße, Material, Packungsinhalt, Besonderheiten oder
-              zusätzliche Suchbegriffe. Diese Angaben werden beim Speichern in
-              Suchbegriffen und Matching-Keywords berücksichtigt.
+              Erfasse hier MaÃŸe, Material, Packungsinhalt, Besonderheiten oder
+              zusÃ¤tzliche Suchbegriffe. Diese Angaben werden beim Speichern in
+              Suchbegriffen und Matching-Keywords berÃ¼cksichtigt.
             </p>
           </div>
 
@@ -941,7 +898,7 @@ export default function AdminQuickProductForm({
 
             <div>
               <label className="mb-2 block text-sm font-black text-[#102A43]">
-                Höhe mm
+                HÃ¶he mm
               </label>
               <input
                 type="text"
@@ -962,7 +919,7 @@ export default function AdminQuickProductForm({
                 onChange={(event) => setBookSizeNote(event.target.value)}
                 rows={3}
                 placeholder={
-                  "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
+                  "z. B. Material: PVC\nPackung: 3 StÃ¼ck\nGeeignet fÃ¼r: A5 UmschlÃ¤ge"
                 }
                 className="min-h-[92px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 py-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
@@ -973,7 +930,7 @@ export default function AdminQuickProductForm({
             <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
               {bookWidthMm && bookHeightMm ? (
                 <p>
-                  Erfasstes Maß: {bookWidthMm} x {bookHeightMm} mm
+                  Erfasstes MaÃŸ: {bookWidthMm} x {bookHeightMm} mm
                 </p>
               ) : null}
 
@@ -999,7 +956,7 @@ export default function AdminQuickProductForm({
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
                 Diese Begriffe werden regelbasiert aus den Produktdaten erzeugt.
-                Du kannst sie jederzeit manuell ändern.
+                Du kannst sie jederzeit manuell Ã¤ndern.
               </p>
             </div>
 
@@ -1034,8 +991,8 @@ export default function AdminQuickProductForm({
             </p>
 
             <p>
-              Hinweis: Später kann hier zusätzlich eine KI-Option ergänzt werden.
-              Aktuell läuft alles bewusst ohne KI.
+              Hinweis: SpÃ¤ter kann hier zusÃ¤tzlich eine KI-Option ergÃ¤nzt werden.
+              Aktuell lÃ¤uft alles bewusst ohne KI.
             </p>
           </div>
         </div>
@@ -1061,7 +1018,7 @@ export default function AdminQuickProductForm({
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Produkt wird gespeichert …
+              Produkt wird gespeichert â€¦
             </>
           ) : (
             <>
