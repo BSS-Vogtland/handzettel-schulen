@@ -358,6 +358,34 @@ function ProductFilterPill({
   );
 }
 
+async function loadAllProductAliases(supabase: any) {
+  const pageSize = 1000;
+  let from = 0;
+  const allAliases: AliasRow[] = [];
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("school_product_aliases")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(`Produkt-Aliase konnten nicht geladen werden: ${error.message}`);
+    }
+
+    const rows = (data || []) as AliasRow[];
+    allAliases.push(...rows);
+
+    if (rows.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
+  }
+
+  return allAliases;
+}
 export default async function AdminProductsPage({
   searchParams,
 }: AdminProductsPageProps) {
@@ -379,10 +407,7 @@ export default async function AdminProductsPage({
     );
   }
 
-  const { data: aliasesData } = await supabase
-    .from("school_product_aliases")
-    .select("*")
-    .limit(5000);
+  const aliasesData = await loadAllProductAliases(supabase);
 
   const products = ((productsData || []) as ProductRow[]).sort((a, b) => {
     const aDate = String(a.created_at || "");
