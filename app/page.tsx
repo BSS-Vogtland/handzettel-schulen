@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import UploadForm from "@/components/UploadForm";
 import LegalFooter from "@/components/LegalFooter";
-import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -115,12 +114,6 @@ const structuredData = {
   ],
 };
 
-const socialShareUrl = "https://www.handzettel-schulen.de/#eu-foerderung";
-const socialShareText =
-  "Handzettel-Schulen.de wird durch die Europäische Union kofinanziert und vom Freistaat Sachsen mitfinanziert. Ziel ist ein digitaler, einfacher und familienfreundlicher Weg, Schulmateriallisten online einzureichen und passende Schulmaterial-Paketwünsche vorzubereiten.";
-
-const encodedSocialShareUrl = encodeURIComponent(socialShareUrl);
-const encodedSocialShareText = encodeURIComponent(socialShareText);
 const cardBackgrounds = {
   upload: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82)), radial-gradient(circle at 82% 22%, rgba(18,57,95,0.20), transparent 32%), radial-gradient(circle at 86% 84%, rgba(181,40,45,0.16), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23fff7ec'/%3E%3Cg opacity='0.70'%3E%3Crect x='232' y='38' width='118' height='154' rx='18' fill='%23ffffff' stroke='%23d7b99a' stroke-width='4'/%3E%3Cpath d='M256 76h70M256 102h54M256 128h68M256 154h42' stroke='%2312395f' stroke-width='7' stroke-linecap='round' opacity='0.65'/%3E%3Cpath d='M196 184c26-42 60-42 86 0' fill='none' stroke='%23b5282d' stroke-width='10' stroke-linecap='round'/%3E%3Cpath d='M238 116v60M210 146h56' stroke='%232f7d50' stroke-width='11' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
   products: `linear-gradient(90deg, rgba(255,255,255,0.94), rgba(255,255,255,0.80)), radial-gradient(circle at 84% 18%, rgba(47,125,80,0.18), transparent 34%), radial-gradient(circle at 88% 84%, rgba(167,91,40,0.18), transparent 30%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260' viewBox='0 0 420 260'%3E%3Crect width='420' height='260' fill='%23eef8f1'/%3E%3Cg opacity='0.76'%3E%3Crect x='218' y='62' width='58' height='112' rx='12' fill='%23ffffff' stroke='%2312395f' stroke-width='4'/%3E%3Crect x='286' y='78' width='58' height='96' rx='12' fill='%23ffffff' stroke='%23b5282d' stroke-width='4'/%3E%3Crect x='250' y='184' width='112' height='28' rx='14' fill='%23a75b28' opacity='0.25'/%3E%3Cpath d='M234 96h24M234 120h24M234 144h18M302 110h24M302 136h18' stroke='%23102a43' stroke-width='6' stroke-linecap='round' opacity='0.55'/%3E%3Ccircle cx='190' cy='130' r='34' fill='%232f7d50' opacity='0.25'/%3E%3Cpath d='M176 130l10 10 22-25' fill='none' stroke='%232f7d50' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E")`,
@@ -339,11 +332,6 @@ export default function Home() {
               vorbereitet. Dadurch sollen manuelle Abstimmungen reduziert und
               der Schulstart für Familien planbarer werden.
             </p>
-
-            <SocialShareButtons
-              shareText={socialShareText}
-              shareUrl={socialShareUrl}
-            />
           </article>
         </div>
       </section>
