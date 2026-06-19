@@ -18,40 +18,6 @@ export const dynamic = "force-dynamic";
 export default function AdminHomePage() {
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
-        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="inline-flex rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
-                SocialPilot-Zugang
-              </div>
-
-              <h2 className="mt-3 text-2xl font-black text-[#102A43]">
-                SocialPilot
-              </h2>
-
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Content planen, Beiträge prüfen, Bilder erzeugen, Meta-Veröffentlichungen auslösen
-                und Publishing-Protokolle kontrollieren.
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
-              <a
-                href="/admin/social"
-                className="inline-flex items-center justify-center rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-              >
-                SocialPilot öffnen
-              </a>
-
-              <a
-                href="/admin/social/automation/events"
-                className="inline-flex items-center justify-center rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
-              >
-                Publishing-Protokoll
-              </a>
-            </div>
-          </div>
-        </section>
 
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
