@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import AdminLogoutButton from "@/components/AdminLogoutButton";
 import {
   ArrowRight,
@@ -18,6 +18,41 @@ export const dynamic = "force-dynamic";
 export default function AdminHomePage() {
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+        <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="inline-flex rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
+                SocialPilot-Zugang
+              </div>
+
+              <h2 className="mt-3 text-2xl font-black text-[#102A43]">
+                SocialPilot
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                Content planen, Beiträge prüfen, Bilder erzeugen, Meta-Veröffentlichungen auslösen
+                und Publishing-Protokolle kontrollieren.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
+              <a
+                href="/admin/social"
+                className="inline-flex items-center justify-center rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                SocialPilot öffnen
+              </a>
+
+              <a
+                href="/admin/social/automation/events"
+                className="inline-flex items-center justify-center rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
+              >
+                Publishing-Protokoll
+              </a>
+            </div>
+          </div>
+        </section>
+
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
           <div className="mb-4 flex justify-end">
@@ -36,9 +71,9 @@ export default function AdminHomePage() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Hier steuerst Du Deine Schulmaterial-Anfragen, übernimmst
-                WhatsApp-Listen ins System, bearbeitest Paketwünsche, erfasst
-                Produkte und erzeugst Social-Media-Entwürfe für Deine
+                Hier steuerst Du Deine Schulmaterial-Anfragen, Ã¼bernimmst
+                WhatsApp-Listen ins System, bearbeitest PaketwÃ¼nsche, erfasst
+                Produkte und erzeugst Social-Media-EntwÃ¼rfe fÃ¼r Deine
                 Sichtbarkeit.
               </p>
             </div>
@@ -53,9 +88,9 @@ export default function AdminHomePage() {
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Wähle aus, ob Du Anfragen bearbeiten, WhatsApp-Listen
-                übernehmen, Produkte erfassen oder Social-Beiträge vorbereiten
-                möchtest.
+                WÃ¤hle aus, ob Du Anfragen bearbeiten, WhatsApp-Listen
+                Ã¼bernehmen, Produkte erfassen oder Social-BeitrÃ¤ge vorbereiten
+                mÃ¶chtest.
               </p>
             </div>
           </div>
@@ -79,8 +114,8 @@ export default function AdminHomePage() {
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-              Öffne eingegangene Schulmateriallisten, prüfe erkannte Positionen,
-              bearbeite Paketwünsche, Rechnungen, Zahlung, Picking und
+              Ã–ffne eingegangene Schulmateriallisten, prÃ¼fe erkannte Positionen,
+              bearbeite PaketwÃ¼nsche, Rechnungen, Zahlung, Picking und
               Kunden-Auswahlen.
             </p>
 
@@ -103,12 +138,12 @@ export default function AdminHomePage() {
             </p>
 
             <h2 className="mt-2 text-2xl font-black text-[#102A43]">
-              WhatsApp-Liste übernehmen
+              WhatsApp-Liste Ã¼bernehmen
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#2F7D50]">
               Wenn ein Kunde seine Liste per WhatsApp geschickt hat, kannst Du
-              hier Text, Foto, Screenshot oder PDF übernehmen und daraus eine
+              hier Text, Foto, Screenshot oder PDF Ã¼bernehmen und daraus eine
               normale Anfrage im System anlegen.
             </p>
 
@@ -131,17 +166,17 @@ export default function AdminHomePage() {
             </p>
 
             <h2 className="mt-2 text-2xl font-black text-[#102A43]">
-              Social-Beiträge erzeugen
+              Social-BeitrÃ¤ge erzeugen
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#8A4A38]">
-              Erzeuge automatisch Social-Media-Entwürfe für TikTok, Instagram
+              Erzeuge automatisch Social-Media-EntwÃ¼rfe fÃ¼r TikTok, Instagram
               und Facebook inklusive Hook, Caption, Hashtags, Keywords,
               Bild-Prompt und Video-Prompt.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
-              SocialPilot öffnen
+              SocialPilot Ã¶ffnen
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
@@ -164,8 +199,8 @@ export default function AdminHomePage() {
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
               Lege neue Produkte, Artikelnummern, Preise, Formate, Farben,
-              Lineaturen und Suchbegriffe an. Diese Produkte stehen danach für
-              manuelle Auswahl und automatische Vorschläge bereit.
+              Lineaturen und Suchbegriffe an. Diese Produkte stehen danach fÃ¼r
+              manuelle Auswahl und automatische VorschlÃ¤ge bereit.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
@@ -191,13 +226,13 @@ export default function AdminHomePage() {
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#12395F]">
-              Öffne die mobile Erfassung auf dem Smartphone, fotografiere
-              Produkte direkt mit der Handykamera und speichere sie schnell für
+              Ã–ffne die mobile Erfassung auf dem Smartphone, fotografiere
+              Produkte direkt mit der Handykamera und speichere sie schnell fÃ¼r
               den Produktkatalog.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
-              Mobile Erfassung öffnen
+              Mobile Erfassung Ã¶ffnen
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
@@ -219,7 +254,7 @@ export default function AdminHomePage() {
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#6F4A7D]">
-              Erstelle und bearbeite zeitlich begrenzte Rabattaktionen für den
+              Erstelle und bearbeite zeitlich begrenzte Rabattaktionen fÃ¼r den
               Shop. Lege Namen, Zeitraum, Rabattart, Wert und Mindestbestellwert
               fest.
             </p>
@@ -248,13 +283,13 @@ export default function AdminHomePage() {
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Kunden können Listen über die Website hochladen oder per
-                WhatsApp schicken. WhatsApp-Listen übernimmst Du über den
-                WhatsApp-Import ins System. Produkte, die Du erfasst, können
-                später direkt in Anfragen gefunden, manuell übernommen und durch
-                Aliase für zukünftige Listen gemerkt werden. Über den
-                SocialPilot erzeugst Du zusätzlich passende Social-Media-Entwürfe
-                für mehr Reichweite und neue Anfragen.
+                Kunden kÃ¶nnen Listen Ã¼ber die Website hochladen oder per
+                WhatsApp schicken. WhatsApp-Listen Ã¼bernimmst Du Ã¼ber den
+                WhatsApp-Import ins System. Produkte, die Du erfasst, kÃ¶nnen
+                spÃ¤ter direkt in Anfragen gefunden, manuell Ã¼bernommen und durch
+                Aliase fÃ¼r zukÃ¼nftige Listen gemerkt werden. Ãœber den
+                SocialPilot erzeugst Du zusÃ¤tzlich passende Social-Media-EntwÃ¼rfe
+                fÃ¼r mehr Reichweite und neue Anfragen.
               </p>
             </div>
           </div>
