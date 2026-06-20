@@ -89,14 +89,14 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1180,
+      y: 1196,
       width: 620,
-      height: 108,
+      height: 100,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 58,
-    hookMaxCharsPerLine: 15,
+    hookFontSize: 56,
+    hookMaxCharsPerLine: 14,
     imageRadius: 24,
     motifDirection:
       "Motif must fit cleanly inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
@@ -107,9 +107,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Schreibtisch",
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
-      x: 42,
+      x: 58,
       y: 125,
-      width: 560,
+      width: 575,
       height: 210,
     },
     imageBox: {
@@ -120,14 +120,14 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1180,
+      y: 1196,
       width: 620,
-      height: 108,
+      height: 100,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
     hookFontSize: 54,
-    hookMaxCharsPerLine: 15,
+    hookMaxCharsPerLine: 14,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -138,7 +138,7 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Erleichtert Lösung",
     file: "public/social/templates/template-3-erleichtert-loesung-v1.png",
     hookBox: {
-      x: 575,
+      x: 520,
       y: 110,
       width: 420,
       height: 205,
@@ -151,14 +151,14 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1180,
+      y: 1196,
       width: 620,
-      height: 108,
+      height: 100,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 3,
-    hookFontSize: 52,
-    hookMaxCharsPerLine: 16,
+    hookFontSize: 50,
+    hookMaxCharsPerLine: 11,
     imageRadius: 30,
     motifDirection:
       "Motif must fit cleanly inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
@@ -169,6 +169,20 @@ function cleanString(value: unknown) {
   return value.trim();
 }
 
+function normalizeForMatching(value: unknown) {
+  return cleanString(value)
+    .toLowerCase()
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
@@ -314,39 +328,22 @@ function sanitizeBaseImagePrompt(value: string) {
 }
 
 function detectTopicCategory(post: SocialPostRow): TopicCategory {
-  const text =
+  const text = normalizeForMatching(
     `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(
       post.caption
-    )}`.toLowerCase();
-
-  if (
-    text.includes("fehlkauf") ||
-    text.includes("fehlkÃ¤ufe") ||
-    text.includes("falsch gekauft") ||
-    text.includes("doppelt") ||
-    text.includes("unnÃ¶tig gekauft") ||
-    text.includes("falsche artikel")
-  ) {
-    return "wrong-purchases";
-  }
-
-  if (
-    text.includes("stress") ||
-    text.includes("schulstart") ||
-    text.includes("chaos") ||
-    text.includes("zeitdruck") ||
-    text.includes("Ã¼berfordert") ||
-    text.includes("genervt")
-  ) {
-    return "school-start-stress";
-  }
+    )}`
+  );
 
   if (
     text.includes("upload") ||
     text.includes("hochladen") ||
     text.includes("foto") ||
     text.includes("liste fotografieren") ||
-    text.includes("noch keine bestellung")
+    text.includes("schulliste") ||
+    text.includes("paketwunsch") ||
+    text.includes("funktioniert") ||
+    text.includes("so geht") ||
+    text.includes("ablauf")
   ) {
     return "upload";
   }
@@ -358,9 +355,37 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("a4") ||
     text.includes("a5") ||
     text.includes("umschlag") ||
-    text.includes("heft")
+    text.includes("heft") ||
+    text.includes("materialdetails") ||
+    text.includes("unterschied")
   ) {
     return "details-and-differences";
+  }
+
+  if (
+    text.includes("fehlkauf") ||
+    text.includes("fehlkaeufe") ||
+    text.includes("falsch gekauft") ||
+    text.includes("falsche artikel") ||
+    text.includes("falsches material") ||
+    text.includes("doppelt") ||
+    text.includes("unnoetig gekauft") ||
+    text.includes("richtig kaufen") ||
+    text.includes("schulsachen richtig") ||
+    text.includes("schulmaterial richtig")
+  ) {
+    return "wrong-purchases";
+  }
+
+  if (
+    text.includes("stress") ||
+    text.includes("schulstart") ||
+    text.includes("chaos") ||
+    text.includes("zeitdruck") ||
+    text.includes("ueberfordert") ||
+    text.includes("genervt")
+  ) {
+    return "school-start-stress";
   }
 
   if (
@@ -368,19 +393,10 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("entlastung") ||
     text.includes("weniger stress") ||
     text.includes("einfacher") ||
-    text.includes("Ã¼bersicht") ||
+    text.includes("uebersicht") ||
     text.includes("erleichtert")
   ) {
     return "relief-and-efficiency";
-  }
-
-  if (
-    text.includes("funktioniert") ||
-    text.includes("so geht") ||
-    text.includes("ablauf") ||
-    text.includes("paketwunsch")
-  ) {
-    return "how-it-works";
   }
 
   if (
@@ -395,8 +411,15 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
 
   return "general-school-material";
 }
-
 function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
+  if (category === "wrong-purchases" || category === "details-and-differences") {
+    return TEMPLATES["stress-schreibtisch"];
+  }
+
+  if (category === "school-start-stress") {
+    return TEMPLATES["stress-einkauf"];
+  }
+
   if (
     category === "upload" ||
     category === "how-it-works" ||
@@ -406,24 +429,12 @@ function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
     return TEMPLATES["erleichtert-loesung"];
   }
 
-  if (category === "details-and-differences") {
-    return TEMPLATES["stress-schreibtisch"];
-  }
-
-  if (category === "wrong-purchases" || category === "school-start-stress") {
-    return pickVariant(post.id + "-template", [
-      TEMPLATES["stress-einkauf"],
-      TEMPLATES["stress-schreibtisch"],
-    ]);
-  }
-
   return pickVariant(post.id + "-template", [
     TEMPLATES["stress-einkauf"],
     TEMPLATES["stress-schreibtisch"],
     TEMPLATES["erleichtert-loesung"],
   ]);
 }
-
 function buildMotifSpecificDirection(category: TopicCategory) {
   switch (category) {
     case "wrong-purchases":
@@ -1189,6 +1200,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
