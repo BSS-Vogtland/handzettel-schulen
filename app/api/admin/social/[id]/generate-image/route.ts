@@ -88,10 +88,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 610,
     },
     logoBox: {
-      x: 205,
-      y: 1162,
-      width: 640,
-      height: 126,
+      x: 230,
+      y: 1146,
+      width: 620,
+      height: 138,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
@@ -119,10 +119,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 585,
     },
     logoBox: {
-      x: 205,
-      y: 1162,
-      width: 640,
-      height: 126,
+      x: 230,
+      y: 1146,
+      width: 620,
+      height: 138,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
@@ -150,10 +150,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 635,
     },
     logoBox: {
-      x: 205,
-      y: 1162,
-      width: 640,
-      height: 126,
+      x: 230,
+      y: 1146,
+      width: 620,
+      height: 138,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 3,
@@ -628,7 +628,10 @@ function estimateFontSize(lines: string[], template: TemplateConfig) {
   return fontSize;
 }
 
-function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
+async function createHookOverlayBuffer(
+  post: SocialPostRow,
+  template: TemplateConfig
+) {
   const lines = wrapText(
     post.hook || post.topic || "Dein Hook",
     template.hookMaxCharsPerLine,
@@ -636,33 +639,64 @@ function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
   );
 
   const fontSize = estimateFontSize(lines, template);
-  const lineHeight = Math.round(fontSize * 1.1);
-  const totalHeight = lines.length * lineHeight;
-  const startY =
-    Math.round((template.hookBox.height - totalHeight) / 2) + fontSize;
+  const textWidth = Math.max(120, template.hookBox.width - 36);
+  const textValue = lines.map((line) => line.toUpperCase()).join("\n");
 
-  const textLines = lines
-    .map((line, index) => {
-      const y = startY + index * lineHeight;
-
-      return `<text x="18" y="${y}" font-size="${fontSize}" font-weight="900" letter-spacing="-1" fill="${template.hookTextColor}" stroke="#001B33" stroke-width="1.5" paint-order="stroke fill">${escapeXml(
-        line.toUpperCase()
-      )}</text>`;
+  async function renderText(color: string) {
+    return sharp({
+      text: {
+        text: `<span foreground="${color}">${escapeXml(textValue)}</span>`,
+        font: `sans-serif ${fontSize}`,
+        width: textWidth,
+        align: "left",
+        rgba: true,
+      },
     })
-    .join("\n");
+      .png()
+      .toBuffer();
+  }
 
-  return Buffer.from(
-    `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${template.hookBox.width}" height="${template.hookBox.height}" viewBox="0 0 ${template.hookBox.width} ${template.hookBox.height}" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    text {
-      font-family: sans-serif;
-    }
-  </style>
-  ${textLines}
-</svg>`,
-    "utf8"
+  const shadowBuffer = await renderText("#001B33");
+  const textBuffer = await renderText(template.hookTextColor);
+
+  const shadowMeta = await sharp(shadowBuffer).metadata();
+  const textMeta = await sharp(textBuffer).metadata();
+
+  const textHeight = textMeta.height || template.hookBox.height;
+  const shadowHeight = shadowMeta.height || textHeight;
+
+  const textTop = Math.max(
+    0,
+    Math.round((template.hookBox.height - textHeight) / 2)
   );
+
+  const shadowTop = Math.max(
+    0,
+    Math.round((template.hookBox.height - shadowHeight) / 2) + 3
+  );
+
+  return sharp({
+    create: {
+      width: template.hookBox.width,
+      height: template.hookBox.height,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: shadowBuffer,
+        left: 21,
+        top: shadowTop,
+      },
+      {
+        input: textBuffer,
+        left: 18,
+        top: textTop,
+      },
+    ])
+    .png()
+    .toBuffer();
 }
 async function createRoundedImageBuffer(
   imageBuffer: Buffer,
@@ -745,7 +779,7 @@ async function composeFinalTemplateImage({
     template.imageRadius
   );
 
-  const hookOverlay = createHookOverlaySvg(post, template);
+  const hookOverlay = await createHookOverlayBuffer(post, template);
   const logoOverlay = await createLogoOverlayBuffer(template.logoBox);
   const logoMeta = await sharp(logoOverlay).metadata();
 
@@ -1016,4 +1050,5 @@ export async function POST(
     );
   }
 }
+
 
