@@ -89,9 +89,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1146,
+      y: 1180,
       width: 620,
-      height: 138,
+      height: 108,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
@@ -120,9 +120,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1146,
+      y: 1180,
       width: 620,
-      height: 138,
+      height: 108,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
@@ -151,9 +151,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     logoBox: {
       x: 230,
-      y: 1146,
+      y: 1180,
       width: 620,
-      height: 138,
+      height: 108,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 3,
@@ -628,87 +628,227 @@ function estimateFontSize(lines: string[], template: TemplateConfig) {
   return fontSize;
 }
 
-async function createHookOverlayBuffer(
+function getBitmapGlyph(char: string) {
+  const glyphs: Record<string, string[]> = {
+    A: ["01110","10001","10001","11111","10001","10001","10001"],
+    B: ["11110","10001","10001","11110","10001","10001","11110"],
+    C: ["01111","10000","10000","10000","10000","10000","01111"],
+    D: ["11110","10001","10001","10001","10001","10001","11110"],
+    E: ["11111","10000","10000","11110","10000","10000","11111"],
+    F: ["11111","10000","10000","11110","10000","10000","10000"],
+    G: ["01111","10000","10000","10011","10001","10001","01111"],
+    H: ["10001","10001","10001","11111","10001","10001","10001"],
+    I: ["11111","00100","00100","00100","00100","00100","11111"],
+    J: ["00111","00010","00010","00010","00010","10010","01100"],
+    K: ["10001","10010","10100","11000","10100","10010","10001"],
+    L: ["10000","10000","10000","10000","10000","10000","11111"],
+    M: ["10001","11011","10101","10101","10001","10001","10001"],
+    N: ["10001","11001","10101","10011","10001","10001","10001"],
+    O: ["01110","10001","10001","10001","10001","10001","01110"],
+    P: ["11110","10001","10001","11110","10000","10000","10000"],
+    Q: ["01110","10001","10001","10001","10101","10010","01101"],
+    R: ["11110","10001","10001","11110","10100","10010","10001"],
+    S: ["01111","10000","10000","01110","00001","00001","11110"],
+    T: ["11111","00100","00100","00100","00100","00100","00100"],
+    U: ["10001","10001","10001","10001","10001","10001","01110"],
+    V: ["10001","10001","10001","10001","10001","01010","00100"],
+    W: ["10001","10001","10001","10101","10101","10101","01010"],
+    X: ["10001","10001","01010","00100","01010","10001","10001"],
+    Y: ["10001","10001","01010","00100","00100","00100","00100"],
+    Z: ["11111","00001","00010","00100","01000","10000","11111"],
+
+    "0": ["01110","10001","10011","10101","11001","10001","01110"],
+    "1": ["00100","01100","00100","00100","00100","00100","01110"],
+    "2": ["01110","10001","00001","00010","00100","01000","11111"],
+    "3": ["11110","00001","00001","01110","00001","00001","11110"],
+    "4": ["00010","00110","01010","10010","11111","00010","00010"],
+    "5": ["11111","10000","10000","11110","00001","00001","11110"],
+    "6": ["01110","10000","10000","11110","10001","10001","01110"],
+    "7": ["11111","00001","00010","00100","01000","01000","01000"],
+    "8": ["01110","10001","10001","01110","10001","10001","01110"],
+    "9": ["01110","10001","10001","01111","00001","00001","01110"],
+
+    "-": ["00000","00000","00000","11111","00000","00000","00000"],
+    ".": ["00000","00000","00000","00000","00000","01100","01100"],
+    "!": ["00100","00100","00100","00100","00100","00000","00100"],
+    "?": ["01110","10001","00001","00010","00100","00000","00100"],
+    "/": ["00001","00010","00010","00100","01000","01000","10000"],
+    "&": ["01100","10010","10100","01000","10101","10010","01101"],
+    ":": ["00000","01100","01100","00000","01100","01100","00000"],
+  };
+
+  return glyphs[char] || glyphs["?"];
+}
+
+function normalizeBitmapText(value: string) {
+  return cleanString(value)
+    .toUpperCase()
+    .replace(/Ä/g, "AE")
+    .replace(/Ö/g, "OE")
+    .replace(/Ü/g, "UE")
+    .replace(/ẞ/g, "SS")
+    .replace(/ß/g, "SS")
+    .replace(/[^A-Z0-9 .!?&:\/-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getBitmapLineUnits(line: string) {
+  let units = 0;
+
+  for (const char of line) {
+    if (char === " ") {
+      units += 4;
+    } else {
+      units += 6;
+    }
+  }
+
+  return Math.max(1, units - 1);
+}
+
+function createHookOverlayBuffer(
   post: SocialPostRow,
   template: TemplateConfig
 ) {
-  const lines = wrapText(
+  const rawLines = wrapText(
     post.hook || post.topic || "Dein Hook",
     template.hookMaxCharsPerLine,
     template.hookMaxLines
   );
 
-  const fontSize = estimateFontSize(lines, template);
-  const textWidth = Math.max(120, template.hookBox.width - 36);
-  const textValue = lines.map((line) => line.toUpperCase()).join("\n");
+  const lines = rawLines
+    .map((line) => normalizeBitmapText(line))
+    .filter(Boolean);
 
-  async function renderText(color: string) {
-    return sharp({
-      text: {
-        text: `<span foreground="${color}">${escapeXml(textValue)}</span>`,
-        font: `sans-serif ${fontSize}`,
-        width: textWidth,
-        align: "left",
-        rgba: true,
-      },
-    })
-      .png()
-      .toBuffer();
+  const safeLines = lines.length ? lines : ["DEIN HOOK"];
+
+  const glyphHeight = 7;
+  const lineGapUnits = 2;
+  const maxLineUnits = Math.max(...safeLines.map(getBitmapLineUnits));
+  const totalHeightUnits =
+    safeLines.length * glyphHeight + (safeLines.length - 1) * lineGapUnits;
+
+  const scale = Math.max(
+    5,
+    Math.floor(
+      Math.min(
+        (template.hookBox.width - 42) / maxLineUnits,
+        (template.hookBox.height - 28) / totalHeightUnits,
+        12
+      )
+    )
+  );
+
+  const blockSize = Math.max(3, Math.round(scale * 0.86));
+  const xStart = 20;
+  const yStart = Math.round(
+    (template.hookBox.height - totalHeightUnits * scale) / 2
+  );
+
+  function buildRects(offsetX: number, offsetY: number, fill: string, opacity: number) {
+    const rects: string[] = [];
+    let cursorY = yStart + offsetY;
+
+    for (const line of safeLines) {
+      let cursorX = xStart + offsetX;
+
+      for (const char of line) {
+        if (char === " ") {
+          cursorX += 4 * scale;
+          continue;
+        }
+
+        const glyph = getBitmapGlyph(char);
+
+        glyph.forEach((row, rowIndex) => {
+          row.split("").forEach((cell, colIndex) => {
+            if (cell !== "1") return;
+
+            rects.push(
+              `<rect x="${cursorX + colIndex * scale}" y="${cursorY + rowIndex * scale}" width="${blockSize}" height="${blockSize}" rx="${Math.max(
+                1,
+                Math.round(blockSize * 0.16)
+              )}" fill="${fill}" opacity="${opacity}"/>`
+            );
+          });
+        });
+
+        cursorX += 6 * scale;
+      }
+
+      cursorY += (glyphHeight + lineGapUnits) * scale;
+    }
+
+    return rects.join("\n");
   }
 
-  const shadowBuffer = await renderText("#001B33");
-  const textBuffer = await renderText(template.hookTextColor);
+  const shadowRects = buildRects(3, 3, "#001B33", 0.45);
+  const mainRects = buildRects(0, 0, template.hookTextColor, 1);
 
-  const shadowMeta = await sharp(shadowBuffer).metadata();
-  const textMeta = await sharp(textBuffer).metadata();
-
-  const textHeight = textMeta.height || template.hookBox.height;
-  const shadowHeight = shadowMeta.height || textHeight;
-
-  const textTop = Math.max(
-    0,
-    Math.round((template.hookBox.height - textHeight) / 2)
+  return Buffer.from(
+    `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${template.hookBox.width}" height="${template.hookBox.height}" viewBox="0 0 ${template.hookBox.width} ${template.hookBox.height}" xmlns="http://www.w3.org/2000/svg">
+  ${shadowRects}
+  ${mainRects}
+</svg>`,
+    "utf8"
   );
-
-  const shadowTop = Math.max(
-    0,
-    Math.round((template.hookBox.height - shadowHeight) / 2) + 3
-  );
-
-  return sharp({
-    create: {
-      width: template.hookBox.width,
-      height: template.hookBox.height,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      {
-        input: shadowBuffer,
-        left: 21,
-        top: shadowTop,
-      },
-      {
-        input: textBuffer,
-        left: 18,
-        top: textTop,
-      },
-    ])
-    .png()
-    .toBuffer();
 }
 async function createRoundedImageBuffer(
   imageBuffer: Buffer,
   box: Box,
   radius: number
 ) {
-  const fittedImage = await sharp(imageBuffer)
+  const background = await sharp(imageBuffer)
     .rotate()
     .resize(box.width, box.height, {
       fit: "cover",
       position: "center",
     })
+    .blur(18)
+    .modulate({
+      brightness: 1.06,
+      saturation: 0.75,
+    })
+    .png()
+    .toBuffer();
+
+  const fadedBackground = await sharp(background)
+    .ensureAlpha(0.22)
+    .png()
+    .toBuffer();
+
+  const foreground = await sharp(imageBuffer)
+    .rotate()
+    .resize(box.width - 34, box.height - 34, {
+      fit: "contain",
+      position: "center",
+      background: { r: 255, g: 252, b: 247, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+
+  const composed = await sharp({
+    create: {
+      width: box.width,
+      height: box.height,
+      channels: 4,
+      background: { r: 255, g: 252, b: 247, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: fadedBackground,
+        left: 0,
+        top: 0,
+      },
+      {
+        input: foreground,
+        left: 17,
+        top: 17,
+      },
+    ])
     .png()
     .toBuffer();
 
@@ -718,7 +858,7 @@ async function createRoundedImageBuffer(
 </svg>
 `);
 
-  return sharp(fittedImage)
+  return sharp(composed)
     .composite([
       {
         input: maskSvg,
@@ -728,7 +868,6 @@ async function createRoundedImageBuffer(
     .png()
     .toBuffer();
 }
-
 async function createLogoOverlayBuffer(box: Box) {
   const logoBuffer = await loadBrandLogoBuffer();
 
@@ -779,7 +918,7 @@ async function composeFinalTemplateImage({
     template.imageRadius
   );
 
-  const hookOverlay = await createHookOverlayBuffer(post, template);
+  const hookOverlay = createHookOverlayBuffer(post, template);
   const logoOverlay = await createLogoOverlayBuffer(template.logoBox);
   const logoMeta = await sharp(logoOverlay).metadata();
 
@@ -1050,5 +1189,7 @@ export async function POST(
     );
   }
 }
+
+
 
 
