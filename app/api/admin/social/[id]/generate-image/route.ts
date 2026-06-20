@@ -76,30 +76,30 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Einkauf",
     file: "public/social/templates/template-1-stress-einkauf-v1.png",
     hookBox: {
-      x: 52,
-      y: 74,
-      width: 500,
-      height: 245,
+      x: 88,
+      y: 92,
+      width: 470,
+      height: 205,
     },
     imageBox: {
-      x: 385,
-      y: 410,
-      width: 620,
-      height: 660,
+      x: 405,
+      y: 420,
+      width: 560,
+      height: 610,
     },
     logoBox: {
-      x: 72,
-      y: 1152,
-      width: 355,
-      height: 132,
+      x: 205,
+      y: 1162,
+      width: 640,
+      height: 126,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 64,
+    hookFontSize: 58,
     hookMaxCharsPerLine: 15,
-    imageRadius: 28,
+    imageRadius: 24,
     motifDirection:
-      "Motif should work inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
+      "Motif must fit cleanly inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
   },
 
   "stress-schreibtisch": {
@@ -107,64 +107,63 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Schreibtisch",
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
-      x: 42,
-      y: 134,
-      width: 630,
-      height: 235,
+      x: 58,
+      y: 125,
+      width: 610,
+      height: 210,
     },
     imageBox: {
-      x: 70,
-      y: 430,
-      width: 940,
-      height: 620,
+      x: 82,
+      y: 438,
+      width: 916,
+      height: 585,
     },
     logoBox: {
-      x: 72,
-      y: 1138,
-      width: 355,
-      height: 138,
+      x: 205,
+      y: 1162,
+      width: 640,
+      height: 126,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 62,
+    hookFontSize: 58,
     hookMaxCharsPerLine: 18,
-    imageRadius: 22,
+    imageRadius: 18,
     motifDirection:
-      "Motif should work inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
+      "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
   },
 
   "erleichtert-loesung": {
     key: "erleichtert-loesung",
-    label: "Erleichtert LÃ¶sung",
+    label: "Erleichtert Lösung",
     file: "public/social/templates/template-3-erleichtert-loesung-v1.png",
     hookBox: {
-      x: 555,
-      y: 118,
-      width: 450,
-      height: 230,
+      x: 575,
+      y: 110,
+      width: 420,
+      height: 205,
     },
     imageBox: {
-      x: 70,
-      y: 392,
-      width: 610,
-      height: 690,
+      x: 88,
+      y: 410,
+      width: 570,
+      height: 635,
     },
     logoBox: {
-      x: 75,
+      x: 205,
       y: 1162,
-      width: 365,
-      height: 120,
+      width: 640,
+      height: 126,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 3,
-    hookFontSize: 54,
+    hookFontSize: 52,
     hookMaxCharsPerLine: 16,
-    imageRadius: 34,
+    imageRadius: 30,
     motifDirection:
-      "Motif should work inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
+      "Motif must fit cleanly inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
   },
 };
-
 function cleanString(value: unknown) {
   if (typeof value !== "string") return "";
   return value.trim();
@@ -637,7 +636,7 @@ function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
   );
 
   const fontSize = estimateFontSize(lines, template);
-  const lineHeight = Math.round(fontSize * 1.08);
+  const lineHeight = Math.round(fontSize * 1.1);
   const totalHeight = lines.length * lineHeight;
   const startY =
     Math.round((template.hookBox.height - totalHeight) / 2) + fontSize;
@@ -646,7 +645,7 @@ function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
     .map((line, index) => {
       const y = startY + index * lineHeight;
 
-      return `<text x="18" y="${y}" font-family="DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900" letter-spacing="-1.2" fill="${template.hookTextColor}" paint-order="stroke" stroke="rgba(0,0,0,0.22)" stroke-width="2" stroke-linejoin="round">${escapeXml(
+      return `<text x="18" y="${y}" font-size="${fontSize}" font-weight="900" letter-spacing="-1" fill="${template.hookTextColor}" stroke="#001B33" stroke-width="1.5" paint-order="stroke fill">${escapeXml(
         line.toUpperCase()
       )}</text>`;
     })
@@ -655,6 +654,11 @@ function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
   return Buffer.from(
     `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${template.hookBox.width}" height="${template.hookBox.height}" viewBox="0 0 ${template.hookBox.width} ${template.hookBox.height}" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text {
+      font-family: sans-serif;
+    }
+  </style>
   ${textLines}
 </svg>`,
     "utf8"
@@ -1012,3 +1016,4 @@ export async function POST(
     );
   }
 }
+
