@@ -107,9 +107,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Schreibtisch",
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
-      x: 58,
+      x: 42,
       y: 125,
-      width: 610,
+      width: 560,
       height: 210,
     },
     imageBox: {
@@ -126,8 +126,8 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 58,
-    hookMaxCharsPerLine: 18,
+    hookFontSize: 54,
+    hookMaxCharsPerLine: 15,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -1189,6 +1189,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
