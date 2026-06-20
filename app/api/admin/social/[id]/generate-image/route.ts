@@ -76,9 +76,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Einkauf",
     file: "public/social/templates/template-1-stress-einkauf-v1.png",
     hookBox: {
-      x: 88,
-      y: 92,
-      width: 470,
+      x: 74,
+      y: 88,
+      width: 430,
       height: 205,
     },
     imageBox: {
@@ -88,15 +88,15 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 610,
     },
     logoBox: {
-      x: 230,
-      y: 1196,
-      width: 620,
-      height: 100,
+      x: 250,
+      y: 1198,
+      width: 580,
+      height: 92,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 56,
-    hookMaxCharsPerLine: 14,
+    hookFontSize: 52,
+    hookMaxCharsPerLine: 12,
     imageRadius: 24,
     motifDirection:
       "Motif must fit cleanly inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
@@ -107,9 +107,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Schreibtisch",
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
-      x: 58,
-      y: 125,
-      width: 575,
+      x: 46,
+      y: 118,
+      width: 520,
       height: 210,
     },
     imageBox: {
@@ -119,15 +119,15 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 585,
     },
     logoBox: {
-      x: 230,
-      y: 1196,
-      width: 620,
-      height: 100,
+      x: 250,
+      y: 1198,
+      width: 580,
+      height: 92,
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 54,
-    hookMaxCharsPerLine: 14,
+    hookFontSize: 50,
+    hookMaxCharsPerLine: 12,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -138,9 +138,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Erleichtert Lösung",
     file: "public/social/templates/template-3-erleichtert-loesung-v1.png",
     hookBox: {
-      x: 520,
-      y: 110,
-      width: 420,
+      x: 500,
+      y: 108,
+      width: 360,
       height: 205,
     },
     imageBox: {
@@ -150,15 +150,15 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 635,
     },
     logoBox: {
-      x: 230,
-      y: 1196,
-      width: 620,
-      height: 100,
+      x: 250,
+      y: 1198,
+      width: 580,
+      height: 92,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 3,
-    hookFontSize: 50,
-    hookMaxCharsPerLine: 11,
+    hookFontSize: 46,
+    hookMaxCharsPerLine: 9,
     imageRadius: 30,
     motifDirection:
       "Motif must fit cleanly inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
@@ -180,6 +180,7 @@ function normalizeForMatching(value: unknown) {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -337,11 +338,11 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
   if (
     text.includes("upload") ||
     text.includes("hochladen") ||
-    text.includes("foto") ||
     text.includes("liste fotografieren") ||
-    text.includes("schulliste") ||
+    text.includes("foto der liste") ||
+    text.includes("schulliste hochladen") ||
     text.includes("paketwunsch") ||
-    text.includes("funktioniert") ||
+    text.includes("so funktioniert") ||
     text.includes("so geht") ||
     text.includes("ablauf")
   ) {
@@ -351,13 +352,15 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
   if (
     text.includes("lineatur") ||
     text.includes("format") ||
-    text.includes("farbe") ||
     text.includes("a4") ||
     text.includes("a5") ||
     text.includes("umschlag") ||
     text.includes("heft") ||
-    text.includes("materialdetails") ||
-    text.includes("unterschied")
+    text.includes("hefte") ||
+    text.includes("farbe") ||
+    text.includes("farben") ||
+    text.includes("unterschied") ||
+    text.includes("materialdetails")
   ) {
     return "details-and-differences";
   }
@@ -372,7 +375,8 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("unnoetig gekauft") ||
     text.includes("richtig kaufen") ||
     text.includes("schulsachen richtig") ||
-    text.includes("schulmaterial richtig")
+    text.includes("schulmaterial richtig") ||
+    text.includes("richtig zuordnen")
   ) {
     return "wrong-purchases";
   }
@@ -394,7 +398,8 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("weniger stress") ||
     text.includes("einfacher") ||
     text.includes("uebersicht") ||
-    text.includes("erleichtert")
+    text.includes("erleichtert") ||
+    text.includes("entspannt")
   ) {
     return "relief-and-efficiency";
   }
@@ -429,11 +434,7 @@ function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
     return TEMPLATES["erleichtert-loesung"];
   }
 
-  return pickVariant(post.id + "-template", [
-    TEMPLATES["stress-einkauf"],
-    TEMPLATES["stress-schreibtisch"],
-    TEMPLATES["erleichtert-loesung"],
-  ]);
+  return TEMPLATES["stress-einkauf"];
 }
 function buildMotifSpecificDirection(category: TopicCategory) {
   switch (category) {
@@ -580,10 +581,25 @@ function normalizeHook(value: string) {
     .trim();
 }
 
-function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
-  const words = normalizeHook(value).split(" ").filter(Boolean);
-  const lines: string[] = [];
+function splitLongWord(word: string, maxChars: number) {
+  if (word.length <= maxChars) return [word];
 
+  const chunks: string[] = [];
+
+  for (let index = 0; index < word.length; index += maxChars) {
+    chunks.push(word.slice(index, index + maxChars));
+  }
+
+  return chunks;
+}
+
+function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
+  const words = normalizeHook(value)
+    .split(" ")
+    .filter(Boolean)
+    .flatMap((word) => splitLongWord(word, maxCharsPerLine));
+
+  const lines: string[] = [];
   let current = "";
 
   for (const word of words) {
@@ -596,13 +612,11 @@ function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
 
     if (current) {
       lines.push(current);
-      current = word;
-    } else {
-      lines.push(word);
-      current = "";
     }
 
-    if (lines.length >= maxLines) {
+    current = word;
+
+    if (lines.length >= maxLines - 1) {
       break;
     }
   }
@@ -611,13 +625,8 @@ function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
     lines.push(current);
   }
 
-  if (lines.length > maxLines) {
-    return lines.slice(0, maxLines);
-  }
-
-  return lines.length ? lines : ["Dein Hook"];
+  return lines.length ? lines.slice(0, maxLines) : ["Dein Hook"];
 }
-
 function estimateFontSize(lines: string[], template: TemplateConfig) {
   let fontSize = template.hookFontSize;
 
@@ -1200,6 +1209,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
