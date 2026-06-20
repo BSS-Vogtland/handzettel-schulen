@@ -9,11 +9,23 @@ import { supabaseServer } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const STORAGE_BUCKET = "social-assets";
+
 const BRAND_LOGO_RELATIVE_PATH =
   process.env.SOCIAL_BRAND_LOGO_PATH ||
   "public/brand/handzettel-schulen-logo.png";
 
-type BrandVisibility = "subtle" | "balanced" | "strong";
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 1350;
+
+type TopicCategory =
+  | "wrong-purchases"
+  | "school-start-stress"
+  | "upload"
+  | "details-and-differences"
+  | "relief-and-efficiency"
+  | "how-it-works"
+  | "local-service"
+  | "general-school-material";
 
 type SocialPostRow = {
   id: string;
@@ -36,22 +48,134 @@ type OpenAiImageResponse = {
   };
 };
 
-type LogoOverlayPlan = {
-  brandName: string;
-  brandVisibility: BrandVisibility;
-  panelWidth: number;
-  panelHeight: number;
-  panelLeft: number;
-  panelTop: number;
-  logoMaxWidth: number;
-  logoMaxHeight: number;
+type Box = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
+
+type TemplateConfig = {
+  key: string;
+  label: string;
+  file: string;
+  hookBox: Box;
+  imageBox: Box;
+  logoBox: Box;
+  hookTextColor: string;
+  hookMaxLines: number;
+  hookFontSize: number;
+  hookMaxCharsPerLine: number;
+  imageRadius: number;
+  motifDirection: string;
+};
+
+const TEMPLATES: Record<string, TemplateConfig> = {
+  "stress-einkauf": {
+    key: "stress-einkauf",
+    label: "Stress Einkauf",
+    file: "public/social/templates/template-1-stress-einkauf-v1.png",
+    hookBox: {
+      x: 52,
+      y: 74,
+      width: 500,
+      height: 245,
+    },
+    imageBox: {
+      x: 385,
+      y: 410,
+      width: 620,
+      height: 660,
+    },
+    logoBox: {
+      x: 72,
+      y: 1152,
+      width: 355,
+      height: 132,
+    },
+    hookTextColor: "#FFFFFF",
+    hookMaxLines: 3,
+    hookFontSize: 64,
+    hookMaxCharsPerLine: 15,
+    imageRadius: 28,
+    motifDirection:
+      "Motif should work inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
+  },
+
+  "stress-schreibtisch": {
+    key: "stress-schreibtisch",
+    label: "Stress Schreibtisch",
+    file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
+    hookBox: {
+      x: 42,
+      y: 134,
+      width: 630,
+      height: 235,
+    },
+    imageBox: {
+      x: 70,
+      y: 430,
+      width: 940,
+      height: 620,
+    },
+    logoBox: {
+      x: 72,
+      y: 1138,
+      width: 355,
+      height: 138,
+    },
+    hookTextColor: "#FFFFFF",
+    hookMaxLines: 3,
+    hookFontSize: 62,
+    hookMaxCharsPerLine: 18,
+    imageRadius: 22,
+    motifDirection:
+      "Motif should work inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
+  },
+
+  "erleichtert-loesung": {
+    key: "erleichtert-loesung",
+    label: "Erleichtert Lösung",
+    file: "public/social/templates/template-3-erleichtert-loesung-v1.png",
+    hookBox: {
+      x: 555,
+      y: 118,
+      width: 450,
+      height: 230,
+    },
+    imageBox: {
+      x: 70,
+      y: 392,
+      width: 610,
+      height: 690,
+    },
+    logoBox: {
+      x: 75,
+      y: 1162,
+      width: 365,
+      height: 120,
+    },
+    hookTextColor: "#102A43",
+    hookMaxLines: 3,
+    hookFontSize: 54,
+    hookMaxCharsPerLine: 16,
+    imageRadius: 34,
+    motifDirection:
+      "Motif should work inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
+  },
+};
+
+function cleanString(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
   );
 }
+
 async function getPostIdFromRequest(
   request: Request,
   context: { params?: Promise<{ id?: string }> | { id?: string } }
@@ -90,10 +214,6 @@ async function getPostIdFromRequest(
     .replace(/"+$/, "")
     .trim();
 }
-function cleanString(value: unknown) {
-  if (typeof value !== "string") return "";
-  return value.trim();
-}
 
 function createDeterministicNumber(input: string) {
   let hash = 0;
@@ -118,6 +238,10 @@ function getBrandLogoAbsolutePath() {
   return path.join(process.cwd(), BRAND_LOGO_RELATIVE_PATH);
 }
 
+function getTemplateAbsolutePath(template: TemplateConfig) {
+  return path.join(process.cwd(), template.file);
+}
+
 async function loadBrandLogoBuffer() {
   const logoPath = getBrandLogoAbsolutePath();
 
@@ -128,6 +252,25 @@ async function loadBrandLogoBuffer() {
   }
 
   return readFile(logoPath);
+}
+
+async function loadTemplateBuffer(template: TemplateConfig) {
+  const templatePath = getTemplateAbsolutePath(template);
+
+  if (!existsSync(templatePath)) {
+    throw new Error(
+      `Template wurde nicht gefunden: ${template.file}. Bitte Template-Datei unter public/social/templates ablegen.`
+    );
+  }
+
+  return sharp(await readFile(templatePath))
+    .rotate()
+    .resize(CANVAS_WIDTH, CANVAS_HEIGHT, {
+      fit: "cover",
+      position: "center",
+    })
+    .png()
+    .toBuffer();
 }
 
 function sanitizeBaseImagePrompt(value: string) {
@@ -163,10 +306,6 @@ function sanitizeBaseImagePrompt(value: string) {
         "branding",
         "label",
         "sticker",
-        "white card",
-        "blank card",
-        "blank label",
-        "blank white",
         "handzettel-schulen",
       ];
 
@@ -175,7 +314,7 @@ function sanitizeBaseImagePrompt(value: string) {
     .join("\n");
 }
 
-function detectTopicCategory(post: SocialPostRow) {
+function detectTopicCategory(post: SocialPostRow): TopicCategory {
   const text =
     `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(
       post.caption
@@ -197,7 +336,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("schulstart") ||
     text.includes("chaos") ||
     text.includes("zeitdruck") ||
-    text.includes("überfordert")
+    text.includes("überfordert") ||
+    text.includes("genervt")
   ) {
     return "school-start-stress";
   }
@@ -229,7 +369,8 @@ function detectTopicCategory(post: SocialPostRow) {
     text.includes("entlastung") ||
     text.includes("weniger stress") ||
     text.includes("einfacher") ||
-    text.includes("übersicht")
+    text.includes("übersicht") ||
+    text.includes("erleichtert")
   ) {
     return "relief-and-efficiency";
   }
@@ -256,356 +397,314 @@ function detectTopicCategory(post: SocialPostRow) {
   return "general-school-material";
 }
 
-function detectBrandVisibility(
-  post: SocialPostRow,
-  category: string
-): BrandVisibility {
-  const text =
-    `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(
-      post.caption
-    )}`.toLowerCase();
-
-  if (
-    text.includes("lade") ||
-    text.includes("hochladen") ||
-    text.includes("upload") ||
-    text.includes("paketwunsch") ||
-    text.includes("teste") ||
-    text.includes("service") ||
-    text.includes("lokal") ||
-    text.includes("so funktioniert") ||
-    text.includes("so geht") ||
-    text.includes("angebot") ||
-    text.includes("bestellung")
-  ) {
-    return "strong";
-  }
-
+function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
   if (
     category === "upload" ||
     category === "how-it-works" ||
-    category === "local-service" ||
-    category === "relief-and-efficiency"
+    category === "relief-and-efficiency" ||
+    category === "local-service"
   ) {
-    return "strong";
+    return TEMPLATES["erleichtert-loesung"];
   }
 
-  if (
-    category === "wrong-purchases" ||
-    category === "school-start-stress" ||
-    category === "general-school-material"
-  ) {
-    return "balanced";
+  if (category === "details-and-differences") {
+    return TEMPLATES["stress-schreibtisch"];
   }
 
-  return "balanced";
-}
+  if (category === "wrong-purchases" || category === "school-start-stress") {
+    return pickVariant(post.id + "-template", [
+      TEMPLATES["stress-einkauf"],
+      TEMPLATES["stress-schreibtisch"],
+    ]);
+  }
 
-function buildBrandingDirection(post: SocialPostRow, category: string) {
-  const brandName = getBrandName(post);
-  const visibility = detectBrandVisibility(post, category);
-
-  const visualPlacement = pickVariant(post.id + "-brand-panel", [
-    "a calm, uncluttered lower-left area with natural table surface, suitable for a real logo overlay added later",
-    "a clean lower-third area with simple school materials around it, suitable for a real logo overlay added later",
-    "a quiet lower-left composition area with enough negative space for a real logo badge added later",
-    "a realistic lower-third area on the table with no text, no labels and no blank white cards",
-    "a clean but natural lower area of the image with enough visual breathing room for a later logo overlay",
+  return pickVariant(post.id + "-template", [
+    TEMPLATES["stress-einkauf"],
+    TEMPLATES["stress-schreibtisch"],
+    TEMPLATES["erleichtert-loesung"],
   ]);
-
-  const visibilityText =
-    visibility === "strong"
-      ? `
-- Logo overlay area visibility: strong but professional.
-- Leave a clearly usable lower-third area for the application to add the real logo later.
-- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
-`
-      : visibility === "subtle"
-        ? `
-- Logo overlay area visibility: subtle.
-- Leave only a tasteful amount of calm visual space for the application to add the real logo later.
-- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
-`
-        : `
-- Logo overlay area visibility: balanced.
-- Leave a clean but natural lower-third area for the application to add the real logo later.
-- Do not create a physical blank card, blank label, empty white rectangle, package insert or sticker for the logo.
-`;
-
-  return {
-    visibility,
-    visualPlacement,
-    prompt: `
-Branding overlay requirement:
-- The real "${brandName}" logo will be added later by the application as a technical overlay.
-- Do NOT invent, draw, imitate, or render the "${brandName}" logo.
-- Do NOT create fake logo text.
-- Do NOT write "${brandName}" into the AI-generated image.
-- Do NOT create a separate blank white label, blank white card, blank package insert, blank sticker, empty white rectangle, or empty branding panel inside the generated image.
-- Instead, leave natural negative space where the application can place the real logo overlay.
-- Use this exact composition idea: ${visualPlacement}.
-${visibilityText}
-- The lower part of the image should stay visually calm enough for a logo badge overlay.
-- The scene must still look realistic and complete, not like something is missing.
-- Keep the scene realistic, family-friendly, warm, and practical.
-- Do not use third-party brand logos.
-- Do not use competitor logos.
-- Do not use TikTok, Instagram or Facebook logos.
-- Avoid random readable text.
-`.trim(),
-  };
 }
 
-function buildCompositionDirection(post: SocialPostRow) {
-  return pickVariant(post.id + "-composition", [
-    `
-- Composition style: slightly top-down storytelling shot.
-- The situation and objects must be very readable at first glance.
-- Show enough of the scene so the practical problem is obvious.
-`,
-    `
-- Composition style: over-the-shoulder view with strong focus on the main problem.
-- The hook meaning should be obvious through the action and visible objects.
-`,
-    `
-- Composition style: medium-wide documentary scene.
-- Show the adult person, the surrounding context, and the material problem clearly.
-`,
-    `
-- Composition style: close practical storytelling crop.
-- Focus strongly on adult hands, list, materials, and the specific action that expresses the hook.
-`,
-    `
-- Composition style: environmental storytelling image.
-- Use the space and object layout to make the situation obvious before reading any text.
-`,
-  ]).trim();
-}
-
-function buildSettingDirection(post: SocialPostRow, category: string) {
-  const generalSettings = [
-    "a kitchen island during family school-supply preparation",
-    "a dining table with school materials spread out",
-    "a living room floor with opened backpacks and supplies, without visible people",
-    "a home workspace with school items laid out for sorting",
-    "a hallway or entry area with backpacks, papers and shopping bags",
-    "a cozy family workspace at home with school materials and a printed list",
-  ];
-
-  const stressSettings = [
-    "a cluttered dining table full of school supplies and lists",
-    "a hallway floor with open backpacks, shoes, papers and school materials",
-    "a home workspace with scattered notebooks, folders and supplies",
-    "a kitchen island with too many materials, shopping bags and a long checklist",
-    "a living room scene with visible school-preparation chaos and time pressure",
-  ];
-
-  const wrongPurchaseSettings = [
-    "a dining table where wrong and correct school materials are being compared",
-    "a family workspace with duplicate or mismatched school supplies on display",
-    "a kitchen table with a printed school list and clearly unsuitable materials nearby",
-    "a school-supply sorting scene at home with visible comparison between list and purchased items",
-  ];
-
-  const uploadSettings = [
-    "a home setting where an adult parent photographs a school list with a smartphone",
-    "a kitchen table where an adult parent reviews and uploads a printed material list",
-    "a hallway bench or family workspace where the school list is being photographed",
-    "a practical school-preparation corner at home with smartphone and list in focus",
-  ];
-
-  const detailsSettings = [
-    "a home sorting scene with multiple exercise books, folders and colored covers laid out clearly",
-    "a practical comparison setup with visible differences between A4 and A5 materials",
-    "a family workspace focused on comparing notebook types, colors and school covers",
-    "a well-lit preparation scene where material details are checked carefully",
-  ];
-
-  const reliefSettings = [
-    "a tidy and organized school-preparation scene at home",
-    "a calm family workspace with sorted materials and a clear list",
-    "a neat dining table with already organized school items and checklist",
-    "a relaxed preparation scene with visible order and overview",
-  ];
-
-  const processSettings = [
-    "a home process scene with list, smartphone and selected materials",
-    "a practical family setup showing list review and organized school materials",
-    "a clean preparation environment suggesting step-by-step school list handling",
-    "a believable school-preparation scene focused on the workflow from list to materials",
-  ];
-
-  const localServiceSettings = [
-    "a warm and believable family home setting focused on school-material support",
-    "a realistic everyday family school-preparation environment",
-    "a personal, trustworthy home scene with school list review and sorted materials",
-    "a supportive family setting centered around school-material organization",
-  ];
-
-  switch (category) {
-    case "school-start-stress":
-      return pickVariant(post.id + "-setting", stressSettings);
-    case "wrong-purchases":
-      return pickVariant(post.id + "-setting", wrongPurchaseSettings);
-    case "upload":
-      return pickVariant(post.id + "-setting", uploadSettings);
-    case "details-and-differences":
-      return pickVariant(post.id + "-setting", detailsSettings);
-    case "relief-and-efficiency":
-      return pickVariant(post.id + "-setting", reliefSettings);
-    case "how-it-works":
-      return pickVariant(post.id + "-setting", processSettings);
-    case "local-service":
-      return pickVariant(post.id + "-setting", localServiceSettings);
-    default:
-      return pickVariant(post.id + "-setting", generalSettings);
-  }
-}
-
-function buildHookSpecificDirection(category: string) {
+function buildMotifSpecificDirection(category: TopicCategory) {
   switch (category) {
     case "wrong-purchases":
       return `
-- Core scene type: avoiding wrong school-supply purchases.
-- Show an adult parent checking a school supply list against already bought materials.
-- Include clearly wrong, duplicate, or unsuitable items, such as wrong notebook size, wrong folder color, duplicate pens, or the wrong exercise book type.
-- The difference between suitable and unsuitable materials should be obvious.
-- The adult parent should actively compare items or point out the mismatch.
-- The emotional message should be: "Without clarity, families easily buy the wrong school materials."
-- The image must visually express the mistake problem, not just a general school-preparation scene.
-- Important: do not make this look like homework help.
+Create a realistic motif about avoiding wrong school-supply purchases.
+Show adult hands or an adult parent comparing a school list with school supplies.
+Show wrong or confusing items: wrong notebook size, wrong folder color, duplicate pens, wrong exercise book type, or mismatched materials.
+The visual story must be obvious without reading a caption.
 `.trim();
 
     case "school-start-stress":
       return `
-- Core scene type: stress before school starts.
-- The image must clearly communicate pressure, overload or time stress.
-- Show too many school items at once: open backpack, folders, notebooks, pens, packaging, paper list, maybe shopping bags or a second pile of supplies.
-- If a person appears, show only an adult parent who looks visibly overwhelmed, worried, concentrated or under pressure.
-- Use object clutter, unfinished packing or visible checking pressure to communicate stress.
-- A clock, watch, or late preparation mood may help if subtle.
-- The emotional message should be: "School start creates stress and families need help getting control."
-- The scene should feel clearly more hectic than calm.
-- Important: do not make this look like homework help.
+Create a realistic motif about school-start stress.
+Show too many school supplies, a long list, open backpack, packaging, folders, pens, and visible preparation pressure.
+If a person appears, show adults only; stressed, annoyed, or overwhelmed expression is allowed.
+No children.
 `.trim();
 
     case "upload":
       return `
-- Core scene type: uploading or photographing the school supply list.
-- Show an adult parent clearly using a smartphone to photograph, review or upload the printed list.
-- The smartphone action must be central in the story.
-- Nearby school materials may be visible, but the key message is the upload/check step.
-- The scene should not feel like shopping, ordering or checkout.
-- The emotional message should be: "It starts with uploading the list, not with an immediate order."
-- Important: do not make this look like homework help.
+Create a realistic motif about uploading or photographing a school supply list.
+Show adult hands or an adult parent using a smartphone to photograph or upload a printed list.
+The smartphone/list action must be central.
+No children.
 `.trim();
 
     case "details-and-differences":
       return `
-- Core scene type: understanding confusing material details.
-- Show school materials with clearly visible differences: notebook types, lineatures, sizes, colors, folders or covers.
-- Show adult hands or an adult parent actively comparing or sorting the materials while using the list as reference.
-- The scene should communicate that these little details are easy to misunderstand.
-- The emotional message should be: "Families often need orientation because school materials differ in important details."
-- Important: do not make this look like tutoring or homework.
+Create a realistic motif about confusing school-material details.
+Show school supplies with clear differences: notebook lineature, A4/A5 sizes, folder colors, covers, exercise books, pens, or envelopes.
+Show adult hands sorting or comparing.
+No children.
 `.trim();
 
     case "relief-and-efficiency":
       return `
-- Core scene type: saving time and reducing family stress.
-- Show a noticeably more structured, sorted, or calmer preparation moment.
-- The materials should look organized or nearly finished.
-- If a person appears, show only an adult parent looking relieved, focused or satisfied rather than chaotic.
-- The emotional message should be: "This makes school preparation easier, faster and less stressful."
-- Important: do not make this look like homework help.
+Create a realistic motif about relief, order, and saving time.
+Show organized school supplies, a checked list, sorted materials, a packed school bag, or an adult-only calm preparation moment.
+The feeling should be relieved and practical, not chaotic.
+No children.
 `.trim();
 
     case "how-it-works":
       return `
-- Core scene type: explaining the process visually.
-- Show a practical sequence-like situation: printed school list, smartphone in use, selected school materials, visible order or preparation.
-- The composition should suggest a simple process from list to overview.
-- The emotional message should be: "The process is easy to understand and practical."
-- Important: do not make this look like homework help.
+Create a realistic motif about a simple process from list to organized school materials.
+Show printed school list, smartphone, selected supplies, and a clear workflow feeling.
+No children.
 `.trim();
 
     case "local-service":
       return `
-- Core scene type: warm, trustworthy support for families.
-- Show a believable school-material preparation scene with a strong feeling of trust and practical support.
-- The support feeling should be more important than perfect styling.
-- The focus must still stay on school-material checking, list review or preparation.
-- The emotional message should be: "Families receive supportive, trustworthy help."
-- Important: do not make this look like homework help.
+Create a realistic motif about trustworthy practical support for school-material preparation.
+Show adult-only school-list review, sorted supplies, or helpful preparation context.
+No children.
 `.trim();
 
     default:
       return `
-- Core scene type: family school-material preparation.
-- Show an adult parent or adult hands dealing with a school supply list and real materials.
-- The list and materials must be central.
-- The emotional message should be: "Families are getting orientation and help for school preparation."
-- Important: do not make this look like homework help.
+Create a realistic motif about family school-material preparation.
+Show a school supply list and real school materials such as notebooks, folders, pens, pencil case, backpack, smartphone, or packaging.
+Adults only if people appear.
+No children.
 `.trim();
   }
 }
 
-function buildActionDirection(post: SocialPostRow) {
-  return pickVariant(post.id + "-action", [
-    `
-- Main action: an adult parent points at the school list while comparing listed items with real materials.
-- Show active checking and comparison, not passive posing.
-`,
-    `
-- Main action: an adult parent sorts materials into "correct" and "unclear/wrong" groups.
-- The visual logic of the action should be easy to understand.
-`,
-    `
-- Main action: adult hands hold or check the list while organizing school items.
-- The scene must feel active and purposeful.
-`,
-    `
-- Main action: an adult parent compares materials with the list.
-- Make the practical problem more important than the portrait feeling.
-`,
-    `
-- Main action: an adult parent is in the middle of preparation, reviewing materials, packing, checking or photographing.
-- Show a real task, not a generic family moment.
-`,
-  ]).trim();
+function buildMotifPrompt(
+  post: SocialPostRow,
+  category: TopicCategory,
+  template: TemplateConfig
+) {
+  const basePrompt = sanitizeBaseImagePrompt(cleanString(post.image_prompt));
+  const topic = cleanString(post.topic);
+  const hook = cleanString(post.hook);
+  const caption = cleanString(post.caption);
+
+  const basePromptSection = basePrompt
+    ? `
+Existing creative direction, cleaned from children/logo/brand instructions:
+${basePrompt}
+`
+    : "";
+
+  return `
+${basePromptSection}
+
+Create only the topic-specific MOTIF IMAGE for a modular Handzettel-Schulen.de social-post template.
+
+This motif will be inserted later into a fixed template area. Do NOT create the full social post.
+Do NOT add headline areas.
+Do NOT add logo areas.
+Do NOT add text overlays.
+Do NOT add labels, brand names, or watermarks.
+
+Post topic:
+"${topic}"
+
+Post hook that the motif must support:
+"${hook}"
+
+Caption context:
+"${caption}"
+
+Motif direction:
+${buildMotifSpecificDirection(category)}
+
+Template insertion context:
+${template.motifDirection}
+
+Hard rules:
+- Photorealistic, realistic everyday German school-material context.
+- Adults only if people are visible.
+- No children, no teenagers, no minors.
+- No visible brand logos.
+- No Handzettel-Schulen.de logo.
+- No social-media logos.
+- No readable promotional text.
+- No poster layout.
+- No flyer layout.
+- No blank white card.
+- No fake logo.
+- No cartoon style.
+- No pastel scrapbook style.
+- No tutoring/homework-help look.
+- Strong relation to school supplies, list checking, sorting, buying, upload, or packing.
+- Clear, useful, practical, parent-oriented visual story.
+- High-quality lighting, believable objects, natural perspective.
+`.trim();
 }
 
-function buildOverlayPlan(
-  imageWidth: number,
-  imageHeight: number,
-  brandName: string,
-  brandVisibility: BrandVisibility
-): LogoOverlayPlan {
-  const panelWidth =
-    brandVisibility === "strong"
-      ? Math.round(imageWidth * 0.72)
-      : Math.round(imageWidth * 0.64);
-
-  const panelHeight =
-    brandVisibility === "strong"
-      ? Math.round(imageHeight * 0.13)
-      : Math.round(imageHeight * 0.115);
-
-  const margin = Math.round(imageWidth * 0.055);
-
-  return {
-    brandName,
-    brandVisibility,
-    panelWidth,
-    panelHeight,
-    panelLeft: margin,
-    panelTop: imageHeight - panelHeight - margin,
-    logoMaxWidth: Math.round(panelWidth * 0.9),
-    logoMaxHeight: Math.round(panelHeight * 0.78),
-  };
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
+function normalizeHook(value: string) {
+  return cleanString(value)
+    .replace(/\s+/g, " ")
+    .replace(/[“”„]/g, '"')
+    .trim();
+}
+
+function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
+  const words = normalizeHook(value).split(" ").filter(Boolean);
+  const lines: string[] = [];
+
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+
+    if (next.length <= maxCharsPerLine) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = word;
+    } else {
+      lines.push(word);
+      current = "";
+    }
+
+    if (lines.length >= maxLines) {
+      break;
+    }
+  }
+
+  if (current && lines.length < maxLines) {
+    lines.push(current);
+  }
+
+  if (lines.length > maxLines) {
+    return lines.slice(0, maxLines);
+  }
+
+  return lines.length ? lines : ["Dein Hook"];
+}
+
+function estimateFontSize(lines: string[], template: TemplateConfig) {
+  let fontSize = template.hookFontSize;
+
+  while (fontSize > 34) {
+    const longest = Math.max(...lines.map((line) => line.length));
+    const estimatedWidth = longest * fontSize * 0.58;
+    const estimatedHeight = lines.length * fontSize * 1.08;
+
+    if (
+      estimatedWidth <= template.hookBox.width &&
+      estimatedHeight <= template.hookBox.height
+    ) {
+      return fontSize;
+    }
+
+    fontSize -= 2;
+  }
+
+  return fontSize;
+}
+
+function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
+  const lines = wrapText(
+    post.hook || post.topic || "Dein Hook",
+    template.hookMaxCharsPerLine,
+    template.hookMaxLines
+  );
+
+  const fontSize = estimateFontSize(lines, template);
+  const lineHeight = Math.round(fontSize * 1.06);
+  const totalHeight = lines.length * lineHeight;
+  const startY = Math.round((template.hookBox.height - totalHeight) / 2) + fontSize;
+
+  const textLines = lines
+    .map((line, index) => {
+      return `<text x="0" y="${startY + index * lineHeight}" class="headline">${escapeXml(
+        line.toUpperCase()
+      )}</text>`;
+    })
+    .join("\n");
+
+  return Buffer.from(`
+<svg width="${template.hookBox.width}" height="${template.hookBox.height}" viewBox="0 0 ${template.hookBox.width} ${template.hookBox.height}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.22)"/>
+    </filter>
+  </defs>
+
+  <style>
+    .headline {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: ${fontSize}px;
+      font-weight: 900;
+      letter-spacing: -1.8px;
+      fill: ${template.hookTextColor};
+      filter: url(#softShadow);
+    }
+  </style>
+
+  ${textLines}
+</svg>
+`);
+}
+
+async function createRoundedImageBuffer(
+  imageBuffer: Buffer,
+  box: Box,
+  radius: number
+) {
+  const fittedImage = await sharp(imageBuffer)
+    .rotate()
+    .resize(box.width, box.height, {
+      fit: "cover",
+      position: "center",
+    })
+    .png()
+    .toBuffer();
+
+  const maskSvg = Buffer.from(`
+<svg width="${box.width}" height="${box.height}" viewBox="0 0 ${box.width} ${box.height}" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="${box.width}" height="${box.height}" rx="${radius}" ry="${radius}" fill="#fff"/>
+</svg>
+`);
+
+  return sharp(fittedImage)
+    .composite([
+      {
+        input: maskSvg,
+        blend: "dest-in",
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function createLogoOverlayBuffer(box: Box) {
   const logoBuffer = await loadBrandLogoBuffer();
 
   let trimmedLogoBuffer: Buffer;
@@ -615,7 +714,7 @@ async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
       density: 300,
     })
       .rotate()
-      .trim({ threshold: 16 })
+      .trim({ threshold: 18 })
       .png()
       .toBuffer();
   } catch {
@@ -627,187 +726,120 @@ async function createLogoOverlaySvg(plan: LogoOverlayPlan) {
       .toBuffer();
   }
 
-  const logoPng = await sharp(trimmedLogoBuffer)
+  return sharp(trimmedLogoBuffer)
     .resize({
-      width: plan.logoMaxWidth,
-      height: plan.logoMaxHeight,
+      width: box.width,
+      height: box.height,
       fit: "inside",
       withoutEnlargement: false,
     })
     .png()
     .toBuffer();
-
-  const logoBase64 = logoPng.toString("base64");
-
-  const logoMeta = await sharp(logoPng).metadata();
-  const logoWidth = logoMeta.width || plan.logoMaxWidth;
-  const logoHeight = logoMeta.height || plan.logoMaxHeight;
-
-  const logoX = Math.round((plan.panelWidth - logoWidth) / 2);
-  const logoY = Math.round((plan.panelHeight - logoHeight) / 2);
-
-  return Buffer.from(`
-<svg width="${plan.panelWidth}" height="${plan.panelHeight}" viewBox="0 0 ${plan.panelWidth} ${plan.panelHeight}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="rgba(0,0,0,0.18)"/>
-    </filter>
-  </defs>
-
-  <rect
-    x="0"
-    y="0"
-    width="${plan.panelWidth}"
-    height="${plan.panelHeight}"
-    rx="${Math.round(plan.panelHeight * 0.24)}"
-    fill="rgba(255,255,255,0.94)"
-    filter="url(#shadow)"
-  />
-
-  <rect
-    x="1"
-    y="1"
-    width="${plan.panelWidth - 2}"
-    height="${plan.panelHeight - 2}"
-    rx="${Math.round(plan.panelHeight * 0.24)}"
-    fill="none"
-    stroke="rgba(16,42,67,0.12)"
-    stroke-width="2"
-  />
-
-  <image
-    href="data:image/png;base64,${logoBase64}"
-    x="${logoX}"
-    y="${logoY}"
-    width="${logoWidth}"
-    height="${logoHeight}"
-    preserveAspectRatio="xMidYMid meet"
-  />
-</svg>
-`);
 }
 
-async function applyLogoOverlay(
-  imageBuffer: Buffer,
-  brandName: string,
-  brandVisibility: BrandVisibility
-) {
-  const image = sharp(imageBuffer);
-  const metadata = await image.metadata();
+async function composeFinalTemplateImage({
+  template,
+  motifImageBuffer,
+  post,
+}: {
+  template: TemplateConfig;
+  motifImageBuffer: Buffer;
+  post: SocialPostRow;
+}) {
+  const templateBuffer = await loadTemplateBuffer(template);
 
-  const width = metadata.width || 1024;
-  const height = metadata.height || 1536;
-
-  const overlayPlan = buildOverlayPlan(
-    width,
-    height,
-    brandName,
-    brandVisibility
+  const motifOverlay = await createRoundedImageBuffer(
+    motifImageBuffer,
+    template.imageBox,
+    template.imageRadius
   );
-  const overlaySvg = await createLogoOverlaySvg(overlayPlan);
 
-  const finalBuffer = await sharp(imageBuffer)
+  const hookOverlay = createHookOverlaySvg(post, template);
+  const logoOverlay = await createLogoOverlayBuffer(template.logoBox);
+  const logoMeta = await sharp(logoOverlay).metadata();
+
+  const logoWidth = logoMeta.width || template.logoBox.width;
+  const logoHeight = logoMeta.height || template.logoBox.height;
+
+  const logoLeft =
+    template.logoBox.x + Math.round((template.logoBox.width - logoWidth) / 2);
+  const logoTop =
+    template.logoBox.y + Math.round((template.logoBox.height - logoHeight) / 2);
+
+  return sharp(templateBuffer)
     .composite([
       {
-        input: overlaySvg,
-        left: overlayPlan.panelLeft,
-        top: overlayPlan.panelTop,
+        input: motifOverlay,
+        left: template.imageBox.x,
+        top: template.imageBox.y,
+      },
+      {
+        input: hookOverlay,
+        left: template.hookBox.x,
+        top: template.hookBox.y,
+      },
+      {
+        input: logoOverlay,
+        left: logoLeft,
+        top: logoTop,
       },
     ])
     .png()
     .toBuffer();
-
-  return {
-    finalBuffer,
-    overlayPlan,
-  };
 }
 
-function buildImagePlan(post: SocialPostRow) {
-  const basePrompt = sanitizeBaseImagePrompt(cleanString(post.image_prompt));
-  const topic = cleanString(post.topic);
-  const hook = cleanString(post.hook);
-  const caption = cleanString(post.caption);
+async function generateMotifImage({
+  apiKey,
+  model,
+  prompt,
+}: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+}) {
+  const openAiResponse = await fetch(
+    "https://api.openai.com/v1/images/generations",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        size: "1024x1024",
+        quality: "low",
+        n: 1,
+      }),
+    }
+  );
 
-  const topicCategory = detectTopicCategory(post);
-  const chosenSetting = buildSettingDirection(post, topicCategory);
-  const compositionDirection = buildCompositionDirection(post);
-  const hookSpecificDirection = buildHookSpecificDirection(topicCategory);
-  const actionDirection = buildActionDirection(post);
-  const brandingDirection = buildBrandingDirection(post, topicCategory);
-  const brandName = getBrandName(post);
+  const rawText = await openAiResponse.text();
 
-  const basePromptSection = basePrompt
-    ? `
-Original creative direction after safety and branding cleanup:
-${basePrompt}
-`
-    : "";
+  let openAiJson: OpenAiImageResponse;
 
-  const finalPrompt = `
-${basePromptSection}
+  try {
+    openAiJson = rawText ? (JSON.parse(rawText) as OpenAiImageResponse) : {};
+  } catch {
+    throw new Error("OpenAI hat keine gültige JSON-Antwort geliefert.");
+  }
 
-Important social-media context:
-The image must visually support this exact hook:
-"${hook}"
+  if (!openAiResponse.ok) {
+    throw new Error(
+      openAiJson.error?.message || "OpenAI konnte das Motivbild nicht erzeugen."
+    );
+  }
 
-Topic:
-"${topic}"
+  const imageBase64 = openAiJson.data?.[0]?.b64_json;
 
-Caption context:
-"${caption}"
-
-Very important:
-The image must not be a generic school-supply scene.
-The image must clearly express the message, tension, or practical problem of the hook.
-The setting does NOT have to be a kitchen table or a calm home desk.
-The setting may change if another environment communicates the hook better.
-Message and scene clarity are more important than a fixed environment.
-
-Scene setting:
-- Use this as the main environment direction: ${chosenSetting}
-
-${hookSpecificDirection}
-
-${compositionDirection}
-
-${actionDirection}
-
-${brandingDirection.prompt}
-
-Additional fixed production requirements:
-- Vertical portrait social media image.
-- Format optimized for TikTok, Instagram Reels and Facebook stories.
-- The image should primarily appeal to parents and families preparing school supplies.
-- The image should feel realistic, practical and emotionally believable.
-- If people appear, show adults only.
-- It is also acceptable to show only adult hands, school materials, packages, lists and smartphone actions without faces.
-- Show school-related objects that fit the hook: school supply list, notebooks, folders, pens, pencil case, backpack, paper notes, smartphone, shopping bags, packaging, or sorted material piles when appropriate.
-- The action must focus on school-material organization, checking, comparing, sorting, photographing the list, packing for school, or preparing for school start.
-- Avoid scenes where the main story is someone writing in a notebook.
-- Avoid the impression of tutoring, learning support, homework help or private lesson.
-- The visual story must feel strongly related to the specific post theme.
-- Emotion should feel relatable, supportive, realistic and useful.
-- Natural light or realistic everyday lighting.
-- Warm, high-quality, emotionally authentic look.
-- No corporate office feeling.
-- Not business-like.
-- Avoid sterile office scenes, startup aesthetics, or generic business stock photo style.
-- Do not include third-party brand logos or competitor logos.
-- Do not include TikTok, Instagram or Facebook logos.
-- Avoid strong readable text.
-- Do not create artificial blank white cards, blank labels, empty sticker fields or empty branding rectangles inside the scene.
-- Leave natural lower-third negative space for the logo overlay, but the image must still look complete without it.
-- No exaggerated advertising style.
-`.trim();
+  if (!imageBase64) {
+    throw new Error("OpenAI hat keine Motiv-Bilddaten geliefert.");
+  }
 
   return {
-    finalPrompt,
-    topicCategory,
-    chosenSetting,
-    brandVisibility: brandingDirection.visibility,
-    brandPlacement: brandingDirection.visualPlacement,
-    brandName,
+    motifBuffer: Buffer.from(imageBase64, "base64"),
+    revisedPrompt: openAiJson.data?.[0]?.revised_prompt || null,
   };
 }
 
@@ -858,17 +890,6 @@ export async function POST(
 
     const post = postData as SocialPostRow;
 
-    if (!cleanString(post.image_prompt)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "Für diesen Beitrag ist noch kein Bild-Prompt hinterlegt. Bitte zuerst den Bild-Prompt bearbeiten und speichern.",
-        },
-        { status: 400 }
-      );
-    }
-
     if (post.status === "archived") {
       return NextResponse.json(
         {
@@ -879,75 +900,22 @@ export async function POST(
       );
     }
 
-    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
-    const imagePlan = buildImagePlan(post);
+    const category = detectTopicCategory(post);
+    const template = chooseTemplate(post, category);
+    const motifPrompt = buildMotifPrompt(post, category, template);
+    const model = process.env.OPENAI_MOTIF_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
-    const openAiResponse = await fetch(
-      "https://api.openai.com/v1/images/generations",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          prompt: imagePlan.finalPrompt,
-          size: "1024x1536",
-          quality: "low",
-          n: 1,
-        }),
-      }
-    );
+    const { motifBuffer, revisedPrompt } = await generateMotifImage({
+      apiKey,
+      model,
+      prompt: motifPrompt,
+    });
 
-    const rawText = await openAiResponse.text();
-
-    let openAiJson: OpenAiImageResponse;
-
-    try {
-      openAiJson = rawText ? (JSON.parse(rawText) as OpenAiImageResponse) : {};
-    } catch {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "OpenAI hat keine gültige JSON-Antwort geliefert.",
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!openAiResponse.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            openAiJson.error?.message ||
-            "OpenAI konnte das Bild nicht erzeugen.",
-          openai_error_type: openAiJson.error?.type || null,
-        },
-        { status: 500 }
-      );
-    }
-
-    const imageBase64 = openAiJson.data?.[0]?.b64_json;
-
-    if (!imageBase64) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "OpenAI hat keine Bilddaten geliefert.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const rawImageBuffer = Buffer.from(imageBase64, "base64");
-
-    const { finalBuffer: imageBuffer, overlayPlan } = await applyLogoOverlay(
-      rawImageBuffer,
-      imagePlan.brandName,
-      imagePlan.brandVisibility
-    );
+    const imageBuffer = await composeFinalTemplateImage({
+      template,
+      motifImageBuffer: motifBuffer,
+      post,
+    });
 
     const storagePath = `social-posts/${id}/${Date.now()}-${randomUUID()}.png`;
 
@@ -980,9 +948,9 @@ export async function POST(
       .insert({
         post_id: id,
         asset_type: "image",
-        provider: "openai",
+        provider: "openai-template-composite",
         model,
-        prompt: imagePlan.finalPrompt,
+        prompt: motifPrompt,
         storage_bucket: STORAGE_BUCKET,
         storage_path: storagePath,
         public_url: publicUrl,
@@ -990,31 +958,37 @@ export async function POST(
         file_size: imageBuffer.byteLength,
         status: "ready",
         metadata: {
-          source: "admin_social_generate_image",
+          source: "admin_social_generate_image_template_v1",
+          generation_mode: "fixed_template_plus_ai_motif",
           openai_model: model,
-          openai_size: "1024x1536",
+          openai_size: "1024x1024",
           openai_quality: "low",
-          revised_prompt: openAiJson.data?.[0]?.revised_prompt || null,
-          topic_category: imagePlan.topicCategory,
-          chosen_setting: imagePlan.chosenSetting,
-          brand_required: true,
-          brand_name: imagePlan.brandName,
-          brand_visibility: imagePlan.brandVisibility,
-          brand_placement: imagePlan.brandPlacement,
-          prompt_cleanup:
-            "Existing prompt was cleaned from logo, blank card and visible young-person instructions before generation.",
-          safety_adjustment:
-            "Prompt focuses on adults, hands, materials, lists, packages and smartphone actions.",
+          revised_prompt: revisedPrompt,
+          topic_category: category,
+          template_key: template.key,
+          template_label: template.label,
+          template_file: template.file,
+          canvas_width: CANVAS_WIDTH,
+          canvas_height: CANVAS_HEIGHT,
+          hook: cleanString(post.hook),
+          hook_overlay: {
+            enabled: true,
+            box: template.hookBox,
+            text_color: template.hookTextColor,
+            max_lines: template.hookMaxLines,
+          },
+          motif_overlay: {
+            enabled: true,
+            box: template.imageBox,
+            radius: template.imageRadius,
+          },
           logo_overlay: {
             enabled: true,
             logo_path: BRAND_LOGO_RELATIVE_PATH,
-            panel_width: overlayPlan.panelWidth,
-            panel_height: overlayPlan.panelHeight,
-            panel_left: overlayPlan.panelLeft,
-            panel_top: overlayPlan.panelTop,
-            logo_max_width: overlayPlan.logoMaxWidth,
-            logo_max_height: overlayPlan.logoMaxHeight,
+            box: template.logoBox,
           },
+          safety_adjustment:
+            "Template system uses fixed backgrounds. Motif prompt forbids children, logos, brand names, final ad copy and readable promotional text.",
         },
       })
       .select("*")
@@ -1032,14 +1006,15 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      message: "Bild wurde erzeugt, mit echtem Logo versehen und gespeichert.",
+      message:
+        "Template-Bild wurde erzeugt: Master-Template, KI-Motiv, Hook und echtes Logo wurden technisch zusammengesetzt.",
       asset: assetData,
     });
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
-        : "Unbekannter Fehler beim Erzeugen des Bildes.";
+        : "Unbekannter Fehler beim Erzeugen des Template-Bildes.";
 
     return NextResponse.json(
       {
