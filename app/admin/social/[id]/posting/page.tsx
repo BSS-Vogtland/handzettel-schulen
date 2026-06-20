@@ -626,7 +626,7 @@ export default async function AdminSocialPostingPage({
                   <img
                     src={latestAsset.public_url}
                     alt="Social-Media-Bild"
-                    className="aspect-[2/3] w-full object-cover"
+                    className="aspect-[2/3] w-full object-contain"
                   />
                 </a>
 
@@ -853,4 +853,5 @@ export default async function AdminSocialPostingPage({
     </main>
   );
 }
+
 
