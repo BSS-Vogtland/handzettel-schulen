@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+﻿import { randomUUID } from "crypto";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -135,7 +135,7 @@ const TEMPLATES: Record<string, TemplateConfig> = {
 
   "erleichtert-loesung": {
     key: "erleichtert-loesung",
-    label: "Erleichtert Lösung",
+    label: "Erleichtert LÃ¶sung",
     file: "public/social/templates/template-3-erleichtert-loesung-v1.png",
     hookBox: {
       x: 555,
@@ -294,7 +294,7 @@ function sanitizeBaseImagePrompt(value: string) {
         "minor",
         "minors",
         "junge",
-        "mädchen",
+        "mÃ¤dchen",
         "kind",
         "kinder",
         "schulkind",
@@ -322,10 +322,10 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
 
   if (
     text.includes("fehlkauf") ||
-    text.includes("fehlkäufe") ||
+    text.includes("fehlkÃ¤ufe") ||
     text.includes("falsch gekauft") ||
     text.includes("doppelt") ||
-    text.includes("unnötig gekauft") ||
+    text.includes("unnÃ¶tig gekauft") ||
     text.includes("falsche artikel")
   ) {
     return "wrong-purchases";
@@ -336,7 +336,7 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("schulstart") ||
     text.includes("chaos") ||
     text.includes("zeitdruck") ||
-    text.includes("überfordert") ||
+    text.includes("Ã¼berfordert") ||
     text.includes("genervt")
   ) {
     return "school-start-stress";
@@ -369,7 +369,7 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("entlastung") ||
     text.includes("weniger stress") ||
     text.includes("einfacher") ||
-    text.includes("übersicht") ||
+    text.includes("Ã¼bersicht") ||
     text.includes("erleichtert")
   ) {
     return "relief-and-efficiency";
@@ -566,7 +566,7 @@ function escapeXml(value: string) {
 function normalizeHook(value: string) {
   return cleanString(value)
     .replace(/\s+/g, " ")
-    .replace(/[“”„]/g, '"')
+    .replace(/[â€œâ€â€ž]/g, '"')
     .trim();
 }
 
@@ -637,42 +637,29 @@ function createHookOverlaySvg(post: SocialPostRow, template: TemplateConfig) {
   );
 
   const fontSize = estimateFontSize(lines, template);
-  const lineHeight = Math.round(fontSize * 1.06);
+  const lineHeight = Math.round(fontSize * 1.08);
   const totalHeight = lines.length * lineHeight;
-  const startY = Math.round((template.hookBox.height - totalHeight) / 2) + fontSize;
+  const startY =
+    Math.round((template.hookBox.height - totalHeight) / 2) + fontSize;
 
   const textLines = lines
     .map((line, index) => {
-      return `<text x="0" y="${startY + index * lineHeight}" class="headline">${escapeXml(
+      const y = startY + index * lineHeight;
+
+      return `<text x="18" y="${y}" font-family="DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900" letter-spacing="-1.2" fill="${template.hookTextColor}" paint-order="stroke" stroke="rgba(0,0,0,0.22)" stroke-width="2" stroke-linejoin="round">${escapeXml(
         line.toUpperCase()
       )}</text>`;
     })
     .join("\n");
 
-  return Buffer.from(`
+  return Buffer.from(
+    `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${template.hookBox.width}" height="${template.hookBox.height}" viewBox="0 0 ${template.hookBox.width} ${template.hookBox.height}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.22)"/>
-    </filter>
-  </defs>
-
-  <style>
-    .headline {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: ${fontSize}px;
-      font-weight: 900;
-      letter-spacing: -1.8px;
-      fill: ${template.hookTextColor};
-      filter: url(#softShadow);
-    }
-  </style>
-
   ${textLines}
-</svg>
-`);
+</svg>`,
+    "utf8"
+  );
 }
-
 async function createRoundedImageBuffer(
   imageBuffer: Buffer,
   box: Box,
@@ -822,7 +809,7 @@ async function generateMotifImage({
   try {
     openAiJson = rawText ? (JSON.parse(rawText) as OpenAiImageResponse) : {};
   } catch {
-    throw new Error("OpenAI hat keine gültige JSON-Antwort geliefert.");
+    throw new Error("OpenAI hat keine gÃ¼ltige JSON-Antwort geliefert.");
   }
 
   if (!openAiResponse.ok) {
@@ -854,7 +841,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: `Ungültige Beitrags-ID: ${id || "keine ID empfangen"}`,
+          message: `UngÃ¼ltige Beitrags-ID: ${id || "keine ID empfangen"}`,
         },
         { status: 400 }
       );
@@ -894,7 +881,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: "Für archivierte Beiträge wird kein neues Bild erzeugt.",
+          message: "FÃ¼r archivierte BeitrÃ¤ge wird kein neues Bild erzeugt.",
         },
         { status: 400 }
       );
