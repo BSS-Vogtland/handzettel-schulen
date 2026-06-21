@@ -107,10 +107,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Schreibtisch",
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
-      x: 104,
-      y: 120,
-      width: 390,
-      height: 205,
+      x: 42,
+      y: 108,
+      width: 360,
+      height: 200,
     },
     imageBox: {
       x: 82,
@@ -126,8 +126,8 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
-    hookFontSize: 46,
-    hookMaxCharsPerLine: 10,
+    hookFontSize: 40,
+    hookMaxCharsPerLine: 14,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -581,51 +581,59 @@ function normalizeHook(value: string) {
     .trim();
 }
 
-function splitLongWord(word: string, maxChars: number) {
-  if (word.length <= maxChars) return [word];
+function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
+  const clean = normalizeHook(input);
 
-  const chunks: string[] = [];
-
-  for (let index = 0; index < word.length; index += maxChars) {
-    chunks.push(word.slice(index, index + maxChars));
+  if (!clean) {
+    return ["DEIN", "HOOK"];
   }
 
-  return chunks;
-}
-
-function wrapText(value: string, maxCharsPerLine: number, maxLines: number) {
-  const words = normalizeHook(value)
-    .split(" ")
-    .filter(Boolean)
-    .flatMap((word) => splitLongWord(word, maxCharsPerLine));
-
+  const words = clean.split(" ").filter(Boolean);
   const lines: string[] = [];
-  let current = "";
+  let currentLine = "";
 
   for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-
-    if (next.length <= maxCharsPerLine) {
-      current = next;
+    if (!currentLine) {
+      currentLine = word;
       continue;
     }
 
-    if (current) {
-      lines.push(current);
+    const candidate = `${currentLine} ${word}`;
+
+    if (candidate.length <= maxCharsPerLine) {
+      currentLine = candidate;
+      continue;
     }
 
-    current = word;
+    lines.push(currentLine);
+    currentLine = word;
+  }
 
-    if (lines.length >= maxLines - 1) {
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  while (lines.length > maxLines) {
+    const last = lines.pop();
+
+    if (!last || !lines.length) {
       break;
     }
+
+    lines[lines.length - 1] = `${lines[lines.length - 1]} ${last}`.trim();
   }
 
-  if (current && lines.length < maxLines) {
-    lines.push(current);
+  if (lines.length >= 2) {
+    const lastIndex = lines.length - 1;
+    const lastLine = lines[lastIndex].trim();
+
+    if (lastLine.length === 1) {
+      lines[lastIndex - 1] = `${lines[lastIndex - 1]}${lastLine}`;
+      lines.pop();
+    }
   }
 
-  return lines.length ? lines.slice(0, maxLines) : ["Dein Hook"];
+  return lines.slice(0, maxLines);
 }
 function estimateFontSize(lines: string[], template: TemplateConfig) {
   let fontSize = template.hookFontSize;
@@ -1209,6 +1217,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
