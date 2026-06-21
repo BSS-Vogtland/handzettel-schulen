@@ -127,7 +127,7 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     hookTextColor: "#FFFFFF",
     hookMaxLines: 3,
     hookFontSize: 40,
-    hookMaxCharsPerLine: 14,
+    hookMaxCharsPerLine: 11,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -758,12 +758,12 @@ function createHookOverlayBuffer(
     safeLines.length * glyphHeight + (safeLines.length - 1) * lineGapUnits;
 
   const scale = Math.max(
-    5,
+    3,
     Math.floor(
       Math.min(
-        (template.hookBox.width - 42) / maxLineUnits,
-        (template.hookBox.height - 28) / totalHeightUnits,
-        12
+        (template.hookBox.width - 56) / maxLineUnits,
+        (template.hookBox.height - 34) / totalHeightUnits,
+        11
       )
     )
   );
@@ -1217,6 +1217,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
