@@ -620,11 +620,15 @@ function escapeXml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
-function normalizeHook(value: string) {
-  return cleanString(value)
+function normalizeHook(input: string) {
+  return (input || "")
+    .normalize("NFKD")
+    .replace(/[–—]/g, "-")
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/\s*([.!?,:;])\s*/g, "$1 ")
     .replace(/\s+/g, " ")
-    .replace(/[â€œâ€â€ž]/g, '"')
-    .trim();
+    .trim()
+    .toUpperCase();
 }
 
 function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
@@ -634,35 +638,46 @@ function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
     return ["DEIN", "HOOK"];
   }
 
-  const words = clean.split(" ").filter(Boolean);
-  const lines: string[] = [];
-  let currentLine = "";
+  const sentenceBlocks =
+    clean.match(/[^.!?]+[.!?]?/g)?.map((part) => part.trim()).filter(Boolean) ?? [clean];
 
-  for (const word of words) {
-    const candidate = currentLine ? `${currentLine} ${word}` : word;
+  const finalLines: string[] = [];
 
-    if (candidate.length <= maxCharsPerLine) {
-      currentLine = candidate;
-      continue;
+  for (const sentence of sentenceBlocks) {
+    const words = sentence.split(" ").filter(Boolean);
+    let currentLine = "";
+
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+
+      if (candidate.length <= maxCharsPerLine) {
+        currentLine = candidate;
+        continue;
+      }
+
+      if (currentLine) {
+        finalLines.push(currentLine);
+
+        if (finalLines.length >= maxLines) {
+          return finalLines.slice(0, maxLines);
+        }
+      }
+
+      currentLine = word;
     }
 
     if (currentLine) {
-      lines.push(currentLine);
-    }
+      finalLines.push(currentLine);
 
-    currentLine = word;
-
-    if (lines.length >= maxLines) {
-      break;
+      if (finalLines.length >= maxLines) {
+        return finalLines.slice(0, maxLines);
+      }
     }
   }
 
-  if (currentLine && lines.length < maxLines) {
-    lines.push(currentLine);
-  }
-
-  return lines.slice(0, maxLines);
+  return finalLines.slice(0, maxLines);
 }
+
 function estimateFontSize(lines: string[], template: TemplateConfig) {
   let fontSize = template.hookFontSize;
 
@@ -1245,6 +1260,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
