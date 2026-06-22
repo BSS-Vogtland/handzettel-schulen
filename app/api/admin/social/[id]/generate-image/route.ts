@@ -332,27 +332,39 @@ function sanitizeBaseImagePrompt(value: string) {
 }
 
 function detectTopicCategory(post: SocialPostRow): TopicCategory {
-  const text = normalizeForMatching(
+  const primaryText = normalizeForMatching(
+    `${cleanString(post.topic)} ${cleanString(post.hook)}`
+  );
+
+  const fullText = normalizeForMatching(
     `${cleanString(post.topic)} ${cleanString(post.hook)} ${cleanString(
       post.caption
     )}`
   );
 
-  if (
-    text.includes("upload") ||
-    text.includes("hochladen") ||
-    text.includes("liste fotografieren") ||
-    text.includes("foto der liste") ||
-    text.includes("schulliste hochladen") ||
-    text.includes("paketwunsch") ||
-    text.includes("so funktioniert") ||
-    text.includes("so geht") ||
-    text.includes("ablauf")
-  ) {
-    return "upload";
-  }
+  const hasStressSignal = (text: string) =>
+    text.includes("stress") ||
+    text.includes("stressfrei") ||
+    text.includes("schulstart") ||
+    text.includes("chaos") ||
+    text.includes("zeitdruck") ||
+    text.includes("ueberfordert") ||
+    text.includes("genervt");
 
-  if (
+  const hasWrongPurchaseSignal = (text: string) =>
+    text.includes("fehlkauf") ||
+    text.includes("fehlkaeufe") ||
+    text.includes("falsch gekauft") ||
+    text.includes("falsche artikel") ||
+    text.includes("falsches material") ||
+    text.includes("doppelt") ||
+    text.includes("unnoetig gekauft") ||
+    text.includes("richtig kaufen") ||
+    text.includes("schulsachen richtig") ||
+    text.includes("schulmaterial richtig") ||
+    text.includes("richtig zuordnen");
+
+  const hasDetailsSignal = (text: string) =>
     text.includes("lineatur") ||
     text.includes("format") ||
     text.includes("a4") ||
@@ -366,38 +378,20 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("materialdetails") ||
     text.includes("zuordnen") ||
     text.includes("erklaert") ||
-    text.includes("erklaeren")
-  ) {
-    return "details-and-differences";
-  }
+    text.includes("erklaeren");
 
-  if (
-    text.includes("fehlkauf") ||
-    text.includes("fehlkaeufe") ||
-    text.includes("falsch gekauft") ||
-    text.includes("falsche artikel") ||
-    text.includes("falsches material") ||
-    text.includes("doppelt") ||
-    text.includes("unnoetig gekauft") ||
-    text.includes("richtig kaufen") ||
-    text.includes("schulsachen richtig") ||
-    text.includes("schulmaterial richtig")
-  ) {
-    return "wrong-purchases";
-  }
+  const hasUploadSignal = (text: string) =>
+    text.includes("upload") ||
+    text.includes("hochladen") ||
+    text.includes("liste fotografieren") ||
+    text.includes("foto der liste") ||
+    text.includes("schulliste hochladen") ||
+    text.includes("paketwunsch") ||
+    text.includes("so funktioniert") ||
+    text.includes("so geht") ||
+    text.includes("ablauf");
 
-  if (
-    text.includes("stress") ||
-    text.includes("schulstart") ||
-    text.includes("chaos") ||
-    text.includes("zeitdruck") ||
-    text.includes("ueberfordert") ||
-    text.includes("genervt")
-  ) {
-    return "school-start-stress";
-  }
-
-  if (
+  const hasReliefSignal = (text: string) =>
     text.includes("zeit sparen") ||
     text.includes("entlastung") ||
     text.includes("weniger stress") ||
@@ -407,30 +401,75 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("entspannt") ||
     text.includes("bequem") ||
     text.includes("bestellen") ||
-    text.includes("zu hause")
-  ) {
-    return "relief-and-efficiency";
-  }
+    text.includes("zu hause");
 
-  if (
+  const hasLocalServiceSignal = (text: string) =>
     text.includes("lokal") ||
     text.includes("service") ||
     text.includes("vertrauen") ||
     text.includes("nah") ||
-    text.includes("vertraut")
-  ) {
+    text.includes("vertraut");
+
+  // Absolute Priorität: Topic + Hook.
+  // "Stress vor Schulstart" darf nie durch "hochladen" in der Caption zu Template 3 werden.
+  if (hasStressSignal(primaryText)) {
+    return "school-start-stress";
+  }
+
+  if (hasWrongPurchaseSignal(primaryText)) {
+    return "wrong-purchases";
+  }
+
+  if (hasDetailsSignal(primaryText)) {
+    return "details-and-differences";
+  }
+
+  if (hasUploadSignal(primaryText)) {
+    return "upload";
+  }
+
+  if (hasReliefSignal(primaryText)) {
+    return "relief-and-efficiency";
+  }
+
+  if (hasLocalServiceSignal(primaryText)) {
+    return "local-service";
+  }
+
+  // Caption nur als zweite Ebene.
+  if (hasWrongPurchaseSignal(fullText)) {
+    return "wrong-purchases";
+  }
+
+  if (hasDetailsSignal(fullText)) {
+    return "details-and-differences";
+  }
+
+  if (hasStressSignal(fullText)) {
+    return "school-start-stress";
+  }
+
+  if (hasUploadSignal(fullText)) {
+    return "upload";
+  }
+
+  if (hasReliefSignal(fullText)) {
+    return "relief-and-efficiency";
+  }
+
+  if (hasLocalServiceSignal(fullText)) {
     return "local-service";
   }
 
   return "general-school-material";
 }
 function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
-  if (category === "wrong-purchases" || category === "details-and-differences") {
-    return TEMPLATES["stress-schreibtisch"];
-  }
-
   if (category === "school-start-stress") {
     return TEMPLATES["stress-einkauf"];
+  }
+
+  if (category === "wrong-purchases" || category === "details-and-differences") {
+    return TEMPLATES["stress-schreibtisch"];
   }
 
   if (
@@ -443,30 +482,6 @@ function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
   }
 
   return TEMPLATES["stress-einkauf"];
-}
-
-function getTemplateSelectionReason(category: TopicCategory) {
-  if (category === "wrong-purchases") {
-    return "Fehlkäufe, richtig kaufen oder falsche Artikel -> Template 2 Orientierung/Schreibtisch.";
-  }
-
-  if (category === "details-and-differences") {
-    return "Lineatur, Format, Farbe oder Materialdetails -> Template 2 Orientierung/Schreibtisch.";
-  }
-
-  if (category === "school-start-stress") {
-    return "Stress, Schulstart, Chaos oder Überforderung -> Template 1 Stress/Einkauf.";
-  }
-
-  if (category === "upload" || category === "how-it-works") {
-    return "Upload, Paketwunsch oder Ablauf -> Template 3 Lösung/Service.";
-  }
-
-  if (category === "relief-and-efficiency" || category === "local-service") {
-    return "Entlastung, Zeit sparen, Service oder bequem bestellen -> Template 3 Lösung/Service.";
-  }
-
-  return "Fallback -> Template 1 Stress/Einkauf.";
 }
 function buildMotifSpecificDirection(category: TopicCategory) {
   switch (category) {
@@ -1249,6 +1264,8 @@ export async function POST(
     );
   }
 }
+
+
 
 
 
