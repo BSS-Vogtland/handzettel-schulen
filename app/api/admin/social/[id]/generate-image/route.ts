@@ -621,63 +621,116 @@ function escapeXml(value: string) {
 }
 
 function normalizeHook(input: string) {
-  return (input || "")
-    .normalize("NFKD")
-    .replace(/[–—]/g, "-")
-    .replace(/[^\S\r\n]+/g, " ")
+  return cleanString(input)
+    .replace(/Ã¤/g, "ä")
+    .replace(/Ã¶/g, "ö")
+    .replace(/Ã¼/g, "ü")
+    .replace(/ÃŸ/g, "ß")
+    .replace(/[–—]/g, " - ")
+    .replace(/\s+â\s+/g, " - ")
     .replace(/\s*([.!?,:;])\s*/g, "$1 ")
+    .replace(/\s*-\s*/g, " - ")
     .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
+    .trim();
 }
+function splitHookIntoSentenceParts(input: string) {
+  const normalized = normalizeHook(input);
 
-function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
-  const clean = normalizeHook(input);
+  if (!normalized) return [];
 
-  if (!clean) {
-    return ["DEIN", "HOOK"];
+  const parts: string[] = [];
+  const rawParts = normalized.match(/[^.!?-]+[.!?]?|-+/g) || [normalized];
+
+  for (const rawPart of rawParts) {
+    const part = rawPart.trim();
+
+    if (!part) continue;
+
+    if (part === "-") {
+      continue;
+    }
+
+    parts.push(part);
   }
 
-  const sentenceBlocks =
-    clean.match(/[^.!?]+[.!?]?/g)?.map((part) => part.trim()).filter(Boolean) ?? [clean];
+  return parts;
+}
 
-  const finalLines: string[] = [];
+function wrapSentencePart(
+  sentence: string,
+  maxCharsPerLine: number,
+  remainingLines: number
+) {
+  const words = sentence.split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = "";
 
-  for (const sentence of sentenceBlocks) {
-    const words = sentence.split(" ").filter(Boolean);
-    let currentLine = "";
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
 
-    for (const word of words) {
-      const candidate = currentLine ? `${currentLine} ${word}` : word;
-
-      if (candidate.length <= maxCharsPerLine) {
-        currentLine = candidate;
-        continue;
-      }
-
-      if (currentLine) {
-        finalLines.push(currentLine);
-
-        if (finalLines.length >= maxLines) {
-          return finalLines.slice(0, maxLines);
-        }
-      }
-
-      currentLine = word;
+    if (candidate.length <= maxCharsPerLine) {
+      currentLine = candidate;
+      continue;
     }
 
     if (currentLine) {
-      finalLines.push(currentLine);
-
-      if (finalLines.length >= maxLines) {
-        return finalLines.slice(0, maxLines);
-      }
+      lines.push(currentLine);
     }
+
+    currentLine = word;
+
+    if (lines.length >= remainingLines) {
+      break;
+    }
+  }
+
+  if (currentLine && lines.length < remainingLines) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
+  const sentenceParts = splitHookIntoSentenceParts(input);
+
+  if (!sentenceParts.length) {
+    return ["DEIN", "HOOK"];
+  }
+
+  const finalLines: string[] = [];
+
+  for (let index = 0; index < sentenceParts.length; index += 1) {
+    const sentence = sentenceParts[index];
+
+    let preparedSentence = sentence;
+
+    const isNotLastSentence = index < sentenceParts.length - 1;
+
+    if (
+      isNotLastSentence &&
+      !/[.!?]$/.test(preparedSentence)
+    ) {
+      preparedSentence = `${preparedSentence}!`;
+    }
+
+    const remainingLines = maxLines - finalLines.length;
+
+    if (remainingLines <= 0) {
+      break;
+    }
+
+    const wrapped = wrapSentencePart(
+      preparedSentence,
+      maxCharsPerLine,
+      remainingLines
+    );
+
+    finalLines.push(...wrapped);
   }
 
   return finalLines.slice(0, maxLines);
 }
-
 function estimateFontSize(lines: string[], template: TemplateConfig) {
   let fontSize = template.hookFontSize;
 
@@ -746,6 +799,8 @@ function getBitmapGlyph(char: string) {
     "/": ["00001","00010","00010","00100","01000","01000","10000"],
     "&": ["01100","10010","10100","01000","10101","10010","01101"],
     ":": ["00000","01100","01100","00000","01100","01100","00000"],
+    ",": ["00000","00000","00000","00000","00000","01100","01000"],
+    ";": ["00000","01100","01100","00000","01100","01100","01000"],
   };
 
   return glyphs[char] || glyphs["?"];
@@ -759,7 +814,7 @@ function normalizeBitmapText(value: string) {
     .replace(/Ü/g, "UE")
     .replace(/ẞ/g, "SS")
     .replace(/ß/g, "SS")
-    .replace(/[^A-Z0-9 .!?&:\/-]/g, " ")
+    .replace(/[^A-Z0-9 .!?,;:&:\/-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1260,6 +1315,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
