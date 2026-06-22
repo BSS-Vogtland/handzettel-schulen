@@ -17,6 +17,9 @@ const BRAND_LOGO_RELATIVE_PATH =
 const CANVAS_WIDTH = 1080;
 const CANVAS_HEIGHT = 1350;
 
+const TEMPLATE_SYSTEM_VERSION =
+  "socialpilot-template-composite-v1-final";
+
 type TopicCategory =
   | "wrong-purchases"
   | "school-start-stress"
@@ -360,7 +363,10 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("farbe") ||
     text.includes("farben") ||
     text.includes("unterschied") ||
-    text.includes("materialdetails")
+    text.includes("materialdetails") ||
+    text.includes("zuordnen") ||
+    text.includes("erklaert") ||
+    text.includes("erklaeren")
   ) {
     return "details-and-differences";
   }
@@ -375,8 +381,7 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("unnoetig gekauft") ||
     text.includes("richtig kaufen") ||
     text.includes("schulsachen richtig") ||
-    text.includes("schulmaterial richtig") ||
-    text.includes("richtig zuordnen")
+    text.includes("schulmaterial richtig")
   ) {
     return "wrong-purchases";
   }
@@ -399,7 +404,10 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("einfacher") ||
     text.includes("uebersicht") ||
     text.includes("erleichtert") ||
-    text.includes("entspannt")
+    text.includes("entspannt") ||
+    text.includes("bequem") ||
+    text.includes("bestellen") ||
+    text.includes("zu hause")
   ) {
     return "relief-and-efficiency";
   }
@@ -435,6 +443,30 @@ function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
   }
 
   return TEMPLATES["stress-einkauf"];
+}
+
+function getTemplateSelectionReason(category: TopicCategory) {
+  if (category === "wrong-purchases") {
+    return "Fehlkäufe, richtig kaufen oder falsche Artikel -> Template 2 Orientierung/Schreibtisch.";
+  }
+
+  if (category === "details-and-differences") {
+    return "Lineatur, Format, Farbe oder Materialdetails -> Template 2 Orientierung/Schreibtisch.";
+  }
+
+  if (category === "school-start-stress") {
+    return "Stress, Schulstart, Chaos oder Überforderung -> Template 1 Stress/Einkauf.";
+  }
+
+  if (category === "upload" || category === "how-it-works") {
+    return "Upload, Paketwunsch oder Ablauf -> Template 3 Lösung/Service.";
+  }
+
+  if (category === "relief-and-efficiency" || category === "local-service") {
+    return "Entlastung, Zeit sparen, Service oder bequem bestellen -> Template 3 Lösung/Service.";
+  }
+
+  return "Fallback -> Template 1 Stress/Einkauf.";
 }
 function buildMotifSpecificDirection(category: TopicCategory) {
   switch (category) {
@@ -1217,6 +1249,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
