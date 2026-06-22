@@ -79,10 +79,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     label: "Stress Einkauf",
     file: "public/social/templates/template-1-stress-einkauf-v1.png",
     hookBox: {
-      x: 74,
-      y: 88,
-      width: 430,
-      height: 205,
+      x: 66,
+      y: 78,
+      width: 455,
+      height: 265,
     },
     imageBox: {
       x: 405,
@@ -97,14 +97,13 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 92,
     },
     hookTextColor: "#FFFFFF",
-    hookMaxLines: 3,
-    hookFontSize: 52,
+    hookMaxLines: 5,
+    hookFontSize: 42,
     hookMaxCharsPerLine: 12,
     imageRadius: 24,
     motifDirection:
       "Motif must fit cleanly inside the large white card on the right side. Prefer school supplies, wrong purchases, confusing materials, shopping-list comparison, or an adult-only detail scene.",
   },
-
   "stress-schreibtisch": {
     key: "stress-schreibtisch",
     label: "Stress Schreibtisch",
@@ -640,44 +639,26 @@ function wrapText(input: string, maxCharsPerLine: number, maxLines: number) {
   let currentLine = "";
 
   for (const word of words) {
-    if (!currentLine) {
-      currentLine = word;
-      continue;
-    }
-
-    const candidate = `${currentLine} ${word}`;
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
 
     if (candidate.length <= maxCharsPerLine) {
       currentLine = candidate;
       continue;
     }
 
-    lines.push(currentLine);
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
     currentLine = word;
-  }
 
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  while (lines.length > maxLines) {
-    const last = lines.pop();
-
-    if (!last || !lines.length) {
+    if (lines.length >= maxLines) {
       break;
     }
-
-    lines[lines.length - 1] = `${lines[lines.length - 1]} ${last}`.trim();
   }
 
-  if (lines.length >= 2) {
-    const lastIndex = lines.length - 1;
-    const lastLine = lines[lastIndex].trim();
-
-    if (lastLine.length === 1) {
-      lines[lastIndex - 1] = `${lines[lastIndex - 1]}${lastLine}`;
-      lines.pop();
-    }
+  if (currentLine && lines.length < maxLines) {
+    lines.push(currentLine);
   }
 
   return lines.slice(0, maxLines);
@@ -805,12 +786,12 @@ function createHookOverlayBuffer(
     safeLines.length * glyphHeight + (safeLines.length - 1) * lineGapUnits;
 
   const scale = Math.max(
-    3,
+    2,
     Math.floor(
       Math.min(
-        (template.hookBox.width - 56) / maxLineUnits,
-        (template.hookBox.height - 34) / totalHeightUnits,
-        11
+        (template.hookBox.width - 64) / maxLineUnits,
+        (template.hookBox.height - 42) / totalHeightUnits,
+        10
       )
     )
   );
@@ -1264,6 +1245,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
