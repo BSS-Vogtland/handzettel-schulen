@@ -158,6 +158,21 @@ Branding-Regeln fÃ¼r Bild- und Videoprompts:
 `.trim();
 }
 
+
+const GERMAN_UMLAUT_QUALITY_RULES = `
+Deutsche Schreibweise / Umlaute:
+- Verwende korrektes deutsches Schriftbild mit echten Umlauten: ä, ö, ü, Ä, Ö, Ü.
+- Verwende ß, wenn es sprachlich richtig ist.
+- Schreibe nicht ae, oe oder ue als Ersatz für ä, ö oder ü.
+- Schreibe nicht "kuemmern", sondern "kümmern".
+- Schreibe nicht "fuer", sondern "für".
+- Schreibe nicht "ueber", sondern "über".
+- Schreibe nicht "geniess", sondern "genieß".
+- Schreibe nicht "koennen", sondern "können".
+- Schreibe nicht "muessen", sondern "müssen".
+- Diese Regel gilt besonders für topic, hook, caption, instagram.caption, facebook.caption und tiktok.caption.
+`.trim();
+
 function buildSystemPrompt(project: SocialProjectRow) {
   return `
 Du bist ein erfahrener deutscher Social-Media-Stratege und Creative Director.
@@ -261,6 +276,8 @@ Template-4-Testbeitrag / Sommerferien:
   topic: "Sommerferien entspannt genießen"
   hook: "Genieß die Ferien – wir kümmern uns um die Schulliste"
   caption: "Mehr Familienzeit, weniger Schulmaterialstress: Lade Deine Liste hoch und wir stellen Deinen Paketwunsch zusammen. So bleibt mehr Zeit für Sommer, Familie und echte Ferienmomente."
+${GERMAN_UMLAUT_QUALITY_RULES}
+
 Strenge Bildprompt-Regeln:
 - image_prompt muss auf Englisch formuliert sein.
 - image_prompt muss exakt zum jeweiligen topic und hook passen.
@@ -518,4 +535,5 @@ export async function POST() {
     );
   }
 }
+
 
