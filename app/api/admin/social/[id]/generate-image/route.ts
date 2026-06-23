@@ -183,10 +183,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 405,
     },
     logoBox: {
-      x: 250,
-      y: 1198,
-      width: 580,
-      height: 92,
+      x: 610,
+      y: 1210,
+      width: 300,
+      height: 64,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 5,
@@ -716,14 +716,20 @@ function escapeXml(value: string) {
 
 function normalizeHook(input: string) {
   return cleanString(input)
+    .replace(/â€“/g, " – ")
+    .replace(/â€”/g, " – ")
+    .replace(/â€‘/g, "-")
+    .replace(/â/g, " ")
+    .replace(/[–—]/g, " – ")
+    .replace(/ß/g, "SS")
+    .replace(/ẞ/g, "SS")
     .replace(/Ã¤/g, "ä")
     .replace(/Ã¶/g, "ö")
     .replace(/Ã¼/g, "ü")
-    .replace(/ÃŸ/g, "ß")
-    .replace(/[–—]/g, " - ")
-    .replace(/\s+â\s+/g, " - ")
-    .replace(/\s*([.!?,:;])\s*/g, "$1 ")
-    .replace(/\s*-\s*/g, " - ")
+    .replace(/Ã„/g, "Ä")
+    .replace(/Ã–/g, "Ö")
+    .replace(/Ãœ/g, "Ü")
+    .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1409,6 +1415,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
