@@ -23,6 +23,7 @@ const TEMPLATE_SYSTEM_VERSION =
 type TopicCategory =
   | "wrong-purchases"
   | "school-start-stress"
+  | "summer-family-time"
   | "upload"
   | "details-and-differences"
   | "relief-and-efficiency"
@@ -164,6 +165,36 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     imageRadius: 30,
     motifDirection:
       "Motif must fit cleanly inside the large rounded white card. Prefer organized school materials, smartphone upload, checked list, packed school supplies, order confirmation mood, or practical adult-only solution scene.",
+  },
+  "sommer-familienzeit": {
+    key: "sommer-familienzeit",
+    label: "Sommer Familienzeit",
+    file: "public/social/templates/template-4-sommer-familienzeit-v1.png",
+    hookBox: {
+      x: 58,
+      y: 86,
+      width: 492,
+      height: 330,
+    },
+    imageBox: {
+      x: 604,
+      y: 166,
+      width: 370,
+      height: 405,
+    },
+    logoBox: {
+      x: 250,
+      y: 1198,
+      width: 580,
+      height: 92,
+    },
+    hookTextColor: "#102A43",
+    hookMaxLines: 5,
+    hookFontSize: 42,
+    hookMaxCharsPerLine: 13,
+    imageRadius: 22,
+    motifDirection:
+      "Motif must fit cleanly inside the upper-right calm framed image area. Prefer summer holidays, relaxed adult-only family time, sunny desk, terrace, holiday planning, school supply list handled in the background, warm practical relief mood, no children, no text.",
   },
 };
 function cleanString(value: unknown) {
@@ -390,6 +421,34 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
     text.includes("so geht") ||
     text.includes("ablauf");
 
+  const hasSummerFamilySignal = (text: string) =>
+    text.includes("sommer") ||
+    text.includes("sommerferien") ||
+    text.includes("ferien") ||
+    text.includes("ferienzeit") ||
+    text.includes("familienzeit") ||
+    text.includes("urlaub") ||
+    text.includes("freie zeit") ||
+    text.includes("zeit fuer die familie") ||
+    text.includes("zeit mit der familie") ||
+    text.includes("mehr zeit") ||
+    text.includes("geniess die ferien") ||
+    text.includes("geniesse die ferien") ||
+    text.includes("ferien geniessen") ||
+    text.includes("kein stress in den ferien") ||
+    text.includes("stressfrei durch die ferien") ||
+    text.includes("schulmaterialstress") ||
+    text.includes("ferien statt einkaufsstress") ||
+    text.includes("ferien statt schulmaterialstress");
+
+  const hasExplicitProcessUploadSignal = (text: string) =>
+    text.includes("so funktioniert") ||
+    text.includes("so geht") ||
+    text.includes("ablauf") ||
+    text.includes("schritt fuer schritt") ||
+    text.includes("prozess") ||
+    text.includes("upload erklaert") ||
+    text.includes("hochladen erklaert");
   const hasReliefSignal = (text: string) =>
     text.includes("zeit sparen") ||
     text.includes("entlastung") ||
@@ -411,6 +470,17 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
 
   // Absolute Priorität: Topic + Hook.
   // "Stress vor Schulstart" darf nie durch "hochladen" in der Caption zu Template 3 werden.
+  // Sommer / Ferien / Familienzeit hat Vorrang vor allgemeinem Stress,
+  // damit "kein Stress in den Ferien" nicht fälschlich Template 1 zieht.
+  // Details/Fehlkäufe bleiben aber stärker, wenn Topic + Hook genau darauf zielen.
+  if (
+    hasSummerFamilySignal(primaryText) &&
+    !hasExplicitProcessUploadSignal(primaryText) &&
+    !hasWrongPurchaseSignal(primaryText) &&
+    !hasDetailsSignal(primaryText)
+  ) {
+    return "summer-family-time";
+  }
   if (hasStressSignal(primaryText)) {
     return "school-start-stress";
   }
@@ -436,6 +506,15 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
   }
 
   // Caption nur als zweite Ebene.
+  // Caption-Ebene: Sommer/Ferien nur nutzen, wenn nichts Spezifischeres im Beitrag stärker ist.
+  if (
+    hasSummerFamilySignal(fullText) &&
+    !hasExplicitProcessUploadSignal(fullText) &&
+    !hasWrongPurchaseSignal(primaryText) &&
+    !hasDetailsSignal(primaryText)
+  ) {
+    return "summer-family-time";
+  }
   if (hasWrongPurchaseSignal(fullText)) {
     return "wrong-purchases";
   }
@@ -463,6 +542,10 @@ function detectTopicCategory(post: SocialPostRow): TopicCategory {
   return "general-school-material";
 }
 function chooseTemplate(post: SocialPostRow, category: TopicCategory) {
+  if (category === "summer-family-time") {
+    return TEMPLATES["sommer-familienzeit"];
+  }
+
   if (category === "school-start-stress") {
     return TEMPLATES["stress-einkauf"];
   }
@@ -500,6 +583,17 @@ If a person appears, show adults only; stressed, annoyed, or overwhelmed express
 No children.
 `.trim();
 
+    case "summer-family-time":
+      return `
+Create a realistic summer holiday motif about relaxed adult family time instead of stressful school-supply shopping.
+Show a warm summer scene with adults only: terrace, garden table, lakeside mood, holiday planning, a school supply list placed casually aside, smartphone, calendar, or neatly handled school materials in the background.
+The feeling should be calm, relieved, warm, practical, and family-oriented.
+No children.
+No teenagers.
+No visible pupils.
+No text.
+No logos.
+`.trim();
     case "upload":
       return `
 Create a realistic motif about uploading or photographing a school supply list.
@@ -1315,6 +1409,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
