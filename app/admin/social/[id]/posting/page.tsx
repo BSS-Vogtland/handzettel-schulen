@@ -75,7 +75,7 @@ type SocialPublishEventRow = {
 };
 
 function formatDateTime(value: string | null) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
@@ -154,7 +154,7 @@ function getReviewLabel(status: string | null) {
     case "approved":
       return "Review freigegeben";
     case "needs_changes":
-      return "Ãœberarbeitung nötig";
+      return "Überarbeitung nötig";
     case "rejected":
       return "Review abgelehnt";
     case "not_reviewed":
@@ -266,7 +266,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-bold leading-6 text-[#102A43]">
-            {hook || "â€”"}
+            {hook || "—"}
           </p>
 
           <div className="mt-3">
@@ -281,7 +281,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-bold leading-6 text-[#102A43]">
-            {hashtagsText || "â€”"}
+            {hashtagsText || "—"}
           </p>
 
           <div className="mt-3">
@@ -299,7 +299,7 @@ function PostingBlock({
           </div>
 
           <p className="whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-            {caption || "â€”"}
+            {caption || "—"}
           </p>
 
           <div className="mt-3">
@@ -652,7 +652,7 @@ export default async function AdminSocialPostingPage({
                       Bild-Prompt
                     </p>
                     <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-                      {post.image_prompt || "â€”"}
+                      {post.image_prompt || "—"}
                     </p>
 
                     <div className="mt-3">
@@ -671,7 +671,7 @@ export default async function AdminSocialPostingPage({
                   Noch kein Bild vorhanden
                 </h3>
                 <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
-                  Ã–ffne den Beitrag und erzeuge zuerst ein Social-Bild. Danach
+                  Öffne den Beitrag und erzeuge zuerst ein Social-Bild. Danach
                   erscheint es hier in der Posting-Vorbereitung.
                 </p>
 
@@ -839,7 +839,7 @@ export default async function AdminSocialPostingPage({
           </div>
 
           <p className="whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
-            {post.video_prompt || "â€”"}
+            {post.video_prompt || "—"}
           </p>
 
           <div className="mt-4">

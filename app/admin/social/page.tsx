@@ -87,7 +87,7 @@ type SocialReminderEventRow = {
 };
 
 function formatDateTime(value: string | null) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
@@ -104,7 +104,7 @@ function getStatusLabel(status: string) {
     case "scheduled":
       return "Geplant";
     case "published":
-      return "VerÃ¶ffentlicht";
+      return "Veröffentlicht";
     case "failed":
       return "Fehler";
     case "archived":
@@ -138,7 +138,7 @@ function getReviewLabel(status: string | null) {
     case "approved":
       return "Review freigegeben";
     case "needs_changes":
-      return "Ãœberarbeitung nÃ¶tig";
+      return "Überarbeitung nötig";
     case "rejected":
       return "Review abgelehnt";
     case "not_reviewed":
@@ -437,7 +437,7 @@ export default async function AdminSocialPage() {
                 href="/admin"
                 className="mb-4 inline-flex text-sm font-semibold text-[#A23A2E] hover:underline"
               >
-                â† ZurÃ¼ck zum Adminbereich
+                â† Zurück zum Adminbereich
               </Link>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
@@ -446,13 +446,13 @@ export default async function AdminSocialPage() {
               </div>
 
               <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Social-Media-EntwÃ¼rfe erzeugen
+                Social-Media-Entwürfe erzeugen
               </h1>
 
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#486581]">
                 Erzeuge Content-Ideen, Hooks, Captions, Hashtags, Bild- und
-                Video-Prompts. Das Dashboard zeigt Dir, welche BeitrÃ¤ge,
-                Reviews, Kampagnen und Konten als NÃ¤chstes geprÃ¼ft werden
+                Video-Prompts. Das Dashboard zeigt Dir, welche Beiträge,
+                Reviews, Kampagnen und Konten als Nächstes geprüft werden
                 sollten.
               </p>
             </div>
@@ -469,7 +469,7 @@ export default async function AdminSocialPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800 shadow-sm transition hover:bg-purple-100"
                 >
                   <BellRing className="h-4 w-4" />
-                  Automation Ã¶ffnen
+                  Automation öffnen
                 </Link>
 
                 <Link
@@ -477,7 +477,7 @@ export default async function AdminSocialPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
                 >
                   <CalendarClock className="h-4 w-4" />
-                  Social-Kalender Ã¶ffnen
+                  Social-Kalender öffnen
                 </Link>
 
                 <Link
@@ -509,7 +509,7 @@ export default async function AdminSocialPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-5 py-3 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
                 >
                   <Settings className="h-4 w-4" />
-                  Einstellungen Ã¶ffnen
+                  Einstellungen öffnen
                 </Link>
               </div>
 
@@ -531,12 +531,12 @@ export default async function AdminSocialPage() {
               </div>
 
               <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-                NÃ¤chste Aufgaben
+                Nächste Aufgaben
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
                 Dieser Bereich trennt operative Content-Aufgaben sauber von
-                Setup-Hinweisen. Dadurch zÃ¤hlen fehlende Pflicht-Konten nicht
+                Setup-Hinweisen. Dadurch zählen fehlende Pflicht-Konten nicht
                 mehr als normale Content-Aufgabe.
               </p>
             </div>
@@ -574,9 +574,9 @@ export default async function AdminSocialPage() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DashboardCard
-              title="BeitrÃ¤ge ohne Bild"
+              title="Beiträge ohne Bild"
               value={postsWithoutImage.length}
-              description="Diese BeitrÃ¤ge brauchen noch ein passendes Social-Bild."
+              description="Diese Beiträge brauchen noch ein passendes Social-Bild."
               icon={<ImageIcon className="h-5 w-5" />}
               href={
                 postsWithoutImage[0]
@@ -584,7 +584,7 @@ export default async function AdminSocialPage() {
                   : "/admin/social"
               }
               linkLabel={
-                postsWithoutImage[0] ? "Ersten Beitrag Ã¶ffnen" : "BeitrÃ¤ge ansehen"
+                postsWithoutImage[0] ? "Ersten Beitrag öffnen" : "Beiträge ansehen"
               }
               tone={postsWithoutImage.length > 0 ? "warning" : "success"}
             />
@@ -592,7 +592,7 @@ export default async function AdminSocialPage() {
             <DashboardCard
               title="Review offen"
               value={postsWithoutReview.length}
-              description="Diese BeitrÃ¤ge wurden noch nicht inhaltlich geprÃ¼ft."
+              description="Diese Beiträge wurden noch nicht inhaltlich geprüft."
               icon={<ShieldCheck className="h-5 w-5" />}
               href={
                 postsWithoutReview[0]
@@ -600,15 +600,15 @@ export default async function AdminSocialPage() {
                   : "/admin/social"
               }
               linkLabel={
-                postsWithoutReview[0] ? "Erstes Review Ã¶ffnen" : "BeitrÃ¤ge ansehen"
+                postsWithoutReview[0] ? "Erstes Review öffnen" : "Beiträge ansehen"
               }
               tone={postsWithoutReview.length > 0 ? "warning" : "success"}
             />
 
             <DashboardCard
-              title="Ãœberarbeitung nÃ¶tig"
+              title="Überarbeitung nötig"
               value={postsNeedsChanges.length}
-              description="Diese BeitrÃ¤ge wurden geprÃ¼ft, brauchen aber noch Ã„nderungen."
+              description="Diese Beiträge wurden geprüft, brauchen aber noch Änderungen."
               icon={<AlertTriangle className="h-5 w-5" />}
               href={
                 postsNeedsChanges[0]
@@ -617,8 +617,8 @@ export default async function AdminSocialPage() {
               }
               linkLabel={
                 postsNeedsChanges[0]
-                  ? "Ãœberarbeitung Ã¶ffnen"
-                  : "BeitrÃ¤ge ansehen"
+                  ? "Überarbeitung öffnen"
+                  : "Beiträge ansehen"
               }
               tone={postsNeedsChanges.length > 0 ? "warning" : "success"}
             />
@@ -626,10 +626,10 @@ export default async function AdminSocialPage() {
             <DashboardCard
               title="Review freigegeben"
               value={postsReviewApproved.length}
-              description="Diese BeitrÃ¤ge sind inhaltlich geprÃ¼ft und freigegeben."
+              description="Diese Beiträge sind inhaltlich geprüft und freigegeben."
               icon={<CheckCircle2 className="h-5 w-5" />}
               href="/admin/social"
-              linkLabel="BeitrÃ¤ge ansehen"
+              linkLabel="Beiträge ansehen"
               tone="success"
             />
           </div>
@@ -638,10 +638,10 @@ export default async function AdminSocialPage() {
             <DashboardCard
               title="Ads ohne Freigabe"
               value={adsWaitingForApproval.length}
-              description="Diese Kampagnen sind Entwurf oder PrÃ¼fung und brauchen vor Ausgabe eine Budgetfreigabe."
+              description="Diese Kampagnen sind Entwurf oder Prüfung und brauchen vor Ausgabe eine Budgetfreigabe."
               icon={<BadgeEuro className="h-5 w-5" />}
               href="/admin/social/ads"
-              linkLabel="Ads prÃ¼fen"
+              linkLabel="Ads prüfen"
               tone={adsWaitingForApproval.length > 0 ? "warning" : "success"}
             />
 
@@ -658,12 +658,12 @@ export default async function AdminSocialPage() {
             />
 
             <DashboardCard
-              title="Geplante BeitrÃ¤ge"
+              title="Geplante Beiträge"
               value={scheduledCount}
-              description="BeitrÃ¤ge, die bereits im Kalender eingeplant wurden."
+              description="Beiträge, die bereits im Kalender eingeplant wurden."
               icon={<CalendarClock className="h-5 w-5" />}
               href="/admin/social/kalender"
-              linkLabel="Kalender Ã¶ffnen"
+              linkLabel="Kalender öffnen"
               tone="neutral"
             />
 
@@ -673,7 +673,7 @@ export default async function AdminSocialPage() {
               description="Erinnerungszeiten, Arbeitstage-Logik und Vorab-Generierung verwalten."
               icon={<BellRing className="h-5 w-5" />}
               href="/admin/social/automation"
-              linkLabel="Automation Ã¶ffnen"
+              linkLabel="Automation öffnen"
               tone="blue"
             />
           </div>
@@ -682,17 +682,17 @@ export default async function AdminSocialPage() {
             <DashboardCard
               title="Bereit zum Posting"
               value={readyForPostingCount}
-              description="Freigegebene BeitrÃ¤ge mit Bild, die verÃ¶ffentlicht oder vorbereitet werden kÃ¶nnen."
+              description="Freigegebene Beiträge mit Bild, die veröffentlicht oder vorbereitet werden können."
               icon={<Share2 className="h-5 w-5" />}
               href="/admin/social/kalender"
-              linkLabel="Posting prÃ¼fen"
+              linkLabel="Posting prüfen"
               tone={readyForPostingCount > 0 ? "success" : "neutral"}
             />
 
             <DashboardCard
               title="Freigegebene Reserve"
               value={approvedUnscheduledCount}
-              description="Freigegebene, ungeplante BeitrÃ¤ge als Reserve fÃ¼r spÃ¤tere WochenplÃ¤ne."
+              description="Freigegebene, ungeplante Beiträge als Reserve für spätere Wochenpläne."
               icon={<FileText className="h-5 w-5" />}
               href="/admin/social"
               linkLabel="Reserve ansehen"
@@ -703,21 +703,21 @@ export default async function AdminSocialPage() {
               title="Reminder-Protokoll"
               value={`${pendingReminderCount}/${failedReminderCount}`}
               description={`Pending/Fehler. Gesendet: ${sentReminderCount}. Letztes Event: ${
-                latestReminder ? formatDateTime(latestReminder.created_at) : "â€”"
+                latestReminder ? formatDateTime(latestReminder.created_at) : "—"
               }.`}
               icon={<Mail className="h-5 w-5" />}
               href="/admin/social/automation/events"
-              linkLabel="Events prÃ¼fen"
+              linkLabel="Events prüfen"
               tone={automationAttentionCount > 0 ? "warning" : "success"}
             />
 
             <DashboardCard
-              title="VerÃ¶ffentlicht"
+              title="Veröffentlicht"
               value={publishedCount}
-              description="BeitrÃ¤ge, die bereits als verÃ¶ffentlicht markiert wurden."
+              description="Beiträge, die bereits als veröffentlicht markiert wurden."
               icon={<CheckCircle2 className="h-5 w-5" />}
               href="/admin/social"
-              linkLabel="BeitrÃ¤ge ansehen"
+              linkLabel="Beiträge ansehen"
               tone="success"
             />
           </div>
@@ -726,10 +726,10 @@ export default async function AdminSocialPage() {
             <div className="mt-6 space-y-3">
               {postsWithoutImage.length > 0 ? (
                 <TaskNotice
-                  title={`${postsWithoutImage.length} Beitrag/BeitrÃ¤ge ohne Bild`}
-                  description="Erzeuge zuerst ein Bild, bevor der Beitrag verÃ¶ffentlicht oder als Anzeige vorbereitet wird."
+                  title={`${postsWithoutImage.length} Beitrag/Beiträge ohne Bild`}
+                  description="Erzeuge zuerst ein Bild, bevor der Beitrag veröffentlicht oder als Anzeige vorbereitet wird."
                   href={`/admin/social/${postsWithoutImage[0].id}`}
-                  linkLabel="Beitrag Ã¶ffnen"
+                  linkLabel="Beitrag öffnen"
                   icon={<ImageIcon className="h-5 w-5" />}
                   tone="warning"
                 />
@@ -737,10 +737,10 @@ export default async function AdminSocialPage() {
 
               {postsWithoutReview.length > 0 ? (
                 <TaskNotice
-                  title={`${postsWithoutReview.length} Beitrag/BeitrÃ¤ge ohne Review`}
-                  description="PrÃ¼fe Hook, Caption, Bildbezug, CTA und Claims, bevor der Beitrag verÃ¶ffentlicht oder als Anzeige genutzt wird."
+                  title={`${postsWithoutReview.length} Beitrag/Beiträge ohne Review`}
+                  description="Prüfe Hook, Caption, Bildbezug, CTA und Claims, bevor der Beitrag veröffentlicht oder als Anzeige genutzt wird."
                   href={`/admin/social/${postsWithoutReview[0].id}/review`}
-                  linkLabel="Review Ã¶ffnen"
+                  linkLabel="Review öffnen"
                   icon={<ShieldCheck className="h-5 w-5" />}
                   tone="warning"
                 />
@@ -748,10 +748,10 @@ export default async function AdminSocialPage() {
 
               {postsNeedsChanges.length > 0 ? (
                 <TaskNotice
-                  title={`${postsNeedsChanges.length} Beitrag/BeitrÃ¤ge mit Ã„nderungsbedarf`}
-                  description="Diese BeitrÃ¤ge wurden geprÃ¼ft, aber noch nicht freigegeben. Ã–ffne das Review und arbeite die Hinweise ab."
+                  title={`${postsNeedsChanges.length} Beitrag/Beiträge mit Änderungsbedarf`}
+                  description="Diese Beiträge wurden geprüft, aber noch nicht freigegeben. Öffne das Review und arbeite die Hinweise ab."
                   href={`/admin/social/${postsNeedsChanges[0].id}/review`}
-                  linkLabel="Ãœberarbeitung Ã¶ffnen"
+                  linkLabel="Überarbeitung öffnen"
                   icon={<AlertTriangle className="h-5 w-5" />}
                   tone="warning"
                 />
@@ -760,9 +760,9 @@ export default async function AdminSocialPage() {
               {adsWaitingForApproval.length > 0 ? (
                 <TaskNotice
                   title={`${adsWaitingForApproval.length} Ads-Kampagne(n) ohne Budgetfreigabe`}
-                  description="PrÃ¼fe Budget, Zielgruppe, Laufzeit und Landingpage. Erst danach sollte die Kampagne freigegeben werden."
+                  description="Prüfe Budget, Zielgruppe, Laufzeit und Landingpage. Erst danach sollte die Kampagne freigegeben werden."
                   href="/admin/social/ads"
-                  linkLabel="Ads Ã¶ffnen"
+                  linkLabel="Ads öffnen"
                   icon={<BadgeEuro className="h-5 w-5" />}
                   tone="warning"
                 />
@@ -771,9 +771,9 @@ export default async function AdminSocialPage() {
               {failedReminderCount > 0 ? (
                 <TaskNotice
                   title={`${failedReminderCount} Reminder-Event(s) mit Fehler`}
-                  description="PrÃ¼fe das Reminder-Protokoll. Fehlerhafte Events deuten meistens auf Mailversand, SMTP oder Cron-Verarbeitung hin."
+                  description="Prüfe das Reminder-Protokoll. Fehlerhafte Events deuten meistens auf Mailversand, SMTP oder Cron-Verarbeitung hin."
                   href="/admin/social/automation/events"
-                  linkLabel="Events prÃ¼fen"
+                  linkLabel="Events prüfen"
                   icon={<XCircle className="h-5 w-5" />}
                   tone="warning"
                 />
@@ -782,9 +782,9 @@ export default async function AdminSocialPage() {
               {pendingReminderCount > 0 ? (
                 <TaskNotice
                   title={`${pendingReminderCount} Reminder-Event(s) pending`}
-                  description="Pending ist kurzfristig normal. Wenn Events dauerhaft pending bleiben, muss der Versand-Cron geprÃ¼ft werden."
+                  description="Pending ist kurzfristig normal. Wenn Events dauerhaft pending bleiben, muss der Versand-Cron geprüft werden."
                   href="/admin/social/automation/events"
-                  linkLabel="Events prÃ¼fen"
+                  linkLabel="Events prüfen"
                   icon={<Clock className="h-5 w-5" />}
                   tone="blue"
                 />
@@ -793,8 +793,8 @@ export default async function AdminSocialPage() {
           ) : (
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
               Aktuell sind keine dringenden Content-Aufgaben offen. Du kannst neue
-              BeitrÃ¤ge erzeugen, bestehende BeitrÃ¤ge planen, die Automation
-              prÃ¼fen oder Ads vorbereiten.
+              Beiträge erzeugen, bestehende Beiträge planen, die Automation
+              prüfen oder Ads vorbereiten.
             </div>
           )}
 
@@ -805,7 +805,7 @@ export default async function AdminSocialPage() {
                 <p className="mt-1 max-w-3xl">
                   Diese Hinweise betreffen die technische Einrichtung. Sie sind
                   bewusst getrennt von den Content-Aufgaben, damit Kunden den
-                  operativen VerÃ¶ffentlichungsstand klarer erkennen.
+                  operativen Veröffentlichungsstand klarer erkennen.
                 </p>
               </div>
 
@@ -813,7 +813,7 @@ export default async function AdminSocialPage() {
                 href="/admin/social/konten"
                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-[#102A43] shadow-sm transition hover:bg-[#FFFCF7]"
               >
-                Konten prÃ¼fen
+                Konten prüfen
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -822,15 +822,15 @@ export default async function AdminSocialPage() {
               {missingRequiredIntegrations.length > 0 ? (
                 <TaskNotice
                   title={`${missingRequiredIntegrations.length} Pflicht-Konto/Konten nicht verbunden`}
-                  description="OpenAI, Meta oder andere Pflicht-Konten sollten sauber vorbereitet sein. FÃ¼r V1 ist das ein Setup-Hinweis, keine offene Content-Aufgabe."
+                  description="OpenAI, Meta oder andere Pflicht-Konten sollten sauber vorbereitet sein. Für V1 ist das ein Setup-Hinweis, keine offene Content-Aufgabe."
                   href="/admin/social/konten"
-                  linkLabel="Konten prÃ¼fen"
+                  linkLabel="Konten prüfen"
                   icon={<PlugZap className="h-5 w-5" />}
                   tone="blue"
                 />
               ) : (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-                  Pflicht-Konten sind vollstÃ¤ndig vorbereitet.
+                  Pflicht-Konten sind vollständig vorbereitet.
                 </div>
               )}
             </div>
@@ -844,7 +844,7 @@ export default async function AdminSocialPage() {
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#627D98]">EntwÃ¼rfe</p>
+                <p className="text-sm font-semibold text-[#627D98]">Entwürfe</p>
                 <p className="text-3xl font-black text-[#102A43]">
                   {draftCount}
                 </p>
@@ -873,7 +873,7 @@ export default async function AdminSocialPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-[#627D98]">
-                  VerÃ¶ffentlicht
+                  Veröffentlicht
                 </p>
                 <p className="text-3xl font-black text-[#102A43]">
                   {publishedCount}
@@ -885,7 +885,7 @@ export default async function AdminSocialPage() {
 
         {error ? (
           <section className="rounded-[1.5rem] border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-800">
-            Fehler beim Laden der Social-BeitrÃ¤ge: {error.message}
+            Fehler beim Laden der Social-Beiträge: {error.message}
           </section>
         ) : null}
 
@@ -895,12 +895,12 @@ export default async function AdminSocialPage() {
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-xl font-black text-[#102A43]">
-              Noch keine Social-BeitrÃ¤ge vorhanden
+              Noch keine Social-Beiträge vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#627D98]">
               Pflege zuerst das Projektprofil, die Konten und die Automation.
-              Danach kannst Du neue Social-BeitrÃ¤ge erzeugen, prÃ¼fen, planen und
-              spÃ¤ter als Kampagnenentwurf fÃ¼r bezahlte Werbung vorbereiten.
+              Danach kannst Du neue Social-Beiträge erzeugen, prüfen, planen und
+              später als Kampagnenentwurf für bezahlte Werbung vorbereiten.
             </p>
 
             <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
@@ -909,7 +909,7 @@ export default async function AdminSocialPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800 shadow-sm transition hover:bg-purple-100"
               >
                 <BellRing className="h-4 w-4" />
-                Automation Ã¶ffnen
+                Automation öffnen
               </Link>
 
               <Link
@@ -979,7 +979,7 @@ export default async function AdminSocialPage() {
 
                       {post.published_at ? (
                         <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-                          VerÃ¶ffentlicht: {formatDateTime(post.published_at)}
+                          Veröffentlicht: {formatDateTime(post.published_at)}
                         </span>
                       ) : null}
                     </div>
@@ -1017,7 +1017,7 @@ export default async function AdminSocialPage() {
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                       >
                         <ShieldCheck className="h-4 w-4" />
-                        Review Ã¶ffnen
+                        Review öffnen
                       </Link>
 
                       <Link
@@ -1052,7 +1052,7 @@ export default async function AdminSocialPage() {
                   title="Call-to-Action"
                   icon={<CheckCircle2 className="h-4 w-4" />}
                 >
-                  <p>{post.cta || "â€”"}</p>
+                  <p>{post.cta || "—"}</p>
                 </TextBlock>
 
                 <TextBlock
@@ -1096,7 +1096,7 @@ export default async function AdminSocialPage() {
                   icon={<ImageIcon className="h-4 w-4" />}
                 >
                   <p className="whitespace-pre-line">
-                    {post.image_prompt || "â€”"}
+                    {post.image_prompt || "—"}
                   </p>
                 </TextBlock>
 
@@ -1105,7 +1105,7 @@ export default async function AdminSocialPage() {
                   icon={<Video className="h-4 w-4" />}
                 >
                   <p className="whitespace-pre-line">
-                    {post.video_prompt || "â€”"}
+                    {post.video_prompt || "—"}
                   </p>
                 </TextBlock>
 

@@ -64,7 +64,7 @@ type SocialAssetRow = {
 };
 
 function formatDateTime(value: string | null) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
@@ -73,7 +73,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatBytes(value: number | null) {
-  if (!value || value <= 0) return "â€”";
+  if (!value || value <= 0) return "—";
 
   if (value < 1024 * 1024) {
     return `${Math.round(value / 1024)} KB`;
@@ -91,7 +91,7 @@ function getStatusLabel(status: string) {
     case "scheduled":
       return "Geplant";
     case "published":
-      return "VerÃ¶ffentlicht";
+      return "Veröffentlicht";
     case "failed":
       return "Fehler";
     case "archived":
@@ -125,13 +125,13 @@ function getReviewLabel(status: string | null) {
     case "approved":
       return "Review freigegeben";
     case "needs_changes":
-      return "Ãœberarbeitung nÃ¶tig";
+      return "Überarbeitung nötig";
     case "rejected":
       return "Review abgelehnt";
     case "not_reviewed":
     case null:
     default:
-      return "Noch nicht geprÃ¼ft";
+      return "Noch nicht geprüft";
   }
 }
 
@@ -191,7 +191,7 @@ export default async function AdminSocialPostDetailPage({
                   className="inline-flex items-center gap-2 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-sm font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  ZurÃ¼ck zum SocialPilot
+                  Zurück zum SocialPilot
                 </Link>
 
                 <Link
@@ -206,7 +206,7 @@ export default async function AdminSocialPostDetailPage({
                   className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  Review Ã¶ffnen
+                  Review öffnen
                 </Link>
 
                 <Link
@@ -229,10 +229,10 @@ export default async function AdminSocialPostDetailPage({
 
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
-                Keywords sowie Bild- und Video-Prompts. Ãœber â€žReview Ã¶ffnenâ€œ
-                prÃ¼fst Du den Beitrag vor VerÃ¶ffentlichung oder Ads-Nutzung.
-                Ãœber â€žPosting vorbereitenâ€œ erhÃ¤ltst Du eine VerÃ¶ffentlichungsmappe
-                mit Copy-Buttons fÃ¼r TikTok, Instagram und Facebook.
+                Keywords sowie Bild- und Video-Prompts. Über „Review öffnen“
+                prüfst Du den Beitrag vor Veröffentlichung oder Ads-Nutzung.
+                Über „Posting vorbereiten“ erhältst Du eine Veröffentlichungsmappe
+                mit Copy-Buttons für TikTok, Instagram und Facebook.
               </p>
             </div>
 
@@ -276,7 +276,7 @@ export default async function AdminSocialPostDetailPage({
                 {post.reviewed_by_name ? (
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-[#A23A2E]" />
-                    PrÃ¼fer: {post.reviewed_by_name}
+                    Prüfer: {post.reviewed_by_name}
                   </div>
                 ) : null}
 
@@ -290,7 +290,7 @@ export default async function AdminSocialPostDetailPage({
                 {post.published_at ? (
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-[#A23A2E]" />
-                    VerÃ¶ffentlicht: {formatDateTime(post.published_at)}
+                    Veröffentlicht: {formatDateTime(post.published_at)}
                   </div>
                 ) : null}
               </div>
@@ -301,7 +301,7 @@ export default async function AdminSocialPostDetailPage({
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  Review Ã¶ffnen
+                  Review öffnen
                 </Link>
 
                 <Link
@@ -325,19 +325,19 @@ export default async function AdminSocialPostDetailPage({
               </div>
 
               <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-                Social-Bilder fÃ¼r diesen Beitrag
+                Social-Bilder für diesen Beitrag
               </h2>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
                 Erzeuge ein 9:16-Bild aus dem gespeicherten Bild-Prompt. Der
-                Prompt wird zusÃ¤tzlich mit Thema, Hook und Caption verknÃ¼pft,
-                damit das Bild stÃ¤rker zur Ãœberschrift passt.
+                Prompt wird zusätzlich mit Thema, Hook und Caption verknüpft,
+                damit das Bild stärker zur Überschrift passt.
               </p>
 
               {!post.image_prompt ? (
                 <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-                  FÃ¼r diesen Beitrag fehlt noch ein Bild-Prompt. Bitte unten im
-                  Editor ergÃ¤nzen und speichern.
+                  Für diesen Beitrag fehlt noch ein Bild-Prompt. Bitte unten im
+                  Editor ergänzen und speichern.
                 </p>
               ) : null}
             </div>
@@ -377,9 +377,9 @@ export default async function AdminSocialPostDetailPage({
               </h3>
 
               <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
-                Sobald Du auf â€žBild erzeugenâ€œ klickst, wird das Bild hier
+                Sobald Du auf „Bild erzeugen“ klickst, wird das Bild hier
                 gespeichert und angezeigt. Danach kannst Du es im Content-Review
-                prÃ¼fen und in der Posting-Vorbereitung direkt nutzen.
+                prüfen und in der Posting-Vorbereitung direkt nutzen.
               </p>
             </div>
           ) : (
@@ -419,7 +419,7 @@ export default async function AdminSocialPostDetailPage({
                       </p>
 
                       <p className="mt-1 text-sm font-bold text-[#52616F]">
-                        GrÃ¶ÃŸe: {formatBytes(asset.file_size)}
+                        Größe: {formatBytes(asset.file_size)}
                       </p>
                     </div>
 
@@ -431,7 +431,7 @@ export default async function AdminSocialPostDetailPage({
                           rel="noreferrer"
                           className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-4 py-2 text-sm font-black text-[#B5282D] transition hover:bg-[#F5E8D8]"
                         >
-                          Bild Ã¶ffnen
+                          Bild öffnen
                           <ExternalLink className="h-4 w-4" />
                         </a>
                       ) : null}

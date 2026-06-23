@@ -104,7 +104,7 @@ type PublishEventRow = {
   created_at: string;
 };
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   const date = new Date(value);
 
@@ -136,7 +136,7 @@ function getStatusConfig(status: string) {
 
     case "skipped":
       return {
-        label: "Ãœbersprungen",
+        label: "Übersprungen",
         description: "Bewusst nicht versendet",
         className: "border-slate-200 bg-slate-50 text-slate-700",
         icon: SkipForward,
@@ -174,7 +174,7 @@ function getTypeConfig(type: string) {
       return {
         label: "Publishing-Reminder",
         description:
-          "Erinnert am VerÃ¶ffentlichungstag oder bei Ã¼berfÃ¤lligen BeitrÃ¤gen.",
+          "Erinnert am Veröffentlichungstag oder bei überfälligen Beiträgen.",
         className: "border-blue-200 bg-blue-50 text-blue-800",
       };
 
@@ -182,7 +182,7 @@ function getTypeConfig(type: string) {
       return {
         label: "Review-Reminder",
         description:
-          "Erinnert vorab an noch nicht freigegebene geplante BeitrÃ¤ge.",
+          "Erinnert vorab an noch nicht freigegebene geplante Beiträge.",
         className: "border-purple-200 bg-purple-50 text-purple-800",
       };
 
@@ -228,9 +228,9 @@ function getSecondaryPosts(event: ReminderEventRow) {
 function getSummaryLabels(event: ReminderEventRow) {
   if (event.reminder_type === "publishing_reminder") {
     return {
-      first: "VerÃ¶ffentlichbar",
+      first: "Veröffentlichbar",
       second: "Blockiert",
-      third: "VerÃ¶ffentlicht",
+      third: "Veröffentlicht",
       firstValue: safeNumber(event.approved_count),
       secondValue: safeNumber(event.open_review_count),
       thirdValue: safeNumber(event.published_count),
@@ -240,7 +240,7 @@ function getSummaryLabels(event: ReminderEventRow) {
   return {
     first: "Offene Reviews",
     second: "Freigegeben",
-    third: "VerÃ¶ffentlicht",
+    third: "Veröffentlicht",
     firstValue: safeNumber(event.open_review_count),
     secondValue: safeNumber(event.approved_count),
     thirdValue: safeNumber(event.published_count),
@@ -385,7 +385,7 @@ export default async function AdminSocialAutomationEventsPage() {
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-[#486581] sm:text-base">
                   Hier siehst Du Review-Reminder und Publishing-Reminder. Failed
-                  oder dauerhaft pending Events sind operative PrÃ¼fpunkte.
+                  oder dauerhaft pending Events sind operative Prüfpunkte.
                 </p>
               </div>
             </div>
@@ -395,13 +395,13 @@ export default async function AdminSocialAutomationEventsPage() {
                 href="/admin/social"
                 className="inline-flex items-center justify-center rounded-full border border-[#D7C3AA] bg-white px-4 py-2 text-sm font-semibold text-[#334E68] transition hover:bg-[#F8EFE4]"
               >
-                SocialPilot Ã¶ffnen
+                SocialPilot öffnen
               </Link>
               <Link
                 href="/admin/social/kalender"
                 className="inline-flex items-center justify-center rounded-full bg-[#102A43] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#243B53]"
               >
-                Kalender Ã¶ffnen
+                Kalender öffnen
               </Link>
             </div>
           </div>
@@ -434,13 +434,13 @@ export default async function AdminSocialAutomationEventsPage() {
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-800">
               <p className="text-sm font-bold">Skipped</p>
               <p className="mt-2 text-3xl font-black">{skippedCount}</p>
-              <p className="mt-1 text-xs">Bewusst Ã¼bersprungen</p>
+              <p className="mt-1 text-xs">Bewusst übersprungen</p>
             </div>
 
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">
               <p className="text-sm font-bold">Fehler</p>
               <p className="mt-2 text-3xl font-black">{failedCount}</p>
-              <p className="mt-1 text-xs">Muss geprÃ¼ft werden</p>
+              <p className="mt-1 text-xs">Muss geprüft werden</p>
             </div>
           </div>
 
@@ -453,14 +453,14 @@ export default async function AdminSocialAutomationEventsPage() {
           >
             {actionRequiredCount > 0 ? (
               <p>
-                Es gibt Reminder-Events mit Aktionsbedarf. PrÃ¼fe vor allem
-                Fehler und Events, die lÃ¤nger als erwartet auf pending stehen.
+                Es gibt Reminder-Events mit Aktionsbedarf. Prüfe vor allem
+                Fehler und Events, die länger als erwartet auf pending stehen.
               </p>
             ) : (
               <p>
                 Reminder-Protokoll sauber. Keine failed Events und keine pending
                 Events. Letzter erfolgreicher Versand:{" "}
-                {latestSentEvent ? formatDateTime(latestSentEvent.updated_at) : "â€”"}.
+                {latestSentEvent ? formatDateTime(latestSentEvent.updated_at) : "—"}.
               </p>
             )}
           </div>
@@ -607,7 +607,7 @@ export default async function AdminSocialAutomationEventsPage() {
               Noch keine Reminder-Events vorhanden
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-[#486581]">
-              Sobald der Cron-Workflow lÃ¤uft, erscheinen hier Review- und
+              Sobald der Cron-Workflow läuft, erscheinen hier Review- und
               Publishing-Events.
             </p>
           </div>
@@ -709,10 +709,10 @@ export default async function AdminSocialAutomationEventsPage() {
                         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
                           <div>
                             <dt className="font-semibold text-[#829AB1]">
-                              EmpfÃ¤nger
+                              Empfänger
                             </dt>
                             <dd className="mt-1 break-all text-[#243B53]">
-                              {event.recipient_email || "â€”"}
+                              {event.recipient_email || "—"}
                             </dd>
                           </div>
 
@@ -721,7 +721,7 @@ export default async function AdminSocialAutomationEventsPage() {
                               Name
                             </dt>
                             <dd className="mt-1 text-[#243B53]">
-                              {event.recipient_name || "â€”"}
+                              {event.recipient_name || "—"}
                             </dd>
                           </div>
 
@@ -739,7 +739,7 @@ export default async function AdminSocialAutomationEventsPage() {
                               Projekt-ID
                             </dt>
                             <dd className="mt-1 break-all font-mono text-xs text-[#243B53]">
-                              {event.project_id || "â€”"}
+                              {event.project_id || "—"}
                             </dd>
                           </div>
                         </dl>
@@ -760,13 +760,13 @@ export default async function AdminSocialAutomationEventsPage() {
                       <div className="rounded-2xl border border-[#E7D8C5] bg-white p-4">
                         <h3 className="text-sm font-black uppercase tracking-wide text-[#102A43]">
                           {event.reminder_type === "publishing_reminder"
-                            ? "Publishing-BeitrÃ¤ge"
-                            : "Offene Review-BeitrÃ¤ge"}
+                            ? "Publishing-Beiträge"
+                            : "Offene Review-Beiträge"}
                         </h3>
 
                         {primaryPosts.length === 0 ? (
                           <p className="mt-3 text-sm text-[#829AB1]">
-                            Keine BeitrÃ¤ge in diesem Event.
+                            Keine Beiträge in diesem Event.
                           </p>
                         ) : (
                           <div className="mt-3 flex flex-col gap-3">
@@ -781,16 +781,16 @@ export default async function AdminSocialAutomationEventsPage() {
                                       {post.topic || "Ohne Titel"}
                                     </p>
                                     <p className="mt-1 text-xs text-[#829AB1]">
-                                      VerÃ¶ffentlichung:{" "}
-                                      {post.publish_weekday_local || "â€”"}{" "}
-                                      {post.publish_date_local || "â€”"}{" "}
+                                      Veröffentlichung:{" "}
+                                      {post.publish_weekday_local || "—"}{" "}
+                                      {post.publish_date_local || "—"}{" "}
                                       {post.publish_time_local
                                         ? `um ${post.publish_time_local}`
                                         : ""}
                                     </p>
                                     <p className="mt-1 text-xs text-[#829AB1]">
-                                      Review: {post.review_status || "â€”"} Â·
-                                      Status: {post.status || "â€”"}
+                                      Review: {post.review_status || "—"} Â·
+                                      Status: {post.status || "—"}
                                     </p>
                                     {post.blocked_reason ? (
                                       <p className="mt-2 text-xs font-bold leading-5 text-amber-800">
@@ -805,7 +805,7 @@ export default async function AdminSocialAutomationEventsPage() {
                                         href={post.review_url}
                                         className="inline-flex items-center justify-center rounded-full border border-[#D7C3AA] bg-white px-4 py-2 text-xs font-bold text-[#334E68] transition hover:bg-[#F8EFE4]"
                                       >
-                                        Review Ã¶ffnen
+                                        Review öffnen
                                       </Link>
                                     ) : null}
 
@@ -829,7 +829,7 @@ export default async function AdminSocialAutomationEventsPage() {
                       secondaryPosts.length > 0 ? (
                         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                           <h3 className="text-sm font-black uppercase tracking-wide text-amber-950">
-                            Blockierte Publishing-BeitrÃ¤ge
+                            Blockierte Publishing-Beiträge
                           </h3>
                           <div className="mt-3 flex flex-col gap-3">
                             {secondaryPosts.map((post) => (
@@ -858,7 +858,7 @@ export default async function AdminSocialAutomationEventsPage() {
 
                         <dl className="mt-3 grid gap-3 text-sm">
                           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#FBF7F0] px-3 py-2">
-                            <dt className="text-[#486581]">FÃ¤llige BeitrÃ¤ge</dt>
+                            <dt className="text-[#486581]">Fällige Beiträge</dt>
                             <dd className="font-black text-[#102A43]">
                               {event.payload?.summary?.posts_due_today ??
                                 primaryPosts.length}
@@ -880,7 +880,7 @@ export default async function AdminSocialAutomationEventsPage() {
                           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#FBF7F0] px-3 py-2">
                             <dt className="text-[#486581]">
                               {event.reminder_type === "publishing_reminder"
-                                ? "VerÃ¶ffentlichbar"
+                                ? "Veröffentlichbar"
                                 : "Wartet auf Posting"}
                             </dt>
                             <dd className="font-black text-[#102A43]">
@@ -891,7 +891,7 @@ export default async function AdminSocialAutomationEventsPage() {
                           </div>
 
                           <div className="flex items-center justify-between gap-3 rounded-xl bg-[#FBF7F0] px-3 py-2">
-                            <dt className="text-[#486581]">VerÃ¶ffentlicht</dt>
+                            <dt className="text-[#486581]">Veröffentlicht</dt>
                             <dd className="font-black text-[#102A43]">
                               {event.payload?.summary?.already_published ??
                                 safeNumber(event.published_count)}
@@ -911,8 +911,8 @@ export default async function AdminSocialAutomationEventsPage() {
                               Lokales Datum
                             </dt>
                             <dd className="mt-1 text-[#243B53]">
-                              {event.payload?.now?.local_weekday || "â€”"},{" "}
-                              {event.payload?.now?.local_date || "â€”"}
+                              {event.payload?.now?.local_weekday || "—"},{" "}
+                              {event.payload?.now?.local_date || "—"}
                             </dd>
                           </div>
 
@@ -921,7 +921,7 @@ export default async function AdminSocialAutomationEventsPage() {
                               Lokale Uhrzeit
                             </dt>
                             <dd className="mt-1 text-[#243B53]">
-                              {event.payload?.now?.local_time || "â€”"}
+                              {event.payload?.now?.local_time || "—"}
                             </dd>
                           </div>
 
@@ -930,7 +930,7 @@ export default async function AdminSocialAutomationEventsPage() {
                               Gematchte Reminder-Zeit
                             </dt>
                             <dd className="mt-1 text-[#243B53]">
-                              {event.payload?.now?.matched_reminder_time || "â€”"}
+                              {event.payload?.now?.matched_reminder_time || "—"}
                             </dd>
                           </div>
 
@@ -939,7 +939,7 @@ export default async function AdminSocialAutomationEventsPage() {
                               Server-Zeit
                             </dt>
                             <dd className="mt-1 break-all font-mono text-xs text-[#243B53]">
-                              {event.payload?.now?.server_iso || "â€”"}
+                              {event.payload?.now?.server_iso || "—"}
                             </dd>
                           </div>
                         </dl>
@@ -953,11 +953,11 @@ export default async function AdminSocialAutomationEventsPage() {
                               Praktische Bewertung
                             </h3>
                             <p className="mt-1 text-sm leading-6 text-[#486581]">
-                              <strong>Review-Reminder</strong> lÃ¶sen vorab aus.
+                              <strong>Review-Reminder</strong> lösen vorab aus.
                               <br />
-                              <strong>Publishing-Reminder</strong> lÃ¶sen am
-                              VerÃ¶ffentlichungstag oder bei Ã¼berfÃ¤lligen
-                              BeitrÃ¤gen aus.
+                              <strong>Publishing-Reminder</strong> lösen am
+                              Veröffentlichungstag oder bei überfälligen
+                              Beiträgen aus.
                             </p>
                           </div>
                         </div>

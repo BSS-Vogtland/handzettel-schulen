@@ -183,10 +183,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 405,
     },
     logoBox: {
-      x: 88,
-      y: 470,
-      width: 360,
-      height: 84,
+      x: 86,
+      y: 430,
+      width: 430,
+      height: 145,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 5,
@@ -880,6 +880,9 @@ function getBitmapGlyph(char: string) {
     X: ["10001","10001","01010","00100","01010","10001","10001"],
     Y: ["10001","10001","01010","00100","00100","00100","00100"],
     Z: ["11111","00001","00010","00100","01000","10000","11111"],
+    "Ä": ["01010","01110","10001","11111","10001","10001","10001"],
+    "Ö": ["01010","01110","10001","10001","10001","10001","01110"],
+    "Ü": ["01010","10001","10001","10001","10001","10001","01110"],
 
     "0": ["01110","10001","10011","10101","11001","10001","01110"],
     "1": ["00100","01100","00100","00100","00100","00100","01110"],
@@ -908,13 +911,32 @@ function getBitmapGlyph(char: string) {
 
 function normalizeBitmapText(value: string) {
   return cleanString(value)
+    // kaputte Encoding-Reste zuerst reparieren
+    .replace(/Ã¤/g, "ä")
+    .replace(/Ã¶/g, "ö")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Ã„/g, "Ä")
+    .replace(/Ã–/g, "Ö")
+    .replace(/Ãœ/g, "Ü")
+    .replace(/ÃŸ/g, "ß")
+
+    // Sicherheitsnetz für alte gespeicherte Ersatzschreibweisen.
+    // Bewusst nur typische Wörter, kein blindes UE/AE/OE-Replacement.
+    .replace(/\bkuemmern\b/gi, "kümmern")
+    .replace(/\bkuemmer\b/gi, "kümmer")
+    .replace(/\bfuer\b/gi, "für")
+    .replace(/\bueber\b/gi, "über")
+    .replace(/\bkoennen\b/gi, "können")
+    .replace(/\bkoennte\b/gi, "könnte")
+    .replace(/\bmuessen\b/gi, "müssen")
+    .replace(/\bmoeglich\b/gi, "möglich")
+    .replace(/\bschoen\b/gi, "schön")
+    .replace(/\bzurueck\b/gi, "zurück")
+
     .toUpperCase()
-    .replace(/Ä/g, "AE")
-    .replace(/Ö/g, "OE")
-    .replace(/Ü/g, "UE")
     .replace(/ẞ/g, "SS")
     .replace(/ß/g, "SS")
-    .replace(/[^A-Z0-9 .!?,;:&:\/-]/g, " ")
+    .replace(/[^A-ZÄÖÜ0-9 .!?,;:&:\/-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1415,6 +1437,8 @@ export async function POST(
     );
   }
 }
+
+
 
 
 
