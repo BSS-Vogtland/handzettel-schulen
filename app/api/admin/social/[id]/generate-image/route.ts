@@ -178,9 +178,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     },
     imageBox: {
       x: 628,
-      y: 198,
-      width: 308,
-      height: 334,
+      y: 190,
+      width: 322,
+      height: 352,
     },
     logoBox: {
       x: 86,
@@ -1437,6 +1437,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
