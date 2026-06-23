@@ -183,10 +183,10 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 405,
     },
     logoBox: {
-      x: 610,
-      y: 1210,
-      width: 300,
-      height: 64,
+      x: 88,
+      y: 470,
+      width: 360,
+      height: 84,
     },
     hookTextColor: "#102A43",
     hookMaxLines: 5,
@@ -1415,6 +1415,7 @@ export async function POST(
     );
   }
 }
+
 
 
 

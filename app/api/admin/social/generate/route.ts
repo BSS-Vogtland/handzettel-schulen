@@ -248,7 +248,8 @@ Strenge Content-Regeln:
 - Die Hooks sollen neugierig machen, aber seriÃ¶s bleiben.
 - Die Caption soll verstÃ¤ndlich erklÃ¤ren, warum das Thema relevant ist.
 - Der CTA soll zu den hinterlegten CTA-Beispielen passen.
-- Hashtags sollen themennah sein, kein Spam.
+- Verwende korrektes deutsches Schriftbild mit echten Umlauten (ä, ö, ü, Ä, Ö, Ü) und ß, wenn sprachlich passend.
+- Schreibe nicht ae, oe, ue oder ss als Ersatz für Umlaute, außer wenn es technisch unvermeidbar wäre.- Hashtags sollen themennah sein, kein Spam.
 
 
 Template-4-Testbeitrag / Sommerferien:
@@ -517,3 +518,4 @@ export async function POST() {
     );
   }
 }
+
