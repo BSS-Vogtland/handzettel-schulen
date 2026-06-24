@@ -267,16 +267,11 @@ Strenge Content-Regeln:
 - Schreibe nicht ae, oe, ue oder ss als Ersatz für Umlaute, außer wenn es technisch unvermeidbar wäre.- Hashtags sollen themennah sein, kein Spam.
 
 
-Template-4-Testbeitrag / Sommerferien:
-- Erzeuge in dieser Generierungsrunde mindestens einen Beitrag zum Thema Sommerferien, Ferienzeit oder Familienzeit.
-- Dieser Beitrag soll Eltern zeigen, dass sie die Ferien genießen können, statt sich in der freien Zeit mit Schulmaterialkauf und Materiallisten zu stressen.
-- Der Beitrag muss in "topic" oder "hook" mindestens eines dieser Wörter enthalten: "Sommerferien", "Ferien", "Familienzeit" oder "Sommer".
-- Der Beitrag darf in der Caption den Upload der Schulliste erwähnen, aber topic und hook müssen klar Sommer/Ferien/Familienzeit als Hauptthema haben.
-- Geeigneter Beispielinhalt, nicht zwingend wortgleich:
-  topic: "Sommerferien entspannt genießen"
-  hook: "Genieß die Ferien – wir kümmern uns um die Schulliste"
-  caption: "Mehr Familienzeit, weniger Schulmaterialstress: Lade Deine Liste hoch und wir stellen Deinen Paketwunsch zusammen. So bleibt mehr Zeit für Sommer, Familie und echte Ferienmomente."
-${GERMAN_UMLAUT_QUALITY_RULES}
+Saisonale Themenoption Sommerferien / Familienzeit:
+- Sommerferien, Ferienzeit, Familienzeit und "kein Schulmaterialstress in den Ferien" dürfen als saisonale Themen verwendet werden.
+- Diese Themen sind besonders passend vor und während der Sommerferien.
+- Wenn ein Beitrag Sommer/Ferien/Familienzeit als Hauptthema hat, müssen topic und hook dieses Thema klar tragen.
+- Die Caption darf den Upload der Schulliste erwähnen, aber der Beitrag soll nicht automatisch zu einem reinen Upload-/Ablauf-Post werden.
 
 Strenge Bildprompt-Regeln:
 - image_prompt muss auf Englisch formuliert sein.
@@ -535,5 +530,6 @@ export async function POST() {
     );
   }
 }
+
 
 
