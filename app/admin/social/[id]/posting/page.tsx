@@ -888,7 +888,133 @@ export default async function AdminSocialPostingPage({
           </aside>
         </section>
 
+        
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-5 flex items-center gap-2">
+            <Share2 className="h-5 w-5 text-[#B5282D]" />
+            <h2 className="text-2xl font-black text-[#102A43]">
+              Posting-Medium auswählen
+            </h2>
+          </div>
+
+          <p className="max-w-4xl text-sm font-semibold leading-6 text-[#52616F]">
+            Entscheide hier fachlich, ob dieser Beitrag als Bildpost oder als animiertes Video/Reel genutzt werden soll.
+            Diese Auswahl steuert aktuell noch nicht automatisch das Meta-Publishing, bereitet aber den nächsten Schritt sauber vor.
+          </p>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+            <article className={`rounded-[1.5rem] border p-5 ${
+              hasReadyImage
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-amber-200 bg-amber-50"
+            }`}>
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#B5282D]">
+                  <ImageIcon className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-black text-[#102A43]">
+                    Bildpost / Standard-Posting
+                  </h3>
+
+                  <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                    Geeignet für Facebook-Feed, Instagram-Feed, Story-Thumbnail und schnelle manuelle Veröffentlichungen.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-emerald-800">
+                      Facebook Feed
+                    </span>
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-emerald-800">
+                      Instagram Feed
+                    </span>
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-[#486581]">
+                      Thumbnail
+                    </span>
+                  </div>
+
+                  {latestAsset?.public_url ? (
+                    <a
+                      href={latestAsset.public_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                    >
+                      Aktuelles Bild öffnen
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <p className="mt-5 text-sm font-black text-amber-900">
+                      Noch kein Bild vorhanden.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </article>
+
+            <article className={`rounded-[1.5rem] border p-5 ${
+              hasReadyVideo
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-slate-200 bg-slate-50"
+            }`}>
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#102A43]">
+                  <Video className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-black text-[#102A43]">
+                    Video / Reel / Story
+                  </h3>
+
+                  <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                    Geeignet für Instagram Reels, Facebook Reels, Stories und TikTok-ähnliche Kurzformate.
+                    Für Musik ist die 30-Sekunden-Version die beste Grundlage.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-emerald-800">
+                      Instagram Reel
+                    </span>
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-emerald-800">
+                      Facebook Reel
+                    </span>
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-[#486581]">
+                      Story
+                    </span>
+                    <span className="rounded-full border border-white bg-white px-3 py-1 text-xs font-black text-[#486581]">
+                      Musikfähig ab 30s
+                    </span>
+                  </div>
+
+                  {latestVideoAsset?.public_url ? (
+                    <a
+                      href={latestVideoAsset.public_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                    >
+                      Aktuelles Video öffnen
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <p className="mt-5 text-sm font-black text-slate-700">
+                      Noch kein Video vorhanden. Erzeuge zuerst ein 15s- oder 30s-Video.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold leading-6 text-blue-900">
+            Empfehlung: Für normale Posts reicht das Bild. Für Reichweite, Reels und spätere Musiknutzung die 30-Sekunden-Video-Version verwenden.
+            Das automatische Meta-Publishing wird im nächsten Schritt so erweitert, dass Bild und Video sauber getrennt behandelt werden.
+          </div>
+        </section>
+
+<section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
