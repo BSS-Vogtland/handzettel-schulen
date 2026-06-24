@@ -59,6 +59,7 @@ type AlreadyPublishedMetaPublication = {
   meta_creation_id: string | null;
   published_at: string | null;
   created_at: string | null;
+  payload: Record<string, unknown> | null;
 };
 
 function cleanString(value: unknown) {
@@ -73,14 +74,22 @@ function normalizePostId(value: unknown) {
     .replace(/"+$/, "")
     .trim();
 
-  const match = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  const match = raw.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+  );
 
   return match ? match[0] : raw;
 }
 
-
-
 function isUuid(value: string) {
+  const normalized = normalizePostId(value);
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    normalized.replace(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4})-([0-9a-f]{4}[0-9a-f]{12})$/i, "$1-$2")
+  );
+}
+
+function isStrictUuid(value: string) {
   const normalized = normalizePostId(value);
 
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -146,6 +155,15 @@ function platformLabel(platform: MetaPlatform) {
 
 function mediaTypeLabel(mediaType: PublishMediaType) {
   return mediaType === "video" ? "Video/Reel" : "Bildpost";
+}
+
+function getPayloadMediaType(payload: Record<string, unknown> | null) {
+  const value = payload?.media_type;
+
+  if (value === "video") return "video";
+  if (value === "image") return "image";
+
+  return "image";
 }
 
 async function getPostIdFromRequest(request: Request, context: RouteContext) {
@@ -262,13 +280,12 @@ async function loadLatestAsset({
   return (data || null) as SocialAssetRow | null;
 }
 
-async function markPostPublished(postId: string) {
+async function updatePostAfterSuccessfulMetaPublish(postId: string) {
   const now = new Date().toISOString();
 
   const { data, error } = await supabaseServer
     .from("social_posts")
     .update({
-      status: "published",
       published_at: now,
       updated_at: now,
     })
@@ -359,16 +376,18 @@ async function logMetaPublishEvent({
 async function getAlreadyPublishedMetaPublications({
   postId,
   platforms,
+  mediaType,
 }: {
   postId: string;
   platforms: MetaPlatform[];
+  mediaType: PublishMediaType;
 }) {
   if (!postId || platforms.length === 0) return [];
 
   const { data, error } = await supabaseServer
     .from("social_publish_events")
     .select(
-      "platform, meta_id, meta_post_id, meta_creation_id, published_at, created_at"
+      "platform, meta_id, meta_post_id, meta_creation_id, published_at, created_at, payload"
     )
     .eq("post_id", postId)
     .eq("event_type", "publish")
@@ -392,9 +411,15 @@ async function getAlreadyPublishedMetaPublications({
   const uniqueRows: AlreadyPublishedMetaPublication[] = [];
 
   for (const row of rows) {
-    if (!row.platform || seen.has(row.platform)) continue;
+    if (!row.platform) continue;
 
-    seen.add(row.platform);
+    const rowMediaType = getPayloadMediaType(row.payload);
+    const key = `${row.platform}:${rowMediaType}`;
+
+    if (rowMediaType !== mediaType) continue;
+    if (seen.has(key)) continue;
+
+    seen.add(key);
     uniqueRows.push(row);
   }
 
@@ -444,7 +469,7 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const id = normalizePostId(await getPostIdFromRequest(request, context));
 
-    if (!id || !isUuid(id)) {
+    if (!id || !isStrictUuid(id)) {
       return NextResponse.json(
         {
           ok: false,
@@ -474,14 +499,6 @@ export async function POST(request: Request, context: RouteContext) {
         { ok: false, message: "Social-Beitrag wurde nicht gefunden." },
         { status: 404 }
       );
-    }
-
-    if (post.status === "published") {
-      return NextResponse.json({
-        ok: true,
-        message: "Dieser Beitrag ist bereits als veröffentlicht markiert.",
-        post,
-      });
     }
 
     if (post.status === "archived" || post.status === "failed") {
@@ -543,13 +560,13 @@ export async function POST(request: Request, context: RouteContext) {
       await getAlreadyPublishedMetaPublications({
         postId: post.id,
         platforms,
+        mediaType,
       });
 
     if (alreadyPublishedPublications.length > 0) {
-      const blockedPlatforms = alreadyPublishedPublications.map((event) => {
-        if (event.platform === "facebook") return "Facebook";
-        if (event.platform === "instagram") return "Instagram";
-        return event.platform;
+      const blockedLabels = alreadyPublishedPublications.map((event) => {
+        const label = platformLabel(event.platform);
+        return `${label} ${mediaTypeLabel(mediaType)}`;
       });
 
       return NextResponse.json(
@@ -557,9 +574,10 @@ export async function POST(request: Request, context: RouteContext) {
           ok: false,
           blocked: true,
           reason: "already_published",
-          message: `Doppelveröffentlichung blockiert: Dieser Beitrag wurde bereits auf ${blockedPlatforms.join(
+          mediaType,
+          message: `Doppelveröffentlichung blockiert: Diese Kombination wurde bereits veröffentlicht: ${blockedLabels.join(
             ", "
-          )} veröffentlicht.`,
+          )}.`,
           alreadyPublished: alreadyPublishedPublications,
         },
         { status: 409 }
@@ -642,7 +660,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const updatedPost = await markPostPublished(post.id);
+    const updatedPost = await updatePostAfterSuccessfulMetaPublish(post.id);
 
     const platformLabelText = platforms.map(platformLabel).join(" und ");
 
@@ -650,7 +668,7 @@ export async function POST(request: Request, context: RouteContext) {
       ok: true,
       message: `Beitrag wurde als ${mediaTypeLabel(
         mediaType
-      )} über ${platformLabelText} veröffentlicht und im SocialPilot als veröffentlicht markiert.`,
+      )} über ${platformLabelText} veröffentlicht und im SocialPilot-Protokoll gespeichert.`,
       mediaType,
       results,
       post: updatedPost,
@@ -668,5 +686,3 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
-
-
