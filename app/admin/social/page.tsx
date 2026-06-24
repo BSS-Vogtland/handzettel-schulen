@@ -26,6 +26,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialGenerateButton from "@/components/AdminSocialGenerateButton";
 import AdminSocialCreateWeekPlanButton from "@/components/AdminSocialCreateWeekPlanButton";
 import AdminSocialMusicLibraryShortcut from "@/components/AdminSocialMusicLibraryShortcut";
+import AdminSocialMetaConnectionStatus from "@/components/AdminSocialMetaConnectionStatus";
 export const dynamic = "force-dynamic";
 
 type SocialPostRow = {
@@ -525,6 +526,7 @@ export default async function AdminSocialPage() {
 
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
         <AdminSocialMusicLibraryShortcut />
+        <AdminSocialMetaConnectionStatus />
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">

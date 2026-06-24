@@ -1,27 +1,23 @@
 ﻿import { NextResponse } from "next/server";
-import { getMetaConfigStatus, verifyMetaConnection } from "@/lib/social/metaPublishing";
+import {
+  getMetaConfigStatus,
+  verifyMetaConnection,
+} from "@/lib/social/metaPublishing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const url = new URL(request.url);
-    const live = url.searchParams.get("live") === "1";
-
-    if (live) {
-      const verification = await verifyMetaConnection();
-      return NextResponse.json({
-        ok: true,
-        mode: "live",
-        ...verification,
-      });
-    }
+    const config = getMetaConfigStatus();
+    const verification = await verifyMetaConnection();
 
     return NextResponse.json({
       ok: true,
-      mode: "config_only",
-      configured: getMetaConfigStatus(),
+      message: "Meta-Systemstatus wurde geprüft.",
+      checked_at: new Date().toISOString(),
+      config,
+      verification,
     });
   } catch (error) {
     return NextResponse.json(
@@ -30,11 +26,10 @@ export async function GET(request: Request) {
         message:
           error instanceof Error
             ? error.message
-            : "Meta-Konfiguration konnte nicht geprüft werden.",
+            : "Meta-Systemstatus konnte nicht geprüft werden.",
+        checked_at: new Date().toISOString(),
       },
       { status: 500 }
     );
   }
 }
-
-
