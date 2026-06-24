@@ -22,6 +22,7 @@ import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdC
 import AdminSocialMetaPublishMediaButtons from "@/components/AdminSocialMetaPublishMediaButtons";
 import AdminSocialGenerateVideoButton from "@/components/AdminSocialGenerateVideoButton";
 import AdminSocialMusicStatusControl from "@/components/AdminSocialMusicStatusControl";
+import AdminSocialVideoMusicComposer from "@/components/AdminSocialVideoMusicComposer";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,17 @@ type SocialAssetRow = {
   metadata: Record<string, unknown> | null;
 };
 
+
+type SocialMusicTrackRow = {
+  id: string;
+  title: string;
+  public_url: string | null;
+  duration_seconds: number | null;
+  mood_tags: string[] | null;
+  template_keys: string[] | null;
+  license_type: string | null;
+  license_note: string | null;
+};
 
 type SocialPublishEventRow = {
   id: string;
@@ -557,6 +569,16 @@ export default async function AdminSocialPostingPage({
 
   const publishEvents = (publishEventsData || []) as SocialPublishEventRow[];
 
+  const { data: musicTracksData } = await supabaseServer
+    .from("social_music_library")
+    .select("id, title, public_url, duration_seconds, mood_tags, template_keys, license_type, license_note")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const musicTracks = (musicTracksData || []) as SocialMusicTrackRow[];
+
   const tiktokHook = post.tiktok_hook || post.hook;
   const tiktokCaption = post.tiktok_caption || post.caption;
 
@@ -732,6 +754,15 @@ export default async function AdminSocialPostingPage({
               assetId={latestVideoAsset.id}
               currentStatus={getAssetMusicStatus(latestVideoAsset.metadata)}
               currentNote={getAssetMusicNote(latestVideoAsset.metadata)}
+            />
+          ) : null}
+
+          {latestVideoAsset?.id ? (
+            <AdminSocialVideoMusicComposer
+              postId={post.id}
+              sourceVideoAssetId={latestVideoAsset.id}
+              tracks={musicTracks}
+              templateKey={null}
             />
           ) : null}
 
