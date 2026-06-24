@@ -65,9 +65,26 @@ function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizePostId(value: unknown) {
+  const raw = cleanString(value)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[‐-‒–—−]/g, "-")
+    .replace(/^"+/, "")
+    .replace(/"+$/, "")
+    .trim();
+
+  const match = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+
+  return match ? match[0] : raw;
+}
+
+
+
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
+  const normalized = normalizePostId(value);
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    normalized
   );
 }
 
@@ -149,7 +166,7 @@ async function getPostIdFromRequest(request: Request, context: RouteContext) {
       params = rawParams as { id?: string };
     }
 
-    contextId = cleanString(params?.id);
+    contextId = normalizePostId(params?.id);
   } catch {
     contextId = "";
   }
@@ -161,10 +178,7 @@ async function getPostIdFromRequest(request: Request, context: RouteContext) {
 
   const pathId = match?.[1] ? decodeURIComponent(match[1]) : "";
 
-  return cleanString(contextId || pathId)
-    .replace(/^"+/, "")
-    .replace(/"+$/, "")
-    .trim();
+  return normalizePostId(contextId || pathId);
 }
 
 async function parsePublishRequest(
@@ -425,7 +439,7 @@ async function publishToPlatform({
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const id = await getPostIdFromRequest(request, context);
+    const id = normalizePostId(await getPostIdFromRequest(request, context));
 
     if (!id || !isUuid(id)) {
       return NextResponse.json(
@@ -650,3 +664,5 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
+
