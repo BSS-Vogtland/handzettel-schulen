@@ -295,6 +295,7 @@ async function logMetaPublishEvent({
   mediaUrl,
   mediaType,
   assetId,
+  finalText,
   result,
 }: {
   postId: string;
@@ -302,6 +303,7 @@ async function logMetaPublishEvent({
   mediaUrl: string;
   mediaType: PublishMediaType;
   assetId: string | null;
+  finalText: string;
   result: MetaPublishPlatformResult;
 }) {
   try {
@@ -333,6 +335,7 @@ async function logMetaPublishEvent({
             media_type: mediaType,
             asset_id: assetId,
             media_url: mediaUrl,
+            final_text: finalText,
             result: result || {},
           })
         ),
@@ -618,6 +621,7 @@ export async function POST(request: Request, context: RouteContext) {
         mediaUrl,
         mediaType,
         assetId: latestAsset?.id || null,
+        finalText: buildCaptionForPlatform({ platform, post }),
         result,
       });
     }

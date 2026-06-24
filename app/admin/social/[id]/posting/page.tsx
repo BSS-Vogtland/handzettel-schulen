@@ -64,6 +64,7 @@ type SocialAssetRow = {
   mime_type: string | null;
 };
 
+
 type SocialPublishEventRow = {
   id: string;
   created_at: string;
@@ -74,6 +75,9 @@ type SocialPublishEventRow = {
   meta_post_id: string | null;
   meta_creation_id: string | null;
   error_message: string | null;
+  message: string | null;
+  image_url: string | null;
+  payload: Record<string, unknown> | null;
   published_at: string | null;
 };
 
@@ -228,6 +232,43 @@ function getPublishEventStatusClasses(status: string) {
 function getMetaReference(event: SocialPublishEventRow) {
   return event.meta_post_id || event.meta_id || event.meta_creation_id || "-";
 }
+
+function getPublishEventPayload(event: SocialPublishEventRow) {
+  return event.payload && typeof event.payload === "object" ? event.payload : {};
+}
+
+function getPublishEventPayloadString(event: SocialPublishEventRow, key: string) {
+  const payload = getPublishEventPayload(event);
+  const value = payload[key];
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getPublishEventMediaType(event: SocialPublishEventRow) {
+  return getPublishEventPayloadString(event, "media_type") || "image";
+}
+
+function getPublishEventMediaLabel(event: SocialPublishEventRow) {
+  const mediaType = getPublishEventMediaType(event);
+
+  if (mediaType === "video") return "Video/Reel";
+  if (mediaType === "image") return "Bildpost";
+
+  return mediaType;
+}
+
+function getPublishEventAssetId(event: SocialPublishEventRow) {
+  return getPublishEventPayloadString(event, "asset_id");
+}
+
+function getPublishEventMediaUrl(event: SocialPublishEventRow) {
+  return getPublishEventPayloadString(event, "media_url") || event.image_url;
+}
+
+function getPublishEventFinalText(event: SocialPublishEventRow) {
+  return getPublishEventPayloadString(event, "final_text");
+}
+
 
 function PostingBlock({
   title,
@@ -390,7 +431,7 @@ export default async function AdminSocialPostingPage({
   const { data: publishEventsData } = await supabaseServer
     .from("social_publish_events")
     .select(
-      "id, created_at, platform, event_type, status, meta_id, meta_post_id, meta_creation_id, error_message, published_at"
+      "id, created_at, platform, event_type, status, meta_id, meta_post_id, meta_creation_id, error_message, message, image_url, payload, published_at"
     )
     .eq("post_id", id)
     .order("created_at", { ascending: false })
@@ -1033,7 +1074,7 @@ export default async function AdminSocialPostingPage({
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
                 Hier siehst Du die letzten Veröffentlichungsversuche für diesen Beitrag.
-                Gespeichert werden Plattform, Status, Meta-Referenz, Zeitpunkt und mögliche Fehler.
+                Gespeichert werden Plattform, Medium, Asset, Meta-Referenz, finaler Text, Zeitpunkt und mögliche Fehler.
               </p>
             </div>
 
@@ -1091,6 +1132,62 @@ export default async function AdminSocialPostingPage({
                       <div className="mt-2 text-xs font-semibold leading-5 text-[#627D98]">
                         Creation-ID: <span className="font-bold">{event.meta_creation_id}</span>
                       </div>
+                    ) : null}
+
+                    <div className="mt-3 grid gap-3 rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-3 text-xs font-bold leading-5 text-[#486581] md:grid-cols-2">
+                      <div>
+                        <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5A35]">
+                          Veröffentlichtes Medium
+                        </span>
+                        <span className="mt-1 inline-flex rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#102A43]">
+                          {getPublishEventMediaLabel(event)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#8A5A35]">
+                          Asset
+                        </span>
+
+                        {getPublishEventMediaUrl(event) ? (
+                          <a
+                            href={getPublishEventMediaUrl(event) || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#A23A2E] hover:bg-[#F5E8D8]"
+                          >
+                            Asset öffnen
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="mt-1 block text-[#627D98]">
+                            Keine Asset-URL gespeichert
+                          </span>
+                        )}
+
+                        {getPublishEventAssetId(event) ? (
+                          <span className="mt-2 block break-all text-[11px] font-semibold text-[#627D98]">
+                            Asset-ID: {getPublishEventAssetId(event)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {event.message ? (
+                      <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-900">
+                        {event.message}
+                      </div>
+                    ) : null}
+
+                    {getPublishEventFinalText(event) ? (
+                      <details className="mt-3 rounded-xl border border-[#E7D8C3] bg-white px-3 py-2 text-xs leading-5 text-[#102A43]">
+                        <summary className="cursor-pointer font-black text-[#8A5A35]">
+                          Finalen Veröffentlichungstext anzeigen
+                        </summary>
+                        <p className="mt-3 whitespace-pre-line font-semibold">
+                          {getPublishEventFinalText(event)}
+                        </p>
+                      </details>
                     ) : null}
                   </article>
                 ))}
