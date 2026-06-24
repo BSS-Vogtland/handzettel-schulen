@@ -109,6 +109,43 @@ function getPlatformLabel(platform: Platform) {
   return platform === "facebook" ? "Facebook" : "Instagram";
 }
 
+
+function buildMetaPublishErrorMessage(result: unknown) {
+  if (!result || typeof result !== "object") {
+    return "Meta-Veröffentlichung ist fehlgeschlagen.";
+  }
+
+  const record = result as Record<string, unknown>;
+  const baseMessage =
+    typeof record.message === "string" && record.message.trim()
+      ? record.message.trim()
+      : "Meta-Veröffentlichung ist fehlgeschlagen.";
+
+  const rawResults = Array.isArray(record.results) ? record.results : [];
+
+  const detailMessages = rawResults
+    .map((item) => {
+      if (!item || typeof item !== "object") return "";
+
+      const itemRecord = item as Record<string, unknown>;
+      const platform =
+        typeof itemRecord.platform === "string" ? itemRecord.platform : "meta";
+      const message =
+        typeof itemRecord.message === "string" ? itemRecord.message : "";
+
+      if (!message.trim()) return "";
+
+      return `${platform}: ${message.trim()}`;
+    })
+    .filter(Boolean);
+
+  if (detailMessages.length === 0) {
+    return baseMessage;
+  }
+
+  return `${baseMessage}\n\nDetails:\n${detailMessages.join("\n")}`;
+}
+
 function getMediaLabel(mediaType: MediaType) {
   return mediaType === "video" ? "Video/Reel" : "Bildpost";
 }
@@ -215,9 +252,7 @@ export default function AdminSocialMetaPublishMediaButtons({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.ok) {
-        throw new Error(
-          result?.message || "Meta-Veröffentlichung ist fehlgeschlagen."
-        );
+        throw new Error(buildMetaPublishErrorMessage(result));
       }
 
       setPreview(null);
