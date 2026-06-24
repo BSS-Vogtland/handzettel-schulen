@@ -388,6 +388,7 @@ export async function POST(request: Request, context: RouteContext) {
       .from("social_assets")
       .insert({
         post_id: postId,
+        prompt: `Video mit eingebetteter Musik: ${musicTrack.title}`,
         asset_type: "video",
         provider: "template-composite-video-audio",
         model: "ffmpeg-audio-mix-v1",
