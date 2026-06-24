@@ -189,6 +189,55 @@ function pickString(value: unknown, key: string) {
   return typeof record[key] === "string" ? record[key] : null;
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForInstagramContainer({
+  version,
+  creationId,
+  accessToken,
+}: {
+  version: string;
+  creationId: string;
+  accessToken: string;
+}) {
+  let lastPayload: unknown = null;
+
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    const payload = await getGraphApi({
+      version,
+      edge: creationId,
+      accessToken,
+      fields: "status_code,status",
+    });
+
+    lastPayload = payload;
+
+    const statusCode = pickString(payload, "status_code");
+
+    if (statusCode === "FINISHED") {
+      return payload;
+    }
+
+    if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+      throw new Error(
+        `Instagram-Media-Container konnte nicht veröffentlicht werden. Status: ${
+          statusCode || "unbekannt"
+        }`
+      );
+    }
+
+    await delay(5000);
+  }
+
+  throw new Error(
+    `Instagram-Media-Container ist noch nicht fertig verarbeitet. Bitte später erneut versuchen. Letzter Status: ${JSON.stringify(
+      lastPayload
+    )}`
+  );
+}
+
 export async function verifyMetaConnection() {
   const config = getMetaConfig();
   const status = getMetaConfigStatus();
@@ -282,6 +331,41 @@ export async function publishFacebookPhoto({
   };
 }
 
+export async function publishFacebookVideo({
+  videoUrl,
+  caption,
+}: {
+  videoUrl: string;
+  caption: string;
+}): Promise<MetaPublishResult> {
+  const config = getMetaConfig();
+
+  if (!config.facebookPageId || !config.facebookAccessToken) {
+    throw new Error(
+      "Meta Facebook ist nicht vollständig konfiguriert. Benötigt: META_FACEBOOK_PAGE_ID und META_FACEBOOK_PAGE_ACCESS_TOKEN oder META_ACCESS_TOKEN."
+    );
+  }
+
+  const payload = await postGraphApi({
+    version: config.graphApiVersion,
+    edge: `${config.facebookPageId}/videos`,
+    params: {
+      file_url: videoUrl,
+      description: caption,
+      published: "true",
+      access_token: config.facebookAccessToken,
+    },
+  });
+
+  return {
+    platform: "facebook",
+    ok: true,
+    id: pickString(payload, "id"),
+    postId: pickString(payload, "post_id"),
+    raw: payload,
+  };
+}
+
 export async function publishInstagramImage({
   imageUrl,
   caption,
@@ -333,4 +417,60 @@ export async function publishInstagramImage({
   };
 }
 
+export async function publishInstagramReel({
+  videoUrl,
+  caption,
+}: {
+  videoUrl: string;
+  caption: string;
+}): Promise<MetaPublishResult> {
+  const config = getMetaConfig();
 
+  if (!config.instagramBusinessAccountId || !config.instagramAccessToken) {
+    throw new Error(
+      "Meta Instagram ist nicht vollständig konfiguriert. Benötigt: META_INSTAGRAM_BUSINESS_ACCOUNT_ID und META_INSTAGRAM_ACCESS_TOKEN oder META_ACCESS_TOKEN."
+    );
+  }
+
+  const containerPayload = await postGraphApi({
+    version: config.graphApiVersion,
+    edge: `${config.instagramBusinessAccountId}/media`,
+    params: {
+      media_type: "REELS",
+      video_url: videoUrl,
+      caption,
+      access_token: config.instagramAccessToken,
+    },
+  });
+
+  const creationId = pickString(containerPayload, "id");
+
+  if (!creationId) {
+    throw new Error(
+      "Instagram hat keinen Reel-Media-Container zurückgegeben. Veröffentlichung wurde abgebrochen."
+    );
+  }
+
+  await waitForInstagramContainer({
+    version: config.graphApiVersion,
+    creationId,
+    accessToken: config.instagramAccessToken,
+  });
+
+  const publishPayload = await postGraphApi({
+    version: config.graphApiVersion,
+    edge: `${config.instagramBusinessAccountId}/media_publish`,
+    params: {
+      creation_id: creationId,
+      access_token: config.instagramAccessToken,
+    },
+  });
+
+  return {
+    platform: "instagram",
+    ok: true,
+    id: pickString(publishPayload, "id"),
+    creationId,
+    raw: publishPayload,
+  };
+}

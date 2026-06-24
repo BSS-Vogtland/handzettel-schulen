@@ -3,7 +3,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 import {
   getConfiguredMetaPlatforms,
   publishFacebookPhoto,
+  publishFacebookVideo,
   publishInstagramImage,
+  publishInstagramReel,
   type MetaPublishFailure,
   type MetaPublishPlatformResult,
 } from "@/lib/social/metaPublishing";
@@ -16,6 +18,7 @@ type RouteContext = {
 };
 
 type MetaPlatform = "facebook" | "instagram";
+type PublishMediaType = "image" | "video";
 
 type SocialPostRow = {
   id: string;
@@ -39,6 +42,8 @@ type SocialAssetRow = {
   public_url: string | null;
   storage_path: string | null;
   status: string | null;
+  asset_type: string | null;
+  mime_type: string | null;
 };
 
 function cleanString(value: unknown) {
@@ -115,7 +120,12 @@ async function getPostIdFromRequest(request: Request, context: RouteContext) {
     .trim();
 }
 
-async function parsePlatforms(request: Request): Promise<MetaPlatform[]> {
+type ParsedPublishRequest = {
+  platforms: MetaPlatform[];
+  mediaType: PublishMediaType;
+};
+
+async function parsePublishRequest(request: Request): Promise<ParsedPublishRequest> {
   const configured = getConfiguredMetaPlatforms();
 
   let body: unknown = null;
@@ -132,10 +142,20 @@ async function parsePlatforms(request: Request): Promise<MetaPlatform[]> {
           .filter((platform) => platform === "facebook" || platform === "instagram") as MetaPlatform[])
       : [];
 
+  const rawMediaType =
+    body && typeof body === "object"
+      ? (body as { mediaType?: unknown }).mediaType
+      : null;
+
+  const mediaType: PublishMediaType = rawMediaType === "video" ? "video" : "image";
+
   const uniqueRequested = Array.from(new Set(requested));
   const platforms = uniqueRequested.length > 0 ? uniqueRequested : configured;
 
-  return platforms.filter((platform) => configured.includes(platform));
+  return {
+    platforms: platforms.filter((platform) => configured.includes(platform)),
+    mediaType,
+  };
 }
 
 async function loadPost(id: string) {
@@ -152,12 +172,18 @@ async function loadPost(id: string) {
   return (data || null) as SocialPostRow | null;
 }
 
-async function loadLatestImageAsset(postId: string) {
+async function loadLatestAsset({
+  postId,
+  mediaType,
+}: {
+  postId: string;
+  mediaType: PublishMediaType;
+}) {
   const { data, error } = await supabaseServer
     .from("social_assets")
-    .select("id, public_url, storage_path, status")
+    .select("id, public_url, storage_path, status, asset_type, mime_type")
     .eq("post_id", postId)
-    .eq("asset_type", "image")
+    .eq("asset_type", mediaType)
     .neq("status", "archived")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -199,12 +225,16 @@ function pickResultTextValue(result: MetaPublishPlatformResult, key: string) {
 async function logMetaPublishEvent({
   postId,
   platform,
-  imageUrl,
+  mediaUrl,
+  mediaType,
+  assetId,
   result,
 }: {
   postId: string;
   platform: MetaPlatform;
-  imageUrl: string;
+  mediaUrl: string;
+  mediaType: PublishMediaType;
+  assetId: string | null;
   result: MetaPublishPlatformResult;
 }) {
   try {
@@ -228,10 +258,17 @@ async function logMetaPublishEvent({
         meta_id: metaId,
         meta_post_id: metaPostId,
         meta_creation_id: metaCreationId,
-        image_url: imageUrl,
+        image_url: mediaUrl,
         message,
         error_message: result.ok ? null : message,
-        payload: JSON.parse(JSON.stringify(result || {})),
+        payload: JSON.parse(
+          JSON.stringify({
+            media_type: mediaType,
+            asset_id: assetId,
+            media_url: mediaUrl,
+            result: result || {},
+          })
+        ),
         published_at: result.ok ? now : null,
       });
 
@@ -302,11 +339,13 @@ async function getAlreadyPublishedMetaPublications({
 async function publishToPlatform({
   platform,
   post,
-  imageUrl,
+  mediaUrl,
+  mediaType,
 }: {
   platform: MetaPlatform;
   post: SocialPostRow;
-  imageUrl: string;
+  mediaUrl: string;
+  mediaType: PublishMediaType;
 }): Promise<MetaPublishPlatformResult> {
   try {
     if (platform === "facebook") {
@@ -317,7 +356,11 @@ async function publishToPlatform({
         hashtags: post.hashtags,
       });
 
-      return await publishFacebookPhoto({ imageUrl, caption });
+      if (mediaType === "video") {
+        return await publishFacebookVideo({ videoUrl: mediaUrl, caption });
+      }
+
+      return await publishFacebookPhoto({ imageUrl: mediaUrl, caption });
     }
 
     const caption = buildPostingText({
@@ -327,7 +370,11 @@ async function publishToPlatform({
       hashtags: post.hashtags,
     });
 
-    return await publishInstagramImage({ imageUrl, caption });
+    if (mediaType === "video") {
+      return await publishInstagramReel({ videoUrl: mediaUrl, caption });
+    }
+
+    return await publishInstagramImage({ imageUrl: mediaUrl, caption });
   } catch (error) {
     return {
       platform,
@@ -354,7 +401,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const platforms = await parsePlatforms(request);
+    const { platforms, mediaType } = await parsePublishRequest(request);
 
     if (platforms.length === 0) {
       return NextResponse.json(
@@ -406,26 +453,34 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const latestAsset = await loadLatestImageAsset(post.id);
-    const imageUrl = cleanString(latestAsset?.public_url);
+    const latestAsset = await loadLatestAsset({
+      postId: post.id,
+      mediaType,
+    });
 
-    if (!imageUrl) {
+    const mediaUrl = cleanString(latestAsset?.public_url);
+
+    if (!mediaUrl) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Es ist noch kein veröffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen.",
+            mediaType === "video"
+              ? "Es ist noch kein veröffentlichbares Social-Video vorhanden. Bitte zuerst ein Video erzeugen."
+              : "Es ist noch kein veröffentlichbares Social-Bild vorhanden. Bitte zuerst ein Bild erzeugen.",
         },
         { status: 400 }
       );
     }
 
-    if (!/^https:\/\//i.test(imageUrl)) {
+    if (!/^https:\/\//i.test(mediaUrl)) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Das Social-Bild braucht eine öffentlich erreichbare HTTPS-URL, damit Meta es veröffentlichen kann.",
+            mediaType === "video"
+              ? "Das Social-Video braucht eine öffentlich erreichbare HTTPS-URL, damit Meta es veröffentlichen kann."
+              : "Das Social-Bild braucht eine öffentlich erreichbare HTTPS-URL, damit Meta es veröffentlichen kann.",
         },
         { status: 400 }
       );
@@ -461,13 +516,20 @@ export async function POST(request: Request, context: RouteContext) {
     const results: MetaPublishPlatformResult[] = [];
 
     for (const platform of platforms) {
-      const result = await publishToPlatform({ platform, post, imageUrl });
+      const result = await publishToPlatform({
+        platform,
+        post,
+        mediaUrl,
+        mediaType,
+      });
       results.push(result);
 
       await logMetaPublishEvent({
         postId: post.id,
         platform,
-        imageUrl,
+        mediaUrl,
+        mediaType,
+        assetId: latestAsset?.id || null,
         result,
       });
     }
@@ -496,7 +558,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      message: `Beitrag wurde über ${platformLabel} veröffentlicht und im SocialPilot als veröffentlicht markiert.`,
+      message: `Beitrag wurde als ${mediaType === "video" ? "Video/Reel" : "Bildpost"} über ${platformLabel} veröffentlicht und im SocialPilot als veröffentlicht markiert.`,
       results,
       post: updatedPost,
     });
