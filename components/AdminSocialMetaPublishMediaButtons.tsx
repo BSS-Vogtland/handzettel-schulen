@@ -47,6 +47,8 @@ type PreviewResponse = {
     status: string | null;
     asset_type: string | null;
     mime_type: string | null;
+    music_status?: "none" | "manual_added" | "planned";
+    music_note?: string;
   };
   captions?: {
     platform: Platform;
@@ -109,6 +111,14 @@ function getPlatformLabel(platform: Platform) {
 
 function getMediaLabel(mediaType: MediaType) {
   return mediaType === "video" ? "Video/Reel" : "Bildpost";
+}
+
+
+function getMusicStatusLabel(status: string | undefined) {
+  if (status === "manual_added") return "Musik manuell ergänzt";
+  if (status === "planned") return "Musik später geplant";
+
+  return "Keine Musik";
 }
 
 function getAssetLabel(mediaType: MediaType) {
@@ -379,6 +389,20 @@ export default function AdminSocialMetaPublishMediaButtons({
                   <p className="mt-3 break-all text-xs font-semibold text-[#627D98]">
                     Asset-ID: {preview.response.asset.id}
                   </p>
+                ) : null}
+
+                {preview.option.mediaType === "video" ? (
+                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-900">
+                    <span className="block font-black">Musikstatus</span>
+                    <span className="mt-1 block">
+                      {getMusicStatusLabel(preview.response.asset?.music_status)}
+                    </span>
+                    {preview.response.asset?.music_note ? (
+                      <span className="mt-2 block whitespace-pre-line">
+                        {preview.response.asset.music_note}
+                      </span>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>

@@ -21,6 +21,7 @@ import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishe
 import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdCampaignButton";
 import AdminSocialMetaPublishMediaButtons from "@/components/AdminSocialMetaPublishMediaButtons";
 import AdminSocialGenerateVideoButton from "@/components/AdminSocialGenerateVideoButton";
+import AdminSocialMusicStatusControl from "@/components/AdminSocialMusicStatusControl";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ type SocialAssetRow = {
   status: string;
   asset_type: string | null;
   mime_type: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 
@@ -88,6 +90,58 @@ function formatDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+
+type MusicStatus = "none" | "manual_added" | "planned";
+
+function getAssetMusicStatus(metadata: Record<string, unknown> | null | undefined): MusicStatus {
+  if (!metadata || typeof metadata !== "object") return "none";
+
+  const flatStatus = metadata.music_status;
+
+  if (flatStatus === "manual_added") return "manual_added";
+  if (flatStatus === "planned") return "planned";
+
+  const audio = metadata.audio;
+
+  if (audio && typeof audio === "object") {
+    const audioStatus = (audio as Record<string, unknown>).status;
+
+    if (audioStatus === "manual_added") return "manual_added";
+    if (audioStatus === "planned") return "planned";
+  }
+
+  return "none";
+}
+
+function getAssetMusicNote(metadata: Record<string, unknown> | null | undefined) {
+  if (!metadata || typeof metadata !== "object") return "";
+
+  const flatNote = metadata.music_note;
+
+  if (typeof flatNote === "string" && flatNote.trim()) {
+    return flatNote.trim();
+  }
+
+  const audio = metadata.audio;
+
+  if (audio && typeof audio === "object") {
+    const audioNote = (audio as Record<string, unknown>).note;
+
+    if (typeof audioNote === "string" && audioNote.trim()) {
+      return audioNote.trim();
+    }
+  }
+
+  return "";
+}
+
+function getMusicStatusLabel(status: MusicStatus) {
+  if (status === "manual_added") return "Musik manuell ergänzt";
+  if (status === "planned") return "Musik später geplant";
+
+  return "Keine Musik";
 }
 
 function formatFileSize(value: number | null) {
@@ -468,7 +522,7 @@ export default async function AdminSocialPostingPage({
 
   const { data: imageAssetsData } = await supabaseServer
     .from("social_assets")
-    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type")
+    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type, metadata")
     .eq("post_id", id)
     .eq("asset_type", "image")
     .neq("status", "archived")
@@ -481,7 +535,7 @@ export default async function AdminSocialPostingPage({
 
   const { data: videoAssetsData } = await supabaseServer
     .from("social_assets")
-    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type")
+    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type, metadata")
     .eq("post_id", id)
     .eq("asset_type", "video")
     .neq("status", "archived")
@@ -672,6 +726,14 @@ export default async function AdminSocialPostingPage({
                       : "Bitte zuerst ein Social-Bild erzeugen."
                   }
                 />
+
+          {latestVideoAsset?.id ? (
+            <AdminSocialMusicStatusControl
+              assetId={latestVideoAsset.id}
+              currentStatus={getAssetMusicStatus(latestVideoAsset.metadata)}
+              currentNote={getAssetMusicNote(latestVideoAsset.metadata)}
+            />
+          ) : null}
 
                 <AdminSocialCreateAdCampaignButton
                   postId={post.id}

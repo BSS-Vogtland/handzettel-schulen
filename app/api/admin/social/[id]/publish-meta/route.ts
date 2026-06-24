@@ -44,6 +44,7 @@ type SocialAssetRow = {
   status: string | null;
   asset_type: string | null;
   mime_type: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type ParsedPublishRequest = {
@@ -157,6 +158,51 @@ function mediaTypeLabel(mediaType: PublishMediaType) {
   return mediaType === "video" ? "Video/Reel" : "Bildpost";
 }
 
+
+type MusicStatus = "none" | "manual_added" | "planned";
+
+function getAssetMusicStatus(metadata: Record<string, unknown> | null | undefined): MusicStatus {
+  if (!metadata || typeof metadata !== "object") return "none";
+
+  const flatStatus = metadata.music_status;
+
+  if (flatStatus === "manual_added") return "manual_added";
+  if (flatStatus === "planned") return "planned";
+
+  const audio = metadata.audio;
+
+  if (audio && typeof audio === "object") {
+    const audioStatus = (audio as Record<string, unknown>).status;
+
+    if (audioStatus === "manual_added") return "manual_added";
+    if (audioStatus === "planned") return "planned";
+  }
+
+  return "none";
+}
+
+function getAssetMusicNote(metadata: Record<string, unknown> | null | undefined) {
+  if (!metadata || typeof metadata !== "object") return "";
+
+  const flatNote = metadata.music_note;
+
+  if (typeof flatNote === "string" && flatNote.trim()) {
+    return flatNote.trim();
+  }
+
+  const audio = metadata.audio;
+
+  if (audio && typeof audio === "object") {
+    const audioNote = (audio as Record<string, unknown>).note;
+
+    if (typeof audioNote === "string" && audioNote.trim()) {
+      return audioNote.trim();
+    }
+  }
+
+  return "";
+}
+
 function getPayloadMediaType(payload: Record<string, unknown> | null) {
   const value = payload?.media_type;
 
@@ -267,7 +313,7 @@ async function loadLatestAsset({
 }) {
   const { data, error } = await supabaseServer
     .from("social_assets")
-    .select("id, public_url, storage_path, status, asset_type, mime_type")
+    .select("id, public_url, storage_path, status, asset_type, mime_type, metadata")
     .eq("post_id", postId)
     .eq("asset_type", mediaType)
     .neq("status", "archived")
@@ -313,6 +359,8 @@ async function logMetaPublishEvent({
   mediaType,
   assetId,
   finalText,
+  musicStatus,
+  musicNote,
   result,
 }: {
   postId: string;
@@ -321,6 +369,8 @@ async function logMetaPublishEvent({
   mediaType: PublishMediaType;
   assetId: string | null;
   finalText: string;
+  musicStatus: MusicStatus;
+  musicNote: string;
   result: MetaPublishPlatformResult;
 }) {
   try {
@@ -353,6 +403,8 @@ async function logMetaPublishEvent({
             asset_id: assetId,
             media_url: mediaUrl,
             final_text: finalText,
+            music_status: musicStatus,
+            music_note: musicNote,
             result: result || {},
           })
         ),
@@ -608,6 +660,8 @@ export async function POST(request: Request, context: RouteContext) {
           status: latestAsset?.status || null,
           asset_type: latestAsset?.asset_type || mediaType,
           mime_type: latestAsset?.mime_type || null,
+          music_status: getAssetMusicStatus(latestAsset?.metadata),
+          music_note: getAssetMusicNote(latestAsset?.metadata),
         },
         captions,
         post: {
@@ -640,6 +694,8 @@ export async function POST(request: Request, context: RouteContext) {
         mediaType,
         assetId: latestAsset?.id || null,
         finalText: buildCaptionForPlatform({ platform, post }),
+        musicStatus: getAssetMusicStatus(latestAsset?.metadata),
+        musicNote: getAssetMusicNote(latestAsset?.metadata),
         result,
       });
     }
