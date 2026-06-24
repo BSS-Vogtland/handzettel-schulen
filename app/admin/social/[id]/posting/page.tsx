@@ -269,6 +269,70 @@ function getPublishEventFinalText(event: SocialPublishEventRow) {
   return getPublishEventPayloadString(event, "final_text");
 }
 
+const PUBLISH_COMBINATION_DEFINITIONS = [
+  {
+    key: "facebook-image",
+    platform: "facebook",
+    mediaType: "image",
+    platformLabel: "Facebook",
+    mediaLabel: "Bild",
+  },
+  {
+    key: "facebook-video",
+    platform: "facebook",
+    mediaType: "video",
+    platformLabel: "Facebook",
+    mediaLabel: "Video",
+  },
+  {
+    key: "instagram-image",
+    platform: "instagram",
+    mediaType: "image",
+    platformLabel: "Instagram",
+    mediaLabel: "Bild",
+  },
+  {
+    key: "instagram-video",
+    platform: "instagram",
+    mediaType: "video",
+    platformLabel: "Instagram",
+    mediaLabel: "Reel",
+  },
+] as const;
+
+function getPublishCombinationStatusItems(events: SocialPublishEventRow[]) {
+  return PUBLISH_COMBINATION_DEFINITIONS.map((definition) => {
+    const event =
+      events.find((item) => {
+        if (item.event_type !== "publish") return false;
+        if (item.status !== "success") return false;
+        if (item.platform !== definition.platform) return false;
+
+        return getPublishEventMediaType(item) === definition.mediaType;
+      }) || null;
+
+    return {
+      ...definition,
+      isPublished: Boolean(event),
+      event,
+    };
+  });
+}
+
+function formatPublishStatusDate(value: string | null) {
+  if (!value) return "Noch nicht veröffentlicht";
+
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+
 
 function PostingBlock({
   title,
@@ -936,7 +1000,98 @@ export default async function AdminSocialPostingPage({
         </section>
 
         
+        
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
+                Veröffentlichungsstatus
+              </div>
+
+              <h2 className="mt-4 text-2xl font-black text-[#102A43]">
+                Veröffentlichungsstatus je Plattform
+              </h2>
+
+              <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#52616F]">
+                Hier siehst Du getrennt, welche Kombination bereits veröffentlicht wurde.
+                Blockiert wird nur dieselbe Kombination erneut, nicht der komplette Beitrag.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {getPublishCombinationStatusItems(publishEvents).map((item) => {
+              const mediaUrl = item.event ? getPublishEventMediaUrl(item.event) : null;
+              const reference = item.event ? getMetaReference(item.event) : "-";
+
+              return (
+                <article
+                  key={item.key}
+                  className={
+                    item.isPublished
+                      ? "rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-4"
+                      : "rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-4"
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#8A5A35]">
+                        {item.platformLabel}
+                      </p>
+
+                      <h3 className="mt-1 text-lg font-black text-[#102A43]">
+                        {item.mediaLabel}
+                      </h3>
+                    </div>
+
+                    <span
+                      className={
+                        item.isPublished
+                          ? "rounded-full bg-emerald-600 px-3 py-1 text-xs font-black text-white"
+                          : "rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#627D98]"
+                      }
+                    >
+                      {item.isPublished ? "Veröffentlicht" : "Offen"}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-xs font-bold leading-5 text-[#52616F]">
+                    {formatPublishStatusDate(item.event?.published_at || item.event?.created_at || null)}
+                  </p>
+
+                  {item.isPublished && item.event ? (
+                    <div className="mt-4 space-y-2 text-xs font-semibold leading-5 text-[#627D98]">
+                      <div>
+                        Meta-Referenz:{" "}
+                        <span className="break-all font-bold text-[#102A43]">
+                          {reference}
+                        </span>
+                      </div>
+
+                      {mediaUrl ? (
+                        <a
+                          href={mediaUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-white px-3 py-1 text-xs font-black text-[#A23A2E] hover:bg-[#F5E8D8]"
+                        >
+                          Asset öffnen
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs font-bold leading-5 text-[#627D98]">
+                      Diese Kombination kann noch veröffentlicht werden.
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+<section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-5 flex items-center gap-2">
             <Share2 className="h-5 w-5 text-[#B5282D]" />
             <h2 className="text-2xl font-black text-[#102A43]">
