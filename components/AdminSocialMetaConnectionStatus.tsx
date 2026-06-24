@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  Facebook,
-  Instagram,
+  Camera,
+  Share2,
   RefreshCw,
   ShieldCheck,
   XCircle,
@@ -101,7 +101,7 @@ function PlatformCard({
   configLabel: string;
   verification?: MetaVerificationPlatformStatus;
 }) {
-  const Icon = type === "facebook" ? Facebook : Instagram;
+  const Icon = type === "facebook" ? Share2 : Camera;
   const label = type === "facebook" ? "Facebook" : "Instagram";
   const statusLabel = getStatusLabel({ configured, verification });
 
@@ -272,3 +272,4 @@ export default function AdminSocialMetaConnectionStatus() {
     </section>
   );
 }
+
