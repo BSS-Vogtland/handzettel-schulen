@@ -654,7 +654,7 @@ export default async function AdminSocialPostingPage({
         )}
 
         <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7 lg:order-1">
             <div className="mb-5 flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-[#B5282D]" />
               <h2 className="text-2xl font-black text-[#102A43]">
@@ -734,7 +734,7 @@ export default async function AdminSocialPostingPage({
 
           
 
-            <div className="mt-6 rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-5">
+            <div className="mt-6 rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-5 lg:order-3 lg:col-span-2">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="mb-2 flex items-center gap-2">
@@ -762,7 +762,7 @@ export default async function AdminSocialPostingPage({
               </div>
 
               {latestVideoAsset?.public_url ? (
-                <div className="mt-5 grid gap-5 md:grid-cols-[220px_1fr]">
+                <div className="mt-5 grid gap-6 lg:grid-cols-[320px_1fr]">
                   <div className="overflow-hidden rounded-[1.25rem] bg-[#102A43]">
                     <video
                       src={latestVideoAsset.public_url}
@@ -861,7 +861,7 @@ export default async function AdminSocialPostingPage({
               )}
             </div>
 
-          <aside className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
+          <aside className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7 lg:order-2">
             <h2 className="text-2xl font-black text-[#102A43]">
               Veröffentlichungs-Checkliste
             </h2>
