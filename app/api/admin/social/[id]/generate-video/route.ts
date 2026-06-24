@@ -24,8 +24,8 @@ type SocialAssetRow = {
 };
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
-    value
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim()
   );
 }
 
@@ -185,8 +185,9 @@ export async function POST(
 
   try {
     const { id } = await context.params;
+    const postId = String(id || "").trim();
 
-    if (!id || !isUuid(id)) {
+    if (!postId || !isUuid(postId)) {
       return NextResponse.json(
         {
           ok: false,
@@ -199,7 +200,7 @@ export async function POST(
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
       .select("id, topic, hook, caption")
-      .eq("id", id)
+      .eq("id", postId)
       .single();
 
     if (postError || !postData) {
@@ -215,7 +216,7 @@ export async function POST(
     const { data: imageAssetData, error: imageAssetError } = await supabaseServer
       .from("social_assets")
       .select("*")
-      .eq("post_id", id)
+      .eq("post_id", postId)
       .eq("asset_type", "image")
       .eq("status", "ready")
       .order("created_at", { ascending: false })
@@ -285,7 +286,7 @@ export async function POST(
     const videoBuffer = await readFile(outputPath);
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const storagePath = `social/posts/${id}/video-${timestamp}.mp4`;
+    const storagePath = `social/posts/${postId}/video-${timestamp}.mp4`;
 
     const { error: uploadError } = await supabaseServer.storage
       .from(STORAGE_BUCKET)
@@ -315,7 +316,7 @@ export async function POST(
       await supabaseServer
         .from("social_assets")
         .insert({
-          post_id: id,
+          post_id: postId,
           asset_type: "video",
           provider: "template-composite-video",
           model: "ffmpeg-ken-burns-v1",
@@ -381,3 +382,4 @@ export async function POST(
     await rm(tempDir, { recursive: true, force: true }).catch(() => null);
   }
 }
+
