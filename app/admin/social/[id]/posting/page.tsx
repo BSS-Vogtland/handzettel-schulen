@@ -791,9 +791,66 @@ export default async function AdminSocialPostingPage({
                       <ExternalLink className="h-4 w-4" />
                     </a>
 
-                    <p className="text-xs font-semibold leading-5 text-[#627D98]">
-                      Insgesamt vorhandene Video-Assets: {videoAssets.length}. Bei erneuter Erzeugung bleibt die alte Version als Asset erhalten.
-                    </p>
+                    <div className="rounded-2xl border border-[#E7D8C3] bg-white p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8A5A35]">
+                          Video-Versionen
+                        </p>
+
+                        <span className="rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-3 py-1 text-xs font-black text-[#486581]">
+                          {videoAssets.length} vorhanden
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {videoAssets.map((videoAsset, index) => (
+                          <div
+                            key={videoAsset.id}
+                            className="rounded-xl border border-[#E7D8C3] bg-[#FFFCF7] p-3"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-black text-[#102A43]">
+                                    {index === 0 ? "Aktuelle Version" : `Version ${index + 1}`}
+                                  </span>
+
+                                  {index === 0 ? (
+                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-800">
+                                      neueste
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                <p className="mt-1 text-xs font-bold leading-5 text-[#627D98]">
+                                  {formatDateTime(videoAsset.created_at)} · {formatFileSize(videoAsset.file_size)}
+                                </p>
+                              </div>
+
+                              {videoAsset.public_url ? (
+                                <a
+                                  href={videoAsset.public_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E7D8C3] bg-white px-3 py-2 text-xs font-black text-[#A23A2E] transition hover:bg-[#F5E8D8]"
+                                >
+                                  Öffnen
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              ) : (
+                                <span className="text-xs font-bold text-[#9FB3C8]">
+                                  Kein Link
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="mt-3 text-xs font-semibold leading-5 text-[#627D98]">
+                        Bei erneuter Erzeugung bleibt die alte Version als Asset erhalten. Die neueste Version wird oben angezeigt und als aktuelle Version genutzt.
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
