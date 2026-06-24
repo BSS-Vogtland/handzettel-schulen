@@ -158,6 +158,76 @@ function mediaTypeLabel(mediaType: PublishMediaType) {
   return mediaType === "video" ? "Video/Reel" : "Bildpost";
 }
 
+function getMetadataObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function getMetadataStringValue(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function getMusicAttributionFromAsset(asset: SocialAssetRow | null) {
+  const metadata = getMetadataObject(asset?.metadata);
+  const audio = getMetadataObject(metadata.audio);
+
+  const candidates = [
+    getMetadataStringValue(audio, "music_attribution"),
+    getMetadataStringValue(audio, "attribution"),
+    getMetadataStringValue(audio, "credit"),
+    getMetadataStringValue(audio, "license_credit"),
+    getMetadataStringValue(audio, "license_source"),
+    getMetadataStringValue(metadata, "music_attribution"),
+    getMetadataStringValue(metadata, "attribution"),
+    getMetadataStringValue(metadata, "credit"),
+    getMetadataStringValue(metadata, "license_credit"),
+    getMetadataStringValue(metadata, "license_source"),
+  ].filter(Boolean);
+
+  return candidates[0] || "";
+}
+
+function appendMusicAttributionToCaption(caption: string, attribution: string) {
+  const cleanedCaption = cleanString(caption);
+  const cleanedAttribution = cleanString(attribution);
+
+  if (!cleanedAttribution) return cleanedCaption;
+
+  if (cleanedCaption.includes(cleanedAttribution)) {
+    return cleanedCaption;
+  }
+
+  const creditLine = `Musiknachweis: ${cleanedAttribution}`;
+
+  if (!cleanedCaption) return creditLine;
+
+  return `${cleanedCaption}\n\n${creditLine}`;
+}
+
+function buildFinalCaptionForPlatform({
+  platform,
+  post,
+  mediaType,
+  asset,
+}: {
+  platform: MetaPlatform;
+  post: SocialPostRow;
+  mediaType: PublishMediaType;
+  asset: SocialAssetRow | null;
+}) {
+  const baseCaption = buildCaptionForPlatform({ platform, post });
+
+  if (mediaType !== "video") {
+    return baseCaption;
+  }
+
+  const attribution = getMusicAttributionFromAsset(asset);
+
+  return appendMusicAttributionToCaption(baseCaption, attribution);
+}
+
+
 
 type MusicStatus = "none" | "manual_added" | "planned";
 
@@ -483,14 +553,16 @@ async function publishToPlatform({
   post,
   mediaUrl,
   mediaType,
+  finalText,
 }: {
   platform: MetaPlatform;
   post: SocialPostRow;
   mediaUrl: string;
   mediaType: PublishMediaType;
+  finalText?: string;
 }): Promise<MetaPublishPlatformResult> {
   try {
-    const caption = buildCaptionForPlatform({ platform, post });
+    const caption = finalText || buildCaptionForPlatform({ platform, post });
 
     if (platform === "facebook") {
       if (mediaType === "video") {
@@ -639,7 +711,12 @@ export async function POST(request: Request, context: RouteContext) {
     const captions = platforms.map((platform) => ({
       platform,
       platformLabel: platformLabel(platform),
-      caption: buildCaptionForPlatform({ platform, post }),
+      caption: buildFinalCaptionForPlatform({
+        platform,
+        post,
+        mediaType,
+        asset: latestAsset,
+      }),
     }));
 
     if (dryRun) {
@@ -678,11 +755,19 @@ export async function POST(request: Request, context: RouteContext) {
     const results: MetaPublishPlatformResult[] = [];
 
     for (const platform of platforms) {
+      const finalText = buildFinalCaptionForPlatform({
+        platform,
+        post,
+        mediaType,
+        asset: latestAsset,
+      });
+
       const result = await publishToPlatform({
         platform,
         post,
         mediaUrl,
         mediaType,
+        finalText,
       });
 
       results.push(result);
@@ -693,7 +778,7 @@ export async function POST(request: Request, context: RouteContext) {
         mediaUrl,
         mediaType,
         assetId: latestAsset?.id || null,
-        finalText: buildCaptionForPlatform({ platform, post }),
+        finalText,
         musicStatus: getAssetMusicStatus(latestAsset?.metadata),
         musicNote: getAssetMusicNote(latestAsset?.metadata),
         result,

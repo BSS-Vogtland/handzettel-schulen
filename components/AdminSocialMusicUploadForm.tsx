@@ -138,19 +138,19 @@ export default function AdminSocialMusicUploadForm() {
 
         <label className="block">
           <span className="text-xs font-black uppercase tracking-[0.14em] text-[#8A5A35]">
-            Lizenzquelle optional
+            Musiknachweis für Posting
           </span>
           <input
             name="licenseSource"
             type="text"
-            placeholder="Quelle / Anbieter / Ordner"
+            placeholder="z. B. Music by Omar Faruque from Pixabay"
             className="mt-2 w-full rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-3 text-sm font-bold text-[#102A43] outline-none focus:border-[#A23A2E]"
           />
         </label>
 
         <label className="block md:col-span-2">
           <span className="text-xs font-black uppercase tracking-[0.14em] text-[#8A5A35]">
-            Lizenznotiz optional
+            Lizenznotiz intern optional
           </span>
           <textarea
             name="licenseNote"
@@ -174,3 +174,4 @@ export default function AdminSocialMusicUploadForm() {
     </form>
   );
 }
+
