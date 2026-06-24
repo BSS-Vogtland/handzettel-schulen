@@ -767,6 +767,7 @@ export default async function AdminSocialPostingPage({
                     <video
                       src={latestVideoAsset.public_url}
                       controls
+                      loop
                       playsInline
                       className="aspect-[4/5] w-full bg-[#102A43] object-contain"
                     />
@@ -1028,5 +1029,6 @@ export default async function AdminSocialPostingPage({
     </main>
   );
 }
+
 
 

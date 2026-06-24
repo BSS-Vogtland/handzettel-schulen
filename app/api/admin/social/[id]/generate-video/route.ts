@@ -11,6 +11,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STORAGE_BUCKET = process.env.SOCIAL_ASSETS_BUCKET || "social-assets";
+const FPS = 30;
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 1350;
+const MAX_ZOOM = 1.055;
 
 type SocialAssetRow = {
   id: string;
@@ -23,10 +27,39 @@ type SocialAssetRow = {
   metadata: Record<string, unknown> | null;
 };
 
+type GenerateVideoRequestBody = {
+  durationSeconds?: unknown;
+};
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value.trim()
   );
+}
+
+function normalizeDurationSeconds(value: unknown) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : null;
+
+  if (!numericValue || !Number.isFinite(numericValue)) {
+    return 30;
+  }
+
+  const rounded = Math.round(numericValue);
+
+  if ([7, 15, 30, 60].includes(rounded)) {
+    return rounded;
+  }
+
+  if (rounded < 7) return 7;
+  if (rounded <= 15) return 15;
+  if (rounded <= 30) return 30;
+
+  return 60;
 }
 
 async function fileExists(filePath: string) {
@@ -50,9 +83,7 @@ async function resolveFfmpegPath() {
 
   const platform = process.platform;
   const arch = process.arch;
-
   const binaryName = platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-
   const candidates: string[] = [];
 
   if (platform === "win32" && arch === "x64") {
@@ -118,8 +149,18 @@ async function resolveFfmpegPath() {
   return "ffmpeg";
 }
 
-async function runFfmpeg(inputPath: string, outputPath: string) {
+async function runFfmpeg({
+  inputPath,
+  outputPath,
+  durationSeconds,
+}: {
+  inputPath: string;
+  outputPath: string;
+  durationSeconds: number;
+}) {
   const ffmpegPath = await resolveFfmpegPath();
+  const frameCount = durationSeconds * FPS;
+  const zoomIncrement = ((MAX_ZOOM - 1) / frameCount).toFixed(8);
 
   const args = [
     "-y",
@@ -128,14 +169,14 @@ async function runFfmpeg(inputPath: string, outputPath: string) {
     "-i",
     inputPath,
     "-t",
-    "7",
+    String(durationSeconds),
     "-r",
-    "30",
+    String(FPS),
     "-an",
     "-vf",
     [
       "scale=2160:2700",
-      "zoompan=z='min(zoom+0.0007,1.055)':d=210:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1350:fps=30",
+      `zoompan=z='min(zoom+${zoomIncrement},${MAX_ZOOM})':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${CANVAS_WIDTH}x${CANVAS_HEIGHT}:fps=${FPS}`,
       "format=yuv420p",
     ].join(","),
     "-c:v",
@@ -196,6 +237,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const body = (await request.json().catch(() => ({}))) as GenerateVideoRequestBody;
+    const durationSeconds = normalizeDurationSeconds(body.durationSeconds);
 
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
@@ -281,12 +325,16 @@ export async function POST(
     const inputBuffer = Buffer.from(await downloadedImage.arrayBuffer());
     await writeFile(inputPath, inputBuffer);
 
-    await runFfmpeg(inputPath, outputPath);
+    await runFfmpeg({
+      inputPath,
+      outputPath,
+      durationSeconds,
+    });
 
     const videoBuffer = await readFile(outputPath);
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const storagePath = `social/posts/${postId}/video-${timestamp}.mp4`;
+    const storagePath = `social/posts/${postId}/video-${durationSeconds}s-${timestamp}.mp4`;
 
     const { error: uploadError } = await supabaseServer.storage
       .from(STORAGE_BUCKET)
@@ -319,9 +367,8 @@ export async function POST(
           post_id: postId,
           asset_type: "video",
           provider: "template-composite-video",
-          model: "ffmpeg-ken-burns-v1",
-          prompt:
-            "Animated MP4 generated from the latest ready SocialPilot image asset with a subtle zoom-in movement. No music.",
+          model: `ffmpeg-ken-burns-v1-${durationSeconds}s`,
+          prompt: `Animated ${durationSeconds}s MP4 generated from the latest ready SocialPilot image asset with a subtle zoom-in movement. No music.`,
           storage_bucket: STORAGE_BUCKET,
           storage_path: storagePath,
           public_url: publicUrl,
@@ -329,21 +376,23 @@ export async function POST(
           file_size: videoBuffer.byteLength,
           status: "ready",
           metadata: {
-            source: "admin_social_generate_video_v1",
+            source: "admin_social_generate_video_v2",
             generation_mode: "animated_from_template_composite",
-            duration_seconds: 7,
-            fps: 30,
+            duration_seconds: durationSeconds,
+            fps: FPS,
+            canvas_width: CANVAS_WIDTH,
+            canvas_height: CANVAS_HEIGHT,
+            music_ready: durationSeconds >= 30,
             animation: {
               type: "ken_burns_zoom_in",
-              max_zoom: 1.055,
+              max_zoom: MAX_ZOOM,
               has_audio: false,
               music_status: "none",
+              visual_loop_ready: true,
             },
             source_image_asset_id: imageAsset.id,
             source_image_storage_bucket: imageAsset.storage_bucket,
             source_image_storage_path: imageAsset.storage_path,
-            canvas_width: 1080,
-            canvas_height: 1350,
           },
         })
         .select("*")
@@ -361,8 +410,7 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      message:
-        "Animiertes Video wurde erzeugt: Das fertige Bild wurde als kurzes MP4 mit dezenter Bewegung gespeichert.",
+      message: `Animiertes ${durationSeconds}-Sekunden-Video wurde erzeugt.`,
       asset: videoAssetData,
     });
   } catch (error) {
@@ -382,4 +430,3 @@ export async function POST(
     await rm(tempDir, { recursive: true, force: true }).catch(() => null);
   }
 }
-
