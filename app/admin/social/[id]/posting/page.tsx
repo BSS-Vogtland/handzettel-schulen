@@ -19,7 +19,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialCopyButton from "@/components/AdminSocialCopyButton";
 import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishedButton";
 import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdCampaignButton";
-import AdminSocialMetaPublishButton from "@/components/AdminSocialMetaPublishButton";
+import AdminSocialMetaPublishMediaButtons from "@/components/AdminSocialMetaPublishMediaButtons";
 import AdminSocialGenerateVideoButton from "@/components/AdminSocialGenerateVideoButton";
 
 export const dynamic = "force-dynamic";
@@ -545,10 +545,16 @@ export default async function AdminSocialPostingPage({
                   disabledReason={publishDisabledReason}
                 />
 
-                <AdminSocialMetaPublishButton
+                <AdminSocialMetaPublishMediaButtons
                   postId={post.id}
                   disabled={Boolean(publishDisabledReason)}
                   disabledReason={publishDisabledReason}
+                  hasReadyVideo={hasReadyVideo}
+                  videoDisabledReason={
+                    hasReadyVideo
+                      ? undefined
+                      : "Für Video/Reel-Veröffentlichung muss zuerst ein animiertes Video erzeugt werden."
+                  }
                 />
 
                 
