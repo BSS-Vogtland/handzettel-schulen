@@ -46,12 +46,27 @@ type SocialAssetRow = {
   mime_type: string | null;
 };
 
+type ParsedPublishRequest = {
+  platforms: MetaPlatform[];
+  mediaType: PublishMediaType;
+  dryRun: boolean;
+};
+
+type AlreadyPublishedMetaPublication = {
+  platform: MetaPlatform;
+  meta_id: string | null;
+  meta_post_id: string | null;
+  meta_creation_id: string | null;
+  published_at: string | null;
+  created_at: string | null;
+};
+
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
   );
 }
@@ -82,6 +97,38 @@ function buildPostingText({
   ].filter(Boolean);
 
   return parts.join("\n\n");
+}
+
+function buildCaptionForPlatform({
+  platform,
+  post,
+}: {
+  platform: MetaPlatform;
+  post: SocialPostRow;
+}) {
+  if (platform === "facebook") {
+    return buildPostingText({
+      hook: post.facebook_hook || post.hook,
+      caption: post.facebook_caption || post.caption,
+      cta: post.cta,
+      hashtags: post.hashtags,
+    });
+  }
+
+  return buildPostingText({
+    hook: post.instagram_hook || post.hook,
+    caption: post.instagram_caption || post.caption,
+    cta: post.cta,
+    hashtags: post.hashtags,
+  });
+}
+
+function platformLabel(platform: MetaPlatform) {
+  return platform === "facebook" ? "Facebook" : "Instagram";
+}
+
+function mediaTypeLabel(mediaType: PublishMediaType) {
+  return mediaType === "video" ? "Video/Reel" : "Bildpost";
 }
 
 async function getPostIdFromRequest(request: Request, context: RouteContext) {
@@ -120,12 +167,9 @@ async function getPostIdFromRequest(request: Request, context: RouteContext) {
     .trim();
 }
 
-type ParsedPublishRequest = {
-  platforms: MetaPlatform[];
-  mediaType: PublishMediaType;
-};
-
-async function parsePublishRequest(request: Request): Promise<ParsedPublishRequest> {
+async function parsePublishRequest(
+  request: Request
+): Promise<ParsedPublishRequest> {
   const configured = getConfiguredMetaPlatforms();
 
   let body: unknown = null;
@@ -137,9 +181,12 @@ async function parsePublishRequest(request: Request): Promise<ParsedPublishReque
   }
 
   const requested =
-    body && typeof body === "object" && Array.isArray((body as { platforms?: unknown }).platforms)
-      ? ((body as { platforms: unknown[] }).platforms
-          .filter((platform) => platform === "facebook" || platform === "instagram") as MetaPlatform[])
+    body &&
+    typeof body === "object" &&
+    Array.isArray((body as { platforms?: unknown }).platforms)
+      ? ((body as { platforms: unknown[] }).platforms.filter(
+          (platform) => platform === "facebook" || platform === "instagram"
+        ) as MetaPlatform[])
       : [];
 
   const rawMediaType =
@@ -147,7 +194,13 @@ async function parsePublishRequest(request: Request): Promise<ParsedPublishReque
       ? (body as { mediaType?: unknown }).mediaType
       : null;
 
-  const mediaType: PublishMediaType = rawMediaType === "video" ? "video" : "image";
+  const mediaType: PublishMediaType =
+    rawMediaType === "video" ? "video" : "image";
+
+  const dryRun =
+    body && typeof body === "object"
+      ? (body as { dryRun?: unknown }).dryRun === true
+      : false;
 
   const uniqueRequested = Array.from(new Set(requested));
   const platforms = uniqueRequested.length > 0 ? uniqueRequested : configured;
@@ -155,6 +208,7 @@ async function parsePublishRequest(request: Request): Promise<ParsedPublishReque
   return {
     platforms: platforms.filter((platform) => configured.includes(platform)),
     mediaType,
+    dryRun,
   };
 }
 
@@ -212,7 +266,6 @@ async function markPostPublished(postId: string) {
 
   return data;
 }
-
 
 function pickResultTextValue(result: MetaPublishPlatformResult, key: string) {
   if (!result || typeof result !== "object") return null;
@@ -273,7 +326,10 @@ async function logMetaPublishEvent({
       });
 
     if (error) {
-      console.error("[SocialPilot Meta Publish Log] Insert failed:", error.message);
+      console.error(
+        "[SocialPilot Meta Publish Log] Insert failed:",
+        error.message
+      );
     }
   } catch (error) {
     console.error(
@@ -282,15 +338,6 @@ async function logMetaPublishEvent({
     );
   }
 }
-
-type AlreadyPublishedMetaPublication = {
-  platform: MetaPlatform;
-  meta_id: string | null;
-  meta_post_id: string | null;
-  meta_creation_id: string | null;
-  published_at: string | null;
-  created_at: string | null;
-};
 
 async function getAlreadyPublishedMetaPublications({
   postId,
@@ -336,6 +383,7 @@ async function getAlreadyPublishedMetaPublications({
 
   return uniqueRows;
 }
+
 async function publishToPlatform({
   platform,
   post,
@@ -348,27 +396,15 @@ async function publishToPlatform({
   mediaType: PublishMediaType;
 }): Promise<MetaPublishPlatformResult> {
   try {
-    if (platform === "facebook") {
-      const caption = buildPostingText({
-        hook: post.facebook_hook || post.hook,
-        caption: post.facebook_caption || post.caption,
-        cta: post.cta,
-        hashtags: post.hashtags,
-      });
+    const caption = buildCaptionForPlatform({ platform, post });
 
+    if (platform === "facebook") {
       if (mediaType === "video") {
         return await publishFacebookVideo({ videoUrl: mediaUrl, caption });
       }
 
       return await publishFacebookPhoto({ imageUrl: mediaUrl, caption });
     }
-
-    const caption = buildPostingText({
-      hook: post.instagram_hook || post.hook,
-      caption: post.instagram_caption || post.caption,
-      cta: post.cta,
-      hashtags: post.hashtags,
-    });
 
     if (mediaType === "video") {
       return await publishInstagramReel({ videoUrl: mediaUrl, caption });
@@ -401,7 +437,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const { platforms, mediaType } = await parsePublishRequest(request);
+    const { platforms, mediaType, dryRun } = await parsePublishRequest(request);
 
     if (platforms.length === 0) {
       return NextResponse.json(
@@ -513,6 +549,43 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const captions = platforms.map((platform) => ({
+      platform,
+      platformLabel: platformLabel(platform),
+      caption: buildCaptionForPlatform({ platform, post }),
+    }));
+
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        message: `${mediaTypeLabel(
+          mediaType
+        )}-Vorschau wurde erstellt. Es wurde noch nichts veröffentlicht.`,
+        mediaType,
+        mediaTypeLabel: mediaTypeLabel(mediaType),
+        platforms,
+        platformLabels: platforms.map(platformLabel),
+        asset: {
+          id: latestAsset?.id || null,
+          public_url: mediaUrl,
+          storage_path: latestAsset?.storage_path || null,
+          status: latestAsset?.status || null,
+          asset_type: latestAsset?.asset_type || mediaType,
+          mime_type: latestAsset?.mime_type || null,
+        },
+        captions,
+        post: {
+          id: post.id,
+          topic: post.topic,
+          status: post.status,
+          review_status: post.review_status,
+          scheduled_at: post.scheduled_at,
+          published_at: post.published_at,
+        },
+      });
+    }
+
     const results: MetaPublishPlatformResult[] = [];
 
     for (const platform of platforms) {
@@ -522,6 +595,7 @@ export async function POST(request: Request, context: RouteContext) {
         mediaUrl,
         mediaType,
       });
+
       results.push(result);
 
       await logMetaPublishEvent({
@@ -552,13 +626,14 @@ export async function POST(request: Request, context: RouteContext) {
 
     const updatedPost = await markPostPublished(post.id);
 
-    const platformLabel = platforms
-      .map((platform) => (platform === "facebook" ? "Facebook" : "Instagram"))
-      .join(" und ");
+    const platformLabelText = platforms.map(platformLabel).join(" und ");
 
     return NextResponse.json({
       ok: true,
-      message: `Beitrag wurde als ${mediaType === "video" ? "Video/Reel" : "Bildpost"} über ${platformLabel} veröffentlicht und im SocialPilot als veröffentlicht markiert.`,
+      message: `Beitrag wurde als ${mediaTypeLabel(
+        mediaType
+      )} über ${platformLabelText} veröffentlicht und im SocialPilot als veröffentlicht markiert.`,
+      mediaType,
       results,
       post: updatedPost,
     });
@@ -575,8 +650,3 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
-
-
-
-
-
