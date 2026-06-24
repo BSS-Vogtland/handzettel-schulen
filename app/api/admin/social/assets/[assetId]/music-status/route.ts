@@ -160,7 +160,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         metadata: nextMetadata,
       })
       .eq("id", assetId)
-      .select("id, asset_type, metadata, public_url, storage_path, updated_at")
+      .select("id, asset_type, metadata, public_url, storage_path")
       .single();
 
     if (error) throw new Error(error.message);
@@ -183,3 +183,4 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 }
+
