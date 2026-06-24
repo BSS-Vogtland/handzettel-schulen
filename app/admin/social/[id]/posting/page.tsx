@@ -20,6 +20,7 @@ import AdminSocialCopyButton from "@/components/AdminSocialCopyButton";
 import AdminSocialMarkPublishedButton from "@/components/AdminSocialMarkPublishedButton";
 import AdminSocialCreateAdCampaignButton from "@/components/AdminSocialCreateAdCampaignButton";
 import AdminSocialMetaPublishButton from "@/components/AdminSocialMetaPublishButton";
+import AdminSocialGenerateVideoButton from "@/components/AdminSocialGenerateVideoButton";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ type SocialAssetRow = {
   storage_path: string | null;
   file_size: number | null;
   status: string;
+  asset_type: string | null;
+  mime_type: string | null;
 };
 
 type SocialPublishEventRow = {
@@ -81,6 +84,16 @@ function formatDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatFileSize(value: number | null) {
+  if (!value || value <= 0) return "—";
+
+  if (value < 1024 * 1024) {
+    return `${Math.round(value / 1024)} KB`;
+  }
+
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function normalizeHashtags(hashtags: string[] | null) {
@@ -348,18 +361,31 @@ export default async function AdminSocialPostingPage({
 
   const post = data as SocialPostRow;
 
-  const { data: assetsData } = await supabaseServer
+  const { data: imageAssetsData } = await supabaseServer
     .from("social_assets")
-    .select("id, created_at, public_url, storage_path, file_size, status")
+    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type")
     .eq("post_id", id)
     .eq("asset_type", "image")
     .neq("status", "archived")
     .order("created_at", { ascending: false })
     .limit(6);
 
-  const assets = (assetsData || []) as SocialAssetRow[];
-  const latestAsset = assets[0] || null;
+  const imageAssets = (imageAssetsData || []) as SocialAssetRow[];
+  const latestAsset = imageAssets[0] || null;
   const hasReadyImage = Boolean(latestAsset?.public_url?.trim());
+
+  const { data: videoAssetsData } = await supabaseServer
+    .from("social_assets")
+    .select("id, created_at, public_url, storage_path, file_size, status, asset_type, mime_type")
+    .eq("post_id", id)
+    .eq("asset_type", "video")
+    .neq("status", "archived")
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  const videoAssets = (videoAssetsData || []) as SocialAssetRow[];
+  const latestVideoAsset = videoAssets[0] || null;
+  const hasReadyVideo = Boolean(latestVideoAsset?.public_url?.trim());
 
   const { data: publishEventsData } = await supabaseServer
     .from("social_publish_events")
@@ -481,6 +507,16 @@ export default async function AdminSocialPostingPage({
                 >
                   {hasReadyImage ? "Bild vorhanden" : "Bild fehlt"}
                 </span>
+
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${
+                    hasReadyVideo
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  {hasReadyVideo ? "Video vorhanden" : "Video optional"}
+                </span>
               </div>
 
               <div className="mt-4 space-y-3 text-sm font-semibold text-[#52616F]">
@@ -513,6 +549,17 @@ export default async function AdminSocialPostingPage({
                   postId={post.id}
                   disabled={Boolean(publishDisabledReason)}
                   disabledReason={publishDisabledReason}
+                />
+
+                
+                <AdminSocialGenerateVideoButton
+                  postId={post.id}
+                  disabled={!hasReadyImage}
+                  disabledReason={
+                    hasReadyImage
+                      ? undefined
+                      : "Bitte zuerst ein Social-Bild erzeugen."
+                  }
                 />
 
                 <AdminSocialCreateAdCampaignButton
@@ -685,23 +732,94 @@ export default async function AdminSocialPostingPage({
             )}
           </section>
 
+          
+
+            <div className="mt-6 rounded-[1.5rem] border border-[#E7D8C3] bg-[#FFFCF7] p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Video className="h-5 w-5 text-[#B5282D]" />
+                    <h3 className="text-xl font-black text-[#102A43]">
+                      Animiertes Video
+                    </h3>
+                  </div>
+
+                  <p className="max-w-2xl text-sm font-semibold leading-6 text-[#52616F]">
+                    Erzeugt aus dem neuesten freigegebenen Social-Bild ein kurzes MP4 mit dezenter Bewegung.
+                    Dieses Video ist als Reel-/Story-Grundlage gedacht. Musik wird später separat behandelt.
+                  </p>
+                </div>
+
+                <AdminSocialGenerateVideoButton
+                  postId={post.id}
+                  disabled={!hasReadyImage}
+                  disabledReason={
+                    hasReadyImage
+                      ? undefined
+                      : "Bitte zuerst ein Social-Bild erzeugen."
+                  }
+                />
+              </div>
+
+              {latestVideoAsset?.public_url ? (
+                <div className="mt-5 grid gap-5 md:grid-cols-[220px_1fr]">
+                  <div className="overflow-hidden rounded-[1.25rem] bg-[#102A43]">
+                    <video
+                      src={latestVideoAsset.public_url}
+                      controls
+                      playsInline
+                      className="aspect-[4/5] w-full bg-[#102A43] object-contain"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-900">
+                      Ein animiertes Video ist vorhanden. Neueste Datei:
+                      <br />
+                      <span className="font-black">
+                        {formatDateTime(latestVideoAsset.created_at)} · {formatFileSize(latestVideoAsset.file_size)}
+                      </span>
+                    </div>
+
+                    <a
+                      href={latestVideoAsset.public_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                    >
+                      Video öffnen
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+
+                    <p className="text-xs font-semibold leading-5 text-[#627D98]">
+                      Insgesamt vorhandene Video-Assets: {videoAssets.length}. Bei erneuter Erzeugung bleibt die alte Version als Asset erhalten.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 rounded-[1.25rem] border border-dashed border-[#D9C4A8] bg-white p-5 text-sm font-bold leading-6 text-[#627D98]">
+                  Noch kein Video vorhanden. Sobald Du „Animiertes Video erzeugen“ klickst, erscheint hier die MP4-Vorschau.
+                </div>
+              )}
+            </div>
+
           <aside className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
             <h2 className="text-2xl font-black text-[#102A43]">
               Veröffentlichungs-Checkliste
             </h2>
 
             <div className="mt-5 space-y-3 text-sm font-bold leading-6 text-[#52616F]">
-              <p>{isReviewApproved ? "âœ…" : "â–¡"} Content-Review freigegeben</p>
-              <p>{hasReadyImage ? "âœ…" : "â–¡"} Social-Bild vorhanden</p>
-              <p>â–¡ Hook geprüft</p>
-              <p>â–¡ Caption geprüft</p>
-              <p>â–¡ Hashtags geprüft</p>
-              <p>â–¡ Bild passt zur Botschaft</p>
-              <p>â–¡ Landingpage / Link geprüft</p>
-              <p>â–¡ Plattform ausgewählt</p>
-              <p>â–¡ Veröffentlichungszeit geprüft</p>
-              <p>â–¡ Beitrag nach Veröffentlichung markieren</p>
-              <p>â–¡ Optional: Ads-Kampagne vorbereiten</p>
+              <p>{isReviewApproved ? "✅" : "□"} Content-Review freigegeben</p>
+              <p>{hasReadyImage ? "✅" : "□"} Social-Bild vorhanden</p>
+              <p>□ Hook geprüft</p>
+              <p>□ Caption geprüft</p>
+              <p>□ Hashtags geprüft</p>
+              <p>□ Bild passt zur Botschaft</p>
+              <p>□ Landingpage / Link geprüft</p>
+              <p>□ Plattform ausgewählt</p>
+              <p>□ Veröffentlichungszeit geprüft</p>
+              <p>□ Beitrag nach Veröffentlichung markieren</p>
+              <p>□ Optional: Ads-Kampagne vorbereiten</p>
             </div>
 
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
