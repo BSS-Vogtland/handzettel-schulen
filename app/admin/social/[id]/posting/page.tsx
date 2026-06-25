@@ -23,6 +23,7 @@ import AdminSocialMetaPublishMediaButtons from "@/components/AdminSocialMetaPubl
 import AdminSocialGenerateVideoButton from "@/components/AdminSocialGenerateVideoButton";
 import AdminSocialMusicStatusControl from "@/components/AdminSocialMusicStatusControl";
 import AdminSocialVideoMusicComposer from "@/components/AdminSocialVideoMusicComposer";
+import AdminSocialPublishingOverview from "@/components/AdminSocialPublishingOverview";
 
 export const dynamic = "force-dynamic";
 
@@ -790,7 +791,9 @@ export default async function AdminSocialPostingPage({
           </div>
         </header>
 
-        {!isReviewApproved ? (
+        
+        <AdminSocialPublishingOverview postId={post.id} />
+{!isReviewApproved ? (
           <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-7">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-start gap-4">
