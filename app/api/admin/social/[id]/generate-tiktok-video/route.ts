@@ -86,17 +86,46 @@ async function getPostIdFromRequest(request: Request, context: RouteContext) {
 }
 
 function getFfmpegPath() {
-  try {
-    const dynamicRequire = eval("require") as (packageName: string) => {
-      path?: string;
-    };
+  const explicitPath = cleanString(process.env.FFMPEG_PATH);
 
-    const ffmpegInstaller = dynamicRequire("@ffmpeg-installer/ffmpeg");
-
-    return ffmpegInstaller.path || "ffmpeg";
-  } catch {
-    return process.env.FFMPEG_PATH || "ffmpeg";
+  if (explicitPath) {
+    return explicitPath;
   }
+
+  const platform = process.platform;
+  const arch = process.arch;
+
+  if (platform === "win32" && arch === "x64") {
+    return path.join(
+      process.cwd(),
+      "node_modules",
+      "@ffmpeg-installer",
+      "win32-x64",
+      "ffmpeg.exe"
+    );
+  }
+
+  if (platform === "linux" && arch === "x64") {
+    return path.join(
+      process.cwd(),
+      "node_modules",
+      "@ffmpeg-installer",
+      "linux-x64",
+      "ffmpeg"
+    );
+  }
+
+  if (platform === "darwin" && arch === "x64") {
+    return path.join(
+      process.cwd(),
+      "node_modules",
+      "@ffmpeg-installer",
+      "darwin-x64",
+      "ffmpeg"
+    );
+  }
+
+  return "ffmpeg";
 }
 
 function escapeXml(value: string) {
