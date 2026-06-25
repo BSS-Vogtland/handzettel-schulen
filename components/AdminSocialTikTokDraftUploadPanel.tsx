@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ClipboardCheck,
   ExternalLink,
+  Lock,
   RefreshCw,
   Send,
   ShieldCheck,
-  Video,
   XCircle,
 } from "lucide-react";
 
@@ -59,6 +60,22 @@ function formatFileSize(value: number | null | undefined) {
 function getStatusIcon(ok: boolean | undefined) {
   if (ok) return <CheckCircle2 className="h-5 w-5 text-emerald-700" />;
   return <XCircle className="h-5 w-5 text-amber-700" />;
+}
+
+function getReviewLabel(status: string | null | undefined) {
+  switch (status) {
+    case "approved":
+      return "freigegeben";
+    case "needs_changes":
+      return "Überarbeitung nötig";
+    case "rejected":
+      return "abgelehnt";
+    case "not_reviewed":
+    case null:
+    case undefined:
+    default:
+      return "offen";
+  }
 }
 
 export default function AdminSocialTikTokDraftUploadPanel({
@@ -171,6 +188,9 @@ export default function AdminSocialTikTokDraftUploadPanel({
   const canUpload = Boolean(preview?.canUpload);
   const blockedReason = preview?.blockedReason || "";
   const videoUrl = preview?.videoAsset?.public_url || "";
+  const hasVideoAsset = Boolean(preview?.videoAsset?.public_url);
+  const hasVideoUploadScope = Boolean(preview?.readiness?.hasVideoUploadScope);
+  const uploadFlagEnabled = Boolean(preview?.readiness?.uploadEnabled);
 
   return (
     <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
@@ -182,13 +202,14 @@ export default function AdminSocialTikTokDraftUploadPanel({
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2G.4 · Upload-/Draft-Flow
+            V2J.1B · Review-Demo und Upload-Sicherheitsprüfung
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
-            Diese Ansicht bereitet den TikTok-Draft-Upload vor. Der echte Upload
-            startet erst, wenn video.upload autorisiert und TIKTOK_ENABLE_DRAFT_UPLOAD
-            bewusst aktiviert ist.
+            Diese Ansicht zeigt TikTok den vorbereiteten Draft-Upload-Workflow:
+            Video-Asset, finalen TikTok-Text, Scope-Prüfung, Upload-Flag und den
+            konkreten Sperrgrund. Der echte Upload startet nur, wenn alle
+            Sicherheitsbedingungen erfüllt sind.
           </p>
         </div>
 
@@ -246,14 +267,14 @@ export default function AdminSocialTikTokDraftUploadPanel({
           {canUpload ? (
             <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-700" />
           ) : (
-            <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+            <Lock className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
           )}
 
           <div>
             <h3 className="text-lg font-black text-[#102A43]">
               {canUpload
                 ? "TikTok-Draft-Upload ist freigegeben"
-                : "TikTok-Draft-Upload ist vorbereitet, aber noch gesperrt"}
+                : "TikTok-Draft-Upload ist vorbereitet, aber gesperrt"}
             </h3>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-[#486581]">
@@ -267,25 +288,124 @@ export default function AdminSocialTikTokDraftUploadPanel({
         <div className="mt-4 grid gap-3 rounded-2xl bg-white/80 p-3 text-xs font-bold leading-5 md:grid-cols-2">
           <div>
             <p className="flex items-center gap-2">
-              {getStatusIcon(Boolean(preview?.videoAsset?.public_url))}
-              Video-Asset: {preview?.videoAsset?.public_url ? "vorhanden" : "fehlt"}
+              {getStatusIcon(hasVideoAsset)}
+              Video-Asset: {hasVideoAsset ? "vorhanden" : "fehlt"}
             </p>
             <p>Dateigröße: {formatFileSize(preview?.videoAsset?.file_size)}</p>
             <p>MIME-Type: {preview?.videoAsset?.mime_type || "—"}</p>
-            <p>Review: {preview?.post?.review_status || "—"}</p>
+            <p>Review: {getReviewLabel(preview?.post?.review_status)}</p>
           </div>
 
           <div>
             <p className="flex items-center gap-2">
-              {getStatusIcon(Boolean(preview?.readiness?.hasVideoUploadScope))}
-              video.upload Scope:{" "}
-              {preview?.readiness?.hasVideoUploadScope ? "gesetzt" : "fehlt"}
+              {getStatusIcon(hasVideoUploadScope)}
+              video.upload Scope: {hasVideoUploadScope ? "gesetzt" : "fehlt"}
             </p>
             <p>
-              Upload-Flag:{" "}
-              {preview?.readiness?.uploadEnabled ? "aktiv" : "deaktiviert"}
+              Upload-Flag: {uploadFlagEnabled ? "aktiv" : "deaktiviert"}
             </p>
             <p>Scopes: {preview?.readiness?.scope || "—"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[1.5rem] border border-[#D9E2EC] bg-[#F8FAFC] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#102A43]">
+            <ClipboardCheck className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h3 className="text-lg font-black text-[#102A43]">
+              Review-Demo-Check dieser Seite
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#627D98]">
+              Für die TikTok-Aufnahme sollten genau diese Punkte sichtbar sein.
+              Keine Tokens, Secrets, ENV-Werte oder Kundendaten zeigen.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
+              hasVideoAsset
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {hasVideoAsset ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              Video-Vorschau
+            </div>
+            <p className="mt-1 font-bold">
+              {hasVideoAsset ? "sichtbar" : "noch nicht sichtbar"}
+            </p>
+          </div>
+
+          <div
+            className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
+              preview?.finalText
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {preview?.finalText ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              TikTok-Text
+            </div>
+            <p className="mt-1 font-bold">
+              {preview?.finalText ? "vorhanden" : "fehlt"}
+            </p>
+          </div>
+
+          <div
+            className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
+              hasVideoUploadScope
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {hasVideoUploadScope ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              video.upload
+            </div>
+            <p className="mt-1 font-bold">
+              {hasVideoUploadScope ? "im Scope" : "noch nicht im Scope"}
+            </p>
+          </div>
+
+          <div
+            className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
+              uploadFlagEnabled
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {uploadFlagEnabled ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              Upload-Flag
+            </div>
+            <p className="mt-1 font-bold">
+              {uploadFlagEnabled ? "aktiv" : "deaktiviert"}
+            </p>
           </div>
         </div>
       </div>
@@ -346,3 +466,4 @@ export default function AdminSocialTikTokDraftUploadPanel({
     </section>
   );
 }
+
