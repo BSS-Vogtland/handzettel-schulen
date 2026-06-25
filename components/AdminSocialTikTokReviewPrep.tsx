@@ -86,7 +86,16 @@ export default function AdminSocialTikTokReviewPrep() {
           </p>
         </div>
 
-        <a
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <a
+            href="/admin/social/tiktok-review"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#A23A2E] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Review-Material öffnen
+          </a>
+
+          <a
           href="https://developers.tiktok.com/apps"
           target="_blank"
           rel="noreferrer"
@@ -95,6 +104,7 @@ export default function AdminSocialTikTokReviewPrep() {
           <ExternalLink className="h-4 w-4" />
           TikTok Developer Portal
         </a>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
