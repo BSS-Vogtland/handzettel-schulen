@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   RefreshCw,
   ShieldCheck,
   Video,
@@ -13,6 +14,7 @@ import {
 type TikTokStatusResponse = {
   ok: boolean;
   checked_at?: string;
+  source?: "database" | "environment" | "none";
   message?: string;
   config?: {
     clientKeySet: boolean;
@@ -23,6 +25,10 @@ type TikTokStatusResponse = {
     openIdSet: boolean;
     configured: boolean;
     tokenConfigured: boolean;
+    scopes: string;
+    expiresAt: string | null;
+    refreshExpiresAt: string | null;
+    storedConnectionId: string | null;
   };
   verification?: {
     ok: boolean;
@@ -34,8 +40,8 @@ type TikTokStatusResponse = {
   } | null;
 };
 
-function formatDate(value: string | undefined) {
-  if (!value) return "noch nicht geprüft";
+function formatDate(value: string | undefined | null) {
+  if (!value) return "—";
 
   try {
     return new Intl.DateTimeFormat("de-DE", {
@@ -57,9 +63,22 @@ function stringifyPayload(value: unknown) {
   }
 }
 
+function getSourceLabel(source: TikTokStatusResponse["source"]) {
+  switch (source) {
+    case "database":
+      return "Supabase Verbindung";
+    case "environment":
+      return "ENV Fallback";
+    case "none":
+    default:
+      return "keine Verbindung";
+  }
+}
+
 export default function AdminSocialTikTokConnectionStatus() {
   const [status, setStatus] = useState<TikTokStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   async function loadStatus() {
     try {
@@ -95,6 +114,41 @@ export default function AdminSocialTikTokConnectionStatus() {
     }
   }
 
+  async function refreshToken() {
+    try {
+      setIsRefreshing(true);
+
+      const response = await fetch("/api/admin/social/tiktok/oauth/refresh", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | { ok?: boolean; message?: string }
+        | null;
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(
+          result?.message || "TikTok Token konnte nicht aktualisiert werden."
+        );
+      }
+
+      await loadStatus();
+    } catch (error) {
+      setStatus((current) => ({
+        ...(current || { ok: false }),
+        ok: false,
+        checked_at: new Date().toISOString(),
+        message:
+          error instanceof Error
+            ? error.message
+            : "TikTok Token konnte nicht aktualisiert werden.",
+      }));
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
   useEffect(() => {
     void loadStatus();
   }, []);
@@ -118,8 +172,8 @@ export default function AdminSocialTikTokConnectionStatus() {
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#627D98]">
-            Prüft, ob TikTok-App, OAuth-Umleitung und Zugriffstoken vorbereitet sind.
-            Das echte Video-Publishing bauen wir erst nach sauberem OAuth-Setup.
+            Verbindet TikTok per OAuth und speichert Access-/Refresh-Token serverseitig.
+            Echtes Video-Publishing folgt im nächsten Block.
           </p>
 
           <p className="mt-2 text-xs font-bold text-[#8A5A35]">
@@ -127,15 +181,35 @@ export default function AdminSocialTikTokConnectionStatus() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => loadStatus()}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          {isLoading ? "Prüft ..." : "Status prüfen"}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <a
+            href="/api/admin/social/tiktok/oauth/start"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#A23A2E] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+          >
+            <ExternalLink className="h-4 w-4" />
+            TikTok verbinden
+          </a>
+
+          <button
+            type="button"
+            onClick={() => refreshToken()}
+            disabled={isRefreshing}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-5 py-3 text-sm font-black text-[#486581] shadow-sm transition hover:bg-[#FFFCF7] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            Token refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={() => loadStatus()}
+            disabled={isLoading}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            {isLoading ? "Prüft ..." : "Status prüfen"}
+          </button>
+        </div>
       </div>
 
       {status?.ok === false ? (
@@ -161,7 +235,7 @@ export default function AdminSocialTikTokConnectionStatus() {
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] opacity-80">
-                TikTok
+                TikTok · {getSourceLabel(status?.source)}
               </p>
 
               <h3 className="mt-1 text-lg font-black">
@@ -188,12 +262,15 @@ export default function AdminSocialTikTokConnectionStatus() {
             <p>Client Key: {config?.clientKeySet ? "gesetzt" : "fehlt"}</p>
             <p>Client Secret: {config?.clientSecretSet ? "gesetzt" : "fehlt"}</p>
             <p>Redirect URI: {config?.redirectUriSet ? "gesetzt" : "fehlt"}</p>
+            <p>Scopes: {config?.scopes || "—"}</p>
           </div>
 
           <div>
             <p>Access Token: {config?.accessTokenSet ? "gesetzt" : "fehlt"}</p>
             <p>Refresh Token: {config?.refreshTokenSet ? "gesetzt" : "fehlt"}</p>
             <p>Open ID: {config?.openIdSet ? "gesetzt" : "fehlt"}</p>
+            <p>Token bis: {formatDate(config?.expiresAt)}</p>
+            <p>Refresh bis: {formatDate(config?.refreshExpiresAt)}</p>
           </div>
         </div>
 
@@ -217,8 +294,8 @@ export default function AdminSocialTikTokConnectionStatus() {
       </div>
 
       <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-900">
-        TikTok benötigt eine Developer App, das Content Posting API Produkt und freigegebene Scopes.
-        Für Draft-/Inbox-Upload wird video.upload genutzt, für echtes Direct Posting video.publish.
+        Für den Start reicht video.upload. Für echtes Direct Posting brauchen wir später video.publish
+        und je nach TikTok-App-Status zusätzliche Freigaben.
       </div>
     </section>
   );
