@@ -364,6 +364,13 @@ const PUBLISH_COMBINATION_DEFINITIONS = [
     platformLabel: "Instagram",
     mediaLabel: "Reel",
   },
+  {
+    key: "tiktok-video",
+    platform: "tiktok",
+    mediaType: "video",
+    platformLabel: "TikTok",
+    mediaLabel: "Video",
+  },
 ] as const;
 
 function getPublishCombinationStatusItems(events: SocialPublishEventRow[]) {
