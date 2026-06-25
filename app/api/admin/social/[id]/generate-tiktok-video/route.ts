@@ -362,10 +362,11 @@ async function renderVerticalVideo({
   const outputPath = path.join(tmpdir(), `tiktok-vertical-${id}.mp4`);
 
   const filter =
-    "[0:v]split=2[base][front];" +
-    "[base]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:1,eq=brightness=-0.16:saturation=0.86[bg];" +
-    "[front]scale=980:1500:force_original_aspect_ratio=decrease[fg];" +
-    "[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=1,format=yuv420p[v]";
+    "[0:v]setpts=PTS-STARTPTS,split=2[base][front];" +
+    "[base]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:1,eq=brightness=-0.18:saturation=0.92[bg];" +
+    "[front]scale=1080:1760:force_original_aspect_ratio=decrease[fg];" +
+    "[bg][fg]overlay=(W-w)/2:max((H-h)/2-70\\,56):shortest=1[composite];" +
+    "[composite]zoompan=z='min(max(zoom,pzoom)+0.00045,1.035)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,format=yuv420p[v]";
 
   try {
     await writeFile(inputPath, sourceBuffer);
@@ -481,7 +482,7 @@ async function saveVideoAsset({
       post_id: post.id,
       asset_type: "video",
       provider: "template-composite-video",
-      model: "tiktok-vertical-render-v2",
+      model: "tiktok-vertical-render-v3",
       prompt,
       storage_bucket: storageBucket,
       storage_path: storagePath,
@@ -492,6 +493,7 @@ async function saveVideoAsset({
       metadata: {
         generation_mode: "tiktok_vertical_video",
         format: "9:16",
+        layout_version: "v2i3_larger_foreground_safe_tiktok_area",
         width: 1080,
         height: 1920,
         duration_seconds: durationSeconds,
@@ -513,7 +515,7 @@ async function saveVideoAsset({
         intended_platform: "tiktok",
         safe_upload_mode: true,
         note:
-          "TikTok 9:16 video asset generated from the best available SocialPilot video source. Actual TikTok upload remains gated by video.upload and TIKTOK_ENABLE_DRAFT_UPLOAD.",
+          "TikTok 9:16 video asset generated from the best available SocialPilot video source with larger foreground, lifted composition and subtle zoom. Actual TikTok upload remains gated by video.upload and TIKTOK_ENABLE_DRAFT_UPLOAD.",
       },
     })
     .select("*")
