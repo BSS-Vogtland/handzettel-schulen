@@ -1,66 +1,18 @@
 ﻿import { NextResponse } from "next/server";
+import {
+  buildPublicConnectionStatus,
+  loadStoredTikTokConnection,
+  updateTikTokConnectionAccountInfo,
+  verifyTikTokUserInfo,
+} from "@/lib/social/tiktokOAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function cleanEnv(value: string | undefined) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getTikTokConfigStatus() {
-  const clientKey = cleanEnv(process.env.TIKTOK_CLIENT_KEY);
-  const clientSecret = cleanEnv(process.env.TIKTOK_CLIENT_SECRET);
-  const redirectUri = cleanEnv(process.env.TIKTOK_REDIRECT_URI);
-  const accessToken = cleanEnv(process.env.TIKTOK_ACCESS_TOKEN);
-  const refreshToken = cleanEnv(process.env.TIKTOK_REFRESH_TOKEN);
-  const openId = cleanEnv(process.env.TIKTOK_OPEN_ID);
-
-  return {
-    clientKeySet: Boolean(clientKey),
-    clientSecretSet: Boolean(clientSecret),
-    redirectUriSet: Boolean(redirectUri),
-    accessTokenSet: Boolean(accessToken),
-    refreshTokenSet: Boolean(refreshToken),
-    openIdSet: Boolean(openId),
-    configured: Boolean(clientKey && clientSecret && redirectUri),
-    tokenConfigured: Boolean(accessToken),
-  };
-}
-
-async function verifyTikTokCreator(accessToken: string) {
-  const response = await fetch(
-    "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      cache: "no-store",
-    }
-  );
-
-  const payload = (await response.json().catch(() => null)) as unknown;
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      error: payload,
-    };
-  }
-
-  return {
-    ok: true,
-    status: response.status,
-    payload,
-  };
-}
-
 export async function GET() {
   try {
-    const config = getTikTokConfigStatus();
-    const accessToken = cleanEnv(process.env.TIKTOK_ACCESS_TOKEN);
+    const storedConnection = await loadStoredTikTokConnection();
+    const publicStatus = buildPublicConnectionStatus({ storedConnection });
 
     let verification:
       | {
@@ -70,24 +22,44 @@ export async function GET() {
           payload?: unknown;
           skipped?: boolean;
           reason?: string;
+          user?: unknown;
         }
       | null = null;
 
-    if (!accessToken) {
+    if (!publicStatus.activeAccessToken) {
       verification = {
         ok: false,
         skipped: true,
         reason:
-          "Noch kein TIKTOK_ACCESS_TOKEN gesetzt. TikTok OAuth muss zuerst eingerichtet werden.",
+          "Noch kein TikTok Access Token vorhanden. Bitte TikTok per OAuth verbinden.",
       };
     } else {
-      verification = await verifyTikTokCreator(accessToken);
+      verification = await verifyTikTokUserInfo(publicStatus.activeAccessToken);
+
+      if (storedConnection && verification.ok) {
+        const user =
+          typeof verification.user === "object" && verification.user !== null
+            ? (verification.user as {
+                open_id?: string;
+                display_name?: string;
+                avatar_url?: string;
+              })
+            : null;
+
+        if (user) {
+          await updateTikTokConnectionAccountInfo({
+            connection: storedConnection,
+            user,
+          });
+        }
+      }
     }
 
     return NextResponse.json({
       ok: true,
       checked_at: new Date().toISOString(),
-      config,
+      source: publicStatus.source,
+      config: publicStatus.config,
       verification,
     });
   } catch (error) {
@@ -98,7 +70,7 @@ export async function GET() {
         message:
           error instanceof Error
             ? error.message
-            : "TikTok-Systemstatus konnte nicht geprüft werden.",
+            : "TikTok-Systemstatus konnte nicht geprueft werden.",
       },
       { status: 500 }
     );
