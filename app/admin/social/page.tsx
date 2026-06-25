@@ -30,6 +30,7 @@ import AdminSocialMetaConnectionStatus from "@/components/AdminSocialMetaConnect
 import AdminSocialTikTokConnectionStatus from "@/components/AdminSocialTikTokConnectionStatus";
 import AdminSocialTikTokReviewPrep from "@/components/AdminSocialTikTokReviewPrep";
 import AdminSocialPublishingDashboard from "@/components/AdminSocialPublishingDashboard";
+import AdminSocialPilotControlCenter from "@/components/AdminSocialPilotControlCenter";
 export const dynamic = "force-dynamic";
 
 type SocialPostRow = {
@@ -529,10 +530,20 @@ export default async function AdminSocialPage() {
 
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
         <AdminSocialMusicLibraryShortcut />
-        <AdminSocialMetaConnectionStatus />
-        <AdminSocialPublishingDashboard />
-        <AdminSocialTikTokConnectionStatus />
-        <AdminSocialTikTokReviewPrep />
+        <AdminSocialPilotControlCenter />
+
+        <section id="meta-status" className="scroll-mt-6">
+          <AdminSocialMetaConnectionStatus />
+        </section>
+        <section id="publishing-dashboard" className="scroll-mt-6">
+          <AdminSocialPublishingDashboard />
+        </section>
+        <section id="tiktok-status" className="scroll-mt-6">
+          <AdminSocialTikTokConnectionStatus />
+        </section>
+        <section id="tiktok-review" className="scroll-mt-6">
+          <AdminSocialTikTokReviewPrep />
+        </section>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
