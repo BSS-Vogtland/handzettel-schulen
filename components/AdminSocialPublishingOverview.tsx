@@ -160,9 +160,11 @@ function getEventError(event: UnknownRow | null | undefined) {
     "error_message",
     "errorMessage",
     "error",
-    "message",
     "failure_reason",
     "failureReason",
+    "failed_reason",
+    "failedReason",
+    "exception",
   ]);
 }
 
