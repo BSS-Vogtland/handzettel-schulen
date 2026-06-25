@@ -78,18 +78,181 @@ function getRowText(row: UnknownRow | null | undefined, keys: string[]) {
   return "";
 }
 
-function isSuccessEvent(event: UnknownRow | null | undefined) {
-  if (!event) return false;
+function getNestedText(row: UnknownRow | null | undefined, path: string[]) {
+  if (!row) return "";
 
-  const status = lower(event.status);
-  const eventType = lower(event.event_type);
+  let current: unknown = row;
+
+  for (const key of path) {
+    if (!current || typeof current !== "object") return "";
+
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return normalizeText(current);
+}
+
+function getEventPlatform(event: UnknownRow | null | undefined) {
+  return lower(
+    getRowText(event, [
+      "platform",
+      "target_platform",
+      "provider",
+      "channel",
+      "network",
+      "destination",
+    ])
+  );
+}
+
+function getEventMediaType(event: UnknownRow | null | undefined) {
+  const direct = lower(
+    getRowText(event, [
+      "media_type",
+      "mediaType",
+      "asset_type",
+      "assetType",
+      "content_type",
+      "contentType",
+      "post_type",
+      "postType",
+    ])
+  );
+
+  if (direct) return direct;
+
+  const metadataMediaType = lower(getNestedText(event, ["metadata", "media_type"]));
+  const rawMediaType = lower(getNestedText(event, ["raw_response", "media_type"]));
+
+  return metadataMediaType || rawMediaType;
+}
+
+function getEventType(event: UnknownRow | null | undefined) {
+  return lower(
+    getRowText(event, [
+      "event_type",
+      "eventType",
+      "type",
+      "action",
+      "operation",
+      "publish_type",
+      "publishType",
+    ])
+  );
+}
+
+function getEventStatus(event: UnknownRow | null | undefined) {
+  return lower(
+    getRowText(event, [
+      "status",
+      "state",
+      "result",
+      "publish_status",
+      "publishStatus",
+      "event_status",
+      "eventStatus",
+    ])
+  );
+}
+
+function getEventError(event: UnknownRow | null | undefined) {
+  return getRowText(event, [
+    "error_message",
+    "errorMessage",
+    "error",
+    "message",
+    "failure_reason",
+    "failureReason",
+  ]);
+}
+
+function getEventExternalId(event: UnknownRow | null | undefined) {
+  return getRowText(event, [
+    "meta_post_id",
+    "metaPostId",
+    "meta_id",
+    "metaId",
+    "external_id",
+    "externalId",
+    "remote_id",
+    "remoteId",
+    "post_id_external",
+    "publish_id",
+    "publishId",
+    "creation_id",
+    "creationId",
+    "id_on_platform",
+  ]);
+}
+
+function getEventDate(event: UnknownRow | null | undefined) {
+  return getRowText(event, [
+    "published_at",
+    "publishedAt",
+    "created_at",
+    "createdAt",
+    "updated_at",
+    "updatedAt",
+    "finished_at",
+    "finishedAt",
+  ]);
+}
+
+function isFailureEvent(event: UnknownRow | null | undefined) {
+  const status = getEventStatus(event);
+  const type = getEventType(event);
+  const error = getEventError(event);
 
   return (
+    Boolean(error) ||
+    status === "failed" ||
+    status === "failure" ||
+    status === "error" ||
+    status === "rejected" ||
+    status === "cancelled" ||
+    type.includes("failed") ||
+    type.includes("error")
+  );
+}
+
+function isSuccessEvent(event: UnknownRow | null | undefined) {
+  if (!event || isFailureEvent(event)) return false;
+
+  const status = getEventStatus(event);
+  const eventType = getEventType(event);
+  const externalId = getEventExternalId(event);
+  const publishedAt = getRowText(event, ["published_at", "publishedAt"]);
+
+  if (
     status === "success" ||
     status === "published" ||
     status === "completed" ||
-    eventType.includes("success")
-  );
+    status === "complete" ||
+    status === "ok" ||
+    status === "posted" ||
+    status === "uploaded"
+  ) {
+    return true;
+  }
+
+  if (
+    eventType.includes("success") ||
+    eventType.includes("published") ||
+    eventType.includes("posted") ||
+    eventType.includes("uploaded")
+  ) {
+    return true;
+  }
+
+  if (externalId && !isFailureEvent(event)) {
+    return true;
+  }
+
+  if (publishedAt && !isFailureEvent(event)) {
+    return true;
+  }
+
+  return false;
 }
 
 function eventMatches({
@@ -101,26 +264,37 @@ function eventMatches({
   platform: string;
   mediaType: "image" | "video";
 }) {
-  const rowPlatform = lower(event.platform);
-  const rowMediaType = lower(event.media_type || event.mediaType);
-  const rowEventType = lower(event.event_type || event.type);
+  const rowPlatform = getEventPlatform(event);
+  const rowMediaType = getEventMediaType(event);
+  const rowEventType = getEventType(event);
+  const rawText = JSON.stringify(event).toLowerCase();
 
-  if (rowPlatform !== platform) return false;
+  if (rowPlatform && rowPlatform !== platform) return false;
+
+  if (!rowPlatform && !rawText.includes(platform)) return false;
 
   if (rowMediaType === mediaType) return true;
 
   if (mediaType === "image") {
     return (
+      rowMediaType.includes("image") ||
+      rowMediaType.includes("photo") ||
       rowEventType.includes("image") ||
       rowEventType.includes("photo") ||
-      rowEventType.includes("bild")
+      rowEventType.includes("bild") ||
+      rawText.includes("image") ||
+      rawText.includes("photo")
     );
   }
 
   return (
+    rowMediaType.includes("video") ||
+    rowMediaType.includes("reel") ||
     rowEventType.includes("video") ||
     rowEventType.includes("reel") ||
-    rowEventType.includes("draft")
+    rowEventType.includes("draft") ||
+    rawText.includes("video") ||
+    rawText.includes("reel")
   );
 }
 
@@ -167,10 +341,6 @@ function formatDate(value: unknown) {
   } catch {
     return dateValue;
   }
-}
-
-function getEventDate(event: UnknownRow | null | undefined) {
-  return getRowText(event, ["published_at", "created_at", "updated_at"]);
 }
 
 function getStatusLabel(card: PlatformCard) {
@@ -220,6 +390,23 @@ function MediaIcon({ mediaType }: { mediaType: "image" | "video" }) {
   return <Video className="h-5 w-5" />;
 }
 
+function summarizeEvent(event: UnknownRow | null | undefined) {
+  if (!event) return "—";
+
+  const platform = getEventPlatform(event) || "—";
+  const mediaType = getEventMediaType(event) || "—";
+  const status = getEventStatus(event) || "—";
+  const eventType = getEventType(event) || "—";
+  const externalId = getEventExternalId(event) || "—";
+
+  return `${platform} · ${mediaType} · ${status} · ${eventType} · ${externalId}`;
+}
+
+function getEventKey(event: UnknownRow, index: number) {
+  const id = getRowText(event, ["id", "event_id", "eventId"]);
+  return id || `event-${index}`;
+}
+
 export default function AdminSocialPublishingOverview({
   postId,
 }: {
@@ -227,6 +414,7 @@ export default function AdminSocialPublishingOverview({
 }) {
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
 
   async function loadOverview() {
     try {
@@ -275,16 +463,21 @@ export default function AdminSocialPublishingOverview({
   const videoAsset = assets.find(isVideoAsset) || null;
 
   const cards = useMemo<PlatformCard[]>(() => {
-    function latestEvent(platform: "facebook" | "instagram" | "tiktok", mediaType: "image" | "video") {
-      return (
-        events.find((event) =>
-          eventMatches({
-            event,
-            platform,
-            mediaType,
-          })
-        ) || null
+    function latestEvent(
+      platform: "facebook" | "instagram" | "tiktok",
+      mediaType: "image" | "video"
+    ) {
+      const matchingEvents = events.filter((event) =>
+        eventMatches({
+          event,
+          platform,
+          mediaType,
+        })
       );
+
+      const successEvent = matchingEvents.find(isSuccessEvent);
+
+      return successEvent || matchingEvents[0] || null;
     }
 
     const facebookImageEvent = latestEvent("facebook", "image");
@@ -383,12 +576,13 @@ export default function AdminSocialPublishingOverview({
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2H.1 · Plattformstatus
+            V2H.2 · Plattformstatus
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
             Zusammenfassung der aktuellen Veröffentlichungslage für Facebook,
-            Instagram und TikTok. Diese Übersicht löst keine Veröffentlichung aus.
+            Instagram und TikTok. Die Event-Erkennung toleriert unterschiedliche
+            Log-Felder aus den bisherigen Publishing-Routen.
           </p>
 
           <p className="mt-2 text-xs font-bold text-[#8A5A35]">
@@ -413,7 +607,7 @@ export default function AdminSocialPublishingOverview({
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
+      <div className="mt-6 grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
           <p className="text-xs font-black uppercase tracking-[0.16em]">
             Veröffentlicht
@@ -434,6 +628,20 @@ export default function AdminSocialPublishingOverview({
           </p>
           <p className="mt-2 text-3xl font-black">{blockedCount}</p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowEvents((value) => !value)}
+          className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-left text-[#102A43] transition hover:bg-white"
+        >
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Publish-Events
+          </p>
+          <p className="mt-2 text-3xl font-black">{events.length}</p>
+          <p className="mt-1 text-xs font-bold text-[#627D98]">
+            {showEvents ? "Details ausblenden" : "Details anzeigen"}
+          </p>
+        </button>
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
@@ -464,6 +672,9 @@ export default function AdminSocialPublishingOverview({
               <p>Asset: {card.assetReady ? "vorhanden" : "fehlt"}</p>
               <p>Event: {card.event ? "vorhanden" : "—"}</p>
               <p>Datum: {formatDate(getEventDate(card.event))}</p>
+              <p className="mt-2 break-words text-[11px] opacity-80">
+                Match: {summarizeEvent(card.event)}
+              </p>
             </div>
 
             {card.blocked && !card.published && card.blockedReason ? (
@@ -484,6 +695,51 @@ export default function AdminSocialPublishingOverview({
           </article>
         ))}
       </div>
+
+      {showEvents ? (
+        <div className="mt-6 rounded-[1.5rem] border border-[#D9E2EC] bg-[#F8FAFC] p-4">
+          <h3 className="text-lg font-black text-[#102A43]">
+            Gefundene Publish-Events
+          </h3>
+
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#627D98]">
+            Dieser technische Abgleich hilft zu sehen, welche Events vorhanden
+            sind und warum eine Plattform als veröffentlicht oder offen erkannt wird.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {events.length === 0 ? (
+              <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4 text-sm font-bold text-[#627D98]">
+                Für diesen Beitrag wurden noch keine Publish-Events gefunden.
+              </div>
+            ) : (
+              events.map((event, index) => (
+                <details
+                  key={getEventKey(event, index)}
+                  className="rounded-2xl border border-[#D9E2EC] bg-white p-4"
+                >
+                  <summary className="cursor-pointer text-sm font-black text-[#102A43]">
+                    Event {index + 1}: {summarizeEvent(event)}
+                  </summary>
+
+                  <div className="mt-3 grid gap-3 text-xs font-bold leading-5 text-[#486581] md:grid-cols-3">
+                    <p>Plattform: {getEventPlatform(event) || "—"}</p>
+                    <p>Medientyp: {getEventMediaType(event) || "—"}</p>
+                    <p>Status: {getEventStatus(event) || "—"}</p>
+                    <p>Event-Typ: {getEventType(event) || "—"}</p>
+                    <p>Externe ID: {getEventExternalId(event) || "—"}</p>
+                    <p>Datum: {formatDate(getEventDate(event))}</p>
+                  </div>
+
+                  <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-xl border border-[#D9E2EC] bg-[#F8FAFC] p-3 text-[11px] font-bold leading-5 text-[#243B53]">
+                    {JSON.stringify(event, null, 2)}
+                  </pre>
+                </details>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
