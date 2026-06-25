@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  Filter,
   ImageIcon,
   RefreshCw,
   ShieldCheck,
@@ -44,6 +45,33 @@ type DashboardResponse = {
 };
 
 type PlatformState = "published" | "prepared" | "blocked" | "missing";
+type DashboardFilter =
+  | "relevant"
+  | "published"
+  | "prepared"
+  | "blocked"
+  | "missing"
+  | "all";
+
+type ComputedPlatform = {
+  state: PlatformState;
+  event: UnknownRow | null;
+  reason: string;
+};
+
+type ComputedRow = {
+  post: UnknownRow;
+  postId: string;
+  facebookImage: ComputedPlatform;
+  facebookVideo: ComputedPlatform;
+  instagramImage: ComputedPlatform;
+  instagramVideo: ComputedPlatform;
+  tiktokVideo: ComputedPlatform;
+  states: PlatformState[];
+  hasAnyAsset: boolean;
+  hasAnyEvent: boolean;
+  isRelevant: boolean;
+};
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -66,19 +94,52 @@ function rowText(row: UnknownRow | null | undefined, keys: string[]) {
 }
 
 function eventPlatform(event: UnknownRow | null | undefined) {
-  return lower(rowText(event, ["platform", "target_platform", "provider", "channel", "network"]));
+  return lower(
+    rowText(event, [
+      "platform",
+      "target_platform",
+      "provider",
+      "channel",
+      "network",
+    ])
+  );
 }
 
 function eventMediaType(event: UnknownRow | null | undefined) {
-  return lower(rowText(event, ["media_type", "mediaType", "asset_type", "content_type", "post_type"]));
+  return lower(
+    rowText(event, [
+      "media_type",
+      "mediaType",
+      "asset_type",
+      "content_type",
+      "post_type",
+    ])
+  );
 }
 
 function eventType(event: UnknownRow | null | undefined) {
-  return lower(rowText(event, ["event_type", "eventType", "type", "action", "operation", "publish_type"]));
+  return lower(
+    rowText(event, [
+      "event_type",
+      "eventType",
+      "type",
+      "action",
+      "operation",
+      "publish_type",
+    ])
+  );
 }
 
 function eventStatus(event: UnknownRow | null | undefined) {
-  return lower(rowText(event, ["status", "state", "result", "publish_status", "event_status"]));
+  return lower(
+    rowText(event, [
+      "status",
+      "state",
+      "result",
+      "publish_status",
+      "event_status",
+    ])
+  );
 }
 
 function eventError(event: UnknownRow | null | undefined) {
@@ -108,7 +169,14 @@ function eventExternalId(event: UnknownRow | null | undefined) {
 }
 
 function eventDate(event: UnknownRow | null | undefined) {
-  return rowText(event, ["published_at", "publishedAt", "created_at", "createdAt", "updated_at", "updatedAt"]);
+  return rowText(event, [
+    "published_at",
+    "publishedAt",
+    "created_at",
+    "createdAt",
+    "updated_at",
+    "updatedAt",
+  ]);
 }
 
 function isFailureEvent(event: UnknownRow | null | undefined) {
@@ -303,7 +371,7 @@ function computePlatformState({
   assets: AssetRow[];
   events: UnknownRow[];
   tiktok?: DashboardResponse["tiktok"];
-}) {
+}): ComputedPlatform {
   const postAssets = assets.filter((asset) => text(asset.post_id) === postId);
   const postEvents = events.filter((event) => text(event.post_id) === postId);
 
@@ -319,7 +387,7 @@ function computePlatformState({
 
   if (successEvent) {
     return {
-      state: "published" as PlatformState,
+      state: "published",
       event: successEvent,
       reason: "",
     };
@@ -328,7 +396,7 @@ function computePlatformState({
   if (platform === "tiktok") {
     if (!assetReady) {
       return {
-        state: "missing" as PlatformState,
+        state: "missing",
         event: matchingEvents[0] || null,
         reason: "Video fehlt",
       };
@@ -336,7 +404,7 @@ function computePlatformState({
 
     if (!tiktok?.canUpload) {
       return {
-        state: "blocked" as PlatformState,
+        state: "blocked",
         event: matchingEvents[0] || null,
         reason: tiktok?.blockedReason || "video.upload fehlt",
       };
@@ -345,22 +413,56 @@ function computePlatformState({
 
   if (assetReady) {
     return {
-      state: "prepared" as PlatformState,
+      state: "prepared",
       event: matchingEvents[0] || null,
       reason: "",
     };
   }
 
   return {
-    state: "missing" as PlatformState,
+    state: "missing",
     event: matchingEvents[0] || null,
     reason: "Asset fehlt",
   };
 }
 
+function filterRows(rows: ComputedRow[], filter: DashboardFilter) {
+  switch (filter) {
+    case "published":
+      return rows.filter((row) => row.states.includes("published"));
+    case "prepared":
+      return rows.filter((row) => row.states.includes("prepared"));
+    case "blocked":
+      return rows.filter((row) => row.states.includes("blocked"));
+    case "missing":
+      return rows.filter(
+        (row) =>
+          row.states.includes("missing") &&
+          !row.states.includes("published") &&
+          !row.states.includes("prepared") &&
+          !row.states.includes("blocked")
+      );
+    case "all":
+      return rows;
+    case "relevant":
+    default:
+      return rows.filter((row) => row.isRelevant);
+  }
+}
+
+const filterButtons: { key: DashboardFilter; label: string }[] = [
+  { key: "relevant", label: "Relevant" },
+  { key: "published", label: "Veröffentlicht" },
+  { key: "prepared", label: "Vorbereitet" },
+  { key: "blocked", label: "Gesperrt" },
+  { key: "missing", label: "Nur fehlende Assets" },
+  { key: "all", label: "Alle" },
+];
+
 export default function AdminSocialPublishingDashboard() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter>("relevant");
 
   async function loadDashboard() {
     try {
@@ -403,69 +505,103 @@ export default function AdminSocialPublishingDashboard() {
   const assets = dashboard?.assets || [];
   const events = dashboard?.publishEvents || [];
 
-  const rows = useMemo(() => {
+  const rows = useMemo<ComputedRow[]>(() => {
     return posts.map((post) => {
       const postId = getPostId(post);
+      const postAssets = assets.filter((asset) => text(asset.post_id) === postId);
+      const postEvents = events.filter((event) => text(event.post_id) === postId);
+
+      const facebookImage = computePlatformState({
+        postId,
+        platform: "facebook",
+        mediaType: "image",
+        assets,
+        events,
+        tiktok: dashboard?.tiktok,
+      });
+      const facebookVideo = computePlatformState({
+        postId,
+        platform: "facebook",
+        mediaType: "video",
+        assets,
+        events,
+        tiktok: dashboard?.tiktok,
+      });
+      const instagramImage = computePlatformState({
+        postId,
+        platform: "instagram",
+        mediaType: "image",
+        assets,
+        events,
+        tiktok: dashboard?.tiktok,
+      });
+      const instagramVideo = computePlatformState({
+        postId,
+        platform: "instagram",
+        mediaType: "video",
+        assets,
+        events,
+        tiktok: dashboard?.tiktok,
+      });
+      const tiktokVideo = computePlatformState({
+        postId,
+        platform: "tiktok",
+        mediaType: "video",
+        assets,
+        events,
+        tiktok: dashboard?.tiktok,
+      });
+
+      const states = [
+        facebookImage.state,
+        facebookVideo.state,
+        instagramImage.state,
+        instagramVideo.state,
+        tiktokVideo.state,
+      ];
+
+      const hasAnyAsset = postAssets.some((asset) => Boolean(asset.public_url));
+      const hasAnyEvent = postEvents.length > 0;
+      const isRelevant =
+        hasAnyAsset ||
+        hasAnyEvent ||
+        states.includes("published") ||
+        states.includes("prepared") ||
+        states.includes("blocked");
 
       return {
         post,
         postId,
-        facebookImage: computePlatformState({
-          postId,
-          platform: "facebook",
-          mediaType: "image",
-          assets,
-          events,
-          tiktok: dashboard?.tiktok,
-        }),
-        facebookVideo: computePlatformState({
-          postId,
-          platform: "facebook",
-          mediaType: "video",
-          assets,
-          events,
-          tiktok: dashboard?.tiktok,
-        }),
-        instagramImage: computePlatformState({
-          postId,
-          platform: "instagram",
-          mediaType: "image",
-          assets,
-          events,
-          tiktok: dashboard?.tiktok,
-        }),
-        instagramVideo: computePlatformState({
-          postId,
-          platform: "instagram",
-          mediaType: "video",
-          assets,
-          events,
-          tiktok: dashboard?.tiktok,
-        }),
-        tiktokVideo: computePlatformState({
-          postId,
-          platform: "tiktok",
-          mediaType: "video",
-          assets,
-          events,
-          tiktok: dashboard?.tiktok,
-        }),
+        facebookImage,
+        facebookVideo,
+        instagramImage,
+        instagramVideo,
+        tiktokVideo,
+        states,
+        hasAnyAsset,
+        hasAnyEvent,
+        isRelevant,
       };
     });
   }, [assets, dashboard?.tiktok, events, posts]);
 
-  const allStates = rows.flatMap((row) => [
-    row.facebookImage.state,
-    row.facebookVideo.state,
-    row.instagramImage.state,
-    row.instagramVideo.state,
-    row.tiktokVideo.state,
-  ]);
+  const visibleRows = useMemo(
+    () => filterRows(rows, activeFilter),
+    [activeFilter, rows]
+  );
 
+  const allStates = rows.flatMap((row) => row.states);
   const publishedCount = allStates.filter((state) => state === "published").length;
   const preparedCount = allStates.filter((state) => state === "prepared").length;
   const blockedCount = allStates.filter((state) => state === "blocked").length;
-  const missingCount = allStates.filter((state) => state === "missing").length;
+  const missingOnlyRows = rows.filter(
+    (row) =>
+      row.states.every((state) => state === "missing") &&
+      !row.hasAnyAsset &&
+      !row.hasAnyEvent
+  ).length;
+  const hiddenEmptyRows =
+    activeFilter === "relevant" ? rows.length - visibleRows.length : 0;
 
   return (
     <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
@@ -477,12 +613,13 @@ export default function AdminSocialPublishingDashboard() {
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2H.3 · Gesamtstatus
+            V2H.5 · Kompaktstatus
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
-            Kompakte Übersicht der letzten SocialPilot-Beiträge und ihres
-            Plattformstatus. Diese Ansicht löst keine Veröffentlichung aus.
+            Kompakte Übersicht der letzten SocialPilot-Beiträge. Standardmäßig
+            werden nur relevante Beiträge angezeigt; reine Entwürfe ohne Assets
+            und Events bleiben ausgeblendet.
           </p>
 
           <p className="mt-2 text-xs font-bold text-[#8A5A35]">
@@ -507,29 +644,75 @@ export default function AdminSocialPublishingDashboard() {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-          <p className="text-xs font-black uppercase tracking-[0.16em]">Veröffentlicht</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Veröffentlicht
+          </p>
           <p className="mt-2 text-3xl font-black">{publishedCount}</p>
         </div>
 
         <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sky-950">
-          <p className="text-xs font-black uppercase tracking-[0.16em]">Vorbereitet</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Vorbereitet
+          </p>
           <p className="mt-2 text-3xl font-black">{preparedCount}</p>
         </div>
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          <p className="text-xs font-black uppercase tracking-[0.16em]">Gesperrt</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Gesperrt
+          </p>
           <p className="mt-2 text-3xl font-black">{blockedCount}</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
-          <p className="text-xs font-black uppercase tracking-[0.16em]">Fehlende Assets</p>
-          <p className="mt-2 text-3xl font-black">{missingCount}</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Leere Entwürfe
+          </p>
+          <p className="mt-2 text-3xl font-black">{missingOnlyRows}</p>
+        </div>
+
+        <div className="rounded-2xl border border-[#E7D8C3] bg-[#FFFCF7] p-4 text-[#102A43]">
+          <p className="text-xs font-black uppercase tracking-[0.16em]">
+            Sichtbar
+          </p>
+          <p className="mt-2 text-3xl font-black">{visibleRows.length}</p>
+          <p className="mt-1 text-xs font-bold text-[#8A5A35]">
+            {hiddenEmptyRows > 0
+              ? `${hiddenEmptyRows} leere ausgeblendet`
+              : "keine ausgeblendet"}
+          </p>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#D9E2EC]">
+      <div className="mt-5 rounded-[1.5rem] border border-[#D9E2EC] bg-[#F8FAFC] p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2 text-sm font-black text-[#102A43]">
+            <Filter className="h-4 w-4" />
+            Filter
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {filterButtons.map((button) => (
+              <button
+                key={button.key}
+                type="button"
+                onClick={() => setActiveFilter(button.key)}
+                className={`rounded-xl border px-3 py-2 text-xs font-black transition ${
+                  activeFilter === button.key
+                    ? "border-[#102A43] bg-[#102A43] text-white"
+                    : "border-[#D9E2EC] bg-white text-[#486581] hover:bg-[#FFFCF7]"
+                }`}
+              >
+                {button.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-[#D9E2EC]">
         <div className="hidden grid-cols-[1.4fr_repeat(5,0.7fr)_0.55fr] gap-0 bg-[#F8FAFC] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#627D98] xl:grid">
           <div>Beitrag</div>
           <div>FB Bild</div>
@@ -541,12 +724,12 @@ export default function AdminSocialPublishingDashboard() {
         </div>
 
         <div className="divide-y divide-[#D9E2EC] bg-white">
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <div className="p-5 text-sm font-bold text-[#627D98]">
-              Noch keine SocialPilot-Beiträge gefunden.
+              Für diesen Filter wurden keine Beiträge gefunden.
             </div>
           ) : (
-            rows.map((row) => (
+            visibleRows.map((row) => (
               <article
                 key={row.postId}
                 className="grid gap-3 p-4 xl:grid-cols-[1.4fr_repeat(5,0.7fr)_0.55fr] xl:items-center"
@@ -576,6 +759,7 @@ export default function AdminSocialPublishingDashboard() {
                     className={`rounded-2xl border px-3 py-2 text-xs font-black ${getStateClass(
                       state.state
                     )}`}
+                    title={state.reason || undefined}
                   >
                     <div className="flex items-center gap-2">
                       <StateIcon state={state.state} />
@@ -614,8 +798,10 @@ export default function AdminSocialPublishingDashboard() {
       </div>
 
       <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-900">
-        TikTok bleibt aktuell bewusst gesperrt, solange video.upload nicht autorisiert
-        und TIKTOK_ENABLE_DRAFT_UPLOAD nicht aktiv gesetzt ist.
+        TikTok bleibt aktuell bewusst gesperrt, solange video.upload nicht
+        autorisiert und TIKTOK_ENABLE_DRAFT_UPLOAD nicht aktiv gesetzt ist. Leere
+        Entwürfe ohne Assets werden standardmäßig ausgeblendet, bleiben über den
+        Filter „Alle“ oder „Nur fehlende Assets“ aber sichtbar.
       </div>
     </section>
   );
