@@ -28,6 +28,7 @@ import AdminSocialCreateWeekPlanButton from "@/components/AdminSocialCreateWeekP
 import AdminSocialMusicLibraryShortcut from "@/components/AdminSocialMusicLibraryShortcut";
 import AdminSocialMetaConnectionStatus from "@/components/AdminSocialMetaConnectionStatus";
 import AdminSocialTikTokConnectionStatus from "@/components/AdminSocialTikTokConnectionStatus";
+import AdminSocialTikTokReviewPrep from "@/components/AdminSocialTikTokReviewPrep";
 export const dynamic = "force-dynamic";
 
 type SocialPostRow = {
@@ -529,6 +530,7 @@ export default async function AdminSocialPage() {
         <AdminSocialMusicLibraryShortcut />
         <AdminSocialMetaConnectionStatus />
         <AdminSocialTikTokConnectionStatus />
+        <AdminSocialTikTokReviewPrep />
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">
