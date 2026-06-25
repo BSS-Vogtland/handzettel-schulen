@@ -86,7 +86,7 @@ export default function AdminSocialTikTokVerticalVideoButton({
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2I.1 · Vertikales TikTok-Video erzeugen
+            V2I.2 · TikTok-Video aus bestehendem Video erzeugen
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
@@ -107,7 +107,7 @@ export default function AdminSocialTikTokVerticalVideoButton({
           ) : (
             <Video className="h-4 w-4" />
           )}
-          {isRendering ? "Erzeuge 9:16 Video ..." : "9:16 TikTok-Video erzeugen"}
+          {isRendering ? "Erzeuge 9:16 Video ..." : "9:16 TikTok-Video aus Video erzeugen"}
         </button>
       </div>
 

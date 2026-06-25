@@ -4,12 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
-import sharp from "sharp";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 
 type RouteContext = {
   params?: Promise<{ id?: string }> | { id?: string };
@@ -20,23 +18,32 @@ type SocialPostRow = {
   topic?: string | null;
   hook?: string | null;
   caption?: string | null;
-  cta?: string | null;
   tiktok_hook?: string | null;
   tiktok_caption?: string | null;
-  hashtags?: string[] | null;
-  review_status?: string | null;
 };
 
 type SocialAssetRow = {
   id: string;
   post_id?: string | null;
   asset_type?: string | null;
+  provider?: string | null;
+  model?: string | null;
   public_url?: string | null;
+  storage_bucket?: string | null;
   storage_path?: string | null;
   mime_type?: string | null;
+  file_size?: number | null;
   status?: string | null;
+  prompt?: string | null;
   metadata?: Record<string, unknown> | null;
   created_at?: string | null;
+};
+
+type SourceMedia = {
+  asset: SocialAssetRow;
+  mediaType: "video" | "image";
+  score: number;
+  reason: string;
 };
 
 function cleanString(value: unknown) {
@@ -46,6 +53,37 @@ function cleanString(value: unknown) {
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
+  );
+}
+
+function getMetadataText(asset: SocialAssetRow, key: string) {
+  const value = asset.metadata?.[key];
+
+  return cleanString(value);
+}
+
+function getNestedMetadataText(
+  asset: SocialAssetRow,
+  parentKey: string,
+  childKey: string
+) {
+  const parent = asset.metadata?.[parentKey];
+
+  if (!parent || typeof parent !== "object") return "";
+
+  return cleanString((parent as Record<string, unknown>)[childKey]);
+}
+
+function isTikTokGeneratedAsset(asset: SocialAssetRow) {
+  const generationMode = getMetadataText(asset, "generation_mode");
+  const intendedPlatform = getMetadataText(asset, "intended_platform");
+  const model = cleanString(asset.model);
+
+  return (
+    generationMode === "tiktok_vertical_video" ||
+    intendedPlatform === "tiktok" ||
+    model === "tiktok-vertical-render-v1" ||
+    model === "tiktok-vertical-render-v2"
   );
 }
 
@@ -128,67 +166,84 @@ function getFfmpegPath() {
   return "ffmpeg";
 }
 
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function wrapText(value: string, maxChars: number, maxLines: number) {
-  const words = cleanString(value).split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-
-    if (lines.length >= maxLines) break;
-  }
-
-  if (current && lines.length < maxLines) {
-    lines.push(current);
-  }
-
-  return lines.slice(0, maxLines);
-}
-
-function normalizeHashtags(hashtags: string[] | null | undefined) {
-  return (hashtags || [])
-    .map((hashtag) => String(hashtag || "").trim())
-    .filter(Boolean)
-    .map((hashtag) => (hashtag.startsWith("#") ? hashtag : `#${hashtag}`));
-}
-
-function getSourceImageScore(asset: SocialAssetRow) {
+function isImageAsset(asset: SocialAssetRow) {
   const type = cleanString(asset.asset_type).toLowerCase();
   const mime = cleanString(asset.mime_type).toLowerCase();
   const url = cleanString(asset.public_url || asset.storage_path).toLowerCase();
 
-  if (!asset.public_url) return 0;
-
-  if (type === "image") return 100;
-  if (type.includes("image")) return 90;
-  if (type.includes("photo")) return 80;
-  if (mime.startsWith("image/")) return 80;
-  if (
+  return (
+    type.includes("image") ||
+    type.includes("photo") ||
+    mime.startsWith("image/") ||
     url.endsWith(".png") ||
     url.endsWith(".jpg") ||
     url.endsWith(".jpeg") ||
     url.endsWith(".webp")
-  ) {
-    return 70;
+  );
+}
+
+function isVideoAsset(asset: SocialAssetRow) {
+  const type = cleanString(asset.asset_type).toLowerCase();
+  const mime = cleanString(asset.mime_type).toLowerCase();
+  const url = cleanString(asset.public_url || asset.storage_path).toLowerCase();
+
+  return (
+    type.includes("video") ||
+    mime.startsWith("video/") ||
+    url.endsWith(".mp4") ||
+    url.endsWith(".mov") ||
+    url.endsWith(".webm")
+  );
+}
+
+function scoreSourceAsset(asset: SocialAssetRow): SourceMedia | null {
+  if (!asset.public_url || asset.status === "archived") return null;
+  if (isTikTokGeneratedAsset(asset)) return null;
+
+  const provider = cleanString(asset.provider).toLowerCase();
+  const model = cleanString(asset.model).toLowerCase();
+  const generationMode = getMetadataText(asset, "generation_mode").toLowerCase();
+  const musicStatus = getMetadataText(asset, "music_status").toLowerCase();
+  const audioStatus = getNestedMetadataText(asset, "audio", "status").toLowerCase();
+
+  if (isVideoAsset(asset)) {
+    let score = 200;
+    const reasons: string[] = ["Video"];
+
+    if (
+      generationMode.includes("video_with_embedded_music") ||
+      provider.includes("audio") ||
+      model.includes("audio") ||
+      musicStatus === "embedded" ||
+      audioStatus === "embedded"
+    ) {
+      score += 200;
+      reasons.push("Musik eingebettet");
+    }
+
+    if (provider.includes("template-composite-video")) {
+      score += 50;
+      reasons.push("SocialPilot Video");
+    }
+
+    return {
+      asset,
+      mediaType: "video",
+      score,
+      reason: reasons.join(", "),
+    };
   }
 
-  return 0;
+  if (isImageAsset(asset)) {
+    return {
+      asset,
+      mediaType: "image",
+      score: 50,
+      reason: "Bild-Fallback",
+    };
+  }
+
+  return null;
 }
 
 async function loadPost(postId: string) {
@@ -205,175 +260,45 @@ async function loadPost(postId: string) {
   return data as SocialPostRow;
 }
 
-async function loadSourceImageAsset(postId: string) {
+async function loadBestSourceMedia(postId: string) {
   const { data, error } = await supabaseServer
     .from("social_assets")
     .select("*")
     .eq("post_id", postId)
     .neq("status", "archived")
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(50);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const assets = ((data || []) as SocialAssetRow[])
-    .map((asset) => ({
-      asset,
-      score: getSourceImageScore(asset),
-    }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score);
+  const candidates = ((data || []) as SocialAssetRow[])
+    .map(scoreSourceAsset)
+    .filter(Boolean) as SourceMedia[];
 
-  return assets[0]?.asset || null;
+  candidates.sort((a, b) => b.score - a.score);
+
+  return candidates[0] || null;
 }
 
-async function fetchImageBuffer(imageUrl: string) {
-  const response = await fetch(imageUrl, {
+async function fetchMediaBuffer(mediaUrl: string) {
+  const response = await fetch(mediaUrl, {
     method: "GET",
     cache: "no-store",
   });
 
   if (!response.ok) {
-    throw new Error(`Bild konnte nicht geladen werden: HTTP ${response.status}`);
+    throw new Error(`Quelldatei konnte nicht geladen werden: HTTP ${response.status}`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
 
   if (!arrayBuffer.byteLength) {
-    throw new Error("Das Bild ist leer oder konnte nicht vollständig geladen werden.");
+    throw new Error("Die Quelldatei ist leer oder konnte nicht vollständig geladen werden.");
   }
 
   return Buffer.from(arrayBuffer);
-}
-
-function buildOverlaySvg({
-  hook,
-  subline,
-}: {
-  hook: string;
-  subline: string;
-}) {
-  const hookLines = wrapText(hook.toUpperCase(), 18, 4);
-  const sublineLines = wrapText(subline, 34, 2);
-
-  const hookSvg = hookLines
-    .map((line, index) => {
-      const y = 155 + index * 78;
-
-      return `<text x="92" y="${y}" font-size="66" font-weight="900" font-family="Arial, Helvetica, sans-serif" fill="#102A43">${escapeXml(
-        line
-      )}</text>`;
-    })
-    .join("");
-
-  const sublineSvg = sublineLines
-    .map((line, index) => {
-      const y = 465 + index * 38;
-
-      return `<text x="94" y="${y}" font-size="30" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#486581">${escapeXml(
-        line
-      )}</text>`;
-    })
-    .join("");
-
-  return Buffer.from(`
-    <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
-      <rect x="54" y="74" width="972" height="500" rx="44" fill="rgba(255,255,255,0.88)" />
-      <rect x="76" y="96" width="928" height="456" rx="34" fill="none" stroke="rgba(231,216,195,0.9)" stroke-width="3" />
-      ${hookSvg}
-      ${sublineSvg}
-      <rect x="94" y="1660" width="892" height="142" rx="36" fill="rgba(255,255,255,0.9)" />
-      <text x="124" y="1728" font-size="36" font-weight="900" font-family="Arial, Helvetica, sans-serif" fill="#102A43">handzettel-schulen.de</text>
-      <text x="124" y="1778" font-size="27" font-weight="700" font-family="Arial, Helvetica, sans-serif" fill="#486581">Schulmaterial entspannt vorbereiten.</text>
-    </svg>
-  `);
-}
-
-async function composeTikTokFrame({
-  sourceImageBuffer,
-  post,
-}: {
-  sourceImageBuffer: Buffer;
-  post: SocialPostRow;
-}) {
-  const hook =
-    cleanString(post.tiktok_hook) ||
-    cleanString(post.hook) ||
-    cleanString(post.topic) ||
-    "Schulstart stressfrei vorbereiten";
-
-  const subline =
-    cleanString(post.tiktok_caption) ||
-    cleanString(post.caption) ||
-    "Upload, Paketwunsch und Schulmaterial einfach an einem Ort.";
-
-  const background = await sharp(sourceImageBuffer)
-    .resize(1080, 1920, {
-      fit: "cover",
-      position: "center",
-    })
-    .blur(24)
-    .modulate({
-      brightness: 0.72,
-      saturation: 0.82,
-    })
-    .png()
-    .toBuffer();
-
-  const foreground = await sharp(sourceImageBuffer)
-    .resize(900, 880, {
-      fit: "inside",
-      withoutEnlargement: false,
-    })
-    .png()
-    .toBuffer();
-
-  const metadata = await sharp(foreground).metadata();
-  const foregroundWidth = metadata.width || 900;
-  const foregroundHeight = metadata.height || 880;
-  const foregroundLeft = Math.round((1080 - foregroundWidth) / 2);
-  const foregroundTop = 650;
-
-  const shadowSvg = Buffer.from(`
-    <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
-      <rect x="${foregroundLeft - 24}" y="${foregroundTop - 24}" width="${
-        foregroundWidth + 48
-      }" height="${
-        foregroundHeight + 48
-      }" rx="46" fill="rgba(16,42,67,0.22)" />
-      <rect x="${foregroundLeft - 10}" y="${foregroundTop - 10}" width="${
-        foregroundWidth + 20
-      }" height="${
-        foregroundHeight + 20
-      }" rx="34" fill="rgba(255,255,255,0.92)" />
-    </svg>
-  `);
-
-  return sharp(background)
-    .composite([
-      {
-        input: shadowSvg,
-        top: 0,
-        left: 0,
-      },
-      {
-        input: foreground,
-        top: foregroundTop,
-        left: foregroundLeft,
-      },
-      {
-        input: buildOverlaySvg({
-          hook,
-          subline,
-        }),
-        top: 0,
-        left: 0,
-      },
-    ])
-    .png()
-    .toBuffer();
 }
 
 function runFfmpeg(args: string[]) {
@@ -409,64 +334,118 @@ function runFfmpeg(args: string[]) {
   });
 }
 
-async function renderFrameToVideo({
-  frameBuffer,
+function getInputExtension(source: SourceMedia) {
+  if (source.mediaType === "video") return ".mp4";
+
+  const mime = cleanString(source.asset.mime_type).toLowerCase();
+  const url = cleanString(source.asset.public_url || source.asset.storage_path).toLowerCase();
+
+  if (mime.includes("webp") || url.endsWith(".webp")) return ".webp";
+  if (mime.includes("jpeg") || url.endsWith(".jpeg") || url.endsWith(".jpg")) {
+    return ".jpg";
+  }
+
+  return ".png";
+}
+
+async function renderVerticalVideo({
+  source,
+  sourceBuffer,
   durationSeconds,
 }: {
-  frameBuffer: Buffer;
+  source: SourceMedia;
+  sourceBuffer: Buffer;
   durationSeconds: number;
 }) {
   const id = randomUUID();
-  const framePath = path.join(tmpdir(), `tiktok-frame-${id}.png`);
-  const outputPath = path.join(tmpdir(), `tiktok-video-${id}.mp4`);
-  const frames = Math.max(1, Math.round(durationSeconds * 30));
+  const inputPath = path.join(tmpdir(), `tiktok-source-${id}${getInputExtension(source)}`);
+  const outputPath = path.join(tmpdir(), `tiktok-vertical-${id}.mp4`);
+
+  const filter =
+    "[0:v]split=2[base][front];" +
+    "[base]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:1,eq=brightness=-0.16:saturation=0.86[bg];" +
+    "[front]scale=980:1500:force_original_aspect_ratio=decrease[fg];" +
+    "[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=1,format=yuv420p[v]";
 
   try {
-    await writeFile(framePath, frameBuffer);
+    await writeFile(inputPath, sourceBuffer);
 
-    await runFfmpeg([
-      "-y",
-      "-loop",
-      "1",
-      "-framerate",
-      "30",
-      "-i",
-      framePath,
-      "-vf",
-      `zoompan=z='min(zoom+0.00075,1.04)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1080x1920:fps=30,format=yuv420p`,
-      "-t",
-      String(durationSeconds),
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-movflags",
-      "+faststart",
-      "-pix_fmt",
-      "yuv420p",
-      outputPath,
-    ]);
+    if (source.mediaType === "video") {
+      await runFfmpeg([
+        "-y",
+        "-i",
+        inputPath,
+        "-t",
+        String(durationSeconds),
+        "-filter_complex",
+        filter,
+        "-map",
+        "[v]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",
+        outputPath,
+      ]);
+    } else {
+      await runFfmpeg([
+        "-y",
+        "-loop",
+        "1",
+        "-framerate",
+        "30",
+        "-i",
+        inputPath,
+        "-t",
+        String(durationSeconds),
+        "-filter_complex",
+        filter,
+        "-map",
+        "[v]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-movflags",
+        "+faststart",
+        "-pix_fmt",
+        "yuv420p",
+        outputPath,
+      ]);
+    }
 
     return await readFile(outputPath);
   } finally {
-    await unlink(framePath).catch(() => undefined);
+    await unlink(inputPath).catch(() => undefined);
     await unlink(outputPath).catch(() => undefined);
   }
 }
 
 async function saveVideoAsset({
   post,
-  sourceAsset,
+  source,
   videoBuffer,
   durationSeconds,
 }: {
   post: SocialPostRow;
-  sourceAsset: SocialAssetRow;
+  source: SourceMedia;
   videoBuffer: Buffer;
   durationSeconds: number;
 }) {
   const storageBucket = "social-assets";
-  const storagePath = `social/${post.id}/tiktok-vertical-${Date.now()}.mp4`;
+  const storagePath = `social/${post.id}/tiktok-vertical-v2-${Date.now()}.mp4`;
 
   const upload = await supabaseServer.storage
     .from(storageBucket)
@@ -491,13 +470,18 @@ async function saveVideoAsset({
     cleanString(post.topic) ||
     "TikTok 9:16 Video";
 
+  const sourceMusicStatus =
+    getMetadataText(source.asset, "music_status") ||
+    getNestedMetadataText(source.asset, "audio", "status") ||
+    "";
+
   const { data, error } = await supabaseServer
     .from("social_assets")
     .insert({
       post_id: post.id,
       asset_type: "video",
       provider: "template-composite-video",
-      model: "tiktok-vertical-render-v1",
+      model: "tiktok-vertical-render-v2",
       prompt,
       storage_bucket: storageBucket,
       storage_path: storagePath,
@@ -511,12 +495,25 @@ async function saveVideoAsset({
         width: 1080,
         height: 1920,
         duration_seconds: durationSeconds,
-        source_image_asset_id: sourceAsset.id,
-        source_image_url: sourceAsset.public_url,
+        source_media_asset_id: source.asset.id,
+        source_media_type: source.mediaType,
+        source_media_reason: source.reason,
+        source_media_url: source.asset.public_url,
+        source_music_status: sourceMusicStatus || null,
+        audio: {
+          status:
+            source.mediaType === "video"
+              ? "copied_or_transcoded_from_source_video"
+              : "none_image_fallback",
+          note:
+            source.mediaType === "video"
+              ? "Audio wird aus dem Quellvideo übernommen, falls dort vorhanden."
+              : "Kein Audio, weil nur ein Bild als Quelle vorhanden war.",
+        },
         intended_platform: "tiktok",
         safe_upload_mode: true,
         note:
-          "TikTok 9:16 video asset generated for draft-upload preparation. Actual upload remains gated by video.upload and TIKTOK_ENABLE_DRAFT_UPLOAD.",
+          "TikTok 9:16 video asset generated from the best available SocialPilot video source. Actual TikTok upload remains gated by video.upload and TIKTOK_ENABLE_DRAFT_UPLOAD.",
       },
     })
     .select("*")
@@ -536,7 +533,7 @@ async function parseBody(request: Request) {
     };
 
     const rawDuration = Number(body?.durationSeconds || 14);
-    const durationSeconds = Math.min(20, Math.max(8, rawDuration));
+    const durationSeconds = Math.min(30, Math.max(8, rawDuration));
 
     return {
       durationSeconds,
@@ -564,38 +561,45 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { durationSeconds } = await parseBody(request);
     const post = await loadPost(postId);
-    const sourceAsset = await loadSourceImageAsset(postId);
+    const source = await loadBestSourceMedia(postId);
 
-    if (!sourceAsset?.public_url) {
+    if (!source?.asset.public_url) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Für diesen Beitrag wurde kein geeignetes Bild-Asset gefunden. Bitte zuerst ein Social-Bild erzeugen.",
+            "Für diesen Beitrag wurde kein geeignetes Bild- oder Video-Asset gefunden. Bitte zuerst ein Social-Bild oder Video erzeugen.",
         },
         { status: 400 }
       );
     }
 
-    const sourceImageBuffer = await fetchImageBuffer(sourceAsset.public_url);
-    const frameBuffer = await composeTikTokFrame({
-      sourceImageBuffer,
-      post,
-    });
-    const videoBuffer = await renderFrameToVideo({
-      frameBuffer,
+    const sourceBuffer = await fetchMediaBuffer(source.asset.public_url);
+    const videoBuffer = await renderVerticalVideo({
+      source,
+      sourceBuffer,
       durationSeconds,
     });
+
     const asset = await saveVideoAsset({
       post,
-      sourceAsset,
+      source,
       videoBuffer,
       durationSeconds,
     });
 
     return NextResponse.json({
       ok: true,
-      message: "TikTok 9:16 Video wurde erzeugt.",
+      message:
+        source.mediaType === "video"
+          ? "TikTok 9:16 Video wurde aus dem vorhandenen Video erzeugt. Audio wurde übernommen, falls im Quellvideo vorhanden."
+          : "TikTok 9:16 Video wurde aus dem Bild erzeugt. Kein Audio enthalten, weil kein Video mit Musik als Quelle gefunden wurde.",
+      source: {
+        id: source.asset.id,
+        media_type: source.mediaType,
+        reason: source.reason,
+        public_url: source.asset.public_url,
+      },
       asset: {
         id: asset.id,
         public_url: asset.public_url,
