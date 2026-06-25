@@ -52,10 +52,17 @@ const reviewText = `The app is used by our internal admin team for handzettel-sc
 Current integration:
 - Login Kit is used to authorize our own TikTok account through OAuth and connect it to the SocialPilot dashboard.
 - user.info.basic is used to identify the connected TikTok account in the admin dashboard.
+- The SocialPilot dashboard prepares our own generated short videos for TikTok.
+- A TikTok 9:16 MP4 version can be generated from an existing SocialPilot video asset.
+- The TikTok Draft Upload page shows the video preview, final caption, asset status, audio status, and the current safety lock.
 
 Planned Content Posting integration:
 - Content Posting API will be used to upload our own generated short videos from the SocialPilot dashboard to TikTok.
 - video.upload will be used to upload videos to TikTok as drafts so they can be completed or posted through TikTok.
+
+Current safety behavior:
+- Real TikTok upload is intentionally blocked until video.upload is approved and TIKTOK_ENABLE_DRAFT_UPLOAD is explicitly enabled.
+- The app does not allow public users or third parties to upload content.
 
 The app is not available to public users and does not allow third parties to upload content. Only authorized internal administrators can access the dashboard.`;
 
@@ -63,13 +70,13 @@ const demoScript = `Demo video script for TikTok App Review
 
 1. Open https://www.handzettel-schulen.de/admin/social.
 2. Show the SocialPilot dashboard and the TikTok system status.
-3. Show that TikTok Login Kit is connected in Sandbox mode.
-4. Show the connected TikTok account name in the SocialPilot dashboard.
-5. Open one prepared SocialPilot post.
-6. Open the TikTok Draft Upload page for this post.
-7. Show the generated MP4 video asset.
+3. Show that TikTok Login Kit is connected and the TikTok account is visible.
+4. Open one prepared SocialPilot post.
+5. Open the TikTok Draft Upload page for this post.
+6. Show the generated TikTok 9:16 MP4 video preview.
+7. Show the asset status block: preferred render source, audio/music status, current TikTok version, and older TikTok versions.
 8. Show the final TikTok caption text.
-9. Show that the upload flow is prepared but currently blocked until video.upload is approved and enabled.
+9. Show that the upload flow is prepared but blocked because video.upload is missing and/or the upload safety flag is disabled.
 10. Explain that Content Posting API will only be used to upload our own generated short videos as drafts to TikTok.
 11. After video.upload is approved, repeat the demo and show the TikTok Draft Upload button, confirmation step, upload result, and protocol/status log.`;
 
@@ -96,18 +103,26 @@ user.info.basic
 Requested next scope:
 video.upload
 
+Current SocialPilot behavior:
+- Login Kit connection is visible in the internal admin dashboard.
+- A prepared SocialPilot post can be opened from the dashboard.
+- The TikTok Draft Upload page shows the generated TikTok 9:16 MP4 video, the final caption, asset source, audio status, and safety lock.
+- Real upload is intentionally disabled until video.upload is approved and TIKTOK_ENABLE_DRAFT_UPLOAD is explicitly enabled.
+
 Important:
-Do not submit Content Posting API / video.upload before the complete upload demo can be recorded.`;
+Do not submit or enable the real Content Posting API upload before the complete upload demo can be recorded without exposing secrets or private customer data.`;
 
 const recordingChecklist = [
   "Browser zoom on 100% or 110%, no private data visible.",
   "Open /admin/social and show TikTok connected status.",
-  "Show account name, scope user.info.basic, and Supabase connection.",
+  "Show account name, scope user.info.basic, and connection source.",
   "Open TikTok Review-Vorbereitung block.",
   "Open a prepared post with approved review status.",
   "Click TikTok Upload vorbereiten.",
-  "Show video preview and final TikTok caption.",
-  "Show the safety lock: video.upload missing / upload flag disabled.",
+  "Show the TikTok 9:16 video preview.",
+  "Show the asset status: render source, audio/music detection, current TikTok version.",
+  "Show the final TikTok caption.",
+  "Show the safety lock: video.upload missing and/or upload flag disabled.",
   "Do not show tokens, secrets, Supabase service keys, Vercel ENV values, or private customer data.",
 ];
 
@@ -208,14 +223,14 @@ export default function AdminSocialTikTokReviewMaterial() {
             </div>
 
             <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-              V2G.5 · Demo- und Review-Material
+              V2J.1 · Demo- und Review-Material
             </h2>
 
             <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
-              Diese Seite sammelt alle Texte, URLs und Aufnahmeschritte für die
-              spätere TikTok-App-Review. Aktuell ist Login Kit verbunden; Content
-              Posting API und video.upload bleiben bis zum echten Demo-Flow bewusst
-              der nächste Schritt.
+              Diese Seite sammelt Texte, URLs und Aufnahmeschritte für die
+              TikTok-App-Review. Sie beschreibt jetzt den aktuellen Stand:
+              Login Kit verbunden, TikTok-9:16-Video sichtbar, Asset-/Audio-Status
+              sichtbar und echter Upload aus Sicherheitsgründen noch gesperrt.
             </p>
           </div>
 
@@ -291,8 +306,8 @@ export default function AdminSocialTikTokReviewMaterial() {
 
         <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-900">
           {hasUploadScope
-            ? "video.upload ist im Scope sichtbar. Vor echter Einreichung trotzdem zuerst vollständigen Upload-Demo-Flow prüfen."
-            : "video.upload ist noch nicht im aktiven Scope. Das ist aktuell korrekt: Erst Demo-Flow vollständig vorbereiten, dann Content Posting API / video.upload beantragen."}
+            ? "video.upload ist im Scope sichtbar. Vor echter Aktivierung trotzdem zuerst den vollständigen Upload-Demo-Flow prüfen und TIKTOK_ENABLE_DRAFT_UPLOAD bewusst setzen."
+            : "video.upload ist noch nicht im aktiven Scope. Das ist aktuell korrekt: Review-/Demo-Flow vorbereiten, danach Content Posting API / video.upload beantragen."}
         </div>
       </div>
 
@@ -330,7 +345,7 @@ export default function AdminSocialTikTokReviewMaterial() {
                 Demo-Video-Skript
               </h3>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#627D98]">
-                Ablauf für die spätere Bildschirmaufnahme.
+                Ablauf für die Bildschirmaufnahme.
               </p>
             </div>
 
