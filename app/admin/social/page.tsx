@@ -29,6 +29,7 @@ import AdminSocialMusicLibraryShortcut from "@/components/AdminSocialMusicLibrar
 import AdminSocialMetaConnectionStatus from "@/components/AdminSocialMetaConnectionStatus";
 import AdminSocialTikTokConnectionStatus from "@/components/AdminSocialTikTokConnectionStatus";
 import AdminSocialTikTokReviewPrep from "@/components/AdminSocialTikTokReviewPrep";
+import AdminSocialPublishingDashboard from "@/components/AdminSocialPublishingDashboard";
 export const dynamic = "force-dynamic";
 
 type SocialPostRow = {
@@ -529,6 +530,7 @@ export default async function AdminSocialPage() {
         <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
         <AdminSocialMusicLibraryShortcut />
         <AdminSocialMetaConnectionStatus />
+        <AdminSocialPublishingDashboard />
         <AdminSocialTikTokConnectionStatus />
         <AdminSocialTikTokReviewPrep />
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
