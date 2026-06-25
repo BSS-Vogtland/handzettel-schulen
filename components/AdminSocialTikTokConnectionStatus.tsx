@@ -29,6 +29,8 @@ type TikTokStatusResponse = {
     expiresAt: string | null;
     refreshExpiresAt: string | null;
     storedConnectionId: string | null;
+    accountName?: string | null;
+    externalAccountId?: string | null;
   };
   verification?: {
     ok: boolean;
@@ -37,6 +39,11 @@ type TikTokStatusResponse = {
     reason?: string;
     error?: unknown;
     payload?: unknown;
+    user?: {
+      open_id?: string;
+      display_name?: string;
+      avatar_url?: string;
+    } | null;
   } | null;
 };
 
@@ -75,10 +82,18 @@ function getSourceLabel(source: TikTokStatusResponse["source"]) {
   }
 }
 
+function getShortOpenId(value: string | null | undefined) {
+  if (!value) return "—";
+  if (value.length <= 14) return value;
+
+  return `${value.slice(0, 7)}…${value.slice(-5)}`;
+}
+
 export default function AdminSocialTikTokConnectionStatus() {
   const [status, setStatus] = useState<TikTokStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   async function loadStatus() {
     try {
@@ -155,8 +170,12 @@ export default function AdminSocialTikTokConnectionStatus() {
 
   const config = status?.config;
   const verification = status?.verification;
+  const user = verification?.user || null;
   const isConfigured = Boolean(config?.configured);
   const isConnected = Boolean(verification?.ok);
+  const accountName =
+    user?.display_name || config?.accountName || "TikTok-Konto verbunden";
+  const openId = user?.open_id || config?.externalAccountId || null;
 
   return (
     <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
@@ -172,8 +191,9 @@ export default function AdminSocialTikTokConnectionStatus() {
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#627D98]">
-            Verbindet TikTok per OAuth und speichert Access-/Refresh-Token serverseitig.
-            Echtes Video-Publishing folgt im nächsten Block.
+            TikTok ist aktuell per Login Kit angebunden. Der OAuth-Flow speichert
+            Access- und Refresh-Token serverseitig in Supabase. Video-Upload und
+            echtes Publishing folgen nach der Content-Posting-Freigabe.
           </p>
 
           <p className="mt-2 text-xs font-bold text-[#8A5A35]">
@@ -196,7 +216,9 @@ export default function AdminSocialTikTokConnectionStatus() {
             disabled={isRefreshing}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E7D8C3] bg-white px-5 py-3 text-sm font-black text-[#486581] shadow-sm transition hover:bg-[#FFFCF7] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+            />
             Token refresh
           </button>
 
@@ -229,8 +251,17 @@ export default function AdminSocialTikTokConnectionStatus() {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white">
-              <Video className="h-5 w-5" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
+              {user?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatar_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Video className="h-5 w-5" />
+              )}
             </div>
 
             <div>
@@ -245,6 +276,12 @@ export default function AdminSocialTikTokConnectionStatus() {
                     ? "OAuth vorbereitet"
                     : "Nicht vollständig konfiguriert"}
               </h3>
+
+              {isConnected ? (
+                <p className="mt-1 text-sm font-bold opacity-90">
+                  Konto: {accountName}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -269,6 +306,7 @@ export default function AdminSocialTikTokConnectionStatus() {
             <p>Access Token: {config?.accessTokenSet ? "gesetzt" : "fehlt"}</p>
             <p>Refresh Token: {config?.refreshTokenSet ? "gesetzt" : "fehlt"}</p>
             <p>Open ID: {config?.openIdSet ? "gesetzt" : "fehlt"}</p>
+            <p>Open ID kurz: {getShortOpenId(openId)}</p>
             <p>Token bis: {formatDate(config?.expiresAt)}</p>
             <p>Refresh bis: {formatDate(config?.refreshExpiresAt)}</p>
           </div>
@@ -287,15 +325,31 @@ export default function AdminSocialTikTokConnectionStatus() {
         ) : null}
 
         {verification?.payload ? (
-          <pre className="mt-4 max-h-64 overflow-auto rounded-xl border border-emerald-200 bg-white p-3 text-xs font-bold leading-5 text-emerald-900">
-            {stringifyPayload(verification.payload)}
-          </pre>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowTechnicalDetails((value) => !value)}
+              className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-900 transition hover:bg-emerald-50"
+            >
+              {showTechnicalDetails
+                ? "Technische Details ausblenden"
+                : "Technische Details anzeigen"}
+            </button>
+
+            {showTechnicalDetails ? (
+              <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-emerald-200 bg-white p-3 text-xs font-bold leading-5 text-emerald-900">
+                {stringifyPayload(verification.payload)}
+              </pre>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
       <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-900">
-        Für den Start reicht video.upload. Für echtes Direct Posting brauchen wir später video.publish
-        und je nach TikTok-App-Status zusätzliche Freigaben.
+        Aktueller Stand: TikTok Login Kit ist verbunden und der Scope user.info.basic
+        funktioniert. Content Posting API, video.upload und später video.publish sind
+        bewusst der nächste Block, weil dafür Demo-Video, Review und zusätzliche Freigaben
+        sauber vorbereitet werden müssen.
       </div>
     </section>
   );
