@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminSocialTikTokDraftUploadPanel from "@/components/AdminSocialTikTokDraftUploadPanel";
+import AdminSocialTikTokVerticalVideoButton from "@/components/AdminSocialTikTokVerticalVideoButton";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,8 @@ export default async function AdminSocialTikTokDraftPage({
             </div>
           </div>
         </header>
+
+        <AdminSocialTikTokVerticalVideoButton postId={post.id} />
 
         <AdminSocialTikTokDraftUploadPanel
           postId={post.id}
