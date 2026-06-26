@@ -735,6 +735,85 @@ function getEffectiveFormat(value: unknown) {
   return normalizeFormat(value) || inferFormatFromDimensions(value);
 }
 
+function getDetectedColorSet(value: unknown) {
+  const text = normalizeText(value);
+  const colors = [
+    "rot",
+    "blau",
+    "gruen",
+    "grün",
+    "schwarz",
+    "gelb",
+    "orange",
+    "lila",
+    "violett",
+    "braun",
+    "rosa",
+    "pink",
+    "weiss",
+    "weiß",
+    "grau",
+    "hellblau",
+    "dunkelblau",
+    "hellgruen",
+    "hellgrün",
+    "dunkelgruen",
+    "dunkelgrün",
+  ];
+
+  const found = new Set<string>();
+
+  for (const color of colors) {
+    const normalizedColor = normalizeText(color);
+    if (!normalizedColor) continue;
+
+    if (
+      text === normalizedColor ||
+      text.includes(` ${normalizedColor} `) ||
+      text.startsWith(`${normalizedColor} `) ||
+      text.endsWith(` ${normalizedColor}`) ||
+      text.includes(`:${normalizedColor}`) ||
+      text.includes(`: ${normalizedColor}`) ||
+      text.includes(`, ${normalizedColor}`) ||
+      text.includes(`,${normalizedColor}`)
+    ) {
+      found.add(
+        normalizedColor
+          .replace("gruen", "gruen")
+          .replace("weiß", "weiss")
+      );
+    }
+  }
+
+  return found;
+}
+
+function hasMultipleColorDemand(value: unknown) {
+  return getDetectedColorSet(value).size >= 2;
+}
+
+function hasStrictColorConflict(input: {
+  itemText: string;
+  productText: string;
+  itemColor: string | null;
+  productColor: string | null;
+}) {
+  const itemColors = getDetectedColorSet(
+    [input.itemText, input.itemColor].filter(Boolean).join(" ")
+  );
+
+  const productColors = getDetectedColorSet(
+    [input.productText, input.productColor].filter(Boolean).join(" ")
+  );
+
+  if (itemColors.size === 0 || productColors.size === 0) return false;
+
+  for (const color of itemColors) {
+    if (productColors.has(color)) return false;
+  }
+
+  return true;
+}
 function normalizeColor(value: unknown) {
   const text = normalizeText(value);
 
@@ -1726,6 +1805,26 @@ function calculateStandardFallbackMatch(input: {
   if (!standardTermMatch) {
     return null;
   }
+  if (
+    hasMultipleColorDemand([
+      input.item.raw_text,
+      input.item.normalized_name,
+      input.item.color,
+    ].filter(Boolean).join(" "))
+  ) {
+    return null;
+  }
+
+  if (
+    hasStrictColorConflict({
+      itemText,
+      productText: productCoreText,
+      itemColor,
+      productColor,
+    })
+  ) {
+    return null;
+  }
   const normalizedStrictItemText = normalizeForWords(itemText);
   const normalizedStrictProductCoreText = normalizeForWords(productCoreText);
 
@@ -2140,6 +2239,7 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
 
 
 
