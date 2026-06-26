@@ -1826,7 +1826,7 @@ export async function POST(_request: Request, context: RouteContext) {
         String(item.quantity || 1),
         category,
         normalizeDedupeText(item.format),
-        canonicalName === "fineliner" ? "" : normalizeDedupeText(item.color),
+        normalizeDedupeText(item.color),
         normalizeDedupeText(item.lineature),
       ].join("|");
     }
@@ -1932,6 +1932,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
