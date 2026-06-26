@@ -310,6 +310,25 @@ const STANDARD_TERM_GROUPS: Array<{
     score: 84,
   },
   {
+    label: "Radiergummi",
+    terms: ["radiergummi", "radierer", "radier"],
+    score: 92,
+  },
+  {
+    label: "Spitzer",
+    terms: ["spitzer", "dosenspitzer", "dosen spitzer"],
+    score: 92,
+  },
+  {
+    label: "Schere",
+    terms: ["schere", "schulschere"],
+    score: 92,
+  },
+  {
+    label: "Zirkel",
+    terms: ["zirkel", "schulzirkel", "zirkel mit feststellraedchen", "zirkel mit feststellrädchen"],
+    score: 92,
+  },  {
     label: "Klebestift",
     terms: ["klebestift", "klebestifte"],
     score: 88,
@@ -1562,6 +1581,75 @@ function calculateMatch(input: {
   };
 }
 
+function calculateStandardFallbackMatch(input: {
+  item: RequestItem;
+  product: ProductRow;
+  aliases: string[];
+}) {
+  const itemText = buildItemText(input.item);
+  const productText = buildProductText(input.product, input.aliases);
+
+  const itemType = classifyType(itemText);
+  const productType = classifyType(productText);
+
+  const itemFormat = getEffectiveFormat(itemText);
+  const productFormat = getEffectiveFormat(productText);
+
+  const itemColor = normalizeColor(itemText);
+  const productColor = normalizeColor(productText);
+
+  const itemLineature = normalizeLineature(itemText);
+  const productLineature = normalizeLineature(productText);
+
+  const standardTermMatch = getStandardTermMatch(itemText, productText);
+
+  if (!standardTermMatch) {
+    return null;
+  }
+
+  if (
+    !isSimpleStandardArticle(itemType || productType, `${itemText} ${productText}`)
+  ) {
+    return null;
+  }
+
+  const hasVariantConflict = hasRelevantVariantConflict({
+    itemFormat,
+    productFormat,
+    itemColor,
+    productColor,
+    itemLineature,
+    productLineature,
+    itemType,
+    productType,
+  });
+
+  if (hasVariantConflict) {
+    return null;
+  }
+
+  if (itemType === "heft" && productType === "hausaufgabenheft") {
+    return null;
+  }
+
+  if (itemType === "hausaufgabenheft" && productType !== "hausaufgabenheft") {
+    return null;
+  }
+
+  if (
+    itemType === "schnellhefter" &&
+    normalizeForWords(productText).includes("mappe")
+  ) {
+    return null;
+  }
+
+  const score = Math.max(88, standardTermMatch.score);
+
+  return {
+    score,
+    reason: `Standardartikel-Fallback: ${standardTermMatch.label}. Produktname, Kategorie oder Alias passt eindeutig.`,
+  };
+}
 async function createRequestEvent(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   requestId: string,
@@ -1672,7 +1760,7 @@ export async function POST(_request: NextRequest, context: Params) {
 
     const [{ data: productsData, error: productsError }, { data: aliasesData }] =
       await Promise.all([
-        supabase.from("school_products").select("*").limit(1000),
+        supabase.from("school_products").select("*").limit(5000),
         supabase.from("school_product_aliases").select("*").limit(5000),
       ]);
 
@@ -1746,11 +1834,17 @@ export async function POST(_request: NextRequest, context: Params) {
           if (seenProductIds.has(product.id)) return null;
 
           const aliasesForProduct = aliasesByProduct.get(product.id) || [];
-          const result = calculateMatch({
-            item,
-            product,
-            aliases: aliasesForProduct,
-          });
+          const result =
+            calculateMatch({
+              item,
+              product,
+              aliases: aliasesForProduct,
+            }) ||
+            calculateStandardFallbackMatch({
+              item,
+              product,
+              aliases: aliasesForProduct,
+            });
 
           if (!result) return null;
 
@@ -1876,3 +1970,4 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
