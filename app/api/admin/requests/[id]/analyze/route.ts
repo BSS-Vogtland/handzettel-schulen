@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v5c-dedupe-color-list-safety";
+const ANALYZE_VERSION = "school-material-analyze-v5d-final-cleaned-item-safety";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -1629,7 +1629,90 @@ export async function POST(_request: Request, context: RouteContext) {
     const expandedItems = dedupeExtractedItems(expandCompoundExtractedItems(items));
     const cleanedItems = dedupeExtractedItems(expandedItems.map(cleanExtractedItem));
 
-    const rows = cleanedItems.map((item) => ({
+    function shouldDropFinalCleanedItem(item: CleanedItem) {
+      const name = normalizeDedupeText(item.normalizedName);
+      const raw = normalizeDedupeText(item.rawText);
+      const category = normalizeDedupeText(item.category);
+
+      if (!name) return true;
+
+      // Farbwörter sind keine eigenständigen Artikel.
+      // Beispiel-Fehler: "schwarz" mit Farbe "rot" aus "3 Fineliner: grün, schwarz, rot".
+      if (isColorOnlyExtractedName(name)) return true;
+
+      // Fineliner-Farblisten dürfen nicht zu einzelnen Farb-Artikeln werden.
+      if (
+        raw.includes("fineliner") &&
+        (isColorOnlyExtractedName(name) ||
+          name === "schwarz" ||
+          name === "rot" ||
+          name === "gruen" ||
+          name === "grun" ||
+          category.includes("fineliner"))
+      ) {
+        return !name.includes("fineliner");
+      }
+
+      return false;
+    }
+
+    function getFinalCleanedItemKey(item: CleanedItem) {
+      const raw = normalizeDedupeText(item.rawText);
+      const name = normalizeDedupeText(item.normalizedName);
+      const category = normalizeDedupeText(item.category);
+
+      let canonicalName = name;
+
+      if (raw.includes("fineliner") && name.includes("fineliner")) {
+        canonicalName = "fineliner";
+      }
+
+      if (name.includes("lineal")) {
+        canonicalName = "lineal";
+      }
+
+      if (name.includes("geodreieck")) {
+        canonicalName = "geodreieck";
+      }
+
+      if (name.includes("umschlag")) {
+        canonicalName = "umschlag";
+      }
+
+      return [
+        canonicalName,
+        String(item.quantity || 1),
+        category,
+        normalizeDedupeText(item.format),
+        canonicalName === "fineliner" ? "" : normalizeDedupeText(item.color),
+        normalizeDedupeText(item.lineature),
+      ].join("|");
+    }
+
+    const finalCleanedItems = (() => {
+      const sourceItems =
+        typeof cleanedItems !== "undefined" ? cleanedItems : [];
+
+      const seen = new Set<string>();
+      const result: CleanedItem[] = [];
+
+      for (const item of sourceItems) {
+        if (shouldDropFinalCleanedItem(item)) {
+          continue;
+        }
+
+        const key = getFinalCleanedItemKey(item);
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        result.push(item);
+      }
+
+      return result;
+    })();
+    const rows = finalCleanedItems.map((item) => ({
       request_id: id,
       raw_text: item.rawText,
       normalized_name: item.normalizedName,
@@ -1664,15 +1747,15 @@ export async function POST(_request: Request, context: RouteContext) {
       request_id: id,
       event_type: "analysis_done",
       title: "Materialliste analysiert",
-      description: `${cleanedItems.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
+      description: `${finalCleanedItems.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
     });
 
     return NextResponse.json({
       ok: true,
       message: "Materialliste wurde analysiert.",
-      itemCount: cleanedItems.length,
+      itemCount: finalCleanedItems.length,
       analyzeVersion: ANALYZE_VERSION,
-      items: cleanedItems.map((item) => ({
+      items: finalCleanedItems.map((item) => ({
         rawText: item.rawText,
         normalizedName: item.normalizedName,
         quantity: item.quantity,
@@ -1706,6 +1789,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
