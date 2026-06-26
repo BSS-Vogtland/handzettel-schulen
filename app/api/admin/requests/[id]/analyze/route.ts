@@ -1363,6 +1363,57 @@ function expandColorVariantQuantityItems(items: CleanedItem[]) {
 
   return expanded;
 }
+function splitFinalColorQuantityItems(items: CleanedItem[]) {
+  const result: CleanedItem[] = [];
+
+  for (const item of items) {
+    const combinedText = [
+      item.rawText,
+      item.normalizedName,
+      item.category,
+      item.notes,
+      item.color,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const normalizedText = normalizeAnalyzeColorWord(combinedText);
+    const colors = detectOrderedColorWords(combinedText);
+    const quantity = Number(item.quantity || 1);
+
+    const shouldSplit =
+      quantity > 1 &&
+      colors.length >= 2 &&
+      colors.length === quantity &&
+      normalizedText.includes("fineliner");
+
+    if (!shouldSplit) {
+      result.push(item);
+      continue;
+    }
+
+    const baseName =
+      removeColorSuffixFromMaterialName(item.normalizedName) ||
+      "Fineliner";
+
+    for (const color of colors) {
+      result.push({
+        ...item,
+        quantity: 1,
+        normalizedName: `${baseName} ${color}`.replace(/\s+/g, " ").trim(),
+        color,
+        notes: [
+          item.notes,
+          `Aus Farbliste automatisch als Einzelposition erkannt (${color}).`,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      });
+    }
+  }
+
+  return result;
+}
 function expandCompoundExtractedItems(items: ExtractedItem[]) {
   return items.flatMap((item) => {
     const coverItems = expandCoverMaterialLine(item);
@@ -1831,7 +1882,7 @@ export async function POST(_request: Request, context: RouteContext) {
       ].join("|");
     }
 
-    const finalCleanedItems = (() => {
+    const finalCleanedItemsBeforeColorSplit = (() => {
       const sourceItems = expandColorVariantQuantityItems(
         typeof cleanedItems !== "undefined" ? cleanedItems : []
       );
@@ -1855,6 +1906,8 @@ export async function POST(_request: Request, context: RouteContext) {
 
       return result;
     })();
+    const finalCleanedItems = splitFinalColorQuantityItems(finalCleanedItemsBeforeColorSplit);
+
     const rows = finalCleanedItems.map((item) => ({
       request_id: id,
       raw_text: item.rawText,
@@ -1932,6 +1985,8 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
+
 
 
 
