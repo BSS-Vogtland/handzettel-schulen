@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v5b-dedicated-openai-analyze-model";
+const ANALYZE_VERSION = "school-material-analyze-v5c-dedupe-color-list-safety";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -1087,6 +1087,149 @@ function expandCoverMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
   return [exerciseBookItem, coverItem];
 }
 
+const COLOR_ONLY_TERMS = new Set([
+  "rot",
+  "rote",
+  "roter",
+  "rotes",
+  "blau",
+  "blaue",
+  "blauer",
+  "blaues",
+  "grün",
+  "grüne",
+  "grüner",
+  "grünes",
+  "gruen",
+  "gruene",
+  "gruener",
+  "gruenes",
+  "gelb",
+  "gelbe",
+  "gelber",
+  "gelbes",
+  "schwarz",
+  "schwarze",
+  "schwarzer",
+  "schwarzes",
+  "weiß",
+  "weiss",
+  "weiße",
+  "weisse",
+  "weißer",
+  "weisser",
+  "weißes",
+  "weisses",
+  "lila",
+  "violett",
+  "braun",
+  "braune",
+  "brauner",
+  "braunes",
+  "orange",
+  "rosa",
+]);
+
+function normalizeDedupeText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function isColorOnlyExtractedName(value: unknown) {
+  const normalized = normalizeDedupeText(value);
+  if (!normalized) return false;
+
+  const compact = normalized.replace(/\s+/g, "");
+  return COLOR_ONLY_TERMS.has(normalized) || COLOR_ONLY_TERMS.has(compact);
+}
+
+function getExtractedField(item: ExtractedItem | CleanedItem, camelKey: string, snakeKey: string) {
+  const record = item as unknown as Record<string, unknown>;
+  return record[camelKey] ?? record[snakeKey] ?? null;
+}
+
+function getExtractedItemName(item: ExtractedItem | CleanedItem) {
+  return getExtractedField(item, "normalizedName", "normalized_name");
+}
+
+function getExtractedItemRawText(item: ExtractedItem | CleanedItem) {
+  return getExtractedField(item, "rawText", "raw_text");
+}
+
+function isFinelinerColorListItem(item: ExtractedItem | CleanedItem) {
+  const raw = normalizeDedupeText(getExtractedItemRawText(item));
+  const name = normalizeDedupeText(getExtractedItemName(item));
+  const category = normalizeDedupeText(item.category);
+
+  return (
+    raw.includes("fineliner") &&
+    (name === "schwarz" ||
+      name === "rot" ||
+      name === "gruen" ||
+      name === "grun" ||
+      isColorOnlyExtractedName(name) ||
+      category.includes("fineliner"))
+  );
+}
+
+function shouldDropExtractedItemAsColorOnly(item: ExtractedItem | CleanedItem) {
+  const name = normalizeDedupeText(getExtractedItemName(item) || getExtractedItemRawText(item));
+  if (!name) return true;
+
+  if (isColorOnlyExtractedName(name)) return true;
+
+  if (isFinelinerColorListItem(item) && isColorOnlyExtractedName(getExtractedItemName(item))) {
+    return true;
+  }
+
+  return false;
+}
+
+function getDedupeKeyForExtractedItem(item: ExtractedItem | CleanedItem) {
+  const rawText = getExtractedItemRawText(item);
+  const normalizedName = getExtractedItemName(item);
+
+  return [
+    normalizeDedupeText(rawText),
+    normalizeDedupeText(normalizedName),
+    String(item.quantity || 1),
+    normalizeDedupeText(item.category),
+    normalizeDedupeText(item.format),
+    normalizeDedupeText(item.color),
+    normalizeDedupeText(item.lineature),
+  ].join("|");
+}
+
+function dedupeExtractedItems<T extends ExtractedItem | CleanedItem>(items: T[]) {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const item of items) {
+    if (shouldDropExtractedItemAsColorOnly(item)) {
+      continue;
+    }
+
+    const key = getDedupeKeyForExtractedItem(item);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(item);
+  }
+
+  return result;
+}
 function expandCompoundExtractedItems(items: ExtractedItem[]) {
   return items.flatMap((item) => {
     const coverItems = expandCoverMaterialLine(item);
@@ -1483,8 +1626,8 @@ export async function POST(_request: Request, context: RouteContext) {
       });
     }
 
-    const expandedItems = expandCompoundExtractedItems(items);
-    const cleanedItems = expandedItems.map(cleanExtractedItem);
+    const expandedItems = dedupeExtractedItems(expandCompoundExtractedItems(items));
+    const cleanedItems = dedupeExtractedItems(expandedItems.map(cleanExtractedItem));
 
     const rows = cleanedItems.map((item) => ({
       request_id: id,
@@ -1563,5 +1706,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
+
 
 
