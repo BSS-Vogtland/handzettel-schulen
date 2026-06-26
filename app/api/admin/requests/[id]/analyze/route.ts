@@ -1434,6 +1434,13 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
   }
 
   for (const item of items) {
+    const quantity = Number(item.quantity || 1);
+
+    if (!Number.isFinite(quantity) || quantity <= 1) {
+      result.push(item);
+      continue;
+    }
+
     const colors = extractFinelinerColorList(item);
 
     if (colors.length >= 2) {
@@ -2292,6 +2299,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
