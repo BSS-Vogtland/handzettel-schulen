@@ -108,6 +108,106 @@ function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
   });
 }
 
+type AutoSafeOfferInsertRow = {
+  request_id: string;
+  request_item_id: string | null;
+  match_id: string | null;
+  product_id: string | null;
+  product_name: string;
+  product_sku: string | null;
+  product_price: number;
+  quantity: number;
+  unit: string;
+  source: string;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function getAutoSafeProductKey(row: AutoSafeOfferInsertRow) {
+  const productId = String(row.product_id || "").trim();
+  if (productId) return `id:${productId}`;
+
+  const sku = String(row.product_sku || "").trim().toLowerCase();
+  if (sku) return `sku:${sku}`;
+
+  return `name:${String(row.product_name || "").trim().toLowerCase()}`;
+}
+
+function mergeAutoSafeRowsByProduct(rows: AutoSafeOfferInsertRow[]) {
+  const mergedByKey = new Map<
+    string,
+    {
+      row: AutoSafeOfferInsertRow;
+      matchIds: string[];
+      requestItemIds: string[];
+    }
+  >();
+
+  for (const row of rows) {
+    const key = getAutoSafeProductKey(row);
+    const existing = mergedByKey.get(key);
+
+    if (!existing) {
+      mergedByKey.set(key, {
+        row: { ...row },
+        matchIds: row.match_id ? [row.match_id] : [],
+        requestItemIds: row.request_item_id ? [row.request_item_id] : [],
+      });
+      continue;
+    }
+
+    if (row.match_id && !existing.matchIds.includes(row.match_id)) {
+      existing.matchIds.push(row.match_id);
+    }
+
+    if (row.request_item_id && !existing.requestItemIds.includes(row.request_item_id)) {
+      existing.requestItemIds.push(row.request_item_id);
+    }
+
+    const existingQuantity = toNumber(existing.row.quantity, 0);
+    const rowQuantity = toNumber(row.quantity, 0);
+
+    // Wichtig: Duplikate nicht addieren. Sonst wird aus 2x Umschlag fälschlich 4x.
+    existing.row.quantity = Math.max(existingQuantity, rowQuantity);
+
+    existing.row.notes = [
+      existing.row.notes,
+      `Automatisch zusammengeführt: weiterer sicherer Treffer für dasselbe Produkt (${row.product_name}).`,
+      row.notes ? `Zusatztreffer: ${row.notes}` : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  const mergedRows: AutoSafeOfferInsertRow[] = [];
+  const allMatchIds: string[] = [];
+
+  for (const entry of mergedByKey.values()) {
+    if (entry.requestItemIds.length > 1) {
+      entry.row.notes = [
+        entry.row.notes,
+        `Zusammengeführt aus ${entry.requestItemIds.length} erkannten Listenpositionen mit gleichem Produkt.`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    mergedRows.push(entry.row);
+
+    for (const matchId of entry.matchIds) {
+      if (matchId && !allMatchIds.includes(matchId)) {
+        allMatchIds.push(matchId);
+      }
+    }
+  }
+
+  return {
+    rows: mergedRows,
+    matchIds: allMatchIds,
+  };
+}
 async function insertRequestEvent(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
@@ -303,7 +403,7 @@ export async function POST(_request: Request, context: Params) {
       itemById.set(item.id, item);
     }
 
-    const rowsToInsert = Array.from(bestMatchByRequestItemId.values()).map(
+    const rawRowsToInsert = Array.from(bestMatchByRequestItemId.values()).map(
       (match) => {
         const item = itemById.get(match.request_item_id);
         const quantity = normalizeQuantity(item?.quantity);
@@ -337,6 +437,8 @@ export async function POST(_request: Request, context: Params) {
       }
     );
 
+    const { rows: rowsToInsert, matchIds: insertedMatchIds } =
+      mergeAutoSafeRowsByProduct(rawRowsToInsert);
     if (rowsToInsert.length === 0) {
       await insertRequestEvent({
         supabase,
@@ -371,9 +473,6 @@ export async function POST(_request: Request, context: Params) {
       );
     }
 
-    const insertedMatchIds = rowsToInsert
-      .map((row) => row.match_id)
-      .filter((value): value is string => Boolean(value));
 
     if (insertedMatchIds.length > 0) {
       const { error: matchUpdateError } = await supabase
@@ -435,3 +534,4 @@ export async function POST(_request: Request, context: Params) {
     );
   }
 }
+
