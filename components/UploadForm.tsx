@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
@@ -42,6 +42,16 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+
+function getStoredLeadSource() {
+  if (typeof window === "undefined") return "website";
+
+  try {
+    return window.localStorage.getItem("hds_lead_source") || "website";
+  } catch {
+    return "website";
+  }
+}
 export default function UploadForm() {
   const router = useRouter();
 
@@ -61,7 +71,7 @@ export default function UploadForm() {
   const filePreviewLabel = useMemo(() => {
     if (!file) return "JPG, PNG, WEBP oder PDF hochladen";
 
-    return `${file.name} · ${formatFileSize(file.size)}`;
+    return `${file.name} Â· ${formatFileSize(file.size)}`;
   }, [file]);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -89,7 +99,7 @@ export default function UploadForm() {
     if (selectedFile.size > maxBytes) {
       setFile(null);
       setErrorMessage(
-        `Die Datei ist zu groß. Bitte lade maximal ${MAX_FILE_SIZE_MB} MB hoch.`
+        `Die Datei ist zu groÃŸ. Bitte lade maximal ${MAX_FILE_SIZE_MB} MB hoch.`
       );
       event.target.value = "";
       return;
@@ -141,7 +151,7 @@ export default function UploadForm() {
     }
 
     if (!isValidEmail(email)) {
-      setErrorMessage("Bitte gib eine gültige E-Mail-Adresse ein.");
+      setErrorMessage("Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.");
       return;
     }
 
@@ -168,7 +178,7 @@ export default function UploadForm() {
     formData.append("customer_phone", cleanPhone);
 
     formData.append("message", message.trim());
-    formData.append("source", "website_upload");
+    formData.append("source", getStoredLeadSource());
 
     setIsSubmitting(true);
 
@@ -186,14 +196,14 @@ export default function UploadForm() {
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Upload-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Upload-Route hat keine JSON-Antwort geliefert. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
         );
       }
 
       if (!response.ok || !payload?.ok) {
         throw new Error(
           payload?.message ||
-            "Die Liste konnte nicht hochgeladen werden. Prüfe bitte zusätzlich das Terminal."
+            "Die Liste konnte nicht hochgeladen werden. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
         );
       }
 
@@ -208,7 +218,7 @@ export default function UploadForm() {
 
       if (!nextUrl) {
         throw new Error(
-          "Die Anfrage wurde erstellt, aber es wurde kein Angebotslink zurückgegeben."
+          "Die Anfrage wurde erstellt, aber es wurde kein Angebotslink zurÃ¼ckgegeben."
         );
       }
 
@@ -241,8 +251,8 @@ export default function UploadForm() {
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-[#52616F] sm:text-base">
-          Lade Deine Liste als Foto, Screenshot oder PDF hoch. Danach erhältst
-          Du einen vorbereiteten Paketwunsch, den Du erst noch prüfen kannst.
+          Lade Deine Liste als Foto, Screenshot oder PDF hoch. Danach erhÃ¤ltst
+          Du einen vorbereiteten Paketwunsch, den Du erst noch prÃ¼fen kannst.
         </p>
       </div>
 
@@ -258,7 +268,7 @@ export default function UploadForm() {
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         <TrustItem text="Deine Liste wird vertraulich behandelt." />
-        <TrustItem text="Unklare Artikel werden persönlich geprüft." />
+        <TrustItem text="Unklare Artikel werden persÃ¶nlich geprÃ¼ft." />
         <TrustItem text="Du kannst Artikel vor dem Absenden entfernen." />
         <TrustItem text="Zahlung erfolgt erst nach Rechnung." />
       </div>
@@ -274,7 +284,7 @@ export default function UploadForm() {
             </div>
 
             <span className="text-lg font-black text-[#102A43]">
-              {file ? "Datei ausgewählt" : "Liste auswählen"}
+              {file ? "Datei ausgewÃ¤hlt" : "Liste auswÃ¤hlen"}
             </span>
 
             <span className="mt-2 max-w-md text-sm leading-6 text-[#52616F]">
@@ -338,7 +348,7 @@ export default function UploadForm() {
               type="text"
               value={customerName}
               onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="z. B. Maria Müller"
+              placeholder="z. B. Maria MÃ¼ller"
               className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </div>
@@ -419,7 +429,7 @@ export default function UploadForm() {
             className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
           <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-            An diese Adresse senden wir später den Angebots- oder
+            An diese Adresse senden wir spÃ¤ter den Angebots- oder
             Rechnungslink.
           </p>
         </div>
@@ -440,7 +450,7 @@ export default function UploadForm() {
             autoComplete="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            placeholder="Optional für Rückfragen"
+            placeholder="Optional fÃ¼r RÃ¼ckfragen"
             className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
         </div>
@@ -457,7 +467,7 @@ export default function UploadForm() {
             name="message"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="Optional: Hinweise zu besonderen Wünschen, Abholung oder Rückfragen"
+            placeholder="Optional: Hinweise zu besonderen WÃ¼nschen, Abholung oder RÃ¼ckfragen"
             rows={4}
             className="w-full resize-y rounded-2xl border border-[#D8C8B8] bg-white px-4 py-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
@@ -484,7 +494,7 @@ export default function UploadForm() {
           {isSubmitting ? (
             <>
               <Loader2 className="h-6 w-6 animate-spin" />
-              Liste wird hochgeladen …
+              Liste wird hochgeladen â€¦
             </>
           ) : (
             <>

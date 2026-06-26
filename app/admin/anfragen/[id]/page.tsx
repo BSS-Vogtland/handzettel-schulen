@@ -37,6 +37,7 @@ import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionF
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 import AdminPackageChecklistPanel from "@/components/AdminPackageChecklistPanel";
 import RestoreRequestButton from "@/components/RestoreRequestButton";
+import { getLeadSourceBadgeClass, getLeadSourceLabel } from "@/lib/lead-source";
 
 export const dynamic = "force-dynamic";
 
@@ -775,6 +776,17 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   <span className="font-bold text-[#52616F]">KI</span>
                   <span className="font-black text-[#102A43]">
                     {getAiStatusLabel(request.ai_status)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-[#52616F]">Quelle</span>
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getLeadSourceBadgeClass(
+                      request.source
+                    )}`}
+                  >
+                    {getLeadSourceLabel(request.source)}
                   </span>
                 </div>
 

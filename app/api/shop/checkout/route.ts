@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { buildShopLeadSource, LEAD_SOURCE_COOKIE_NAME } from "@/lib/lead-source";
 import { sendAdminShopOrderNotification } from "../../../lib/adminNotifications";
 import {
   findActiveDiscountCampaign,
@@ -557,6 +558,12 @@ export async function POST(request: NextRequest) {
       Math.max(0, subtotalAmount + shippingAmount - discountAmount)
     );
 
+    const requestLeadSource = buildShopLeadSource(
+      request.cookies.get(LEAD_SOURCE_COOKIE_NAME)?.value ||
+        request.headers.get("referer") ||
+        "direct"
+    );
+
     const messageParts = [
       "Shop-Bestellung über /shop.",
       customerMessage ? `Kundenhinweis: ${customerMessage}` : null,
@@ -577,6 +584,7 @@ export async function POST(request: NextRequest) {
           status: "confirmed",
           offer_status: "confirmed",
           ai_status: "not_required",
+          source: requestLeadSource,
 
           customer_name: customerName,
           email,

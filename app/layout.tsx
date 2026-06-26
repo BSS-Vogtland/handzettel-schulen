@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import ScrollToTopOnRouteChange from "@/components/ScrollToTopOnRouteChange";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import LeadSourceTracker from "@/components/LeadSourceTracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -112,6 +113,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <LeadSourceTracker />
         <ScrollToTopOnRouteChange />
         {children}
         <CookieConsentBanner />

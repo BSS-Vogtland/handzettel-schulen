@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LEAD_SOURCE_COOKIE_NAME, normalizeLeadSource } from "@/lib/lead-source";
 import { supabaseServer } from "@/lib/supabase/server";
 import { sendMail } from "@/lib/sendMail";
 
@@ -14,6 +15,32 @@ const ALLOWED_TYPES = [
   "image/heic",
   "image/heif",
 ];
+
+function getCookieValueFromRequest(request: Request, name: string) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookies = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  for (const cookie of cookies) {
+    const separatorIndex = cookie.indexOf("=");
+    if (separatorIndex < 0) continue;
+
+    const key = cookie.slice(0, separatorIndex).trim();
+    const value = cookie.slice(separatorIndex + 1).trim();
+
+    if (key === name) {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
 
 function cleanString(value: FormDataEntryValue | null) {
   if (!value || typeof value !== "string") return null;
@@ -520,6 +547,13 @@ export async function POST(request: Request) {
     const rawEmail = cleanString(formData.get("email"));
     const rawPhone = cleanString(formData.get("phone"));
     const message = cleanString(formData.get("message"));
+    const submittedLeadSource = cleanString(formData.get("source"));
+    const cookieLeadSource =
+      getCookieValueFromRequest(request, LEAD_SOURCE_COOKIE_NAME);
+    const leadSource = normalizeLeadSource(
+      submittedLeadSource || cookieLeadSource || request.headers.get("referer"),
+      "website"
+    );
 
     const email =
       looksLikeEmail(rawEmail) ? rawEmail : looksLikeEmail(contact) ? contact : null;
@@ -534,7 +568,7 @@ export async function POST(request: Request) {
     const { data: createdRequest, error: requestError } = await supabaseServer
       .from("school_requests")
       .insert({
-        source: "website",
+        source: leadSource,
         status: "received",
         customer_name: customerName,
         child_name: childName,

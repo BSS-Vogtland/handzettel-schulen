@@ -26,6 +26,7 @@ import {
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import DeleteRequestButton from "@/components/DeleteRequestButton";
 import RestoreRequestButton from "@/components/RestoreRequestButton";
+import { getLeadSourceBadgeClass, getLeadSourceLabel } from "@/lib/lead-source";
 
 export const dynamic = "force-dynamic";
 
@@ -1262,10 +1263,10 @@ function getSmallInfoBadges(overview: RequestOverview) {
     });
   }
 
-  if (request.source === "whatsapp_manual") {
+  if (request.source) {
     badges.push({
-      label: "WhatsApp-Import",
-      className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+      label: `Quelle: ${getLeadSourceLabel(request.source)}`,
+      className: getLeadSourceBadgeClass(request.source),
     });
   }
 
