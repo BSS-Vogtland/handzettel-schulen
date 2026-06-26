@@ -63,7 +63,7 @@ function getStatusLabel(status: string | null | undefined) {
     case "created":
       return "Erzeugt";
     case "in_progress":
-      return "In PrÃ¼fung";
+      return "In Prüfung";
     case "completed":
       return "Abgeschlossen";
     default:
@@ -80,13 +80,13 @@ function getItemStatusLabel(status: string | null | undefined) {
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht nÃ¶tig";
+      return "Nicht nötig";
     case "question_required":
-      return "RÃ¼ckfrage";
+      return "Rückfrage";
     case "manual_check":
-      return "GeprÃ¼ft";
+      return "Geprüft";
     default:
-      return status || "GeprÃ¼ft";
+      return status || "Geprüft";
   }
 }
 
@@ -450,7 +450,7 @@ export default function AdminPackageChecklistPanel({
   async function completeChecklist() {
     setMessage(null);
 
-    if (!window.confirm("Paketwunsch-Checkliste wirklich abschlieÃŸen?")) {
+    if (!window.confirm("Paketwunsch-Checkliste wirklich abschließen?")) {
       return;
     }
 
@@ -493,7 +493,7 @@ export default function AdminPackageChecklistPanel({
 
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Interne PrÃ¼fung
+              Interne Prüfung
             </p>
 
             <h2 className="text-xl font-black text-[#102A43]">
@@ -501,7 +501,7 @@ export default function AdminPackageChecklistPanel({
             </h2>
 
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              KurzprÃ¼fung vor dem Versand der Paketwunsch-Mail: Listenposition,
+              Kurzprüfung vor dem Versand der Paketwunsch-Mail: Listenposition,
               Paketprodukt, Bild, abhaken.
             </p>
           </div>
@@ -573,7 +573,7 @@ export default function AdminPackageChecklistPanel({
 
                 <div>
                   <p className="font-black text-[#102A43]">
-                    Checkliste noch nicht verfÃ¼gbar.
+                    Checkliste noch nicht verfügbar.
                   </p>
                   <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                     Die Checkliste kann erst erzeugt werden, wenn alle erkannten
@@ -629,7 +629,7 @@ export default function AdminPackageChecklistPanel({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-black text-[#102A43]">
-                  {checkedCount} von {totalCount} Positionen geprÃ¼ft
+                  {checkedCount} von {totalCount} Positionen geprüft
                 </p>
                 <p className="mt-1 text-xs font-bold text-[#52616F]">
                   Fortschritt: {progressPercent} %
@@ -684,7 +684,7 @@ export default function AdminPackageChecklistPanel({
                           {item.is_checked ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-[#2F7D50]">
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              geprÃ¼ft
+                              geprüft
                             </span>
                           ) : null}
                         </div>
@@ -722,7 +722,7 @@ export default function AdminPackageChecklistPanel({
 
                           {resolvedDetails.length > 0 ? (
                             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-                              {resolvedDetails.slice(0, 2).join(" Â· ")}
+                              {resolvedDetails.slice(0, 2).join(" · ")}
                             </p>
                           ) : null}
                         </div>
@@ -791,12 +791,12 @@ export default function AdminPackageChecklistPanel({
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                PrÃ¼fung abschlieÃŸen
+                Prüfung abschließen
               </button>
             ) : (
               <div className="inline-flex items-center gap-2 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-black text-[#2F7D50]">
                 <CheckCircle2 className="h-4 w-4" />
-                PrÃ¼fung abgeschlossen
+                Prüfung abgeschlossen
               </div>
             )}
           </div>

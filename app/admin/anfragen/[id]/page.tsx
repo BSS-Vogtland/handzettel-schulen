@@ -203,7 +203,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -234,7 +234,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "Ã¢â‚¬â€";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -246,7 +246,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "Ã¢â‚¬â€";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -256,7 +256,7 @@ function formatDate(value: string | null) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "Ã¢â‚¬â€";
+  if (!size) return "—";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -272,17 +272,17 @@ function getStatusLabel(status: string | null) {
     case "analysis_pending":
       return "Analyse offen";
     case "analysis_running":
-      return "Analyse lÃƒÂ¤uft";
+      return "Analyse läuft";
     case "analysis_done":
       return "Analyse fertig";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle Prüfung";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
       return "Angebot gesendet";
     case "confirmed":
-      return "BestÃƒÂ¤tigt";
+      return "Bestätigt";
     case "cancelled":
       return "Abgebrochen";
     default:
@@ -295,7 +295,7 @@ function getOfferStatusLabel(status: string | null) {
     case "not_created":
       return "Noch nicht erstellt";
     case "matching_done":
-      return "ProduktvorschlÃƒÂ¤ge erstellt";
+      return "Produktvorschläge erstellt";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
@@ -303,11 +303,11 @@ function getOfferStatusLabel(status: string | null) {
     case "customer_selection":
       return "Kundenauswahl";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle Prüfung";
     case "confirmed":
-      return "BestÃƒÂ¤tigt";
+      return "Bestätigt";
     default:
-      return status || "Ã¢â‚¬â€";
+      return status || "—";
   }
 }
 
@@ -316,21 +316,21 @@ function getAiStatusLabel(status: string | null) {
     case "pending":
       return "Offen";
     case "running":
-      return "LÃƒÂ¤uft";
+      return "Läuft";
     case "done":
       return "Fertig";
     case "error":
       return "Fehler";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle Prüfung";
     case "missing_file":
       return "Datei fehlt";
     case "unsupported_file_type":
-      return "Dateityp nicht unterstÃƒÂ¼tzt";
+      return "Dateityp nicht unterstützt";
     case "no_items_detected":
       return "Keine Positionen erkannt";
     default:
-      return status || "Ã¢â‚¬â€";
+      return status || "—";
   }
 }
 
@@ -343,8 +343,8 @@ function getMatchScoreLabel(score: unknown) {
 
   if (value >= 80) return "Sehr passend";
   if (value >= 70) return "Passend";
-  if (value >= 55) return "MÃƒÂ¶glich";
-  return "PrÃƒÂ¼fen";
+  if (value >= 55) return "Möglich";
+  return "Prüfen";
 }
 
 function getItemKeyFacts(item: RequestItem) {
@@ -416,7 +416,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     case "cancelled":
-      return "ZurÃƒÂ¼ckgezogen";
+      return "Zurückgezogen";
     default:
       return status || "Unbekannt";
   }
@@ -448,7 +448,7 @@ function isArchivedSchoolRequest(request: SchoolRequest) {
 function getArchiveReasonLabel(reason?: string | null) {
   switch (reason) {
     case "auto_unpaid_14_days":
-      return "Automatisch archiviert: lÃƒÂ¤nger als 14 Tage nicht bezahlt";
+      return "Automatisch archiviert: länger als 14 Tage nicht bezahlt";
     default:
       return reason || "Archiviert";
   }
@@ -524,13 +524,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   if (offerItemsError) {
     throw new Error(
-      `AusgewÃƒÂ¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
+      `Ausgewählte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
     );
   }
 
   if (questionsError) {
     throw new Error(
-      `RÃƒÂ¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
+      `Rückfragen konnten nicht geladen werden: ${questionsError.message}`
     );
   }
 
@@ -575,7 +575,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
     if (matchesError) {
       throw new Error(
-        `ProduktvorschlÃƒÂ¤ge konnten nicht geladen werden: ${matchesError.message}`
+        `Produktvorschläge konnten nicht geladen werden: ${matchesError.message}`
       );
     }
 
@@ -674,7 +674,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
                   {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
                   keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
-                  VorgangszÃƒÂ¤hler mehr.
+                  Vorgangszähler mehr.
                 </p>
                 {request.archived_at ? (
                   <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
@@ -694,7 +694,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
             className="inline-flex items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
           >
             <ArrowLeft className="h-4 w-4" />
-            ZurÃƒÂ¼ck zur ÃƒÅ“bersicht
+            Zurück zur Übersicht
           </Link>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -731,7 +731,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <Eye className="h-4 w-4" />
-                  Kundenseite ÃƒÂ¶ffnen
+                  Kundenseite öffnen
                 </a>
 
                 <div className="sm:min-w-[250px]">
@@ -757,8 +757,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
                 zuerst Anfrage und Kundendaten, dann Materialliste und
-                ProduktprÃƒÂ¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
-                Abwicklung. SpÃƒÂ¤tere Schritte liegen bewusst weiter unten.
+                Produktprüfung, danach Paketwunsch-Mail, Rechnung, Zahlung und
+                Abwicklung. Spätere Schritte liegen bewusst weiter unten.
               </p>
             </div>
 
@@ -821,7 +821,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <Sparkles className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              VorschlÃƒÂ¤ge
+              Vorschläge
             </p>
             <p className="mt-2 text-3xl font-black">{matches.length}</p>
           </div>
@@ -841,7 +841,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Manuell prÃƒÂ¼fen
+              Manuell prüfen
             </p>
             <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
           </div>
@@ -875,7 +875,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   </p>
                   <p className="text-[#52616F]">
                     {request.school_name || "Schule nicht angegeben"}
-                    {request.class_name ? ` Ã‚Â· Klasse ${request.class_name}` : ""}
+                    {request.class_name ? ` · Klasse ${request.class_name}` : ""}
                   </p>
                 </div>
 
@@ -936,7 +936,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         {file.original_filename || "Datei"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {formatFileSize(file.file_size)} Ã‚Â·{" "}
+                        {formatFileSize(file.file_size)} ·{" "}
                         {file.file_type || "Dateityp unbekannt"}
                       </p>
 
@@ -948,7 +948,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                           className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#12395F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Datei ÃƒÂ¶ffnen
+                          Datei öffnen
                         </a>
                       ) : null}
                     </div>
@@ -1007,7 +1007,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
                       {item.source === "admin_manual" ? (
                         <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                          Manuell ergÃƒÂ¤nzt
+                          Manuell ergänzt
                         </p>
                       ) : null}
 
@@ -1111,14 +1111,14 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   </p>
 
                   <h2 className="text-xl font-black text-[#102A43]">
-                    Positionen, VorschlÃƒÂ¤ge und manuelle Bearbeitung
+                    Positionen, Vorschläge und manuelle Bearbeitung
                   </h2>
 
                   <p className="mt-1 text-sm leading-6 text-[#52616F]">
                     Unter jeder Position findest Du dauerhaft den Bereich
-                    Ã¢â‚¬Å¾Manuelle BearbeitungÃ¢â‚¬Å“. Wenn keine Positionen erkannt
+                    „Manuelle Bearbeitung“. Wenn keine Positionen erkannt
                     wurden, kannst Du trotzdem direkt Produkte in den
-                    Paketwunsch ÃƒÂ¼bernehmen.
+                    Paketwunsch übernehmen.
                   </p>
                 </div>
               </div>
@@ -1176,7 +1176,7 @@ return (
                           ) : itemMatches.length === 0 ? (
                             <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF8EE] px-3 py-2 text-xs font-black text-[#A75B28]">
                               <AlertTriangle className="h-4 w-4" />
-                              manuell prÃƒÂ¼fen
+                              manuell prüfen
                             </div>
                           ) : null}
                         </div>
@@ -1203,7 +1203,7 @@ return (
                                 requestId={request.id}
                                 requestItemId={item.id}
                                 resolutionStatus="open"
-                                buttonLabel="Wieder ÃƒÂ¶ffnen"
+                                buttonLabel="Wieder öffnen"
                                 confirmMessage="Soll diese Position wieder als offen markiert werden?"
                                 className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
                               />
@@ -1215,10 +1215,10 @@ return (
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                RÃƒÂ¼ckfragen
+                                Rückfragen
                               </p>
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Stelle hier eine konkrete RÃƒÂ¼ckfrage zu dieser Listenposition.
+                                Stelle hier eine konkrete Rückfrage zu dieser Listenposition.
                                 Die Antwort erscheint danach direkt an dieser Position.
                               </p>
                             </div>
@@ -1350,13 +1350,13 @@ return (
                                     <div>
                                       <div className="mb-2 flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                          {getMatchScoreLabel(match.match_score)} Ã‚Â·{" "}
+                                          {getMatchScoreLabel(match.match_score)} ·{" "}
                                           {toNumber(match.match_score, 0)} %
                                         </span>
 
                                         {isSelected ? (
                                           <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                            AusgewÃƒÂ¤hlt
+                                            Ausgewählt
                                           </span>
                                         ) : null}
                                       </div>
@@ -1394,7 +1394,7 @@ return (
                               </div>
 
                               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#B42318]">
-                                Manuelle PrÃƒÂ¼fung
+                                Manuelle Prüfung
                               </p>
 
                               <p className="text-sm font-black leading-6 text-[#8E1C1C]">
@@ -1416,9 +1416,9 @@ return (
                               </p>
 
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Hier kannst Du fÃƒÂ¼r diese erkannte Position
-                                jederzeit einen zusÃƒÂ¤tzlichen oder ersetzenden
-                                Artikel in den Paketwunsch ÃƒÂ¼bernehmen.
+                                Hier kannst Du für diese erkannte Position
+                                jederzeit einen zusätzlichen oder ersetzenden
+                                Artikel in den Paketwunsch übernehmen.
                               </p>
 
                               {selectedItems.length === 0 && !adminResolutionStatus ? (
@@ -1448,7 +1448,7 @@ return (
                                 requestItemId={item.id}
                                 defaultProductName={getRequestItemTitle(item)}
                                 defaultQuantity={item.quantity}
-                                buttonLabel="Manuell Produkt ergÃƒÂ¤nzen"
+                                buttonLabel="Manuell Produkt ergänzen"
                               />
                             </div>
                           </div>
@@ -1477,7 +1477,7 @@ return (
                         Die automatische Erkennung konnte keine eindeutigen
                         Listenpositionen erstellen. Du kannst trotzdem direkt
                         Produkte in den Paketwunsch legen. Diese Produkte
-                        erscheinen anschlieÃƒÅ¸end auf der Kundenseite und kÃƒÂ¶nnen
+                        erscheinen anschließend auf der Kundenseite und können
                         dem Kunden per Paketwunsch-Mail geschickt werden.
                       </p>
 
@@ -1486,7 +1486,7 @@ return (
                         requestItemId={null}
                         defaultProductName=""
                         defaultQuantity={1}
-                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÂ¼gen"
+                        buttonLabel="Produkt ohne erkannte Position hinzufügen"
                       />
                     </div>
                   </div>
@@ -1503,13 +1503,13 @@ return (
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-                    NÃƒÂ¤chster Abschnitt
+                    Nächster Abschnitt
                   </p>
                   <h2 className="mt-1 text-xl font-black text-[#102A43]">
                     Rechnung, Zahlung und Abwicklung
                   </h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÂ¼fung.
+                    Diese Schritte kommen erst nach der fachlichen Produktprüfung.
                     Dadurch bleibt die Detailseite in der gleichen Reihenfolge
                     wie der echte Arbeitsablauf.
                   </p>
@@ -1612,5 +1612,6 @@ return (
     </main>
   );
 }
+
 
 

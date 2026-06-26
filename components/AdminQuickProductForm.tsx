@@ -64,11 +64,11 @@ function cleanValue(value: unknown) {
 function normalizeValue(value: unknown) {
   return cleanValue(value)
     .toLowerCase()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
-    .replace(/grÃ¼n/g, "gruen")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -136,7 +136,7 @@ function getBaseProductType(input: AliasInput) {
       "schutzumschlag",
       "buchumschlag",
       "buchhuelle",
-      "buchhÃ¼lle",
+      "buchhülle",
     ])
   ) {
     return "umschlag";
@@ -492,11 +492,11 @@ export default function AdminQuickProductForm({
     setPreviewUrl(null);
     setErrorMessage(null);
     setFeedback(
-      `Artikelkopie vorbereitet: â€ž${
+      `Artikelkopie vorbereitet: „${
         cleanValue(initialCopyProduct.sourceProductName) ||
         cleanValue(initialCopyProduct.productName) ||
         "Artikel"
-      }â€œ. Art.-Nr., EAN und Keywords werden nicht Ã¼bernommen.`
+      }“. Art.-Nr., EAN und Keywords werden nicht übernommen.`
     );
   }, [initialCopyProduct]);
 
@@ -540,7 +540,7 @@ export default function AdminQuickProductForm({
     }
 
     if (!file.type.startsWith("image/")) {
-      setErrorMessage("Bitte wÃ¤hle eine Bilddatei aus.");
+      setErrorMessage("Bitte wähle eine Bilddatei aus.");
       event.target.value = "";
       return;
     }
@@ -548,7 +548,7 @@ export default function AdminQuickProductForm({
     const maxSize = 5 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      setErrorMessage("Das Produktbild darf maximal 5 MB groÃŸ sein.");
+      setErrorMessage("Das Produktbild darf maximal 5 MB groß sein.");
       event.target.value = "";
       return;
     }
@@ -593,7 +593,7 @@ export default function AdminQuickProductForm({
 
     if ((width && !height) || (!width && height)) {
       setErrorMessage(
-        "Bitte gib bei MaÃŸangaben entweder Breite und HÃ¶he an oder lasse beide Felder leer."
+        "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer."
       );
       return;
     }
@@ -634,7 +634,7 @@ export default function AdminQuickProductForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produkt-Route hat keine JSON-Antwort geliefert. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
+          "Die Produkt-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
       }
 
@@ -738,7 +738,7 @@ export default function AdminQuickProductForm({
               <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-[#E8DED2] bg-white px-4 py-5 text-center transition hover:border-[#12395F]">
                 <ImagePlus className="mb-2 h-6 w-6 text-[#A75B28]" />
                 <span className="text-sm font-black text-[#102A43]">
-                  Bild auswÃ¤hlen
+                  Bild auswählen
                 </span>
                 <span className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
                   JPG, PNG oder WEBP bis 5 MB
@@ -871,13 +871,13 @@ export default function AdminQuickProductForm({
             </div>
 
             <h3 className="text-sm font-black text-[#102A43]">
-              Optionale Produktdetails fÃ¼rs Matching
+              Optionale Produktdetails fürs Matching
             </h3>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Erfasse hier MaÃŸe, Material, Packungsinhalt, Besonderheiten oder
-              zusÃ¤tzliche Suchbegriffe. Diese Angaben werden beim Speichern in
-              Suchbegriffen und Matching-Keywords berÃ¼cksichtigt.
+              Erfasse hier Maße, Material, Packungsinhalt, Besonderheiten oder
+              zusätzliche Suchbegriffe. Diese Angaben werden beim Speichern in
+              Suchbegriffen und Matching-Keywords berücksichtigt.
             </p>
           </div>
 
@@ -898,7 +898,7 @@ export default function AdminQuickProductForm({
 
             <div>
               <label className="mb-2 block text-sm font-black text-[#102A43]">
-                HÃ¶he mm
+                Höhe mm
               </label>
               <input
                 type="text"
@@ -919,7 +919,7 @@ export default function AdminQuickProductForm({
                 onChange={(event) => setBookSizeNote(event.target.value)}
                 rows={3}
                 placeholder={
-                  "z. B. Material: PVC\nPackung: 3 StÃ¼ck\nGeeignet fÃ¼r: A5 UmschlÃ¤ge"
+                  "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
                 }
                 className="min-h-[92px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 py-3 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
@@ -930,7 +930,7 @@ export default function AdminQuickProductForm({
             <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
               {bookWidthMm && bookHeightMm ? (
                 <p>
-                  Erfasstes MaÃŸ: {bookWidthMm} x {bookHeightMm} mm
+                  Erfasstes Maß: {bookWidthMm} x {bookHeightMm} mm
                 </p>
               ) : null}
 
@@ -956,7 +956,7 @@ export default function AdminQuickProductForm({
 
               <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
                 Diese Begriffe werden regelbasiert aus den Produktdaten erzeugt.
-                Du kannst sie jederzeit manuell Ã¤ndern.
+                Du kannst sie jederzeit manuell ändern.
               </p>
             </div>
 
@@ -991,8 +991,8 @@ export default function AdminQuickProductForm({
             </p>
 
             <p>
-              Hinweis: SpÃ¤ter kann hier zusÃ¤tzlich eine KI-Option ergÃ¤nzt werden.
-              Aktuell lÃ¤uft alles bewusst ohne KI.
+              Hinweis: Später kann hier zusätzlich eine KI-Option ergänzt werden.
+              Aktuell läuft alles bewusst ohne KI.
             </p>
           </div>
         </div>
@@ -1018,7 +1018,7 @@ export default function AdminQuickProductForm({
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Produkt wird gespeichert â€¦
+              Produkt wird gespeichert …
             </>
           ) : (
             <>
