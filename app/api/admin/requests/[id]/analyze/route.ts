@@ -1240,6 +1240,129 @@ function dedupeExtractedItems<T extends ExtractedItem | CleanedItem>(items: T[])
 
   return result;
 }
+function normalizeAnalyzeColorWord(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectOrderedColorWords(value: unknown) {
+  const text = normalizeAnalyzeColorWord(value);
+
+  const colorMap: Array<[string, string]> = [
+    ["hellgruen", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["schwarz", "schwarz"],
+    ["rot", "rot"],
+    ["blau", "blau"],
+    ["gelb", "gelb"],
+    ["orange", "orange"],
+    ["lila", "lila"],
+    ["violett", "violett"],
+    ["braun", "braun"],
+    ["rosa", "rosa"],
+    ["pink", "pink"],
+    ["weiss", "weiß"],
+    ["grau", "grau"],
+  ];
+
+  const found: Array<{ index: number; color: string }> = [];
+
+  for (const [needle, color] of colorMap) {
+    const pattern = new RegExp(`(^|\\s)${needle}(\\s|$)`);
+    const match = text.match(pattern);
+
+    if (match?.index !== undefined) {
+      found.push({ index: match.index, color });
+    }
+  }
+
+  return found
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.color)
+    .filter((color, index, list) => list.indexOf(color) === index);
+}
+
+function isColorListSplitType(value: unknown) {
+  const text = normalizeAnalyzeColorWord(value);
+
+  return (
+    text.includes("fineliner") ||
+    text.includes("textmarker")
+  );
+}
+
+function removeColorSuffixFromMaterialName(value: unknown) {
+  let text = String(value || "").trim();
+
+  text = text.replace(/:\s*.+$/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/[-–—]\s*$/g, "");
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+function expandColorVariantQuantityItems(items: CleanedItem[]) {
+  const expanded: CleanedItem[] = [];
+
+  for (const item of items) {
+    const fullText = [
+      item.rawText,
+      item.normalizedName,
+      item.category,
+      item.notes,
+      item.color,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const colors = detectOrderedColorWords(fullText);
+    const quantity = Number(item.quantity || 1);
+
+    if (
+      quantity > 1 &&
+      colors.length >= 2 &&
+      colors.length === quantity &&
+      isColorListSplitType(fullText)
+    ) {
+      const baseName =
+        removeColorSuffixFromMaterialName(item.normalizedName) ||
+        removeColorSuffixFromMaterialName(item.rawText) ||
+        "Artikel";
+
+      for (const color of colors) {
+        expanded.push({
+          ...item,
+          quantity: 1,
+          normalizedName: `${baseName} ${color}`.replace(/\s+/g, " ").trim(),
+          color,
+          notes: [
+            item.notes,
+            `Aus Farbliste automatisch als Einzelposition erkannt (${color}).`,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        });
+      }
+
+      continue;
+    }
+
+    expanded.push(item);
+  }
+
+  return expanded;
+}
 function expandCompoundExtractedItems(items: ExtractedItem[]) {
   return items.flatMap((item) => {
     const coverItems = expandCoverMaterialLine(item);
@@ -1709,8 +1832,9 @@ export async function POST(_request: Request, context: RouteContext) {
     }
 
     const finalCleanedItems = (() => {
-      const sourceItems =
-        typeof cleanedItems !== "undefined" ? cleanedItems : [];
+      const sourceItems = expandColorVariantQuantityItems(
+        typeof cleanedItems !== "undefined" ? cleanedItems : []
+      );
 
       const seen = new Set<string>();
       const result: CleanedItem[] = [];
@@ -1808,6 +1932,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
