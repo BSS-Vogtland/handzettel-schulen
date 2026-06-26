@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -121,7 +121,7 @@ function getRequestItemOriginalText(item: RequestItem) {
   if (item.color) details.push(`Farbe: ${item.color}`);
 
   if (details.length > 0) {
-    parts.push(details.join(" · "));
+    parts.push(details.join(" Â· "));
   }
 
   return parts.join("\n");
@@ -144,17 +144,17 @@ function getStatusLabel(status: string) {
     case "in_package":
       return "Im Paket";
     case "alternative_selected":
-      return "Alternative gewählt";
+      return "Alternative gewÃ¤hlt";
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht benötigt";
+      return "Nicht benÃ¶tigt";
     case "question_required":
-      return "Rückfrage nötig";
+      return "RÃ¼ckfrage nÃ¶tig";
     case "manual_check":
-      return "Manuell geprüft";
+      return "Manuell geprÃ¼ft";
     default:
-      return status || "Manuell geprüft";
+      return status || "Manuell geprÃ¼ft";
   }
 }
 
@@ -252,7 +252,7 @@ function buildChecklistRows(input: {
     rows.push({
       request_item_id: null,
       offer_item_id: offerItem.id,
-      original_text: "Zusätzlich manuell ergänzt",
+      original_text: "ZusÃ¤tzlich manuell ergÃ¤nzt",
       resolved_text: getOfferItemText(offerItem),
       status: "manual_check",
     });
@@ -261,6 +261,126 @@ function buildChecklistRows(input: {
   return rows;
 }
 
+function getChecklistRowKey(input: {
+  request_item_id: string | null;
+  offer_item_id: string | null;
+  original_text?: string | null;
+  resolved_text?: string | null;
+}) {
+  if (input.request_item_id) return `request:${input.request_item_id}`;
+  if (input.offer_item_id) return `offer:${input.offer_item_id}`;
+
+  return [
+    "manual",
+    cleanText(input.original_text),
+    cleanText(input.resolved_text),
+  ].join(":");
+}
+
+async function syncExistingChecklistItems(input: {
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+  existingItems: ChecklistItem[];
+  expectedRows: Array<{
+    request_item_id: string | null;
+    offer_item_id: string | null;
+    original_text: string | null;
+    resolved_text: string | null;
+    status: string;
+  }>;
+}) {
+  const now = new Date().toISOString();
+
+  const existingByKey = new Map<string, ChecklistItem>();
+
+  for (const item of input.existingItems) {
+    existingByKey.set(getChecklistRowKey(item), item);
+  }
+
+  const expectedKeys = new Set<string>();
+
+  for (const row of input.expectedRows) {
+    const key = getChecklistRowKey(row);
+    expectedKeys.add(key);
+
+    const existing = existingByKey.get(key);
+
+    if (existing) {
+      const { error } = await input.supabase
+        .from("school_package_checklist_items")
+        .update({
+          request_item_id: row.request_item_id,
+          offer_item_id: row.offer_item_id,
+          original_text: row.original_text,
+          resolved_text: row.resolved_text,
+          status: row.status,
+          updated_at: now,
+        })
+        .eq("id", existing.id);
+
+      if (error) {
+        throw new Error(
+          `Checklistenposition konnte nicht synchronisiert werden: ${error.message}`
+        );
+      }
+
+      continue;
+    }
+
+    const { error } = await input.supabase
+      .from("school_package_checklist_items")
+      .insert({
+        request_id: input.requestId,
+        request_item_id: row.request_item_id,
+        offer_item_id: row.offer_item_id,
+        original_text: row.original_text,
+        resolved_text: row.resolved_text,
+        status: row.status,
+        is_checked: false,
+        note: null,
+        checked_at: null,
+        created_at: now,
+        updated_at: now,
+      });
+
+    if (error) {
+      throw new Error(
+        `Checklistenposition konnte nicht ergänzt werden: ${error.message}`
+      );
+    }
+  }
+
+  const staleIds = input.existingItems
+    .filter((item) => !expectedKeys.has(getChecklistRowKey(item)))
+    .map((item) => item.id);
+
+  if (staleIds.length > 0) {
+    const { error } = await input.supabase
+      .from("school_package_checklist_items")
+      .delete()
+      .in("id", staleIds);
+
+    if (error) {
+      throw new Error(
+        `Veraltete Checklistenpositionen konnten nicht entfernt werden: ${error.message}`
+      );
+    }
+  }
+
+  const { data, error } = await input.supabase
+    .from("school_package_checklist_items")
+    .select("*")
+    .eq("request_id", input.requestId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      `Synchronisierte Checkliste konnte nicht geladen werden: ${error.message}`
+    );
+  }
+
+  return (data || []) as ChecklistItem[];
+}
 async function loadChecklistData(requestId: string) {
   const supabase = getSupabaseAdmin();
 
@@ -327,7 +447,21 @@ async function loadChecklistData(requestId: string) {
 
   const requestItems = (requestItemsData || []) as RequestItem[];
   const offerItems = (offerItemsData || []) as OfferItem[];
-  const checklistItems = (checklistItemsData || []) as ChecklistItem[];
+  let checklistItems = (checklistItemsData || []) as ChecklistItem[];
+  if (
+    checklistItems.length > 0 &&
+    requestData.package_checklist_status !== "completed"
+  ) {
+    checklistItems = await syncExistingChecklistItems({
+      supabase,
+      requestId,
+      existingItems: checklistItems,
+      expectedRows: buildChecklistRows({
+        requestItems,
+        offerItems,
+      }),
+    });
+  }
 
   const productIds = Array.from(
     new Set(
@@ -407,7 +541,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
         { status: 400 }
       );
     }
@@ -455,7 +589,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
         { status: 400 }
       );
     }
