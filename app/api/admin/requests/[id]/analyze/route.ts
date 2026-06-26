@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v4-checkbox-context-abbreviations-hefter-map-safety";
+const ANALYZE_VERSION = "school-material-analyze-v5-split-comma-bundles-and-cover-items";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -67,7 +67,7 @@ const materialSchema: Record<string, unknown> = {
           rawText: {
             type: "string",
             description:
-              "Die vollständige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), Buchmaß, Farbe und Format unbedingt übernehmen.",
+              "Die vollstÃ¤ndige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), BuchmaÃŸ, Farbe und Format unbedingt Ã¼bernehmen.",
           },
           normalizedName: {
             type: ["string", "null"],
@@ -86,12 +86,12 @@ const materialSchema: Record<string, unknown> = {
           format: {
             type: ["string", "null"],
             description:
-              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus Buchmaß ableitbar.",
+              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus BuchmaÃŸ ableitbar.",
           },
           color: {
             type: ["string", "null"],
             description:
-              "Farbe exakt, z. B. blau, rot, grün, gelb, orange, braun, transparent.",
+              "Farbe exakt, z. B. blau, rot, grÃ¼n, gelb, orange, braun, transparent.",
           },
           lineature: {
             type: ["string", "null"],
@@ -101,7 +101,7 @@ const materialSchema: Record<string, unknown> = {
           notes: {
             type: ["string", "null"],
             description:
-              "Zusätzliche Hinweise, z. B. Buchmaß, Pappe, ROTH, Klipp & Klar.",
+              "ZusÃ¤tzliche Hinweise, z. B. BuchmaÃŸ, Pappe, ROTH, Klipp & Klar.",
           },
           confidence: {
             type: "number",
@@ -177,7 +177,7 @@ async function createSignedUrl(storagePath: string) {
     .createSignedUrl(storagePath, 60 * 10);
 
   if (error || !data?.signedUrl) {
-    throw new Error("Die Datei konnte nicht für die Analyse geöffnet werden.");
+    throw new Error("Die Datei konnte nicht fÃ¼r die Analyse geÃ¶ffnet werden.");
   }
 
   return data.signedUrl;
@@ -205,11 +205,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -217,8 +217,8 @@ function normalizeText(value: unknown) {
 
 function stripCheckboxNoise(value: unknown) {
   return String(value ?? "")
-    .replace(/^[\s\-–—*•]+/g, "")
-    .replace(/^(?:☐|□|▢|◻|❑|❒|✓|✔|x|\[ \]|\[\]|0)\s*/i, "")
+    .replace(/^[\s\-â€“â€”*â€¢]+/g, "")
+    .replace(/^(?:â˜|â–¡|â–¢|â—»|â‘|â’|âœ“|âœ”|x|\[ \]|\[\]|0)\s*/i, "")
     .trim();
 }
 
@@ -324,7 +324,7 @@ function normalizeColor(value: unknown) {
   const colors: Array<{ key: string; label: string }> = [
     { key: "rot", label: "rot" },
     { key: "blau", label: "blau" },
-    { key: "gruen", label: "grün" },
+    { key: "gruen", label: "grÃ¼n" },
     { key: "gelb", label: "gelb" },
     { key: "orange", label: "orange" },
     { key: "lila", label: "lila" },
@@ -332,7 +332,7 @@ function normalizeColor(value: unknown) {
     { key: "pink", label: "pink" },
     { key: "rosa", label: "rosa" },
     { key: "schwarz", label: "schwarz" },
-    { key: "weiss", label: "weiß" },
+    { key: "weiss", label: "weiÃŸ" },
     { key: "braun", label: "braun" },
   ];
 
@@ -782,6 +782,322 @@ function forceLineatureForKnownPatterns(item: ExtractedItem, detectedLineature: 
   return detectedLineature;
 }
 
+
+function splitOutsideParentheses(value: string, separator = ",") {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+
+  for (const char of value) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth = Math.max(0, depth - 1);
+
+    if (char === separator && depth === 0) {
+      const trimmed = current.trim();
+      if (trimmed) parts.push(trimmed);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  const trimmed = current.trim();
+  if (trimmed) parts.push(trimmed);
+
+  return parts;
+}
+
+function cleanCompoundSegment(value: unknown) {
+  return String(value || "")
+    .replace(/^[\s\-–—•●▪▫□☐▢\[\]]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeNonArticleHintsFromSegment(value: string) {
+  return value
+    .replace(/\(\s*ggf?s?\.?\s+[^)]*\)/gi, "")
+    .replace(/\(\s*von\s+letztem\s+jahr\s+[^)]*\)/gi, "")
+    .replace(/\bggf?s?\.?\s+von\s+letztem\s+jahr\s+kontrollieren\s*\/?\s*auffüllen\b/gi, "")
+    .replace(/\bggf?s?\.?\s+kontrollieren\s*\/?\s*auffüllen\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractLeadingQuantityFromSegment(value: string) {
+  const match = value.match(/^\s*(\d+)\s+(.+)$/);
+  if (!match) {
+    return { quantity: null as number | null, text: value.trim() };
+  }
+
+  return {
+    quantity: Number(match[1]),
+    text: match[2].trim(),
+  };
+}
+
+function normalizePluralMaterialName(value: string) {
+  const text = value.trim();
+
+  return text
+    .replace(/^mehrere\s+/i, "")
+    .replace(/\bDeutschhefte\b/i, "Deutschheft")
+    .replace(/\bMathematikhefte\b/i, "Mathematikheft")
+    .replace(/\bMathehefte\b/i, "Matheheft")
+    .replace(/\bHefte\b/i, "Heft")
+    .replace(/\bBlöcke\b/i, "Block")
+    .replace(/\bBloecke\b/i, "Block")
+    .replace(/\bLineale\b/i, "Lineal")
+    .replace(/\bBleistifte\b/i, "Bleistift")
+    .replace(/\bErsatzpatronen\b/i, "Ersatzpatronen")
+    .replace(/\bFüller\b/i, "Füller")
+    .replace(/\bFueller\b/i, "Füller")
+    .trim();
+}
+
+function inferCompoundCategory(value: string, fallback: unknown) {
+  const text = normalizeText(value);
+
+  if (text.includes("umschlag")) return "Umschlag";
+  if (text.includes("deutschheft") || text.includes("mathematikheft") || text.includes("matheheft") || text.includes("heft")) return "Heft";
+  if (text.includes("block")) return "Block";
+  if (text.includes("farbkasten")) return "Farbkasten";
+  if (text.includes("deckweiss") || text.includes("deckweiß")) return "Deckweiß";
+  if (text.includes("pinsel")) return "Pinsel";
+  if (text.includes("wasserbecher")) return "Wasserbecher";
+  if (text.includes("radiergummi")) return "Radiergummi";
+  if (text.includes("spitzer")) return "Spitzer";
+  if (text.includes("fueller") || text.includes("füller")) return "Füller";
+  if (text.includes("ersatzpatrone")) return "Ersatzpatronen";
+  if (text.includes("bleistift")) return "Bleistift";
+  if (text.includes("buntstift")) return "Buntstift";
+  if (text.includes("fineliner")) return "Fineliner";
+  if (text.includes("lineal")) return "Lineal";
+  if (text.includes("geodreieck")) return "Geodreieck";
+  if (text.includes("zirkel")) return "Zirkel";
+  if (text.includes("klebestift")) return "Klebestift";
+  if (text.includes("schere")) return "Schere";
+  if (text.includes("filzstift")) return "Filzstift";
+  if (text.includes("textmarker")) return "Textmarker";
+  if (text.includes("tonkarton")) return "Tonkarton";
+  if (text.includes("zeichenblock")) return "Zeichenblock";
+  if (text.includes("zeichenkarton")) return "Zeichenkarton";
+
+  return cleanNullableString(fallback);
+}
+
+function shouldSplitCommaMaterialLine(value: string) {
+  const text = normalizeText(value);
+
+  if (!value.includes(",")) return false;
+  if (text.includes("isbn")) return false;
+  if (text.includes("preis")) return false;
+  if (text.includes("vor- und zuname")) return false;
+  if (text.includes("beschriftung")) return false;
+
+  const parts = splitOutsideParentheses(value);
+  if (parts.length < 2) return false;
+
+  const materialHints = [
+    "farbkasten",
+    "deckweiß",
+    "deckweiss",
+    "pinsel",
+    "wasserbecher",
+    "radiergummi",
+    "spitzer",
+    "lineal",
+    "geodreieck",
+    "füller",
+    "fueller",
+    "ersatzpatrone",
+    "bleistift",
+    "buntstift",
+    "fineliner",
+    "zirkel",
+    "klebestift",
+    "schere",
+    "filzstift",
+    "textmarker",
+    "tonkarton",
+    "zeichenblock",
+    "zeichenkarton",
+  ];
+
+  return materialHints.some((hint) => text.includes(hint));
+}
+
+function buildCompoundItemFromSegment(
+  item: ExtractedItem,
+  segment: string,
+  sourceLine: string,
+  inheritedQuantity: unknown
+): ExtractedItem {
+  const cleanedSegment = removeNonArticleHintsFromSegment(cleanCompoundSegment(segment));
+  const quantityResult = extractLeadingQuantityFromSegment(cleanedSegment);
+  const segmentText = normalizePluralMaterialName(quantityResult.text);
+  const quantity = quantityResult.quantity ?? cleanQuantity(inheritedQuantity);
+  const format = normalizeFormat(segmentText) || normalizeFormat(sourceLine);
+  const color = normalizeColor(segmentText);
+  const lineature = normalizeLineature(segmentText);
+
+  return {
+    ...item,
+    rawText: sourceLine,
+    normalizedName: segmentText,
+    quantity,
+    category: inferCompoundCategory(segmentText, item.category),
+    format,
+    color,
+    lineature,
+    notes: [
+      cleanNullableString(item.notes),
+      `Sammelzeile deterministisch auf Einzelartikel zerlegt: ${segmentText}`,
+      `Analyse-Version: ${ANALYZE_VERSION}`,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  };
+}
+
+function expandCommaMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
+  const sourceLine = cleanNullableString(item.rawText) || cleanNullableString(item.normalizedName);
+  if (!sourceLine || !shouldSplitCommaMaterialLine(sourceLine)) return null;
+
+  const sourceWithoutHints = removeNonArticleHintsFromSegment(sourceLine);
+  const parts = splitOutsideParentheses(sourceWithoutHints)
+    .map((part) => cleanCompoundSegment(part))
+    .map((part) => removeNonArticleHintsFromSegment(part))
+    .filter(Boolean);
+
+  if (parts.length < 2) return null;
+
+  return parts.map((part) =>
+    buildCompoundItemFromSegment(item, part, sourceLine, item.quantity)
+  );
+}
+
+function extractCoverColor(value: string) {
+  const text = normalizeText(value);
+
+  if (text.includes("rotem umschlag") || text.includes("roter umschlag") || text.includes("rot umschlag")) return "rot";
+  if (text.includes("blauem umschlag") || text.includes("blauer umschlag") || text.includes("blau umschlag")) return "blau";
+  if (text.includes("gruenem umschlag") || text.includes("grüner umschlag") || text.includes("gruen umschlag")) return "grün";
+  if (text.includes("gelbem umschlag") || text.includes("gelber umschlag") || text.includes("gelb umschlag")) return "gelb";
+  if (text.includes("weissem umschlag") || text.includes("weißem umschlag") || text.includes("weisser umschlag") || text.includes("weißer umschlag")) return "weiß";
+  if (text.includes("schwarzem umschlag") || text.includes("schwarzer umschlag")) return "schwarz";
+  if (text.includes("lila umschlag") || text.includes("lilafarbenem umschlag")) return "lila";
+  if (text.includes("orangem umschlag") || text.includes("oranger umschlag")) return "orange";
+
+  return normalizeColor(value);
+}
+
+function shouldSplitCoverLine(value: string) {
+  const text = normalizeText(value);
+
+  const hasExerciseBook =
+    text.includes("deutschheft") ||
+    text.includes("deutschhefte") ||
+    text.includes("mathematikheft") ||
+    text.includes("mathematikhefte") ||
+    text.includes("matheheft") ||
+    text.includes("mathehefte") ||
+    text.includes("heft") ||
+    text.includes("hefte");
+
+  return hasExerciseBook && text.includes("umschlag");
+}
+
+function getExerciseBookBaseName(value: string) {
+  const text = normalizeText(value);
+
+  if (text.includes("deutschheft") || text.includes("deutschhefte")) return "Deutschheft";
+  if (text.includes("mathematikheft") || text.includes("mathematikhefte")) return "Mathematikheft";
+  if (text.includes("matheheft") || text.includes("mathehefte")) return "Matheheft";
+
+  return "Heft";
+}
+
+function buildExerciseBookName(value: string) {
+  const baseName = getExerciseBookBaseName(value);
+  const format = normalizeFormat(value);
+  const lineature = normalizeLineature(value);
+  const text = normalizeText(value);
+  const hasDoppelrand = text.includes("doppelrand");
+
+  return [
+    baseName,
+    format,
+    lineature ? `Lineatur ${lineature}` : null,
+    hasDoppelrand ? "Doppelrand" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function expandCoverMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
+  const sourceLine = cleanNullableString(item.rawText) || cleanNullableString(item.normalizedName);
+  if (!sourceLine || !shouldSplitCoverLine(sourceLine)) return null;
+
+  const quantityResult = extractLeadingQuantityFromSegment(cleanCompoundSegment(sourceLine));
+  const quantity = quantityResult.quantity ?? cleanQuantity(item.quantity);
+  const format = normalizeFormat(sourceLine);
+  const lineature = normalizeLineature(sourceLine);
+  const coverColor = extractCoverColor(sourceLine);
+  const exerciseBookName = buildExerciseBookName(sourceLine);
+  const coverName = ["Umschlag", format, coverColor].filter(Boolean).join(" ");
+
+  const exerciseBookItem: ExtractedItem = {
+    ...item,
+    rawText: sourceLine,
+    normalizedName: exerciseBookName,
+    quantity,
+    category: "Heft",
+    format,
+    color: null,
+    lineature,
+    notes: [
+      cleanNullableString(item.notes),
+      "Heft-mit-Umschlag-Zeile deterministisch getrennt: Heft ist eigener Artikel.",
+      `Analyse-Version: ${ANALYZE_VERSION}`,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  };
+
+  const coverItem: ExtractedItem = {
+    ...item,
+    rawText: sourceLine,
+    normalizedName: coverName || "Umschlag",
+    quantity,
+    category: "Umschlag",
+    format,
+    color: coverColor,
+    lineature: null,
+    notes: [
+      cleanNullableString(item.notes),
+      "Heft-mit-Umschlag-Zeile deterministisch getrennt: Umschlag ist eigener Artikel.",
+      `Analyse-Version: ${ANALYZE_VERSION}`,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  };
+
+  return [exerciseBookItem, coverItem];
+}
+
+function expandCompoundExtractedItems(items: ExtractedItem[]) {
+  return items.flatMap((item) => {
+    const coverItems = expandCoverMaterialLine(item);
+    if (coverItems) return coverItems;
+
+    const commaItems = expandCommaMaterialLine(item);
+    if (commaItems) return commaItems;
+
+    return [item];
+  });
+}
 function cleanExtractedItem(item: ExtractedItem): CleanedItem {
   const rawText = cleanNullableString(item.rawText) || "";
   const aiName = cleanNullableString(item.normalizedName);
@@ -809,7 +1125,7 @@ function cleanExtractedItem(item: ExtractedItem): CleanedItem {
     cleanNullableString(item.notes),
     productType ? `Produkttyp: ${productType}` : null,
     lineature === "0"
-      ? "Lineatur 0 wurde als eigenständige Lineatur erkannt."
+      ? "Lineatur 0 wurde als eigenstÃ¤ndige Lineatur erkannt."
       : null,
     lineature === "8f" ? "Lineatur 8 wurde als 8f normalisiert." : null,
     `Analyse-Version: ${ANALYZE_VERSION}`,
@@ -841,11 +1157,11 @@ function normalizeAnalyzerText(value: unknown) {
   return String(value || "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -860,10 +1176,10 @@ function getAnalyzerColor(value: unknown) {
     ["blau", "blau"],
     ["rot", "rot"],
     ["schwarz", "schwarz"],
-    ["gruen", "grün"],
-    ["grun", "grün"],
+    ["gruen", "grÃ¼n"],
+    ["grun", "grÃ¼n"],
     ["braun", "braun"],
-    ["weiss", "weiß"],
+    ["weiss", "weiÃŸ"],
     ["gelb", "gelb"],
     ["lila", "lila"],
     ["orange", "orange"],
@@ -881,7 +1197,7 @@ function getAnalyzerColor(value: unknown) {
 
 function getHefterSubjectFromRawText(value: unknown) {
   const text = String(value || "");
-  const match = text.match(/(?:für|fuer)\s+[„"“]?([^"”„(]+)[“"]?/i);
+  const match = text.match(/(?:fÃ¼r|fuer)\s+[â€ž"â€œ]?([^"â€â€ž(]+)[â€œ"]?/i);
 
   if (!match?.[1]) return "";
 
@@ -920,7 +1236,7 @@ function getHefterCorrection(
     productType: "Schnellhefter",
     color: detectedColor,
     note:
-      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext überschreibt den Hauptartikel nicht.",
+      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext Ã¼berschreibt den Hauptartikel nicht.",
   };
 }
 function getFriendlyOpenAiError(error: unknown) {
@@ -932,7 +1248,7 @@ function getFriendlyOpenAiError(error: unknown) {
       message.toLowerCase().includes("incorrect api key") ||
       message.toLowerCase().includes("invalid api key")
     ) {
-      return "Der OpenAI API-Key ist falsch oder noch ein Platzhalter. Bitte OPENAI_API_KEY in .env.local prüfen und den Server neu starten.";
+      return "Der OpenAI API-Key ist falsch oder noch ein Platzhalter. Bitte OPENAI_API_KEY in .env.local prÃ¼fen und den Server neu starten.";
     }
 
     if (
@@ -940,7 +1256,7 @@ function getFriendlyOpenAiError(error: unknown) {
       message.toLowerCase().includes("billing") ||
       message.toLowerCase().includes("insufficient_quota")
     ) {
-      return "OpenAI konnte nicht genutzt werden, vermutlich wegen Guthaben, Billing oder Limit. Bitte OpenAI Platform Billing prüfen.";
+      return "OpenAI konnte nicht genutzt werden, vermutlich wegen Guthaben, Billing oder Limit. Bitte OpenAI Platform Billing prÃ¼fen.";
     }
 
     if (
@@ -962,7 +1278,7 @@ export async function POST(_request: Request, context: RouteContext) {
   try {
     if (!id) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
         { status: 400 }
       );
     }
@@ -1070,24 +1386,24 @@ export async function POST(_request: Request, context: RouteContext) {
             {
               type: "input_text",
               text:
-                "Du bist ein extrem genauer Assistent für deutsche Schulmateriallisten. " +
-                "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte Auflösung, Checkbox-Listen, mehrspaltige Listen oder eingerückte Kategorien sind. " +
-                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Überschriften und keine Dekoration. " +
-                "Du musst jede sichtbare Materialposition vollständig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
-                "Die vollständige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
-                "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie ☐, □, ▢, [ ], Häkchen, Aufzählungspunkte oder Streichpunkte ignorierst du für quantity. " +
-                "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: '☐ 2 dicke Bleistifte' bedeutet quantity 2, '☐ 1 blaue Mappe' bedeutet quantity 1. " +
-                "Kategorie-Regel: Überschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
-                "Wenn unter der Überschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
-                "Hefter-Regel: Wenn in der Originalzeile ausdrücklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter für Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und überschreibt den Hauptartikel nicht. " +
-                "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
+                "Du bist ein extrem genauer Assistent fÃ¼r deutsche Schulmateriallisten. " +
+                "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte AuflÃ¶sung, Checkbox-Listen, mehrspaltige Listen oder eingerÃ¼ckte Kategorien sind. " +
+                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Ãœberschriften und keine Dekoration. " +
+                "Du musst jede sichtbare Materialposition vollstÃ¤ndig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
+                "Die vollstÃ¤ndige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dÃ¼rfen niemals weggelassen werden. " +
+                "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie â˜, â–¡, â–¢, [ ], HÃ¤kchen, AufzÃ¤hlungspunkte oder Streichpunkte ignorierst du fÃ¼r quantity. " +
+                "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: 'â˜ 2 dicke Bleistifte' bedeutet quantity 2, 'â˜ 1 blaue Mappe' bedeutet quantity 1. " +
+                "Kategorie-Regel: Ãœberschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext fÃ¼r die darunterstehenden eingerÃ¼ckten Zeilen. " +
+                "Wenn unter der Ãœberschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
+                "Hefter-Regel: Wenn in der Originalzeile ausdrÃ¼cklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter fÃ¼r Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und Ã¼berschreibt den Hauptartikel nicht. " +
+                "Wenn unter der Ãœberschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
                 "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
-                "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
+                "AbkÃ¼rzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
                 "Hausaufgabenheft-Regel: Hausaufgabenheft, HA-Heft und Aufgabenheft niemals als normales Schreibheft interpretieren. " +
-                "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/Blöcke geht. " +
+                "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/BlÃ¶cke geht. " +
                 "Kariert-Regel: 'kariert' bedeutet lineature '28', wenn keine exakte Nummer angegeben ist. 'liniert' bedeutet lineature 'liniert', wenn keine exakte Nummer angegeben ist. " +
                 "Mehrspalten-Regel: Bei mehreren Spalten musst du alle sichtbaren Materialpositionen aus allen Spalten extrahieren. " +
-                "Störgrafiken, Stempel, Logos, Illustrationen und Randgrafiken ignorierst du. " +
+                "StÃ¶rgrafiken, Stempel, Logos, Illustrationen und Randgrafiken ignorierst du. " +
                 "Beispiele: " +
                 "'40x Schreibheft A5 (Lineatur 0)' bedeutet lineature exakt '0'. Lineatur 0 ist NICHT unklar. " +
                 "'40x Schreibheft A5 (Lineatur 1)' bedeutet lineature exakt '1'. " +
@@ -1096,7 +1412,7 @@ export async function POST(_request: Request, context: RouteContext) {
                 "'Lin. 8', 'L8', '8 F' und '8f' bedeuten immer lineature exakt '8f'. " +
                 "Wenn irgendwo Lineatur 0, Lin. 0, L0 oder L 0 steht, ist lineature exakt '0'. Niemals 'unklar'. " +
                 "Wenn eine Lineatur wirklich nicht vorhanden oder nicht lesbar ist, nutze null oder 'unknown'. " +
-                "Bei Umschlägen achte besonders auf Farbe und Buchmaß. Buchmaß 30 x 21 cm entspricht ungefähr A4. Buchmaß um 26,5 x 19,5 cm entspricht ungefähr A5. " +
+                "Bei UmschlÃ¤gen achte besonders auf Farbe und BuchmaÃŸ. BuchmaÃŸ 30 x 21 cm entspricht ungefÃ¤hr A4. BuchmaÃŸ um 26,5 x 19,5 cm entspricht ungefÃ¤hr A5. " +
                 `Interne Analyse-Version: ${ANALYZE_VERSION}.`,
             },
           ],
@@ -1107,16 +1423,16 @@ export async function POST(_request: Request, context: RouteContext) {
             {
               type: "input_text",
               text:
-                "Analysiere diese Schulmaterialliste vollständig. " +
-                "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerückten Kategorien. " +
-                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Überschriften. " +
-                "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern und sichtbarer Abkürzungen. " +
-                "Checkboxen oder Aufzählungszeichen sind keine Mengen. " +
+                "Analysiere diese Schulmaterialliste vollstÃ¤ndig. " +
+                "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerÃ¼ckten Kategorien. " +
+                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Ãœberschriften. " +
+                "Wichtig: Schreibe rawText als vollstÃ¤ndige Originalzeile inklusive Klammern und sichtbarer AbkÃ¼rzungen. " +
+                "Checkboxen oder AufzÃ¤hlungszeichen sind keine Mengen. " +
                 "Wenn Text teilweise unsicher ist, extrahiere die plausible Materialposition trotzdem mit niedrigerer confidence, statt sie wegzulassen. " +
                 "Lineatur 0, blanko, unliniert oder ohne Lineatur muss als lineature '0' gespeichert werden. " +
                 "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden. " +
                 "Rechenh. bedeutet Rechenheft. Schreibh. bedeutet Schreibheft. HA-Heft bedeutet Hausaufgabenheft. " +
-                "Überschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext für die darunter stehenden Positionen.",
+                "Ãœberschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext fÃ¼r die darunter stehenden Positionen.",
             },
             fileContentPart,
           ],
@@ -1156,7 +1472,7 @@ export async function POST(_request: Request, context: RouteContext) {
         event_type: "analysis_no_items",
         title: "Keine Artikel erkannt",
         description:
-          "Die Analyse wurde ausgeführt, es konnten aber keine Materialpositionen sicher erkannt werden.",
+          "Die Analyse wurde ausgefÃ¼hrt, es konnten aber keine Materialpositionen sicher erkannt werden.",
       });
 
       return NextResponse.json({
@@ -1167,7 +1483,8 @@ export async function POST(_request: Request, context: RouteContext) {
       });
     }
 
-    const cleanedItems = items.map(cleanExtractedItem);
+    const expandedItems = expandCompoundExtractedItems(items);
+    const cleanedItems = expandedItems.map(cleanExtractedItem);
 
     const rows = cleanedItems.map((item) => ({
       request_id: id,
