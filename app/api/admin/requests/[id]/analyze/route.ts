@@ -1414,8 +1414,121 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
 
   return result;
 }
+function normalizeColorListTextV2(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectColorListWordsV2(value: unknown) {
+  const text = normalizeColorListTextV2(value);
+
+  const colorMap: Array<[string, string]> = [
+    ["hellgruen", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["schwarz", "schwarz"],
+    ["rot", "rot"],
+    ["blau", "blau"],
+    ["gelb", "gelb"],
+    ["orange", "orange"],
+    ["lila", "lila"],
+    ["violett", "violett"],
+    ["braun", "braun"],
+    ["rosa", "rosa"],
+    ["pink", "pink"],
+    ["weiss", "weiß"],
+    ["grau", "grau"],
+  ];
+
+  const found: Array<{ index: number; color: string }> = [];
+
+  for (const [needle, color] of colorMap) {
+    const pattern = new RegExp(`(^|\\s)${needle}(\\s|$)`);
+    const match = text.match(pattern);
+
+    if (match?.index !== undefined) {
+      found.push({ index: match.index, color });
+    }
+  }
+
+  return found
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.color)
+    .filter((color, index, list) => list.indexOf(color) === index);
+}
+
+function removeColorListSuffixV2(value: unknown) {
+  let text = String(value || "").trim();
+
+  text = text.replace(/:\s*.+$/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/^\s*[-–—]\s*/g, "");
+  text = text.replace(/^\s*\d+\s*x?\s*/gi, "");
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+function expandColorListExtractedItemV2(item: ExtractedItem) {
+  const fullText = [
+    item.rawText,
+    item.normalizedName,
+    item.category,
+    item.notes,
+    item.color,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const normalizedText = normalizeColorListTextV2(fullText);
+  const quantity = Number(item.quantity || 1);
+  const colors = detectColorListWordsV2(fullText);
+
+  const isSupportedColorList =
+    normalizedText.includes("fineliner") ||
+    normalizedText.includes("textmarker");
+
+  if (
+    !isSupportedColorList ||
+    quantity <= 1 ||
+    colors.length < 2 ||
+    colors.length !== quantity
+  ) {
+    return null;
+  }
+
+  const baseName =
+    removeColorListSuffixV2(item.normalizedName) ||
+    removeColorListSuffixV2(item.rawText) ||
+    "Fineliner";
+
+  return colors.map((color) => ({
+    ...item,
+    quantity: 1,
+    normalizedName: `${baseName} ${color}`.replace(/\s+/g, " ").trim(),
+    color,
+    notes: [
+      item.notes,
+      `Farbliste vor Komma-Splitting als Einzelposition erkannt (${color}).`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  }));
+}
 function expandCompoundExtractedItems(items: ExtractedItem[]) {
   return items.flatMap((item) => {
+    const colorListItems = expandColorListExtractedItemV2(item);
+    if (colorListItems) return colorListItems;
+
     const coverItems = expandCoverMaterialLine(item);
     if (coverItems) return coverItems;
 
@@ -1985,6 +2098,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
