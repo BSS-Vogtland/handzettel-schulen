@@ -230,8 +230,7 @@ function cleanNullableString(value: unknown) {
   const text = String(value ?? "").trim();
 
   if (!text) return null;
-
-  const lowered = normalizeText(text);
+const lowered = normalizeText(text);
 
   if (
     lowered === "null" ||
@@ -251,7 +250,7 @@ function normalizeFormat(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
-  if (text.includes("a3")) return "A3";
+if (text.includes("a3")) return "A3";
   if (text.includes("a4")) return "A4";
   if (text.includes("a5")) return "A5";
 
@@ -316,8 +315,7 @@ function normalizeColor(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
-
-  if (text.includes("transparent") || text.includes("klar")) {
+if (text.includes("transparent") || text.includes("klar")) {
     return "transparent";
   }
 
@@ -356,8 +354,20 @@ function normalizeLineature(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
+  // Exakte Lineatur-Erkennung vor Teilstring-Regeln.
+  // Wichtig: "Lineatur 28" darf nicht als "Lineatur 2" erkannt werden.
+  const exactLineaturePattern =
+    /\b(?:lineatur|lin\.?|l|nr\.?|nummer)\s*(28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|12|11|10|9|8f|8|7|6|5|4|3|2|1|0)\b/;
 
-  const compact = text.replace(/\s+/g, "");
+  const exactLineatureMatch =
+    text.match(exactLineaturePattern) ||
+    text.match(/^(28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|12|11|10|9|8f|8|7|6|5|4|3|2|1|0)$/);
+
+  if (exactLineatureMatch) {
+    return exactLineatureMatch[1] === "8f" ? "8" : exactLineatureMatch[1];
+  }
+
+const compact = text.replace(/\s+/g, "");
 
   const clearlyUnknown =
     text.includes("nicht lesbar") ||
@@ -1798,6 +1808,8 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
+
 
 
 

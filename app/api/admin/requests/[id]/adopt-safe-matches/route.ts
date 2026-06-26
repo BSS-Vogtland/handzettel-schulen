@@ -437,8 +437,12 @@ export async function POST(_request: Request, context: Params) {
       }
     );
 
-    const { rows: rowsToInsert, matchIds: insertedMatchIds } =
-      mergeAutoSafeRowsByProduct(rawRowsToInsert);
+    // Jede Listenposition bleibt eine eigene Paketposition.
+    // Nicht nach product_id zusammenführen, sonst können Mengen und request_item_id-Zuordnungen verfälscht werden.
+    const rowsToInsert = rawRowsToInsert;
+    const insertedMatchIds = rawRowsToInsert
+      .map((row) => row.match_id)
+      .filter((value): value is string => Boolean(value));
     if (rowsToInsert.length === 0) {
       await insertRequestEvent({
         supabase,
@@ -534,4 +538,5 @@ export async function POST(_request: Request, context: Params) {
     );
   }
 }
+
 

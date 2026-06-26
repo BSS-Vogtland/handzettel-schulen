@@ -386,18 +386,16 @@ const STANDARD_TERM_GROUPS: Array<{
 ];
 
 function includesStandardTerm(text: string, term: string) {
+  const normalizedText = ` ${normalizeSingularProductTerm(text)} `;
   const normalizedTerm = normalizeSingularProductTerm(term);
-  if (!normalizedTerm) return false;
 
-  return (
-    text === normalizedTerm ||
-    text.includes(` ${normalizedTerm} `) ||
-    text.startsWith(`${normalizedTerm} `) ||
-    text.endsWith(` ${normalizedTerm}`) ||
-    text.includes(normalizedTerm)
-  );
+  if (!normalizedText.trim() || !normalizedTerm) return false;
+
+  const escapedTerm = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const boundaryPattern = new RegExp(`(^|\\s)${escapedTerm}(\\s|$)`);
+
+  return boundaryPattern.test(normalizedText);
 }
-
 function getStandardTermMatch(itemText: string, productText: string): StandardTermMatch | null {
   const normalizedItemText = ` ${normalizeSingularProductTerm(itemText)} `;
   const normalizedProductText = ` ${normalizeSingularProductTerm(productText)} `;
@@ -543,7 +541,7 @@ function normalizeFormat(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
-  if (text.includes("a3")) return "a3";
+if (text.includes("a3")) return "a3";
   if (text.includes("a4")) return "a4";
   if (text.includes("a5")) return "a5";
 
@@ -741,8 +739,7 @@ function normalizeColor(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
-
-  if (text.includes("transparent") || text.includes("klar")) {
+if (text.includes("transparent") || text.includes("klar")) {
     return "transparent";
   }
 
@@ -772,8 +769,20 @@ function normalizeLineature(value: unknown) {
   const text = normalizeText(value);
 
   if (!text) return null;
+  // Exakte Lineatur-Erkennung vor Teilstring-Regeln.
+  // Wichtig: "Lineatur 28" darf nicht als "Lineatur 2" erkannt werden.
+  const exactLineaturePattern =
+    /\b(?:lineatur|lin\.?|l|nr\.?|nummer)\s*(28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|12|11|10|9|8f|8|7|6|5|4|3|2|1|0)\b/;
 
-  if (
+  const exactLineatureMatch =
+    text.match(exactLineaturePattern) ||
+    text.match(/^(28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|12|11|10|9|8f|8|7|6|5|4|3|2|1|0)$/);
+
+  if (exactLineatureMatch) {
+    return exactLineatureMatch[1] === "8f" ? "8" : exactLineatureMatch[1];
+  }
+
+if (
     text.includes("unklar") ||
     text.includes("nicht lesbar") ||
     text.includes("nicht erkennbar")
@@ -1203,18 +1212,20 @@ function calculateMatch(input: {
 }) {
   const itemText = buildItemText(input.item);
   const productText = buildProductText(input.product, input.aliases);
+  const productCoreText = buildProductText(input.product, []);
 
   const normalizedItemText = normalizeForWords(itemText);
   const normalizedProductText = normalizeForWords(productText);
+  const normalizedProductCoreText = normalizeForWords(productCoreText);
 
   const itemType = classifyType(itemText);
-  const productType = classifyType(productText);
+  const productType = classifyType(productCoreText);
 
   const itemFormat = getEffectiveFormat(itemText);
-  const productFormat = getEffectiveFormat(productText);
+  const productFormat = getEffectiveFormat(productCoreText);
 
   const itemColor = normalizeColor(itemText);
-  const productColor = normalizeColor(productText);
+  const productColor = normalizeColor(productCoreText);
 
   const itemLineature = normalizeLineature(
     `${input.item.lineature || ""} ${input.item.raw_text || ""} ${
@@ -1222,7 +1233,7 @@ function calculateMatch(input: {
     } ${input.item.notes || ""}`
   );
 
-  const productLineature = normalizeLineature(productText);
+  const productLineature = normalizeLineature(productCoreText);
 
   const itemBookDimensions = extractBookDimensionsMm(itemText);
   const productBookDimensions =
@@ -1597,6 +1608,41 @@ function calculateMatch(input: {
   ) {
     return null;
   }
+  if (
+    normalizedItemText.includes("wasserbecher") &&
+    !normalizedProductCoreText.includes("wasserbecher")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("deckweiss") &&
+    !normalizedProductCoreText.includes("deckweiss")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("geodreieck") &&
+    !normalizedProductCoreText.includes("geodreieck")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("lineal") &&
+    normalizedProductCoreText.includes("geodreieck")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("schreibblock") &&
+    !normalizedProductCoreText.includes("schreibblock") &&
+    !normalizedProductCoreText.includes("collegeblock")
+  ) {
+    return null;
+  }
   if (itemType === "mappe" && normalizedProductText.includes("schnellhefter")) {
     return null;
   }
@@ -1625,17 +1671,19 @@ function calculateStandardFallbackMatch(input: {
   const itemText = buildItemText(input.item);
   const productText = buildProductText(input.product, input.aliases);
 
+  const productCoreText = buildProductText(input.product, []);
+
   const itemType = classifyType(itemText);
-  const productType = classifyType(productText);
+  const productType = classifyType(productCoreText);
 
   const itemFormat = getEffectiveFormat(itemText);
-  const productFormat = getEffectiveFormat(productText);
+  const productFormat = getEffectiveFormat(productCoreText);
 
   const itemColor = normalizeColor(itemText);
-  const productColor = normalizeColor(productText);
+  const productColor = normalizeColor(productCoreText);
 
   const itemLineature = normalizeLineature(itemText);
-  const productLineature = normalizeLineature(productText);
+  const productLineature = normalizeLineature(productCoreText);
 
   const standardTermMatch = getStandardTermMatch(itemText, productText);
 
@@ -2020,5 +2068,9 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
+
+
+
 
 
