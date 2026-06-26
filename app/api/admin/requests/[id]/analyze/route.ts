@@ -1259,8 +1259,11 @@ function detectOrderedColorWords(value: unknown) {
 
   const colorMap: Array<[string, string]> = [
     ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
     ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
     ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -1433,8 +1436,11 @@ function detectColorListWordsV2(value: unknown) {
 
   const colorMap: Array<[string, string]> = [
     ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
     ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
     ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -1527,12 +1533,12 @@ function expandColorListExtractedItemV2(item: ExtractedItem) {
 function normalizeColorListTextV3(value: unknown) {
   return String(value || "")
     .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1575,8 +1581,11 @@ function detectColorListWordsV3(value: unknown) {
 
   const colorMap: Array<[string, string]> = [
     ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
     ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
     ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -2239,6 +2248,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
