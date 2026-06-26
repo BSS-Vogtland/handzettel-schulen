@@ -144,6 +144,84 @@ function getOriginalDetails(item: ChecklistItem) {
   return splitLines(item.original_text).slice(1);
 }
 
+function normalizeChecklistText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getColorFromChecklistText(value: unknown) {
+  const text = normalizeChecklistText(value);
+
+  const colors = [
+    ["blau", "blau"],
+    ["rot", "rot"],
+    ["schwarz", "schwarz"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
+    ["grün", "grün"],
+    ["braun", "braun"],
+    ["weiss", "weiß"],
+    ["weiß", "weiß"],
+    ["gelb", "gelb"],
+    ["lila", "lila"],
+    ["orange", "orange"],
+    ["pink", "pink"],
+    ["rosa", "rosa"],
+  ];
+
+  for (const [needle, label] of colors) {
+    if (text.includes(needle)) return label;
+  }
+
+  return "";
+}
+
+function getSubjectFromHefterText(value: unknown) {
+  const text = String(value || "");
+  const match = text.match(/(?:für|fuer)\s+[„"“]?([^"”„(]+)[“"]?/i);
+
+  if (!match?.[1]) return "";
+
+  return match[1]
+    .replace(/\s+mit\s+.*$/i, "")
+    .replace(/\s+einheften.*$/i, "")
+    .replace(/[.,;:]+$/g, "")
+    .trim();
+}
+
+function getUnresolvedDisplayTitle(item: UnresolvedItem) {
+  const title = String(item.title || "").trim();
+  const originalText = String(item.originalText || "").trim();
+  const combined = `${originalText} ${title}`;
+  const normalizedCombined = normalizeChecklistText(combined);
+  const normalizedTitle = normalizeChecklistText(title);
+
+  const hasOriginalHefter =
+    normalizedCombined.includes(" hefter ") ||
+    normalizedCombined.startsWith("hefter ") ||
+    normalizedCombined.includes("schnellhefter");
+
+  const titleLooksLikeMappe =
+    normalizedTitle.startsWith("mappe ") || normalizedTitle === "mappe";
+
+  if (hasOriginalHefter && titleLooksLikeMappe) {
+    const subject = getSubjectFromHefterText(originalText);
+    const color = getColorFromChecklistText(combined);
+
+    return ["Hefter", subject, color].filter(Boolean).join(" ");
+  }
+
+  return title || originalText || "Offene Position";
+}
 function getResolvedTitle(item: ChecklistItem) {
   return (
     item.productName ||
@@ -211,6 +289,15 @@ export default function AdminPackageChecklistPanel({
 
   const items = data?.items || [];
   const unresolvedItems = data?.unresolvedItems || [];
+  const unresolvedLimit = 8;
+  const [showAllUnresolvedItems, setShowAllUnresolvedItems] = useState(false);
+  const visibleUnresolvedItems = showAllUnresolvedItems
+    ? unresolvedItems
+    : unresolvedItems.slice(0, unresolvedLimit);
+  const hiddenUnresolvedItemsCount = Math.max(
+    0,
+    unresolvedItems.length - unresolvedLimit
+  );
   const status = data?.status || "not_created";
   const checkedCount = data?.checkedCount || 0;
   const totalCount = data?.totalCount || 0;
@@ -503,7 +590,7 @@ export default function AdminPackageChecklistPanel({
                   </p>
 
                   <div className="grid gap-2">
-                    {unresolvedItems.slice(0, 8).map((item) => (
+                    {visibleUnresolvedItems.map((item) => (
                       <a
                         key={item.id}
                         href={`#position-${item.id}`}
@@ -514,10 +601,20 @@ export default function AdminPackageChecklistPanel({
                     ))}
                   </div>
 
-                  {unresolvedItems.length > 8 ? (
-                    <p className="mt-3 text-xs font-bold text-[#52616F]">
-                      + {unresolvedItems.length - 8} weitere offene Positionen
-                    </p>
+                  {hiddenUnresolvedItemsCount > 0 ? (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowAllUnresolvedItems((current) => !current)
+                        }
+                        className="inline-flex w-full items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0]"
+                      >
+                        {showAllUnresolvedItems
+                          ? "Weniger offene Positionen anzeigen"
+                          : `+ ${hiddenUnresolvedItemsCount} weitere offene Positionen anzeigen`}
+                      </button>
+                    </li>
                   ) : null}
                 </div>
               ) : null}
