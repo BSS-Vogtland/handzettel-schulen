@@ -44,7 +44,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -238,7 +238,7 @@ export async function POST(_request: Request, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Keine Anfrage-ID Ã¼bergeben.",
+          message: "Keine Anfrage-ID übergeben.",
         },
         { status: 400 }
       );
@@ -334,7 +334,7 @@ export async function POST(_request: Request, context: Params) {
         adoptedCount: 0,
         skippedCount: items.length,
         message:
-          "Alle erkannten Positionen haben bereits eine Paketposition. Es wurde nichts automatisch ergÃ¤nzt.",
+          "Alle erkannten Positionen haben bereits eine Paketposition. Es wurde nichts automatisch ergänzt.",
       });
     }
 
@@ -424,7 +424,7 @@ export async function POST(_request: Request, context: Params) {
           source: "auto_safe_match",
           status: "confirmed",
           notes: [
-            `Automatisch aus sicherem Produktvorschlag Ã¼bernommen.`,
+            `Automatisch aus sicherem Produktvorschlag übernommen.`,
             `Matchscore: ${toNumber(match.match_score, 0)} %.`,
             item ? `Listenposition: ${getRequestItemTitle(item)}` : null,
             match.match_reason ? `Grund: ${match.match_reason}` : null,
@@ -448,7 +448,7 @@ export async function POST(_request: Request, context: Params) {
         supabase,
         requestId,
         eventType: "safe_matches_adopted",
-        title: "Keine sicheren Treffer Ã¼bernommen",
+        title: "Keine sicheren Treffer übernommen",
         description:
           "Es wurden keine neuen sicheren Treffer ab 80 % gefunden, die noch keine Paketposition hatten.",
       });
@@ -488,7 +488,7 @@ export async function POST(_request: Request, context: Params) {
 
       if (matchUpdateError) {
         console.error(
-          "Sichere Matches wurden Ã¼bernommen, aber selected konnte nicht aktualisiert werden:",
+          "Sichere Matches wurden übernommen, aber selected konnte nicht aktualisiert werden:",
           matchUpdateError
         );
       }
@@ -509,8 +509,8 @@ export async function POST(_request: Request, context: Params) {
       supabase,
       requestId,
       eventType: "safe_matches_adopted",
-      title: "Sichere Treffer Ã¼bernommen",
-      description: `${adoptedCount} sichere neue Treffer wurden automatisch in den Paketwunsch Ã¼bernommen. Es wurden nur Positionen ohne bestehende Paketposition berÃ¼cksichtigt. Mindestscore: ${SAFE_MATCH_SCORE} %.`,
+      title: "Sichere Treffer übernommen",
+      description: `${adoptedCount} sichere neue Treffer wurden automatisch in den Paketwunsch übernommen. Es wurden nur Positionen ohne bestehende Paketposition berücksichtigt. Mindestscore: ${SAFE_MATCH_SCORE} %.`,
     });
 
     return NextResponse.json({
@@ -520,8 +520,8 @@ export async function POST(_request: Request, context: Params) {
       minimumScore: SAFE_MATCH_SCORE,
       message:
         adoptedCount === 1
-          ? "1 sicherer Treffer wurde in den Paketwunsch Ã¼bernommen."
-          : `${adoptedCount} sichere Treffer wurden in den Paketwunsch Ã¼bernommen.`,
+          ? "1 sicherer Treffer wurde in den Paketwunsch übernommen."
+          : `${adoptedCount} sichere Treffer wurden in den Paketwunsch übernommen.`,
     });
   } catch (error) {
     console.error("adopt safe matches error:", error);
@@ -532,7 +532,7 @@ export async function POST(_request: Request, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "Sichere Treffer konnten nicht Ã¼bernommen werden.",
+            : "Sichere Treffer konnten nicht übernommen werden.",
       },
       { status: 500 }
     );

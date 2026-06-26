@@ -42,7 +42,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -93,11 +93,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
     .replace(/ÃŸ/g, "ss")
-    .replace(/grÃ¼n/g, "gruen")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -153,7 +153,7 @@ function getBookSizeAliases(input: {
     `BuchmaÃŸ ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
-    `BuchhÃ¼lle ${sizeLabel}`,
+    `Buchhülle ${sizeLabel}`,
     `Buchhuelle ${sizeLabel}`,
     `Umschlag ${sizeLabel}`,
     `${input.productName} ${sizeLabel}`,
@@ -490,7 +490,7 @@ async function replaceProductAliases(
 
   if (deleteError) {
     throw new Error(
-      `Alte Suchbegriffe konnten nicht gelÃ¶scht werden: ${deleteError.message}`
+      `Alte Suchbegriffe konnten nicht gelöscht werden: ${deleteError.message}`
     );
   }
 
@@ -746,7 +746,7 @@ async function getActiveProductOfferItemUsage(params: {
 
   if (offerItemsError) {
     throw new Error(
-      `Aktive KundenvorgÃ¤nge konnten nicht geprÃ¼ft werden: ${offerItemsError.message}`
+      `Aktive Kundenvorgänge konnten nicht geprüft werden: ${offerItemsError.message}`
     );
   }
 
@@ -776,7 +776,7 @@ async function getActiveProductOfferItemUsage(params: {
 
   if (requestsError) {
     throw new Error(
-      `Aktive KundenvorgÃ¤nge konnten nicht geladen werden: ${requestsError.message}`
+      `Aktive Kundenvorgänge konnten nicht geladen werden: ${requestsError.message}`
     );
   }
 
@@ -816,7 +816,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Produkt-ID Ã¼bergeben.",
+          message: "Keine Produkt-ID übergeben.",
         },
         400
       );
@@ -859,7 +859,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte gib beim BuchmaÃŸ entweder Breite und HÃ¶he an oder lasse beide Felder leer.",
+            "Bitte gib beim BuchmaÃŸ entweder Breite und Höhe an oder lasse beide Felder leer.",
         },
         400
       );
@@ -916,7 +916,7 @@ export async function PATCH(request: NextRequest, context: Params) {
           {
             ok: false,
             code: "PRICE_USED_IN_ACTIVE_REQUESTS",
-            message: `Dieses Produkt ist in ${activePriceUsage.activeRequestCount} aktiven Kundenvorgang/KundenvorgÃ¤ngen enthalten. Soll der neue Preis auch dort Ã¼bernommen werden?`,
+            message: `Dieses Produkt ist in ${activePriceUsage.activeRequestCount} aktiven Kundenvorgang/Kundenvorgängen enthalten. Soll der neue Preis auch dort übernommen werden?`,
             previousPrice,
             newPrice: price,
             activeRequestCount: activePriceUsage.activeRequestCount,
@@ -1110,8 +1110,8 @@ const matchKeywords = keywordData.matchKeywords;
         activePriceUsage.activeRequests.map((activeRequest) => ({
           request_id: activeRequest.id,
           event_type: "active_offer_item_price_updated",
-          title: "Preis aus Produktstamm Ã¼bernommen",
-          message: `Der Preis fÃ¼r â€ž${productName}â€œ wurde im Produktstamm geÃ¤ndert und in aktive Paketpositionen Ã¼bernommen.`,
+          title: "Preis aus Produktstamm übernommen",
+          message: `Der Preis für â€ž${productName}â€œ wurde im Produktstamm geändert und in aktive Paketpositionen übernommen.`,
           metadata: {
             productId: id,
             productName,
@@ -1131,7 +1131,7 @@ const matchKeywords = keywordData.matchKeywords;
   message: payload.productImage
     ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
     : imageWasChanged
-      ? `Produkt wurde aktualisiert. BildverknÃ¼pfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+      ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
       : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
   productSku,
   ean,

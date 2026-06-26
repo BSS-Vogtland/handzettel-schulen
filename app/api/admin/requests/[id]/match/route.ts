@@ -76,7 +76,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -103,11 +103,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
     .replace(/ÃŸ/g, "ss")
-    .replace(/grÃ¼n/g, "gruen")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -499,7 +499,7 @@ function getSpitzerContainerScore(params: {
       compatible: false,
       score: 0,
       reason:
-        "Liste verlangt einen Spitzer mit Dose/AuffangbehÃ¤lter, Produkt hat dieses Merkmal nicht.",
+        "Liste verlangt einen Spitzer mit Dose/Auffangbehälter, Produkt hat dieses Merkmal nicht.",
     };
   }
 
@@ -507,7 +507,7 @@ function getSpitzerContainerScore(params: {
     return {
       compatible: true,
       score: 42,
-      reason: "Spitzer mit Dose/AuffangbehÃ¤lter passt",
+      reason: "Spitzer mit Dose/Auffangbehälter passt",
     };
   }
 
@@ -675,7 +675,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 20,
-      reason: `BuchmaÃŸ passt als etwas grÃ¶ÃŸerer Umschlag: ${input.product.label}`,
+      reason: `BuchmaÃŸ passt als etwas gröÃŸerer Umschlag: ${input.product.label}`,
     };
   }
 
@@ -1627,12 +1627,12 @@ function calculateMatch(input: {
 
   if (productName && itemName && productName.includes(itemName)) {
     score += 12;
-    reasons.push("Produktname enthÃ¤lt erkannte Position");
+    reasons.push("Produktname enthält erkannte Position");
   }
 
   if (itemName && productName && itemName.includes(productName)) {
     score += 10;
-    reasons.push("Erkannte Position enthÃ¤lt Produktname");
+    reasons.push("Erkannte Position enthält Produktname");
   }
 
   if (exactNameMatch.exact) {
@@ -1649,7 +1649,7 @@ function calculateMatch(input: {
     } else {
       score = Math.max(score, 85);
       reasons.push(
-        `Produktname/Alias passt, Variantenmerkmal wird zusÃ¤tzlich berÃ¼cksichtigt`
+        `Produktname/Alias passt, Variantenmerkmal wird zusätzlich berücksichtigt`
       );
     }
   }
@@ -1930,7 +1930,7 @@ async function createRequestEvent(
     {
       request_id: requestId,
       event_type: eventType,
-      title: "ProduktvorschlÃ¤ge berechnet",
+      title: "Produktvorschläge berechnet",
       description: message,
       created_at: new Date().toISOString(),
     },
@@ -1966,7 +1966,7 @@ export async function POST(_request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID Ã¼bergeben.",
+          message: "Keine Anfrage-ID übergeben.",
         },
         400
       );
@@ -2076,7 +2076,7 @@ export async function POST(_request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Alte VorschlÃ¤ge konnten nicht entfernt werden: ${deleteError.message}`,
+            message: `Alte Vorschläge konnten nicht entfernt werden: ${deleteError.message}`,
           },
           500
         );
@@ -2185,7 +2185,7 @@ export async function POST(_request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `ProduktvorschlÃ¤ge konnten nicht gespeichert werden: ${insertError.message}`,
+            message: `Produktvorschläge konnten nicht gespeichert werden: ${insertError.message}`,
           },
           500
         );
@@ -2204,7 +2204,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "ProduktvorschlÃ¤ge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berÃ¼cksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -2221,8 +2221,8 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `ProduktvorschlÃ¤ge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berÃ¼cksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} VorschlÃ¤ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
-          : "Es wurden keine ausreichend sicheren ProduktvorschlÃ¤ge gefunden. Diese Positionen bleiben zur manuellen PrÃ¼fung offen.",
+          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {
     console.error("Admin product match error:", error);
@@ -2233,7 +2233,7 @@ export async function POST(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "ProduktvorschlÃ¤ge konnten nicht erstellt werden.",
+            : "Produktvorschläge konnten nicht erstellt werden.",
       },
       500
     );
