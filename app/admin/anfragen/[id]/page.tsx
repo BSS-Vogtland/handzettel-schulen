@@ -609,17 +609,15 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   const manualReviewItems = items.filter((item) => {
     const selected = offerItemsByRequestItem.get(item.id) || [];
-    const itemMatches = matchesByItem.get(item.id) || [];
     const adminResolutionStatus = String(
       (item as { admin_resolution_status?: string | null }).admin_resolution_status ||
         ""
     ).trim();
 
-    return (
-      !adminResolutionStatus &&
-      selected.length === 0 &&
-      itemMatches.length === 0
-    );
+    // Zählt alle Positionen, die noch nicht im Paketwunsch liegen
+    // und noch nicht manuell entschieden wurden.
+    // Matches allein erledigen eine Position nicht.
+    return !adminResolutionStatus && selected.length === 0;
   });
 
   const manualReviewCount =
@@ -1614,4 +1612,5 @@ return (
     </main>
   );
 }
+
 
