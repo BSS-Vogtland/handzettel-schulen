@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v5d-final-cleaned-item-safety";
+const ANALYZE_VERSION = "school-material-analyze-v5e-clean-auto-offer-items-on-reanalysis";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -1499,6 +1499,15 @@ export async function POST(_request: Request, context: RouteContext) {
         .delete()
         .in("request_item_id", oldItemIds);
     }
+    // Bei einer Neuanalyse werden die Request-Items neu geschrieben.
+    // Alte automatisch erzeugte Paketpositionen zeigen sonst auf gelöschte request_item_ids
+    // und verursachen doppelte Paketpositionen bzw. falsche offene Checklistenpunkte.
+    await supabaseServer
+      .from("school_offer_items")
+      .delete()
+      .eq("request_id", id)
+      .in("source", ["auto_safe_match", "auto_preselected"]);
+
 
     await supabaseServer
       .from("school_request_items")
@@ -1789,6 +1798,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
