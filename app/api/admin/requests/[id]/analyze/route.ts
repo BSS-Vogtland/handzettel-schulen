@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v5-split-comma-bundles-and-cover-items";
+const ANALYZE_VERSION = "school-material-analyze-v5b-dedicated-openai-analyze-model";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -1362,7 +1362,7 @@ export async function POST(_request: Request, context: RouteContext) {
       .delete()
       .eq("request_id", id);
 
-    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+    const model = process.env.OPENAI_ANALYZE_MODEL || process.env.OPENAI_MODEL || "gpt-4.1";
 
     const fileContentPart = isSupportedPdf(usableFile)
       ? {
@@ -1563,3 +1563,4 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
