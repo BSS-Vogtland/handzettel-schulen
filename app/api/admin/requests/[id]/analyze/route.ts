@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v4-checkbox-context-abbreviations";
+const ANALYZE_VERSION = "school-material-analyze-v4-checkbox-context-abbreviations-hefter-map-safety";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -801,6 +801,7 @@ function cleanExtractedItem(item: ExtractedItem): CleanedItem {
   );
 
   const lineature = forceLineatureForKnownPatterns(item, detectedLineature);
+  const hefterCorrection = getHefterCorrection(rawText, aiName, item.category, color);
 
   const normalizedName = cleanNormalizedName(item, productType);
 
@@ -816,18 +817,112 @@ function cleanExtractedItem(item: ExtractedItem): CleanedItem {
 
   return {
     rawText,
-    normalizedName,
+    normalizedName: hefterCorrection?.normalizedName || normalizedName,
     quantity: cleanQuantity(item.quantity),
-    category: getEffectiveCategory(rawText, aiName, item.category),
+    category: hefterCorrection?.category || getEffectiveCategory(rawText, aiName, item.category),
     format,
-    color,
+    color: hefterCorrection?.color || color,
     lineature,
     notes: notesParts.length > 0 ? notesParts.join(" | ") : null,
     confidence: cleanConfidence(item.confidence),
-    productType,
+    productType: hefterCorrection?.productType || productType,
   };
 }
 
+type HefterCorrection = {
+  normalizedName: string;
+  category: string;
+  productType: string;
+  color: string | null;
+  note: string;
+};
+
+function normalizeAnalyzerText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getAnalyzerColor(value: unknown) {
+  const text = normalizeAnalyzerText(value);
+
+  const colors: Array<[string, string]> = [
+    ["hellblau", "hellblau"],
+    ["dunkelblau", "dunkelblau"],
+    ["blau", "blau"],
+    ["rot", "rot"],
+    ["schwarz", "schwarz"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
+    ["braun", "braun"],
+    ["weiss", "weiß"],
+    ["gelb", "gelb"],
+    ["lila", "lila"],
+    ["orange", "orange"],
+    ["pink", "pink"],
+    ["rosa", "rosa"],
+    ["transparent", "transparent"],
+  ];
+
+  for (const [needle, label] of colors) {
+    if (text.includes(needle)) return label;
+  }
+
+  return null;
+}
+
+function getHefterSubjectFromRawText(value: unknown) {
+  const text = String(value || "");
+  const match = text.match(/(?:für|fuer)\s+[„"“]?([^"”„(]+)[“"]?/i);
+
+  if (!match?.[1]) return "";
+
+  return match[1]
+    .replace(/\s+mit\s+.*$/i, "")
+    .replace(/\s+zum\s+.*$/i, "")
+    .replace(/\s+einheften.*$/i, "")
+    .replace(/[.,;:]+$/g, "")
+    .trim();
+}
+
+function getHefterCorrection(
+  rawText: unknown,
+  aiName: unknown,
+  category: unknown,
+  color: unknown
+): HefterCorrection | null {
+  const combined = normalizeAnalyzerText(`${rawText || ""} ${aiName || ""} ${category || ""}`);
+  const hasExplicitHefter =
+    combined.includes("schnellhefter") ||
+    combined.split(" ").includes("hefter");
+
+  if (!hasExplicitHefter) return null;
+
+  const subject = getHefterSubjectFromRawText(rawText);
+  const explicitColor = String(color || "").trim();
+  const detectedColor =
+    explicitColor || getAnalyzerColor(`${rawText || ""} ${aiName || ""}`);
+  const normalizedName = ["Schnellhefter", subject, detectedColor]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    normalizedName: normalizedName || "Schnellhefter",
+    category: "Schnellhefter",
+    productType: "Schnellhefter",
+    color: detectedColor,
+    note:
+      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext überschreibt den Hauptartikel nicht.",
+  };
+}
 function getFriendlyOpenAiError(error: unknown) {
   if (error instanceof Error) {
     const message = error.message;
@@ -984,6 +1079,7 @@ export async function POST(_request: Request, context: RouteContext) {
                 "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: '☐ 2 dicke Bleistifte' bedeutet quantity 2, '☐ 1 blaue Mappe' bedeutet quantity 1. " +
                 "Kategorie-Regel: Überschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
                 "Wenn unter der Überschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
+                "Hefter-Regel: Wenn in der Originalzeile ausdrücklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter für Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und überschreibt den Hauptartikel nicht. " +
                 "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
                 "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
                 "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
