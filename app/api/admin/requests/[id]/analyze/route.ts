@@ -1369,50 +1369,94 @@ function expandColorVariantQuantityItems(items: CleanedItem[]) {
 function splitFinalColorQuantityItems(items: CleanedItem[]) {
   const result: CleanedItem[] = [];
 
-  for (const item of items) {
-    const combinedText = [
-      item.rawText,
-      item.normalizedName,
-      item.category,
-      item.notes,
-      item.color,
-    ]
+  function normalizeFinalColorToken(value: unknown) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/ä/g, "ae")
+      .replace(/ö/g, "oe")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function mapFinalColorToken(value: unknown) {
+    const text = normalizeFinalColorToken(value);
+
+    if (text.includes("hellgruen") || text.includes("hellgrun")) return "hellgrün";
+    if (text.includes("dunkelgruen") || text.includes("dunkelgrun")) return "dunkelgrün";
+    if (text.includes("gruen") || text.includes("grun")) return "grün";
+    if (text.includes("schwarz")) return "schwarz";
+    if (text.includes("rot")) return "rot";
+    if (text.includes("blau")) return "blau";
+    if (text.includes("gelb")) return "gelb";
+    if (text.includes("orange")) return "orange";
+    if (text.includes("lila")) return "lila";
+    if (text.includes("violett")) return "violett";
+    if (text.includes("braun")) return "braun";
+    if (text.includes("rosa")) return "rosa";
+    if (text.includes("pink")) return "pink";
+    if (text.includes("weiss") || text.includes("weis")) return "weiß";
+    if (text.includes("grau")) return "grau";
+
+    return null;
+  }
+
+  function extractFinelinerColorList(item: CleanedItem) {
+    const rawText = String(item.rawText || "");
+    const normalizedName = String(item.normalizedName || "");
+    const combined = `${rawText} ${normalizedName} ${item.category || ""} ${item.notes || ""}`;
+
+    if (!normalizeFinalColorToken(combined).includes("fineliner")) {
+      return [];
+    }
+
+    const source =
+      rawText.match(/fineliner\s*:\s*([^.;\n\r]+)/i)?.[1] ||
+      normalizedName.match(/fineliner\s*:\s*([^.;\n\r]+)/i)?.[1] ||
+      "";
+
+    if (!source) {
+      return [];
+    }
+
+    const colors = source
+      .split(/,|\/|\+| und /gi)
+      .map((part) => mapFinalColorToken(part))
       .filter(Boolean)
-      .join(" ");
+      .map((color) => String(color))
+      .filter((color, index, list) => list.indexOf(color) === index);
 
-    const normalizedText = normalizeAnalyzeColorWord(combinedText);
-    const colors = detectOrderedColorWords(combinedText);
-    const quantity = Number(item.quantity || 1);
+    return colors;
+  }
 
-    const shouldSplit =
-      quantity > 1 &&
-      colors.length >= 2 &&
-      colors.length === quantity &&
-      normalizedText.includes("fineliner");
+  for (const item of items) {
+    const colors = extractFinelinerColorList(item);
 
-    if (!shouldSplit) {
-      result.push(item);
+    if (colors.length >= 2) {
+      for (const color of colors) {
+        result.push({
+          ...item,
+          quantity: 1,
+          normalizedName: `Fineliner ${color}`,
+          category: "Fineliner",
+          color,
+          notes: [
+            item.notes,
+            `Fineliner-Farbliste final als Einzelposition gespeichert (${color}).`,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        });
+      }
+
       continue;
     }
 
-    const baseName =
-      removeColorSuffixFromMaterialName(item.normalizedName) ||
-      "Fineliner";
-
-    for (const color of colors) {
-      result.push({
-        ...item,
-        quantity: 1,
-        normalizedName: `${baseName} ${color}`.replace(/\s+/g, " ").trim(),
-        color,
-        notes: [
-          item.notes,
-          `Aus Farbliste automatisch als Einzelposition erkannt (${color}).`,
-        ]
-          .filter(Boolean)
-          .join(" "),
-      });
-    }
+    result.push(item);
   }
 
   return result;
@@ -2248,6 +2292,8 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
+
 
 
 
