@@ -1524,9 +1524,150 @@ function expandColorListExtractedItemV2(item: ExtractedItem) {
       .join(" "),
   }));
 }
+function normalizeColorListTextV3(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getLooseItemValueV3(item: unknown, keys: string[]) {
+  const record = item as Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = record?.[key];
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function getLooseItemQuantityV3(item: unknown, fallbackText: string) {
+  const record = item as Record<string, unknown>;
+  const directQuantity = Number(record?.quantity ?? record?.qty ?? 0);
+
+  if (Number.isFinite(directQuantity) && directQuantity > 0) {
+    return directQuantity;
+  }
+
+  const normalized = normalizeColorListTextV3(fallbackText);
+  const match = normalized.match(/(?:^|\s)(\d+)\s*x?\s+fineliner(?:\s|:|$)/);
+
+  if (match?.[1]) {
+    const parsed = Number(match[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  return 1;
+}
+
+function detectColorListWordsV3(value: unknown) {
+  const text = normalizeColorListTextV3(value);
+
+  const colorMap: Array<[string, string]> = [
+    ["hellgruen", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["schwarz", "schwarz"],
+    ["rot", "rot"],
+    ["blau", "blau"],
+    ["gelb", "gelb"],
+    ["orange", "orange"],
+    ["lila", "lila"],
+    ["violett", "violett"],
+    ["braun", "braun"],
+    ["rosa", "rosa"],
+    ["pink", "pink"],
+    ["weiss", "weiß"],
+    ["grau", "grau"],
+  ];
+
+  const found: Array<{ index: number; color: string }> = [];
+
+  for (const [needle, color] of colorMap) {
+    const pattern = new RegExp(`(^|\\s)${needle}(\\s|$)`);
+    const match = text.match(pattern);
+
+    if (match?.index !== undefined) {
+      found.push({ index: match.index, color });
+    }
+  }
+
+  return found
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.color)
+    .filter((color, index, list) => list.indexOf(color) === index);
+}
+
+function removeColorListSuffixV3(value: unknown) {
+  let text = String(value || "").trim();
+
+  text = text.replace(/:\s*.+$/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/^\s*[-–—]\s*/g, "");
+  text = text.replace(/^\s*\d+\s*x?\s*/gi, "");
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+function expandColorListExtractedItemV3(item: ExtractedItem) {
+  const rawText = getLooseItemValueV3(item, ["rawText", "raw_text", "text"]);
+  const normalizedName = getLooseItemValueV3(item, ["normalizedName", "normalized_name", "name"]);
+  const category = getLooseItemValueV3(item, ["category"]);
+  const notes = getLooseItemValueV3(item, ["notes"]);
+  const color = getLooseItemValueV3(item, ["color"]);
+
+  const combinedText = [rawText, normalizedName, category, notes, color]
+    .filter(Boolean)
+    .join(" ");
+
+  const normalizedText = normalizeColorListTextV3(combinedText);
+
+  if (!normalizedText.includes("fineliner")) {
+    return null;
+  }
+
+  const quantity = getLooseItemQuantityV3(item, combinedText);
+  const colors = detectColorListWordsV3(combinedText);
+
+  if (quantity <= 1 || colors.length < 2) {
+    return null;
+  }
+
+  // Bei "3 Fineliner: grün, schwarz, rot" sind Menge und Farbanzahl identisch.
+  // Falls OCR später eine Menge leicht falsch liest, splitten wir nur, wenn mindestens 2 Farben klar erkannt wurden.
+  const baseName =
+    removeColorListSuffixV3(normalizedName) ||
+    removeColorListSuffixV3(rawText) ||
+    "Fineliner";
+
+  return colors.map((detectedColor) => ({
+    ...item,
+    quantity: 1,
+    normalizedName: `${baseName} ${detectedColor}`.replace(/\s+/g, " ").trim(),
+    normalized_name: `${baseName} ${detectedColor}`.replace(/\s+/g, " ").trim(),
+    color: detectedColor,
+    notes: [
+      notes,
+      `Farbliste vor Komma-Splitting als Einzelposition erkannt (${detectedColor}).`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  }));
+}
 function expandCompoundExtractedItems(items: ExtractedItem[]) {
   return items.flatMap((item) => {
-    const colorListItems = expandColorListExtractedItemV2(item);
+    const colorListItems = expandColorListExtractedItemV3(item);
     if (colorListItems) return colorListItems;
 
     const coverItems = expandCoverMaterialLine(item);
@@ -2098,6 +2239,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
