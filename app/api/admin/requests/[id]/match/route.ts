@@ -1126,6 +1126,30 @@ function buildItemText(item: RequestItem) {
     .join(" ");
 }
 
+function buildItemCoreText(item: RequestItem) {
+  // Nur die bereits normalisierte Einzelposition verwenden.
+  // raw_text kann bei gesplitteten Sammelzeilen Geschwisterartikel enthalten
+  // und darf deshalb keine Matching-Identität bestimmen.
+  return [
+    item.normalized_name,
+    item.product_type,
+    item.format,
+    item.color,
+    item.lineature,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildItemContextText(item: RequestItem) {
+  return [
+    buildItemCoreText(item),
+    item.category,
+    item.notes,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 function buildProductText(product: ProductRow, aliases: string[]) {
   const bookDimensions = getProductBookDimensions(product);
 
@@ -1210,7 +1234,9 @@ function calculateMatch(input: {
   product: ProductRow;
   aliases: string[];
 }) {
-  const itemText = buildItemText(input.item);
+  const itemText = buildItemCoreText(input.item);
+  const itemContextText = buildItemContextText(input.item);
+  const rawItemText = buildItemText(input.item);
   const productText = buildProductText(input.product, input.aliases);
   const productCoreText = buildProductText(input.product, []);
 
@@ -1235,11 +1261,11 @@ function calculateMatch(input: {
 
   const productLineature = normalizeLineature(productCoreText);
 
-  const itemBookDimensions = extractBookDimensionsMm(itemText);
+  const itemBookDimensions = extractBookDimensionsMm(itemContextText);
   const productBookDimensions =
     getProductBookDimensions(input.product) || extractBookDimensionsMm(productText);
 
-  const itemHeftSubtype = getHeftSubtype(itemText);
+  const itemHeftSubtype = getHeftSubtype(itemContextText);
   const productHeftSubtype = getHeftSubtype(productText);
 
   const exactNameMatch = hasExactNameOrAliasMatch({
@@ -1668,7 +1694,9 @@ function calculateStandardFallbackMatch(input: {
   product: ProductRow;
   aliases: string[];
 }) {
-  const itemText = buildItemText(input.item);
+  const itemText = buildItemCoreText(input.item);
+  const itemContextText = buildItemContextText(input.item);
+  const rawItemText = buildItemText(input.item);
   const productText = buildProductText(input.product, input.aliases);
 
   const productCoreText = buildProductText(input.product, []);
@@ -1690,6 +1718,42 @@ function calculateStandardFallbackMatch(input: {
   if (!standardTermMatch) {
     return null;
   }
+  const normalizedStrictItemText = normalizeForWords(itemText);
+  const normalizedStrictProductCoreText = normalizeForWords(productCoreText);
+
+  const strictPairs: Array<[string, string[]]> = [
+    ["wasserbecher", ["wasserbecher", "malbecher"]],
+    ["farbkasten", ["farbkasten", "deckfarbenkasten", "malkasten"]],
+    ["deckweiss", ["deckweiss"]],
+    ["geodreieck", ["geodreieck"]],
+    ["lineal", ["lineal"]],
+    ["schere", ["schere"]],
+    ["klebestift", ["klebestift"]],
+    ["radiergummi", ["radiergummi", "radierer"]],
+    ["spitzer", ["spitzer"]],
+    ["bleistift", ["bleistift"]],
+    ["buntstifte", ["buntstifte", "buntstift"]],
+    ["filzstifte", ["filzstifte", "filzstift"]],
+    ["fineliner", ["fineliner"]],
+    ["textmarker", ["textmarker"]],
+  ];
+
+  const requestedStrictPair = strictPairs.find(([itemTerm]) =>
+    normalizedStrictItemText.includes(itemTerm)
+  );
+
+  if (requestedStrictPair) {
+    const [, allowedProductTerms] = requestedStrictPair;
+
+    if (
+      !allowedProductTerms.some((term) =>
+        normalizedStrictProductCoreText.includes(term)
+      )
+    ) {
+      return null;
+    }
+  }
+
 
   if (
     !isSimpleStandardArticle(itemType || productType, `${itemText} ${productText}`)
@@ -2068,6 +2132,7 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
 
 
 
