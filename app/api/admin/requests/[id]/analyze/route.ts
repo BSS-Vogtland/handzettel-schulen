@@ -67,7 +67,7 @@ const materialSchema: Record<string, unknown> = {
           rawText: {
             type: "string",
             description:
-              "Die vollständige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), BuchmaÃŸ, Farbe und Format unbedingt übernehmen.",
+              "Die vollständige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), Buchmaß, Farbe und Format unbedingt übernehmen.",
           },
           normalizedName: {
             type: ["string", "null"],
@@ -86,7 +86,7 @@ const materialSchema: Record<string, unknown> = {
           format: {
             type: ["string", "null"],
             description:
-              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus BuchmaÃŸ ableitbar.",
+              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus Buchmaß ableitbar.",
           },
           color: {
             type: ["string", "null"],
@@ -101,7 +101,7 @@ const materialSchema: Record<string, unknown> = {
           notes: {
             type: ["string", "null"],
             description:
-              "Zusätzliche Hinweise, z. B. BuchmaÃŸ, Pappe, ROTH, Klipp & Klar.",
+              "Zusätzliche Hinweise, z. B. Buchmaß, Pappe, ROTH, Klipp & Klar.",
           },
           confidence: {
             type: "number",
@@ -208,7 +208,7 @@ function normalizeText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
@@ -330,7 +330,7 @@ if (text.includes("transparent") || text.includes("klar")) {
     { key: "pink", label: "pink" },
     { key: "rosa", label: "rosa" },
     { key: "schwarz", label: "schwarz" },
-    { key: "weiss", label: "weiÃŸ" },
+    { key: "weiss", label: "weiß" },
     { key: "braun", label: "braun" },
   ];
 
@@ -1802,7 +1802,7 @@ function normalizeAnalyzerText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -1821,7 +1821,7 @@ function getAnalyzerColor(value: unknown) {
     ["gruen", "grün"],
     ["grun", "grün"],
     ["braun", "braun"],
-    ["weiss", "weiÃŸ"],
+    ["weiss", "weiß"],
     ["gelb", "gelb"],
     ["lila", "lila"],
     ["orange", "orange"],
@@ -2039,15 +2039,15 @@ export async function POST(_request: Request, context: RouteContext) {
               text:
                 "Du bist ein extrem genauer Assistent für deutsche Schulmateriallisten. " +
                 "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte Auflösung, Checkbox-Listen, mehrspaltige Listen oder eingerückte Kategorien sind. " +
-                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Ãœberschriften und keine Dekoration. " +
+                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Überschriften und keine Dekoration. " +
                 "Du musst jede sichtbare Materialposition vollständig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
                 "Die vollständige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
                 "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie â˜, â–¡, â–¢, [ ], Häkchen, Aufzählungspunkte oder Streichpunkte ignorierst du für quantity. " +
                 "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: 'â˜ 2 dicke Bleistifte' bedeutet quantity 2, 'â˜ 1 blaue Mappe' bedeutet quantity 1. " +
-                "Kategorie-Regel: Ãœberschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
-                "Wenn unter der Ãœberschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
+                "Kategorie-Regel: Überschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
+                "Wenn unter der Überschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
                 "Hefter-Regel: Wenn in der Originalzeile ausdrücklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter für Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und überschreibt den Hauptartikel nicht. " +
-                "Wenn unter der Ãœberschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
+                "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
                 "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
                 "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
                 "Hausaufgabenheft-Regel: Hausaufgabenheft, HA-Heft und Aufgabenheft niemals als normales Schreibheft interpretieren. " +
@@ -2063,7 +2063,7 @@ export async function POST(_request: Request, context: RouteContext) {
                 "'Lin. 8', 'L8', '8 F' und '8f' bedeuten immer lineature exakt '8f'. " +
                 "Wenn irgendwo Lineatur 0, Lin. 0, L0 oder L 0 steht, ist lineature exakt '0'. Niemals 'unklar'. " +
                 "Wenn eine Lineatur wirklich nicht vorhanden oder nicht lesbar ist, nutze null oder 'unknown'. " +
-                "Bei Umschlägen achte besonders auf Farbe und BuchmaÃŸ. BuchmaÃŸ 30 x 21 cm entspricht ungefähr A4. BuchmaÃŸ um 26,5 x 19,5 cm entspricht ungefähr A5. " +
+                "Bei Umschlägen achte besonders auf Farbe und Buchmaß. Buchmaß 30 x 21 cm entspricht ungefähr A4. Buchmaß um 26,5 x 19,5 cm entspricht ungefähr A5. " +
                 `Interne Analyse-Version: ${ANALYZE_VERSION}.`,
             },
           ],
@@ -2076,14 +2076,14 @@ export async function POST(_request: Request, context: RouteContext) {
               text:
                 "Analysiere diese Schulmaterialliste vollständig. " +
                 "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerückten Kategorien. " +
-                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Ãœberschriften. " +
+                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Überschriften. " +
                 "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern und sichtbarer Abkürzungen. " +
                 "Checkboxen oder Aufzählungszeichen sind keine Mengen. " +
                 "Wenn Text teilweise unsicher ist, extrahiere die plausible Materialposition trotzdem mit niedrigerer confidence, statt sie wegzulassen. " +
                 "Lineatur 0, blanko, unliniert oder ohne Lineatur muss als lineature '0' gespeichert werden. " +
                 "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden. " +
                 "Rechenh. bedeutet Rechenheft. Schreibh. bedeutet Schreibheft. HA-Heft bedeutet Hausaufgabenheft. " +
-                "Ãœberschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext für die darunter stehenden Positionen.",
+                "Überschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext für die darunter stehenden Positionen.",
             },
             fileContentPart,
           ],

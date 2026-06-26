@@ -113,7 +113,7 @@ function normalizeText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -179,10 +179,10 @@ function getMissingNewProductFields(input: {
   const missingFields: string[] = [];
 
   if (!input.productName) missingFields.push("Produktname");
-  if (input.productPrice <= 0) missingFields.push("Einzelpreis gröÃŸer 0");
+  if (input.productPrice <= 0) missingFields.push("Einzelpreis größer 0");
   if (!input.productCategory) missingFields.push("Kategorie");
   if (!input.productType) missingFields.push("Produkttyp");
-  if (input.quantity <= 0) missingFields.push("Menge gröÃŸer 0");
+  if (input.quantity <= 0) missingFields.push("Menge größer 0");
   if (!input.unit) missingFields.push("Einheit");
 
   return missingFields;
@@ -469,7 +469,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Die Menge muss gröÃŸer als 0 sein.",
+          message: "Die Menge muss größer als 0 sein.",
         },
         400
       );

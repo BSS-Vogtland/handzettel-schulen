@@ -59,20 +59,20 @@ const FALLBACK_PROJECT: SocialProjectRow = {
   target_audience:
     "Eltern von Schulkindern, besonders vor dem Schulstart und bei Materiallisten",
   offer_summary:
-    "Eltern laden ihre Schulmaterialliste hoch. Daraus wird ein vorbereiteter Paketwunsch erstellt. Die Eltern kÃ¶nnen alles prÃ¼fen und senden erst danach bewusst ab.",
+    "Eltern laden ihre Schulmaterialliste hoch. Daraus wird ein vorbereiteter Paketwunsch erstellt. Die Eltern können alles prüfen und senden erst danach bewusst ab.",
   brand_voice:
-    "Direkt, verstÃ¤ndlich, modern, vertrauenswÃ¼rdig, elternnah, hilfreich, nicht aufdringlich",
+    "Direkt, verständlich, modern, vertrauenswürdig, elternnah, hilfreich, nicht aufdringlich",
   image_style:
-    "Familiennah, alltagsnah, Schulstart, Materialliste, Eltern-Kind-Situation, keine Business-/BÃ¼ro-Optik, Bild muss klar zum Hook passen",
+    "Familiennah, alltagsnah, Schulstart, Materialliste, Eltern-Kind-Situation, keine Business-/Büro-Optik, Bild muss klar zum Hook passen",
   additional_notes:
     "Upload ist noch keine Bestellung. Keine falschen Versprechen. Bilder sollen nicht wie reine Hausaufgabenhilfe wirken.",
   content_pillars: [
-    "FehlkÃ¤ufe vermeiden",
+    "Fehlkäufe vermeiden",
     "Stress vor Schulstart reduzieren",
     "Sommerferien entspannt genießen",
     "Schulmateriallisten verstehen",
-    "Lineatur, Format und Farben erklÃ¤ren",
-    "Upload und Paketwunsch erklÃ¤ren",
+    "Lineatur, Format und Farben erklären",
+    "Upload und Paketwunsch erklären",
     "Eltern entlasten",
     "Vertrauen und lokaler Service",
   ],
@@ -80,7 +80,7 @@ const FALLBACK_PROJECT: SocialProjectRow = {
     "mehr Website-Besuche",
     "mehr Listen-Uploads",
     "mehr Vertrauen bei Eltern",
-    "bessere ErklÃ¤rung des Angebots",
+    "bessere Erklärung des Angebots",
   ],
   taboo_topics: [
     "keine automatische Bestellung behaupten",
@@ -90,9 +90,9 @@ const FALLBACK_PROJECT: SocialProjectRow = {
     "keine reine Hausaufgabenhilfe-Bildsprache",
   ],
   cta_examples: [
-    "Lade Deine Materialliste hoch und prÃ¼fe Deinen Paketwunsch.",
-    "Teste den Upload fÃ¼r Deine Schulmaterialliste.",
-    "Spare Dir unnÃ¶tigen Schulstart-Stress.",
+    "Lade Deine Materialliste hoch und prüfe Deinen Paketwunsch.",
+    "Teste den Upload für Deine Schulmaterialliste.",
+    "Spare Dir unnötigen Schulstart-Stress.",
   ],
   platform_targets: ["tiktok", "instagram", "facebook"],
 };
@@ -140,19 +140,19 @@ function buildBrandingRules(project: SocialProjectRow) {
   const brandName = project.name || FALLBACK_PROJECT.name;
 
   return `
-Branding-Regeln fÃ¼r Bild- und Videoprompts:
-- Jeder image_prompt und jeder video_prompt muss sichtbares Branding fÃ¼r "${brandName}" enthalten.
-- Das Branding soll natÃ¼rlich in der Szene auftauchen, nicht billig oder aufgeklebt wirken.
-- Das Logo bzw. der Markenname "${brandName}" soll sichtbar und mÃ¶glichst lesbar erscheinen.
+Branding-Regeln für Bild- und Videoprompts:
+- Jeder image_prompt und jeder video_prompt muss sichtbares Branding für "${brandName}" enthalten.
+- Das Branding soll natürlich in der Szene auftauchen, nicht billig oder aufgeklebt wirken.
+- Das Logo bzw. der Markenname "${brandName}" soll sichtbar und möglichst lesbar erscheinen.
 - Erlaubte Platzierungen: auf einem Schulmaterial-Paket, Versandlabel, Beileger, Flyer, Checklistenkarte, Website-Karte auf Tablet/Smartphone, kleiner Aufsteller, Tasche, Paketaufkleber, dezente Infobox oder Lower-Third-Element.
 - Keine fremden Markenlogos.
 - Keine TikTok-, Instagram- oder Facebook-Logos.
-- MÃ¶glichst wenig sonstiger lesbarer Text im Bild.
+- Möglichst wenig sonstiger lesbarer Text im Bild.
 - Wenn lesbarer Text erscheint, dann bevorzugt nur der Markenname "${brandName}".
-- Die Branding-StÃ¤rke soll zum Beitrag passen:
-  - informative/erklÃ¤rende BeitrÃ¤ge: dezent, aber sichtbar
-  - Standard-ServicebeitrÃ¤ge: ausgewogen sichtbar
-  - CTA-/Upload-/Paketwunsch-/Kampagnen-BeitrÃ¤ge: klar und prominent, aber hochwertig
+- Die Branding-Stärke soll zum Beitrag passen:
+  - informative/erklärende Beiträge: dezent, aber sichtbar
+  - Standard-Servicebeiträge: ausgewogen sichtbar
+  - CTA-/Upload-/Paketwunsch-/Kampagnen-Beiträge: klar und prominent, aber hochwertig
 - Das Bild darf nicht wie eine billige Anzeige wirken.
 - Die Szene muss weiterhin zuerst die Botschaft des Hooks transportieren.
 `.trim();
@@ -177,7 +177,7 @@ function buildSystemPrompt(project: SocialProjectRow) {
   return `
 Du bist ein erfahrener deutscher Social-Media-Stratege und Creative Director.
 
-Du erstellst Social-Media-Content fÃ¼r ein konfigurierbares Kundenprojekt.
+Du erstellst Social-Media-Content für ein konfigurierbares Kundenprojekt.
 
 Projekt / Marke:
 ${project.name}
@@ -195,19 +195,19 @@ Angebot / Kernnutzen:
 ${project.offer_summary || "Nicht angegeben"}
 
 Markenstimme / Tonfall:
-${project.brand_voice || "verstÃ¤ndlich, hilfreich, modern, vertrauenswÃ¼rdig"}
+${project.brand_voice || "verständlich, hilfreich, modern, vertrauenswürdig"}
 
 Bildstil:
 ${project.image_style || "realistisch, hochwertig, passend zur Zielgruppe"}
 
-ZusÃ¤tzliche Hinweise:
-${project.additional_notes || "Keine zusÃ¤tzlichen Hinweise"}
+Zusätzliche Hinweise:
+${project.additional_notes || "Keine zusätzlichen Hinweise"}
 
 Content-Ziele:
 ${formatList(project.content_goals, "- Reichweite\n- Vertrauen\n- Anfragen")}
 
-Tabuthemen / Dinge, die vermieden werden mÃ¼ssen:
-${formatList(project.taboo_topics, "- Keine falschen Versprechen\n- Keine unseriÃ¶sen Behauptungen")}
+Tabuthemen / Dinge, die vermieden werden müssen:
+${formatList(project.taboo_topics, "- Keine falschen Versprechen\n- Keine unseriösen Behauptungen")}
 
 CTA-Beispiele:
 ${formatList(project.cta_examples, "- Mehr erfahren")}
@@ -216,15 +216,15 @@ ${buildBrandingRules(project)}
 
 Wichtig:
 - Schreibe auf Deutsch.
-- Duze die Zielgruppe, auÃŸer das Projektprofil verlangt ausdrÃ¼cklich etwas anderes.
+- Duze die Zielgruppe, außer das Projektprofil verlangt ausdrücklich etwas anderes.
 - Keine falschen Versprechen.
 - Keine erfundenen Garantien.
-- Social Hooks dÃ¼rfen neugierig sein, aber nicht unseriÃ¶s.
+- Social Hooks dürfen neugierig sein, aber nicht unseriös.
 - Erstelle Content, der zu den hinterlegten Plattformen passt.
-- Bildprompts mÃ¼ssen zur jeweiligen Ãœberschrift / zum Hook passen.
+- Bildprompts müssen zur jeweiligen Überschrift / zum Hook passen.
 - Jeder Bildprompt braucht eine eigene visuelle Idee.
-- Die Szene muss die Botschaft des Hooks ausdrÃ¼cken, nicht nur schÃ¶n aussehen.
-- Bild- und Videoprompts mÃ¼ssen Branding fÃ¼r die Marke enthalten.
+- Die Szene muss die Botschaft des Hooks ausdrücken, nicht nur schön aussehen.
+- Bild- und Videoprompts müssen Branding für die Marke enthalten.
 `;
 }
 
@@ -232,13 +232,13 @@ function buildUserPrompt(project: SocialProjectRow) {
   const brandName = project.name || FALLBACK_PROJECT.name;
 
   return `
-Erstelle 8 Social-Media-BeitrÃ¤ge fÃ¼r dieses Projekt:
+Erstelle 8 Social-Media-Beiträge für dieses Projekt:
 
 Projekt:
 ${project.name}
 
-Content-SÃ¤ulen, aus denen die BeitrÃ¤ge entstehen sollen:
-${formatList(project.content_pillars, "- Problem-Bewusstsein\n- Fehler vermeiden\n- Vertrauen\n- Ablauf erklÃ¤ren\n- Kundenfragen")}
+Content-Säulen, aus denen die Beiträge entstehen sollen:
+${formatList(project.content_pillars, "- Problem-Bewusstsein\n- Fehler vermeiden\n- Vertrauen\n- Ablauf erklären\n- Kundenfragen")}
 
 Aktive Plattformen:
 ${formatList(project.platform_targets, "- tiktok\n- instagram\n- facebook")}
@@ -258,10 +258,10 @@ Jeder Beitrag braucht:
 - facebook: { hook, caption }
 
 Strenge Content-Regeln:
-- Jeder Beitrag muss zu Zielgruppe, Angebot und Content-SÃ¤ulen passen.
-- Die Themen dÃ¼rfen sich nicht zu stark Ã¤hneln.
-- Die Hooks sollen neugierig machen, aber seriÃ¶s bleiben.
-- Die Caption soll verstÃ¤ndlich erklÃ¤ren, warum das Thema relevant ist.
+- Jeder Beitrag muss zu Zielgruppe, Angebot und Content-Säulen passen.
+- Die Themen dürfen sich nicht zu stark ähneln.
+- Die Hooks sollen neugierig machen, aber seriös bleiben.
+- Die Caption soll verständlich erklären, warum das Thema relevant ist.
 - Der CTA soll zu den hinterlegten CTA-Beispielen passen.
 - Verwende korrektes deutsches Schriftbild mit echten Umlauten (ä, ö, ü, Ä, Ö, Ü) und ß, wenn sprachlich passend.
 - Schreibe nicht ae, oe, ue oder ss als Ersatz für Umlaute, außer wenn es technisch unvermeidbar wäre.- Hashtags sollen themennah sein, kein Spam.
@@ -277,37 +277,37 @@ Strenge Bildprompt-Regeln:
 - image_prompt muss auf Englisch formuliert sein.
 - image_prompt muss exakt zum jeweiligen topic und hook passen.
 - image_prompt darf nicht allgemein bleiben.
-- image_prompt muss erklÃ¤ren, was im Bild konkret passiert.
-- Die Szene muss die Botschaft ausdrÃ¼cken.
+- image_prompt muss erklären, was im Bild konkret passiert.
+- Die Szene muss die Botschaft ausdrücken.
 - Die Umgebung darf je nach Hook variieren.
 - Nicht immer dieselbe Szene.
 - Nicht immer dieselbe Perspektive.
 - Nicht generisch, nicht austauschbar.
 - Sichtbares Branding ist Pflicht.
-- Das Logo bzw. der Markenname "${brandName}" muss natÃ¼rlich in die Szene integriert werden.
-- Nutze dafÃ¼r realistische Platzierungen: Paketaufkleber, Flyer, Checklistenkarte, Website-Karte, Schulmaterial-Paket, Tasche, dezente Infobox, kleiner Aufsteller oder Lower-Third.
+- Das Logo bzw. der Markenname "${brandName}" muss natürlich in die Szene integriert werden.
+- Nutze dafür realistische Platzierungen: Paketaufkleber, Flyer, Checklistenkarte, Website-Karte, Schulmaterial-Paket, Tasche, dezente Infobox, kleiner Aufsteller oder Lower-Third.
 - Keine fremden Markenlogos.
 - Keine TikTok-, Instagram- oder Facebook-Logos.
-- MÃ¶glichst wenig lesbarer Text im Bild.
+- Möglichst wenig lesbarer Text im Bild.
 - Wenn Text erscheint, dann bevorzugt nur "${brandName}".
 - 9:16 vertical social media image.
 - Realistic, high-quality, emotionally believable.
 - Das Bild darf nicht nach billiger Werbung aussehen.
-- Die Branding-StÃ¤rke muss zum Beitrag passen:
-  - erklÃ¤rende BeitrÃ¤ge: subtil, aber sichtbar
-  - Service-/VertrauensbeitrÃ¤ge: ausgewogen sichtbar
-  - CTA-/Upload-/Paketwunsch-BeitrÃ¤ge: klar sichtbar und professionell
+- Die Branding-Stärke muss zum Beitrag passen:
+  - erklärende Beiträge: subtil, aber sichtbar
+  - Service-/Vertrauensbeiträge: ausgewogen sichtbar
+  - CTA-/Upload-/Paketwunsch-Beiträge: klar sichtbar und professionell
 
 Video Prompts:
 - Auf Englisch formulieren.
 - 8 Sekunden.
 - Ruhige Kamera.
 - Die Szene muss zum Hook passen.
-- Das Logo bzw. der Markenname "${brandName}" muss natÃ¼rlich im Video sichtbar sein.
-- MÃ¶gliche Platzierung: Paket, Flyer, Website-Karte, dezenter Lower-Third, Kleidung, Tischaufsteller oder Material-Beileger.
-- Voice-over auf Deutsch mÃ¶glich beschreiben.
+- Das Logo bzw. der Markenname "${brandName}" muss natürlich im Video sichtbar sein.
+- Mögliche Platzierung: Paket, Flyer, Website-Karte, dezenter Lower-Third, Kleidung, Tischaufsteller oder Material-Beileger.
+- Voice-over auf Deutsch möglich beschreiben.
 
-Antworte ausschlieÃŸlich als valides JSON in dieser Struktur:
+Antworte ausschließlich als valides JSON in dieser Struktur:
 
 {
   "posts": [
@@ -390,7 +390,7 @@ export async function POST() {
           ok: false,
           message:
             openAiJson.error?.message ||
-            "OpenAI konnte keine Social-BeitrÃ¤ge erzeugen.",
+            "OpenAI konnte keine Social-Beiträge erzeugen.",
         },
         { status: 500 }
       );
@@ -416,7 +416,7 @@ export async function POST() {
       return NextResponse.json(
         {
           ok: false,
-          message: "Die KI-Antwort war kein gÃ¼ltiges JSON.",
+          message: "Die KI-Antwort war kein gültiges JSON.",
         },
         { status: 500 }
       );
@@ -428,7 +428,7 @@ export async function POST() {
       return NextResponse.json(
         {
           ok: false,
-          message: "Es wurden keine Social-BeitrÃ¤ge erzeugt.",
+          message: "Es wurden keine Social-Beiträge erzeugt.",
         },
         { status: 500 }
       );
@@ -512,14 +512,14 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
-      message: `${data?.length || 0} Social-BeitrÃ¤ge wurden fÃ¼r ${project.name} erzeugt.`,
+      message: `${data?.length || 0} Social-Beiträge wurden für ${project.name} erzeugt.`,
       posts: data || [],
     });
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
-        : "Unbekannter Fehler beim Generieren der Social-BeitrÃ¤ge.";
+        : "Unbekannter Fehler beim Generieren der Social-Beiträge.";
 
     return NextResponse.json(
       {

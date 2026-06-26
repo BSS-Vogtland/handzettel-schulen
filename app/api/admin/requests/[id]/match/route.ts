@@ -106,7 +106,7 @@ function normalizeText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
@@ -590,7 +590,7 @@ function extractBookDimensionsMm(value: unknown): BookDimensions | null {
   const rawText = String(value ?? "")
     .toLowerCase()
     .replace(/,/g, ".")
-    .replace(/Ã—/g, "x")
+    .replace(/×/g, "x")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -645,7 +645,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 45,
-      reason: `BuchmaÃŸ passt exakt: ${input.product.label}`,
+      reason: `Buchmaß passt exakt: ${input.product.label}`,
     };
   }
 
@@ -653,7 +653,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 38,
-      reason: `BuchmaÃŸ passt mit kleiner Toleranz: ${input.product.label}`,
+      reason: `Buchmaß passt mit kleiner Toleranz: ${input.product.label}`,
     };
   }
 
@@ -661,7 +661,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 28,
-      reason: `BuchmaÃŸ liegt im passenden Toleranzbereich: ${input.product.label}`,
+      reason: `Buchmaß liegt im passenden Toleranzbereich: ${input.product.label}`,
     };
   }
 
@@ -675,14 +675,14 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 20,
-      reason: `BuchmaÃŸ passt als etwas gröÃŸerer Umschlag: ${input.product.label}`,
+      reason: `Buchmaß passt als etwas größerer Umschlag: ${input.product.label}`,
     };
   }
 
   return {
     compatible: false,
     score: 0,
-    reason: `BuchmaÃŸ passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
+    reason: `Buchmaß passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
   };
 }
 
@@ -2204,7 +2204,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -2221,7 +2221,7 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
           : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {

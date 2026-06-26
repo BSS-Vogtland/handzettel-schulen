@@ -205,10 +205,10 @@ function cleanString(value: unknown) {
 function normalizeForMatching(value: unknown) {
   return cleanString(value)
     .toLowerCase()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
@@ -341,7 +341,7 @@ function sanitizeBaseImagePrompt(value: string) {
         "minor",
         "minors",
         "junge",
-        "mÃ¤dchen",
+        "mädchen",
         "kind",
         "kinder",
         "schulkind",
@@ -716,19 +716,19 @@ function escapeXml(value: string) {
 
 function normalizeHook(input: string) {
   return cleanString(input)
-    .replace(/â€“/g, " – ")
-    .replace(/â€”/g, " – ")
-    .replace(/â€‘/g, "-")
+    .replace(/–/g, " – ")
+    .replace(/—/g, " – ")
+    .replace(/-/g, "-")
     .replace(/â/g, " ")
     .replace(/[–—]/g, " – ")
     .replace(/ß/g, "SS")
     .replace(/ẞ/g, "SS")
-    .replace(/Ã¤/g, "ä")
-    .replace(/Ã¶/g, "ö")
-    .replace(/Ã¼/g, "ü")
-    .replace(/Ã„/g, "Ä")
-    .replace(/Ã–/g, "Ö")
-    .replace(/Ãœ/g, "Ü")
+    .replace(/ä/g, "ä")
+    .replace(/ö/g, "ö")
+    .replace(/ü/g, "ü")
+    .replace(/Ä/g, "Ä")
+    .replace(/Ö/g, "Ö")
+    .replace(/Ü/g, "Ü")
     .toUpperCase()
     .replace(/\s+/g, " ")
     .trim();
@@ -912,13 +912,13 @@ function getBitmapGlyph(char: string) {
 function normalizeBitmapText(value: string) {
   return cleanString(value)
     // kaputte Encoding-Reste zuerst reparieren
-    .replace(/Ã¤/g, "ä")
-    .replace(/Ã¶/g, "ö")
-    .replace(/Ã¼/g, "ü")
-    .replace(/Ã„/g, "Ä")
-    .replace(/Ã–/g, "Ö")
-    .replace(/Ãœ/g, "Ü")
-    .replace(/ÃŸ/g, "ß")
+    .replace(/ä/g, "ä")
+    .replace(/ö/g, "ö")
+    .replace(/ü/g, "ü")
+    .replace(/Ä/g, "Ä")
+    .replace(/Ö/g, "Ö")
+    .replace(/Ü/g, "Ü")
+    .replace(/ß/g, "ß")
 
     // Sicherheitsnetz für alte gespeicherte Ersatzschreibweisen.
     // Bewusst nur typische Wörter, kein blindes UE/AE/OE-Replacement.
@@ -1234,7 +1234,7 @@ async function generateMotifImage({
   try {
     openAiJson = rawText ? (JSON.parse(rawText) as OpenAiImageResponse) : {};
   } catch {
-    throw new Error("OpenAI hat keine gÃ¼ltige JSON-Antwort geliefert.");
+    throw new Error("OpenAI hat keine gültige JSON-Antwort geliefert.");
   }
 
   if (!openAiResponse.ok) {
@@ -1266,7 +1266,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: `UngÃ¼ltige Beitrags-ID: ${id || "keine ID empfangen"}`,
+          message: `Ungültige Beitrags-ID: ${id || "keine ID empfangen"}`,
         },
         { status: 400 }
       );
@@ -1306,7 +1306,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message: "FÃ¼r archivierte BeitrÃ¤ge wird kein neues Bild erzeugt.",
+          message: "Für archivierte Beiträge wird kein neues Bild erzeugt.",
         },
         { status: 400 }
       );

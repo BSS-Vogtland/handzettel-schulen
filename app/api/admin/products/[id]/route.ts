@@ -96,7 +96,7 @@ function normalizeText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -150,7 +150,7 @@ function getBookSizeAliases(input: {
     `${width} x ${height}`,
     `${width} ${height}`,
     `${width}x${height}`,
-    `BuchmaÃŸ ${sizeLabel}`,
+    `Buchmaß ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
     `Buchhülle ${sizeLabel}`,
@@ -440,7 +440,7 @@ async function uploadProductImage(params: {
   const maxSize = 15 * 1024 * 1024;
 
   if (file.size > maxSize) {
-    throw new Error("Das Produktbild darf maximal 15 MB groÃŸ sein.");
+    throw new Error("Das Produktbild darf maximal 15 MB groß sein.");
   }
 
   const extension = getFileExtension(file);
@@ -859,7 +859,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte gib beim BuchmaÃŸ entweder Breite und Höhe an oder lasse beide Felder leer.",
+            "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
         },
         400
       );
@@ -1111,7 +1111,7 @@ const matchKeywords = keywordData.matchKeywords;
           request_id: activeRequest.id,
           event_type: "active_offer_item_price_updated",
           title: "Preis aus Produktstamm übernommen",
-          message: `Der Preis für â€ž${productName}â€œ wurde im Produktstamm geändert und in aktive Paketpositionen übernommen.`,
+          message: `Der Preis für „${productName}“ wurde im Produktstamm geändert und in aktive Paketpositionen übernommen.`,
           metadata: {
             productId: id,
             productName,

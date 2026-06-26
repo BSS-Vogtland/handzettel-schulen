@@ -80,7 +80,7 @@ export default function AdminHomePage() {
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-              Ã–ffne eingegangene Schulmateriallisten, prüfe erkannte Positionen,
+              Öffne eingegangene Schulmateriallisten, prüfe erkannte Positionen,
               bearbeite Paketwünsche, Rechnungen, Zahlung, Picking und
               Kunden-Auswahlen.
             </p>
@@ -192,7 +192,7 @@ export default function AdminHomePage() {
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#12395F]">
-              Ã–ffne die mobile Erfassung auf dem Smartphone, fotografiere
+              Öffne die mobile Erfassung auf dem Smartphone, fotografiere
               Produkte direkt mit der Handykamera und speichere sie schnell für
               den Produktkatalog.
             </p>
@@ -253,7 +253,7 @@ export default function AdminHomePage() {
                 WhatsApp schicken. WhatsApp-Listen übernimmst Du über den
                 WhatsApp-Import ins System. Produkte, die Du erfasst, können
                 später direkt in Anfragen gefunden, manuell übernommen und durch
-                Aliase für zukünftige Listen gemerkt werden. Ãœber den
+                Aliase für zukünftige Listen gemerkt werden. Über den
                 SocialPilot erzeugst Du zusätzlich passende Social-Media-Entwürfe
                 für mehr Reichweite und neue Anfragen.
               </p>

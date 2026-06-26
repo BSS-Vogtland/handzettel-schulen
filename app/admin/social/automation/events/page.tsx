@@ -664,7 +664,7 @@ export default async function AdminSocialAutomationEventsPage() {
                       </p>
 
                       <p className="mt-1 text-xs text-[#829AB1]">
-                        Angelegt: {formatDateTime(event.created_at)} Â·
+                        Angelegt: {formatDateTime(event.created_at)} ·
                         Aktualisiert: {formatDateTime(event.updated_at)}
                       </p>
                     </div>
@@ -789,7 +789,7 @@ export default async function AdminSocialAutomationEventsPage() {
                                         : ""}
                                     </p>
                                     <p className="mt-1 text-xs text-[#829AB1]">
-                                      Review: {post.review_status || "—"} Â·
+                                      Review: {post.review_status || "—"} ·
                                       Status: {post.status || "—"}
                                     </p>
                                     {post.blocked_reason ? (
