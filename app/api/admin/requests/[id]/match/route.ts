@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -76,7 +76,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -103,11 +103,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -152,15 +152,24 @@ function getWords(value: unknown) {
 
 
 const SIMPLE_STANDARD_TYPES = new Set([
+  "hausaufgabenheft",
+  "ersatzpatronen",
+  "umschlag",
   "klebestift",
   "radiergummi",
   "spitzer",
   "lineal",
+  "geodreieck",
+  "zirkel",
   "schere",
   "bleistift",
   "buntstifte",
   "filzstifte",
+  "fineliner",
   "farbkasten",
+  "deckweiss",
+  "wasserbecher",
+  "textmarker",
 ]);
 
 function normalizeSingularProductTerm(value: unknown) {
@@ -274,6 +283,164 @@ function isSimpleStandardArticle(type: string | null, text: unknown) {
 }
 
 
+
+type StandardTermMatch = {
+  label: string;
+  score: number;
+};
+
+const STANDARD_TERM_GROUPS: Array<{
+  label: string;
+  terms: string[];
+  score: number;
+}> = [
+  {
+    label: "Hausaufgabenheft",
+    terms: ["hausaufgabenheft", "hausaufgaben", "aufgabenheft", "ha heft", "haheft"],
+    score: 88,
+  },
+  {
+    label: "Ersatzpatronen",
+    terms: ["ersatzpatronen", "ersatzpatrone", "fuellerpatronen", "fuellerpatrone", "tintenpatronen", "tintenpatrone"],
+    score: 88,
+  },
+  {
+    label: "Umschlag",
+    terms: ["umschlag", "umschlaege", "hefthuelle", "hefthuellen", "heft huelle", "heft huellen"],
+    score: 84,
+  },
+  {
+    label: "Klebestift",
+    terms: ["klebestift", "klebestifte"],
+    score: 88,
+  },
+  {
+    label: "Schere",
+    terms: ["schere"],
+    score: 88,
+  },
+  {
+    label: "Zirkel",
+    terms: ["zirkel"],
+    score: 88,
+  },
+  {
+    label: "Geodreieck",
+    terms: ["geodreieck"],
+    score: 88,
+  },
+  {
+    label: "Lineal",
+    terms: ["lineal", "lineale"],
+    score: 86,
+  },
+  {
+    label: "Farbkasten",
+    terms: ["farbkasten", "malkasten"],
+    score: 88,
+  },
+  {
+    label: "Deckweiß",
+    terms: ["deckweiss", "deckweiss tube", "deckfarbe weiss"],
+    score: 86,
+  },
+  {
+    label: "Wasserbecher",
+    terms: ["wasserbecher", "malbecher"],
+    score: 86,
+  },
+  {
+    label: "Fineliner",
+    terms: ["fineliner"],
+    score: 84,
+  },
+  {
+    label: "Textmarker",
+    terms: ["textmarker"],
+    score: 84,
+  },
+  {
+    label: "Bleistift",
+    terms: ["bleistift", "bleistifte"],
+    score: 84,
+  },
+];
+
+function includesStandardTerm(text: string, term: string) {
+  const normalizedTerm = normalizeSingularProductTerm(term);
+  if (!normalizedTerm) return false;
+
+  return (
+    text === normalizedTerm ||
+    text.includes(` ${normalizedTerm} `) ||
+    text.startsWith(`${normalizedTerm} `) ||
+    text.endsWith(` ${normalizedTerm}`) ||
+    text.includes(normalizedTerm)
+  );
+}
+
+function getStandardTermMatch(itemText: string, productText: string): StandardTermMatch | null {
+  const normalizedItemText = ` ${normalizeSingularProductTerm(itemText)} `;
+  const normalizedProductText = ` ${normalizeSingularProductTerm(productText)} `;
+
+  if (!normalizedItemText.trim() || !normalizedProductText.trim()) {
+    return null;
+  }
+
+  for (const group of STANDARD_TERM_GROUPS) {
+    const itemHasTerm = group.terms.some((term) =>
+      includesStandardTerm(normalizedItemText, term)
+    );
+    const productHasTerm = group.terms.some((term) =>
+      includesStandardTerm(normalizedProductText, term)
+    );
+
+    if (itemHasTerm && productHasTerm) {
+      return {
+        label: group.label,
+        score: group.score,
+      };
+    }
+  }
+
+  return null;
+}
+
+function hasRelevantVariantConflict(params: {
+  itemFormat: string | null;
+  productFormat: string | null;
+  itemColor: string | null;
+  productColor: string | null;
+  itemLineature: string | null;
+  productLineature: string | null;
+  itemType: string | null;
+  productType: string | null;
+}) {
+  if (params.itemFormat && params.productFormat && params.itemFormat !== params.productFormat) {
+    return true;
+  }
+
+  if (
+    params.itemColor &&
+    params.productColor &&
+    params.itemColor !== params.productColor &&
+    isColorSensitiveType(params.itemType || params.productType)
+  ) {
+    return true;
+  }
+
+  if (
+    params.itemLineature &&
+    params.itemLineature !== "unknown" &&
+    params.productLineature &&
+    params.itemLineature !== params.productLineature &&
+    (params.itemType === "heft" || params.productType === "heft")
+  ) {
+    return true;
+  }
+
+  return false;
+}
 function hasSpitzerContainerTerm(value: unknown) {
   const text = normalizeText(value);
 
@@ -315,7 +482,7 @@ function getSpitzerContainerScore(params: {
       compatible: false,
       score: 0,
       reason:
-        "Liste verlangt einen Spitzer mit Dose/Auffangbehälter, Produkt hat dieses Merkmal nicht.",
+        "Liste verlangt einen Spitzer mit Dose/AuffangbehÃ¤lter, Produkt hat dieses Merkmal nicht.",
     };
   }
 
@@ -323,7 +490,7 @@ function getSpitzerContainerScore(params: {
     return {
       compatible: true,
       score: 42,
-      reason: "Spitzer mit Dose/Auffangbehälter passt",
+      reason: "Spitzer mit Dose/AuffangbehÃ¤lter passt",
     };
   }
 
@@ -406,7 +573,7 @@ function extractBookDimensionsMm(value: unknown): BookDimensions | null {
   const rawText = String(value ?? "")
     .toLowerCase()
     .replace(/,/g, ".")
-    .replace(/×/g, "x")
+    .replace(/Ã—/g, "x")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -461,7 +628,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 45,
-      reason: `Buchmaß passt exakt: ${input.product.label}`,
+      reason: `BuchmaÃŸ passt exakt: ${input.product.label}`,
     };
   }
 
@@ -469,7 +636,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 38,
-      reason: `Buchmaß passt mit kleiner Toleranz: ${input.product.label}`,
+      reason: `BuchmaÃŸ passt mit kleiner Toleranz: ${input.product.label}`,
     };
   }
 
@@ -477,7 +644,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 28,
-      reason: `Buchmaß liegt im passenden Toleranzbereich: ${input.product.label}`,
+      reason: `BuchmaÃŸ liegt im passenden Toleranzbereich: ${input.product.label}`,
     };
   }
 
@@ -491,14 +658,14 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 20,
-      reason: `Buchmaß passt als etwas größerer Umschlag: ${input.product.label}`,
+      reason: `BuchmaÃŸ passt als etwas grÃ¶ÃŸerer Umschlag: ${input.product.label}`,
     };
   }
 
   return {
     compatible: false,
     score: 0,
-    reason: `Buchmaß passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
+    reason: `BuchmaÃŸ passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
   };
 }
 
@@ -1051,8 +1218,10 @@ function calculateMatch(input: {
     aliases: input.aliases,
   });
 
+  const standardTermMatch = getStandardTermMatch(itemText, productText);
+
   const isSimpleStandardMatch =
-    exactNameMatch.exact &&
+    (exactNameMatch.exact || Boolean(standardTermMatch)) &&
     isSimpleStandardArticle(itemType || productType, `${itemText} ${productText}`);
 
   const itemHasExplicitVariantDemand = hasExplicitVariantDemand({
@@ -1061,6 +1230,17 @@ function calculateMatch(input: {
     itemColor,
     itemLineature,
     itemBookDimensions,
+  });
+
+  const hasVariantConflict = hasRelevantVariantConflict({
+    itemFormat,
+    productFormat,
+    itemColor,
+    productColor,
+    itemLineature,
+    productLineature,
+    itemType,
+    productType,
   });
 
   const reasons: string[] = [];
@@ -1187,6 +1367,15 @@ function calculateMatch(input: {
 
     score += 28;
     reasons.push(`Farbe passt: ${itemColor}`);
+
+    if (
+      (itemType === "umschlag" || productType === "umschlag") &&
+      !itemFormat &&
+      productFormat
+    ) {
+      score += 10;
+      reasons.push(`Umschlag-Farbe passt; Format ${productFormat.toUpperCase()} wird aus dem Produkt übernommen`);
+    }
   }
 
   if (itemType === "heft") {
@@ -1281,12 +1470,12 @@ function calculateMatch(input: {
 
   if (productName && itemName && productName.includes(itemName)) {
     score += 12;
-    reasons.push("Produktname enthält erkannte Position");
+    reasons.push("Produktname enthÃ¤lt erkannte Position");
   }
 
   if (itemName && productName && itemName.includes(productName)) {
     score += 10;
-    reasons.push("Erkannte Position enthält Produktname");
+    reasons.push("Erkannte Position enthÃ¤lt Produktname");
   }
 
   if (exactNameMatch.exact) {
@@ -1303,7 +1492,7 @@ function calculateMatch(input: {
     } else {
       score = Math.max(score, 85);
       reasons.push(
-        `Produktname/Alias passt, Variantenmerkmal wird zusätzlich berücksichtigt`
+        `Produktname/Alias passt, Variantenmerkmal wird zusÃ¤tzlich berÃ¼cksichtigt`
       );
     }
   }
@@ -1384,7 +1573,7 @@ async function createRequestEvent(
     {
       request_id: requestId,
       event_type: eventType,
-      title: "Produktvorschläge berechnet",
+      title: "ProduktvorschlÃ¤ge berechnet",
       description: message,
       created_at: new Date().toISOString(),
     },
@@ -1420,7 +1609,7 @@ export async function POST(_request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID übergeben.",
+          message: "Keine Anfrage-ID Ã¼bergeben.",
         },
         400
       );
@@ -1530,7 +1719,7 @@ export async function POST(_request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Alte Vorschläge konnten nicht entfernt werden: ${deleteError.message}`,
+            message: `Alte VorschlÃ¤ge konnten nicht entfernt werden: ${deleteError.message}`,
           },
           500
         );
@@ -1633,7 +1822,7 @@ export async function POST(_request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Produktvorschläge konnten nicht gespeichert werden: ${insertError.message}`,
+            message: `ProduktvorschlÃ¤ge konnten nicht gespeichert werden: ${insertError.message}`,
           },
           500
         );
@@ -1652,7 +1841,7 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
+      "ProduktvorschlÃ¤ge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berÃ¼cksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -1669,8 +1858,8 @@ export async function POST(_request: NextRequest, context: Params) {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
-          : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
+          ? `ProduktvorschlÃ¤ge wurden neu berechnet. Exakte Standardartikel, BuchmaÃŸe, Heft-Unterarten, Lineaturen, Mappen und Farben werden berÃ¼cksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} VorschlÃ¤ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          : "Es wurden keine ausreichend sicheren ProduktvorschlÃ¤ge gefunden. Diese Positionen bleiben zur manuellen PrÃ¼fung offen.",
     });
   } catch (error) {
     console.error("Admin product match error:", error);
@@ -1681,7 +1870,7 @@ export async function POST(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "Produktvorschläge konnten nicht erstellt werden.",
+            : "ProduktvorschlÃ¤ge konnten nicht erstellt werden.",
       },
       500
     );
