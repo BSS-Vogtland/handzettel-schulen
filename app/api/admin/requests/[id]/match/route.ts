@@ -1305,6 +1305,14 @@ function calculateMatch(input: {
   if (itemType && productType && itemType !== productType) {
     return null;
   }
+  if (
+    itemColor &&
+    productColor &&
+    itemColor !== productColor &&
+    isColorSensitiveType(itemType || productType || itemText)
+  ) {
+    return null;
+  }
 
   if (itemType && !productType) {
     return null;
@@ -2132,6 +2140,7 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
 
 
 
