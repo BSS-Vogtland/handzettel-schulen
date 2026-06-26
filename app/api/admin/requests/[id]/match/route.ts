@@ -1397,6 +1397,20 @@ function calculateMatch(input: {
     }
   }
 
+  if (itemType === "schreibblock" || productType === "schreibblock") {
+    if (itemLineature && productLineature && itemLineature !== productLineature) {
+      return null;
+    }
+
+    if (itemLineature && !productLineature && hasSpecificLineature(productText)) {
+      return null;
+    }
+
+    if (itemLineature && productLineature === itemLineature) {
+      score += 24;
+      reasons.push(`Block-Lineatur passt: ${itemLineature}`);
+    }
+  }
   if (itemType === "heft") {
     if (itemLineature === "unknown") {
       if (hasSpecificLineature(productText)) {
@@ -1561,6 +1575,28 @@ function calculateMatch(input: {
     }
   }
 
+  if (
+    normalizedItemText.includes("wasserbecher") &&
+    !normalizedProductText.includes("wasserbecher")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("deckweiss") &&
+    !normalizedProductText.includes("deckweiss") &&
+    !normalizedProductText.includes("deckweiss tube") &&
+    !normalizedProductText.includes("deckweiss grosse tube")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizedItemText.includes("farbkasten") &&
+    normalizedProductText.includes("wasserbecher")
+  ) {
+    return null;
+  }
   if (itemType === "mappe" && normalizedProductText.includes("schnellhefter")) {
     return null;
   }
@@ -1639,6 +1675,20 @@ function calculateStandardFallbackMatch(input: {
   if (
     itemType === "schnellhefter" &&
     normalizeForWords(productText).includes("mappe")
+  ) {
+    return null;
+  }
+
+    if (
+    normalizeForWords(itemText).includes("wasserbecher") &&
+    !normalizeForWords(productText).includes("wasserbecher")
+  ) {
+    return null;
+  }
+
+  if (
+    normalizeForWords(itemText).includes("deckweiss") &&
+    !normalizeForWords(productText).includes("deckweiss")
   ) {
     return null;
   }
@@ -1970,4 +2020,5 @@ export async function POST(_request: NextRequest, context: Params) {
     );
   }
 }
+
 
