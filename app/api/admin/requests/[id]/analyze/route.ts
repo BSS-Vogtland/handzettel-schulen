@@ -1368,6 +1368,7 @@ function expandColorVariantQuantityItems(items: CleanedItem[]) {
 }
 function splitFinalColorQuantityItems(items: CleanedItem[]) {
   const result: CleanedItem[] = [];
+  const alreadySplitSourceKeys = new Set<string>();
 
   function normalizeFinalColorToken(value: unknown) {
     return String(value || "")
@@ -1434,16 +1435,16 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
   }
 
   for (const item of items) {
-    const quantity = Number(item.quantity || 1);
-
-    if (!Number.isFinite(quantity) || quantity <= 1) {
-      result.push(item);
-      continue;
-    }
-
+    const rawSourceKey = normalizeFinalColorToken(item.rawText || item.normalizedName);
     const colors = extractFinelinerColorList(item);
 
     if (colors.length >= 2) {
+      if (alreadySplitSourceKeys.has(rawSourceKey)) {
+        continue;
+      }
+
+      alreadySplitSourceKeys.add(rawSourceKey);
+
       for (const color of colors) {
         result.push({
           ...item,
@@ -2299,6 +2300,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
