@@ -150,6 +150,97 @@ function buildCaptionForPlatform({
   });
 }
 
+
+const DEFAULT_SOCIAL_TRAFFIC_BASE_URL = "https://www.handzettel-schulen.de/";
+
+function getSocialTrafficBaseUrl() {
+  const configured =
+    cleanString(process.env.SOCIAL_TRAFFIC_BASE_URL) ||
+    DEFAULT_SOCIAL_TRAFFIC_BASE_URL;
+
+  try {
+    return new URL(configured).toString();
+  } catch {
+    return DEFAULT_SOCIAL_TRAFFIC_BASE_URL;
+  }
+}
+
+function getSocialTrafficCampaign() {
+  return cleanString(process.env.SOCIAL_TRAFFIC_UTM_CAMPAIGN) || "schulstart";
+}
+
+function buildSocialTrafficUrl({
+  platform,
+  post,
+  mediaType,
+}: {
+  platform: MetaPlatform;
+  post: SocialPostRow;
+  mediaType: PublishMediaType;
+}) {
+  const url = new URL(getSocialTrafficBaseUrl());
+
+  url.searchParams.set("utm_source", platform);
+  url.searchParams.set("utm_medium", "social");
+  url.searchParams.set("utm_campaign", getSocialTrafficCampaign());
+  url.searchParams.set("utm_content", `${post.id}-${mediaType}`);
+
+  return url.toString();
+}
+
+function captionHasHandzettelLink(caption: string) {
+  return /(?:https?:\/\/)?(?:www\.)?handzettel-schulen\.de/i.test(caption);
+}
+
+function buildTrafficCta({
+  platform,
+  post,
+  mediaType,
+}: {
+  platform: MetaPlatform;
+  post: SocialPostRow;
+  mediaType: PublishMediaType;
+}) {
+  const trafficUrl = buildSocialTrafficUrl({ platform, post, mediaType });
+
+  if (platform === "instagram") {
+    return `Schulmaterialliste hochladen:\n${trafficUrl}\n\nOder über den Link im Profil.`;
+  }
+
+  return `Schulmaterialliste hochladen und Paket vorbereiten lassen:\n${trafficUrl}`;
+}
+
+function appendTrafficCtaToCaption({
+  caption,
+  platform,
+  post,
+  mediaType,
+}: {
+  caption: string;
+  platform: MetaPlatform;
+  post: SocialPostRow;
+  mediaType: PublishMediaType;
+}) {
+  const cleanedCaption = cleanString(caption);
+
+  if (captionHasHandzettelLink(cleanedCaption)) {
+    return cleanedCaption;
+  }
+
+  const trafficCta = buildTrafficCta({ platform, post, mediaType });
+
+  if (!cleanedCaption) return trafficCta;
+
+  return `${cleanedCaption}\n\n${trafficCta}`;
+}
+
+function getTrafficExpectation(platform: MetaPlatform) {
+  if (platform === "instagram") {
+    return "Instagram: Der Website-Link steht in der Caption. Organische Instagram-Medienklicks sind nicht zuverlässig als externer Website-Klick planbar; Bio, Story-Link oder Ads bleiben zusätzliche Klickwege.";
+  }
+
+  return "Facebook: Der Website-Link steht im Posting-Text. Ein echter Klick auf ein Link-Preview zur Website wird später separat über Facebook-Linkpost/Ads verbessert.";
+}
 function platformLabel(platform: MetaPlatform) {
   return platform === "facebook" ? "Facebook" : "Instagram";
 }
@@ -429,6 +520,7 @@ async function logMetaPublishEvent({
   mediaType,
   assetId,
   finalText,
+  trafficUrl,
   musicStatus,
   musicNote,
   result,
@@ -439,6 +531,7 @@ async function logMetaPublishEvent({
   mediaType: PublishMediaType;
   assetId: string | null;
   finalText: string;
+  trafficUrl: string;
   musicStatus: MusicStatus;
   musicNote: string;
   result: MetaPublishPlatformResult;
@@ -473,6 +566,8 @@ async function logMetaPublishEvent({
             asset_id: assetId,
             media_url: mediaUrl,
             final_text: finalText,
+            traffic_url: trafficUrl,
+            website_url: getSocialTrafficBaseUrl(),
             music_status: musicStatus,
             music_note: musicNote,
             result: result || {},
@@ -717,6 +812,12 @@ export async function POST(request: Request, context: RouteContext) {
         mediaType,
         asset: latestAsset,
       }),
+      trafficUrl: buildSocialTrafficUrl({
+        platform,
+        post,
+        mediaType,
+      }),
+      trafficExpectation: getTrafficExpectation(platform),
     }));
 
     if (dryRun) {
@@ -779,6 +880,11 @@ export async function POST(request: Request, context: RouteContext) {
         mediaType,
         assetId: latestAsset?.id || null,
         finalText,
+        trafficUrl: buildSocialTrafficUrl({
+          platform,
+          post,
+          mediaType,
+        }),
         musicStatus: getAssetMusicStatus(latestAsset?.metadata),
         musicNote: getAssetMusicNote(latestAsset?.metadata),
         result,
@@ -827,3 +933,4 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+

@@ -54,6 +54,8 @@ type PreviewResponse = {
     platform: Platform;
     platformLabel: string;
     caption: string;
+    trafficUrl?: string;
+    trafficExpectation?: string;
   }[];
   post?: {
     id: string;
@@ -74,7 +76,7 @@ const PUBLISH_OPTIONS: PublishOption[] = [
   {
     key: "facebook-image",
     label: "Bild auf Facebook veröffentlichen",
-    note: "Standard-Feedpost mit aktuellem Bild.",
+    note: "Bildpost mit aktuellem Bild und Pflicht-Link zur Website.",
     platform: "facebook",
     mediaType: "image",
     tone: "image",
@@ -82,7 +84,7 @@ const PUBLISH_OPTIONS: PublishOption[] = [
   {
     key: "instagram-image",
     label: "Bild auf Instagram veröffentlichen",
-    note: "Instagram-Bildpost mit aktuellem Bild.",
+    note: "Instagram-Bildpost mit sichtbarem Website-Link in der Caption.",
     platform: "instagram",
     mediaType: "image",
     tone: "image",
@@ -90,7 +92,7 @@ const PUBLISH_OPTIONS: PublishOption[] = [
   {
     key: "facebook-video",
     label: "Video auf Facebook veröffentlichen",
-    note: "Facebook-Video mit aktueller MP4-Datei.",
+    note: "Facebook-Video mit aktueller MP4-Datei und Pflicht-Link zur Website.",
     platform: "facebook",
     mediaType: "video",
     tone: "video",
@@ -98,7 +100,7 @@ const PUBLISH_OPTIONS: PublishOption[] = [
   {
     key: "instagram-video",
     label: "Reel auf Instagram veröffentlichen",
-    note: "Instagram-Reel mit aktueller MP4-Datei.",
+    note: "Instagram-Reel mit sichtbarem Website-Link in der Caption.",
     platform: "instagram",
     mediaType: "video",
     tone: "video",
@@ -341,9 +343,7 @@ export default function AdminSocialMetaPublishMediaButtons({
         </div>
 
         <p className="mt-3 text-xs font-semibold leading-5 text-[#627D98]">
-          Jeder Button öffnet zuerst eine Sicherheitsvorschau. Erst die zweite
-          Bestätigung veröffentlicht wirklich. Musik/Reel-Audio wird aktuell
-          nicht über die API gesetzt.
+          Jeder Button öffnet zuerst eine Sicherheitsvorschau. Der finale Text muss einen Website-Link enthalten. Erst die zweite Bestätigung veröffentlicht wirklich. Musik/Reel-Audio wird aktuell nicht über die API gesetzt.
         </p>
       </div>
 
@@ -459,6 +459,24 @@ export default function AdminSocialMetaPublishMediaButtons({
                     <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#102A43]">
                       {item.caption || "Kein Text vorhanden."}
                     </p>
+
+                    {item.trafficUrl ? (
+                      <a
+                        href={item.trafficUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-900 transition hover:bg-emerald-100"
+                      >
+                        Ziel-Link öffnen
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : null}
+
+                    {item.trafficExpectation ? (
+                      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
+                        {item.trafficExpectation}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -498,3 +516,4 @@ export default function AdminSocialMetaPublishMediaButtons({
     </>
   );
 }
+
