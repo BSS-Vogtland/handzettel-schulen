@@ -111,9 +111,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
     file: "public/social/templates/template-2-stress-schreibtisch-v1.png",
     hookBox: {
       x: 42,
-      y: 108,
-      width: 360,
-      height: 200,
+      y: 88,
+      width: 520,
+      height: 285,
     },
     imageBox: {
       x: 82,
@@ -128,9 +128,9 @@ const TEMPLATES: Record<string, TemplateConfig> = {
       height: 92,
     },
     hookTextColor: "#FFFFFF",
-    hookMaxLines: 3,
+    hookMaxLines: 5,
     hookFontSize: 40,
-    hookMaxCharsPerLine: 11,
+    hookMaxCharsPerLine: 15,
     imageRadius: 18,
     motifDirection:
       "Motif must fit cleanly inside the central white content panel. Prefer adult-only desk, list, school supplies, paper chaos, checklist, wrong items, lineature/format comparison, or school-material sorting.",
@@ -957,19 +957,39 @@ function getBitmapLineUnits(line: string) {
 
 
 function compactHookForVisualOverlay(input: string) {
-  return normalizeHook(input)
+  const normalized = normalizeHook(input);
+
+  if (!normalized) return "";
+
+  let value = normalized
+    .replace(/\bWIRKLICH\b/g, "")
+    .replace(/\bEIGENTLICH\b/g, "")
     .replace(/\bSCHULMATERIALLISTEN\b/g, "SCHULLISTEN")
     .replace(/\bSCHULMATERIALLISTE\b/g, "SCHULLISTE")
     .replace(/\bSCHULMATERIALIEN\b/g, "SCHULSACHEN")
     .replace(/\bSCHULMATERIAL\b/g, "SCHULSACHEN")
-    .replace(/\bMATERIALIEN\b/g, "SACHEN")
     .replace(/\bEINKAUFSLISTE\b/g, "LISTE")
-    .replace(/\bMATERIAL-LISTE\b/g, "LISTE")
     .replace(/\bCHECKLISTE\b/g, "LISTE")
     .replace(/\s+/g, " ")
     .trim();
-}
 
+  if (/^WAS STECKT\b/.test(value) && /\bSCHULLISTE\b/.test(value)) {
+    return "WAS STECKT IN DER SCHULLISTE?";
+  }
+
+  if (/^WAS BRAUCHT\b/.test(value) && value.length > 34) {
+    return "WAS BRAUCHT DEIN KIND?";
+  }
+
+  if (value.length > 42 && /\bSCHULLISTE\b/.test(value)) {
+    return value
+      .replace(/\bIN DER SCHULLISTE\b/g, "")
+      .replace(/\s+/g, " ")
+      .trim() + " SCHULLISTE?";
+  }
+
+  return value;
+}
 function getVisualHookMaxLines(template: TemplateConfig) {
   if (template.key === "stress-schreibtisch") {
     return Math.max(template.hookMaxLines, 5);
@@ -1544,6 +1564,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
