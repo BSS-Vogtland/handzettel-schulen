@@ -955,19 +955,126 @@ function getBitmapLineUnits(line: string) {
   return Math.max(1, units - 1);
 }
 
+
+function compactHookForVisualOverlay(input: string) {
+  return normalizeHook(input)
+    .replace(/\bSCHULMATERIALLISTEN\b/g, "SCHULLISTEN")
+    .replace(/\bSCHULMATERIALLISTE\b/g, "SCHULLISTE")
+    .replace(/\bSCHULMATERIALIEN\b/g, "SCHULSACHEN")
+    .replace(/\bSCHULMATERIAL\b/g, "SCHULSACHEN")
+    .replace(/\bMATERIALIEN\b/g, "SACHEN")
+    .replace(/\bEINKAUFSLISTE\b/g, "LISTE")
+    .replace(/\bMATERIAL-LISTE\b/g, "LISTE")
+    .replace(/\bCHECKLISTE\b/g, "LISTE")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getVisualHookMaxLines(template: TemplateConfig) {
+  if (template.key === "stress-schreibtisch") {
+    return Math.max(template.hookMaxLines, 5);
+  }
+
+  if (template.key === "erleichtert-loesung") {
+    return Math.max(template.hookMaxLines, 4);
+  }
+
+  return template.hookMaxLines;
+}
+
+function getVisualHookMaxCharsPerLine(template: TemplateConfig) {
+  if (template.key === "stress-schreibtisch") {
+    return Math.max(template.hookMaxCharsPerLine, 13);
+  }
+
+  if (template.key === "erleichtert-loesung") {
+    return Math.max(template.hookMaxCharsPerLine, 11);
+  }
+
+  return template.hookMaxCharsPerLine;
+}
+
+function getHookCompareWords(value: string) {
+  return normalizeBitmapText(value)
+    .replace(/[.!?,;:&:\/-]/g, " ")
+    .split(" ")
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 3);
+}
+
+function didRenderMainHookWords(source: string, lines: string[]) {
+  const sourceWords = Array.from(new Set(getHookCompareWords(source)));
+
+  if (sourceWords.length === 0) return true;
+
+  const renderedWords = new Set(getHookCompareWords(lines.join(" ")));
+
+  return sourceWords.every((word) => renderedWords.has(word));
+}
+
+function buildSafeHookOverlayLines(
+  post: SocialPostRow,
+  template: TemplateConfig
+) {
+  const source = post.hook || post.topic || "Dein Hook";
+  const compactedSource = compactHookForVisualOverlay(source);
+
+  const baseMaxLines = getVisualHookMaxLines(template);
+  const baseMaxCharsPerLine = getVisualHookMaxCharsPerLine(template);
+
+  const attempts = [
+    {
+      maxCharsPerLine: baseMaxCharsPerLine,
+      maxLines: baseMaxLines,
+    },
+    {
+      maxCharsPerLine: baseMaxCharsPerLine + 2,
+      maxLines: baseMaxLines,
+    },
+    {
+      maxCharsPerLine: baseMaxCharsPerLine + 4,
+      maxLines: Math.min(baseMaxLines + 1, 6),
+    },
+  ];
+
+  let bestLines: string[] = [];
+
+  for (const attempt of attempts) {
+    const lines = wrapText(
+      compactedSource,
+      attempt.maxCharsPerLine,
+      attempt.maxLines
+    )
+      .map((line) => normalizeBitmapText(line))
+      .filter(Boolean);
+
+    if (!bestLines.length && lines.length) {
+      bestLines = lines;
+    }
+
+    if (didRenderMainHookWords(compactedSource, lines)) {
+      return lines;
+    }
+  }
+
+  const fallbackLines = bestLines.length ? bestLines : ["DEIN HOOK"];
+
+  if (!didRenderMainHookWords(compactedSource, fallbackLines)) {
+    const lastIndex = fallbackLines.length - 1;
+
+    fallbackLines[lastIndex] = `${fallbackLines[lastIndex]
+      .replace(/[.!?]+$/g, "")
+      .replace(/\.+$/g, "")
+      .trim()}...`;
+  }
+
+  return fallbackLines;
+}
 function createHookOverlayBuffer(
   post: SocialPostRow,
   template: TemplateConfig
 ) {
-  const rawLines = wrapText(
-    post.hook || post.topic || "Dein Hook",
-    template.hookMaxCharsPerLine,
-    template.hookMaxLines
-  );
-
-  const lines = rawLines
-    .map((line) => normalizeBitmapText(line))
-    .filter(Boolean);
+  const lines = buildSafeHookOverlayLines(post, template);
 
   const safeLines = lines.length ? lines : ["DEIN HOOK"];
 
@@ -978,7 +1085,7 @@ function createHookOverlayBuffer(
     safeLines.length * glyphHeight + (safeLines.length - 1) * lineGapUnits;
 
   const scale = Math.max(
-    2,
+    1,
     Math.floor(
       Math.min(
         (template.hookBox.width - 64) / maxLineUnits,
@@ -988,7 +1095,7 @@ function createHookOverlayBuffer(
     )
   );
 
-  const blockSize = Math.max(3, Math.round(scale * 0.86));
+  const blockSize = Math.max(1, Math.round(scale * 0.86));
   const xStart = 20;
   const yStart = Math.round(
     (template.hookBox.height - totalHeightUnits * scale) / 2
@@ -1437,6 +1544,7 @@ export async function POST(
     );
   }
 }
+
 
 
 
