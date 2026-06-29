@@ -12,6 +12,7 @@ import {
   FileText,
   Hash,
   ImageIcon,
+  ListChecks,
   Mail,
   Megaphone,
   PlugZap,
@@ -466,6 +467,13 @@ export default async function AdminSocialPage() {
             <div className="flex flex-col items-start gap-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:flex-col">
                 <AdminSocialGenerateButton />
+                <Link
+                  href="/admin/social/workflow"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#A23A2E] bg-[#FFF7F2] px-5 py-3 text-sm font-black text-[#A23A2E] shadow-sm transition hover:bg-[#F5E8D8]"
+                >
+                  <ListChecks className="h-4 w-4" />
+                  Workflow starten
+                </Link>
                 <AdminSocialCreateWeekPlanButton
                   eligibleCount={approvedUnscheduledCount}
                   scheduledCount={scheduledCount}
@@ -1173,3 +1181,5 @@ export default async function AdminSocialPage() {
     </main>
   );
 }
+
+
