@@ -59,20 +59,20 @@ const FALLBACK_PROJECT: SocialProjectRow = {
   target_audience:
     "Eltern von Schulkindern, besonders vor dem Schulstart und bei Materiallisten",
   offer_summary:
-    "Eltern laden ihre Schulmaterialliste hoch. Daraus wird ein vorbereiteter Paketwunsch erstellt. Die Eltern können alles prüfen und senden erst danach bewusst ab.",
+    "Eltern laden ihre Schulmaterialliste online hoch. Daraus wird ein vorbereiteter Paketwunsch mit passenden Artikeln erstellt. Die Eltern prüfen kurz, wählen bewusst aus und können das Schulmaterial online vorbereiten bzw. bestellen, statt stundenlang durch Geschäfte zu laufen.",
   brand_voice:
     "Direkt, verständlich, modern, vertrauenswürdig, elternnah, hilfreich, nicht aufdringlich",
   image_style:
     "Familiennah, alltagsnah, Schulstart, Materialliste, Eltern-Kind-Situation, keine Business-/Büro-Optik, Bild muss klar zum Hook passen",
   additional_notes:
-    "Upload ist noch keine Bestellung. Keine falschen Versprechen. Bilder sollen nicht wie reine Hausaufgabenhilfe wirken.",
+    "Upload ist noch keine automatische Bestellung. Keine falschen Versprechen. Der Hauptnutzen ist: Liste online hochladen, passende Artikel/Paketwunsch vorbereiten lassen, bewusst absenden und Zeit sparen. Nicht als reiner Prüfservice oder Hausaufgabenhilfe darstellen.",
   content_pillars: [
     "Fehlkäufe vermeiden",
     "Stress vor Schulstart reduzieren",
     "Sommerferien entspannt genießen",
-    "Schulmateriallisten verstehen",
-    "Lineatur, Format und Farben erklären",
-    "Upload und Paketwunsch erklären",
+    "Schulmaterialliste online hochladen",
+    "Schulmaterial online vorbereiten und bestellen",
+    "Paketwunsch erklären und abschließen",
     "Eltern entlasten",
     "Vertrauen und lokaler Service",
   ],
@@ -90,9 +90,9 @@ const FALLBACK_PROJECT: SocialProjectRow = {
     "keine reine Hausaufgabenhilfe-Bildsprache",
   ],
   cta_examples: [
-    "Lade Deine Materialliste hoch und prüfe Deinen Paketwunsch.",
-    "Teste den Upload für Deine Schulmaterialliste.",
-    "Spare Dir unnötigen Schulstart-Stress.",
+    "Lade Deine Schulmaterialliste hoch und lass Dein Paket online vorbereiten.",
+    "Schulmaterialliste hochladen, Paketwunsch prüfen und online bestellen.",
+    "Erledige den Schulmaterial-Einkauf in wenigen Minuten online statt stundenlang im Geschäft.",
   ],
   platform_targets: ["tiktok", "instagram", "facebook"],
 };
@@ -134,6 +134,62 @@ async function loadActiveProject() {
   }
 
   return data as SocialProjectRow;
+}
+
+
+function containsWeakInfoOnlyCta(value: string) {
+  const normalized = value.toLowerCase();
+
+  return (
+    normalized.includes("lerne, wie") ||
+    normalized.includes("lerne wie") ||
+    normalized.includes("prüfe deine liste") ||
+    normalized.includes("pruefe deine liste") ||
+    normalized.includes("liste einfacher") ||
+    normalized.includes("liste verstehen") ||
+    normalized.includes("einfach verstehst") ||
+    normalized.includes("einfacher verstehst") ||
+    normalized.includes("details verstehen") ||
+    normalized.includes("teste den upload")
+  );
+}
+
+function strengthenHandzettelCta(value: string) {
+  const cleaned = cleanString(value);
+
+  if (!cleaned || containsWeakInfoOnlyCta(cleaned)) {
+    return "Lade Deine Schulmaterialliste hoch und lass Dein Paket online vorbereiten.";
+  }
+
+  const lower = cleaned.toLowerCase();
+  const hasUpload = lower.includes("hochladen") || lower.includes("upload");
+  const hasOrderIntent =
+    lower.includes("bestell") ||
+    lower.includes("paket") ||
+    lower.includes("vorbereiten") ||
+    lower.includes("online erledigen") ||
+    lower.includes("schulmaterial");
+
+  if (hasUpload && hasOrderIntent) return cleaned;
+
+  if (lower.includes("prüf") || lower.includes("pruef")) {
+    return "Schulmaterialliste hochladen, Paketwunsch prüfen und online bestellen.";
+  }
+
+  return `${cleaned.replace(/[.\s]+$/g, "")} – Liste hochladen und Paket online vorbereiten lassen.`;
+}
+
+function strengthenHandzettelCaption(value: string) {
+  const cleaned = cleanString(value);
+
+  if (!cleaned) return "";
+
+  return cleaned
+    .replace(/Lerne, wie Du die Listen einfach verstehst mit Handzettel-Schulen\.de\.?/gi, "Lade Deine Schulmaterialliste hoch und lass Dein Paket online vorbereiten.")
+    .replace(/Prüfe Deine Liste einfacher mit Handzettel-Schulen\.de\.?/gi, "Lade Deine Liste hoch, prüfe Deinen Paketwunsch und erledige das Schulmaterial online.")
+    .replace(/Pruefe Deine Liste einfacher mit Handzettel-Schulen\.de\.?/gi, "Lade Deine Liste hoch, prüfe Deinen Paketwunsch und erledige das Schulmaterial online.")
+    .replace(/Liste einfacher verstehen\.?/gi, "Liste hochladen und Paket online vorbereiten lassen.")
+    .replace(/Details besser verstehen\.?/gi, "Passende Artikel auswählen und Schulmaterial online erledigen.");
 }
 
 function buildBrandingRules(project: SocialProjectRow) {
@@ -213,6 +269,15 @@ CTA-Beispiele:
 ${formatList(project.cta_examples, "- Mehr erfahren")}
 
 ${buildBrandingRules(project)}
+
+Conversion-Regeln für Handzettel-Schulen.de:
+- Handzettel-Schulen.de ist kein reiner Prüfservice und keine reine Erklärseite.
+- Der Hauptnutzen ist: Schulmaterialliste online hochladen, passende Artikel/Paketwunsch vorbereiten lassen, bewusst prüfen/auswählen und online absenden bzw. bestellen.
+- Kommuniziere klar den Zeitvorteil: in wenigen Minuten online erledigen statt stundenlang durch Geschäfte laufen.
+- CTAs müssen zu einer konkreten Handlung führen: Liste hochladen, Paket vorbereiten lassen, Schulmaterial online erledigen, Paketwunsch prüfen und absenden/bestellen.
+- Schwache reine Info-CTAs sind verboten: Lerne wie, Prüfe Deine Liste, Verstehe Deine Liste, Liste einfacher verstehen.
+- Prüfen darf nur als Zwischenschritt vorkommen, nicht als Endnutzen. Richtig: Paketwunsch prüfen und online bestellen.
+
 
 Wichtig:
 - Schreibe auf Deutsch.
@@ -449,38 +514,35 @@ export async function POST() {
       content_angle: cleanString(draft.content_angle, ""),
 
       hook: cleanString(draft.hook, "Neuer Social-Beitrag"),
-      caption: cleanString(draft.caption, ""),
-      cta: cleanString(
-        draft.cta,
-        project.cta_examples?.[0] || "Mehr erfahren."
-      ),
+      caption: strengthenHandzettelCaption(cleanString(draft.caption, "")),
+      cta: strengthenHandzettelCta(cleanString(draft.cta, project.cta_examples?.[0] || "Lade Deine Schulmaterialliste hoch und lass Dein Paket online vorbereiten.")),
 
       hashtags: cleanStringArray(draft.hashtags),
       keywords: cleanStringArray(draft.keywords),
 
       tiktok_hook: cleanString(draft.tiktok?.hook, cleanString(draft.hook, "")),
-      tiktok_caption: cleanString(
+      tiktok_caption: strengthenHandzettelCaption(cleanString(
         draft.tiktok?.caption,
         cleanString(draft.caption, "")
-      ),
+      )),
 
       instagram_hook: cleanString(
         draft.instagram?.hook,
         cleanString(draft.hook, "")
       ),
-      instagram_caption: cleanString(
+      instagram_caption: strengthenHandzettelCaption(cleanString(
         draft.instagram?.caption,
         cleanString(draft.caption, "")
-      ),
+      )),
 
       facebook_hook: cleanString(
         draft.facebook?.hook,
         cleanString(draft.hook, "")
       ),
-      facebook_caption: cleanString(
+      facebook_caption: strengthenHandzettelCaption(cleanString(
         draft.facebook?.caption,
         cleanString(draft.caption, "")
-      ),
+      )),
 
       image_prompt: cleanString(draft.image_prompt, ""),
       video_prompt: cleanString(draft.video_prompt, ""),
@@ -530,6 +592,7 @@ export async function POST() {
     );
   }
 }
+
 
 
 
