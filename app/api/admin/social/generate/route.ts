@@ -40,6 +40,10 @@ type SocialPostDraft = {
   facebook?: PlatformContent;
 };
 
+type GenerateSocialPostsRequest = {
+  postCount?: unknown;
+};
+
 type OpenAiResponse = {
   choices?: Array<{
     message?: {
@@ -110,6 +114,34 @@ function cleanStringArray(value: unknown) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 30);
+}
+
+function normalizePostCount(value: unknown) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : 8;
+
+  if (!Number.isFinite(numericValue)) return 8;
+
+  const rounded = Math.round(numericValue);
+
+  if (rounded < 1) return 1;
+  if (rounded > 20) return 20;
+
+  return rounded;
+}
+
+async function readGenerateRequestBody(request: Request) {
+  try {
+    const body = (await request.json()) as GenerateSocialPostsRequest;
+
+    return body && typeof body === "object" ? body : {};
+  } catch {
+    return {};
+  }
 }
 
 function formatList(values: string[] | null | undefined, fallback: string) {
@@ -293,11 +325,11 @@ Wichtig:
 `;
 }
 
-function buildUserPrompt(project: SocialProjectRow) {
+function buildUserPrompt(project: SocialProjectRow, postCount: number) {
   const brandName = project.name || FALLBACK_PROJECT.name;
 
   return `
-Erstelle 8 Social-Media-Beiträge für dieses Projekt:
+Erstelle  Social-Media-Beiträge für dieses Projekt:
 
 Projekt:
 ${project.name}
@@ -404,7 +436,7 @@ Antworte ausschließlich als valides JSON in dieser Struktur:
 `;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -417,6 +449,9 @@ export async function POST() {
         { status: 500 }
       );
     }
+
+    const generateBody = await readGenerateRequestBody(request);
+    const postCount = normalizePostCount(generateBody.postCount);
 
     const project = await loadActiveProject();
     const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -440,7 +475,7 @@ export async function POST() {
             },
             {
               role: "user",
-              content: buildUserPrompt(project),
+              content: buildUserPrompt(project, postCount),
             },
           ],
         }),
@@ -487,7 +522,7 @@ export async function POST() {
       );
     }
 
-    const drafts = Array.isArray(parsed.posts) ? parsed.posts : [];
+    const drafts = (Array.isArray(parsed.posts) ? parsed.posts : []).slice(0, postCount);
 
     if (drafts.length === 0) {
       return NextResponse.json(
@@ -592,6 +627,7 @@ export async function POST() {
     );
   }
 }
+
 
 
 
