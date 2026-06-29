@@ -102,6 +102,7 @@ function formatDateTime(value: string | null) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Europe/Berlin",
   }).format(new Date(value));
 }
 
@@ -398,9 +399,10 @@ function formatPublishStatusDate(value: string | null) {
 
   try {
     return new Intl.DateTimeFormat("de-DE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(value));
   } catch {
     return value;
   }
@@ -1525,6 +1527,7 @@ export default async function AdminSocialPostingPage({
     </main>
   );
 }
+
 
 
 

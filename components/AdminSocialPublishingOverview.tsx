@@ -337,9 +337,10 @@ function formatDate(value: unknown) {
 
   try {
     return new Intl.DateTimeFormat("de-DE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(dateValue));
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(dateValue));
   } catch {
     return dateValue;
   }
@@ -745,3 +746,4 @@ export default function AdminSocialPublishingOverview({
     </section>
   );
 }
+

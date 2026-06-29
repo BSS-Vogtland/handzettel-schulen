@@ -71,9 +71,10 @@ function formatDate(value: string | undefined) {
 
   try {
     return new Intl.DateTimeFormat("de-DE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(value));
   } catch {
     return value;
   }
@@ -430,3 +431,4 @@ export default function AdminSocialTikTokAssetStatus({
     </section>
   );
 }
+
