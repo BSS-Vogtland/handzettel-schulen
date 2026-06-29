@@ -6,6 +6,7 @@ import { Video } from "lucide-react";
 
 type AdminSocialGenerateVideoButtonProps = {
   postId: string;
+  sourceImageAssetId?: string | null;
   disabled?: boolean;
   disabledReason?: string;
 };
@@ -30,6 +31,7 @@ const DURATION_OPTIONS = [
 
 export default function AdminSocialGenerateVideoButton({
   postId,
+  sourceImageAssetId = null,
   disabled = false,
   disabledReason,
 }: AdminSocialGenerateVideoButtonProps) {
@@ -47,7 +49,7 @@ export default function AdminSocialGenerateVideoButton({
     }
 
     const confirmed = window.confirm(
-      `${durationSeconds}-Sekunden-Video aus dem neuesten Social-Bild erzeugen?`
+      `${durationSeconds}-Sekunden-Video aus dem aktuell angezeigten Social-Bild erzeugen?`
     );
 
     if (!confirmed) return;
@@ -63,6 +65,7 @@ export default function AdminSocialGenerateVideoButton({
         },
         body: JSON.stringify({
           durationSeconds,
+          sourceImageAssetId: sourceImageAssetId || undefined,
         }),
       });
 
@@ -128,6 +131,13 @@ export default function AdminSocialGenerateVideoButton({
       <p className="text-xs font-semibold leading-5 text-[#627D98]">
         30 Sekunden ist die bessere Grundlage, wenn später längere Musik oder Reel-Audio genutzt werden soll.
       </p>
+
+      {sourceImageAssetId ? (
+        <p className="text-xs font-bold leading-5 text-emerald-800">
+          Quellbild-ID für neue Videos: {sourceImageAssetId.slice(0, 8)}
+        </p>
+      ) : null}
     </div>
   );
 }
+

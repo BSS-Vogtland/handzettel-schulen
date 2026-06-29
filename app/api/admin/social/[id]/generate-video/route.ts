@@ -29,6 +29,7 @@ type SocialAssetRow = {
 
 type GenerateVideoRequestBody = {
   durationSeconds?: unknown;
+  sourceImageAssetId?: unknown;
 };
 
 function isUuid(value: string) {
@@ -240,6 +241,20 @@ export async function POST(
 
     const body = (await request.json().catch(() => ({}))) as GenerateVideoRequestBody;
     const durationSeconds = normalizeDurationSeconds(body.durationSeconds);
+    const sourceImageAssetId =
+      typeof body.sourceImageAssetId === "string"
+        ? body.sourceImageAssetId.trim()
+        : "";
+
+    if (sourceImageAssetId && !isUuid(sourceImageAssetId)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Ungültige Bild-Asset-ID für die Video-Erzeugung.",
+        },
+        { status: 400 }
+      );
+    }
 
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
@@ -257,15 +272,23 @@ export async function POST(
       );
     }
 
-    const { data: imageAssetData, error: imageAssetError } = await supabaseServer
+        let imageAssetQuery = supabaseServer
       .from("social_assets")
       .select("*")
       .eq("post_id", postId)
       .eq("asset_type", "image")
-      .eq("status", "ready")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("status", "ready");
+
+    if (sourceImageAssetId) {
+      imageAssetQuery = imageAssetQuery.eq("id", sourceImageAssetId).limit(1);
+    } else {
+      imageAssetQuery = imageAssetQuery
+        .order("created_at", { ascending: false })
+        .limit(1);
+    }
+
+    const { data: imageAssetData, error: imageAssetError } =
+      await imageAssetQuery.maybeSingle();
 
     if (imageAssetError) {
       return NextResponse.json(
@@ -281,8 +304,9 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          message:
-            "Es wurde kein fertiges Bild-Asset gefunden. Bitte zuerst ein Bild für diesen Beitrag erzeugen.",
+          message: sourceImageAssetId
+            ? "Das ausgewählte Bild-Asset wurde nicht gefunden oder ist nicht bereit. Bitte Seite neu laden und Bild erneut prüfen."
+            : "Es wurde kein fertiges Bild-Asset gefunden. Bitte zuerst ein Bild für diesen Beitrag erzeugen.",
         },
         { status: 400 }
       );
@@ -410,7 +434,7 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      message: `Animiertes ${durationSeconds}-Sekunden-Video wurde erzeugt.`,
+      message: `Animiertes ${durationSeconds}-Sekunden-Video wurde erzeugt. Quelle: Bild ${imageAsset.id.slice(0, 8)}.`,
       asset: videoAssetData,
     });
   } catch (error) {
@@ -430,3 +454,4 @@ export async function POST(
     await rm(tempDir, { recursive: true, force: true }).catch(() => null);
   }
 }
+

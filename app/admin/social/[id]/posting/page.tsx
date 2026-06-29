@@ -756,6 +756,7 @@ export default async function AdminSocialPostingPage({
                 
                 <AdminSocialGenerateVideoButton
                   postId={post.id}
+                  sourceImageAssetId={latestAsset?.id || null}
                   disabled={!hasReadyImage}
                   disabledReason={
                     hasReadyImage
@@ -973,6 +974,7 @@ export default async function AdminSocialPostingPage({
 
                 <AdminSocialGenerateVideoButton
                   postId={post.id}
+                  sourceImageAssetId={latestAsset?.id || null}
                   disabled={!hasReadyImage}
                   disabledReason={
                     hasReadyImage
@@ -1523,6 +1525,7 @@ export default async function AdminSocialPostingPage({
     </main>
   );
 }
+
 
 
 
