@@ -40,10 +40,25 @@ type CheckoutBody = {
   customerName?: string | null;
   email?: string | null;
   phone?: string | null;
+
+  billingName?: string | null;
+  billingEmail?: string | null;
+  billingPhone?: string | null;
+  billingStreet?: string | null;
+  billingPostalCode?: string | null;
+  billingCity?: string | null;
+
+  shippingAddressDiffers?: boolean | null;
+  shippingName?: string | null;
+  shippingStreet?: string | null;
+  shippingPostalCode?: string | null;
+  shippingCity?: string | null;
+
   childName?: string | null;
   schoolName?: string | null;
   className?: string | null;
   fulfillmentMethod?: "pickup" | "shipping" | null;
+  paymentMethod?: "paypal" | "bank_transfer" | null;
   customerMessage?: string | null;
   cartItems?: unknown;
 };
@@ -486,6 +501,33 @@ export async function POST(request: NextRequest) {
       body.fulfillmentMethod === "shipping" ? "shipping" : "pickup";
 
     const customerMessage = cleanNullableString(body.customerMessage);
+
+    const paymentMethod =
+      body.paymentMethod === "bank_transfer" ? "bank_transfer" : "paypal";
+    const paymentProvider =
+      paymentMethod === "paypal" ? "paypal" : "bank_transfer";
+
+    const billingName = cleanString(body.billingName || customerName);
+    const billingEmail = cleanString(body.billingEmail || email).toLowerCase();
+    const billingPhone = cleanNullableString(body.billingPhone || phone);
+    const billingStreet = cleanString(body.billingStreet);
+    const billingPostalCode = cleanString(body.billingPostalCode);
+    const billingCity = cleanString(body.billingCity);
+
+    const shippingAddressDiffers = Boolean(body.shippingAddressDiffers);
+    const shippingName = shippingAddressDiffers
+      ? cleanString(body.shippingName)
+      : null;
+    const shippingStreet = shippingAddressDiffers
+      ? cleanString(body.shippingStreet)
+      : null;
+    const shippingPostalCode = shippingAddressDiffers
+      ? cleanString(body.shippingPostalCode)
+      : null;
+    const shippingCity = shippingAddressDiffers
+      ? cleanString(body.shippingCity)
+      : null;
+
     const cartInputs = validateCartInputs(body.cartItems);
 
     if (!customerName) {
@@ -503,6 +545,49 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           message: "Bitte gib eine gültige E-Mail-Adresse ein.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!billingName) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte gib den Namen für die Rechnungsadresse ein.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!billingEmail || !billingEmail.includes("@")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte gib eine gültige Rechnungs-E-Mail-Adresse ein.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!billingStreet || !billingPostalCode || !billingCity) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte gib Deine vollständige Rechnungsadresse ein.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      shippingAddressDiffers &&
+      (!shippingName || !shippingStreet || !shippingPostalCode || !shippingCity)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte gib die vollständige abweichende Lieferadresse ein.",
         },
         { status: 400 }
       );
@@ -590,6 +675,21 @@ export async function POST(request: NextRequest) {
           email,
           phone,
 
+          billing_name: billingName,
+          billing_email: billingEmail,
+          billing_phone: billingPhone,
+          billing_street: billingStreet,
+          billing_postal_code: billingPostalCode,
+          billing_city: billingCity,
+
+          shipping_address_differs: shippingAddressDiffers,
+          shipping_name: shippingAddressDiffers ? shippingName : null,
+          shipping_street: shippingAddressDiffers ? shippingStreet : null,
+          shipping_postal_code: shippingAddressDiffers
+            ? shippingPostalCode
+            : null,
+          shipping_city: shippingAddressDiffers ? shippingCity : null,
+
           child_name: childName,
           school_name: schoolName,
           class_name: className,
@@ -597,7 +697,7 @@ export async function POST(request: NextRequest) {
           message: messageParts.join("\n"),
           fulfillment_method: fulfillmentMethod,
 
-          cash_on_pickup_allowed: fulfillmentMethod === "pickup",
+          cash_on_pickup_allowed: false,
 
           discount_campaign_id: appliedDiscount.campaignId,
           discount_amount: discountAmount,
@@ -713,8 +813,8 @@ export async function POST(request: NextRequest) {
 
         invoice_status: "draft",
         payment_status: "not_selected",
-        selected_payment_method: "paypal",
-        payment_provider: "paypal",
+        selected_payment_method: paymentMethod,
+        payment_provider: paymentProvider,
 
         subtotal_amount: subtotalAmount,
         shipping_amount: shippingAmount,
@@ -729,6 +829,21 @@ export async function POST(request: NextRequest) {
         customer_name_snapshot: customerName,
         customer_email_snapshot: email,
         customer_phone_snapshot: phone,
+
+        billing_name_snapshot: billingName,
+        billing_email_snapshot: billingEmail,
+        billing_phone_snapshot: billingPhone,
+        billing_street_snapshot: billingStreet,
+        billing_postal_code_snapshot: billingPostalCode,
+        billing_city_snapshot: billingCity,
+
+        shipping_address_differs_snapshot: shippingAddressDiffers,
+        shipping_name_snapshot: shippingAddressDiffers ? shippingName : null,
+        shipping_street_snapshot: shippingAddressDiffers ? shippingStreet : null,
+        shipping_postal_code_snapshot: shippingAddressDiffers
+          ? shippingPostalCode
+          : null,
+        shipping_city_snapshot: shippingAddressDiffers ? shippingCity : null,
 
         child_name_snapshot: childName,
         school_name_snapshot: schoolName,
@@ -821,7 +936,7 @@ export async function POST(request: NextRequest) {
       .update({
         invoice_status: "draft",
         payment_status: "not_selected",
-        selected_payment_method: "paypal",
+        selected_payment_method: paymentMethod,
         latest_invoice_id: invoice.id,
         shipping_amount: shippingAmount,
         discount_campaign_id: appliedDiscount.campaignId,

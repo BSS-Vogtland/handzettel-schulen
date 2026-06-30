@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { FormEvent } from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +14,7 @@ import {
 } from "../_lib/shopCart";
 
 type FulfillmentMethod = "pickup" | "shipping";
+type PaymentMethod = "paypal" | "bank_transfer";
 
 type CheckoutResponse = {
   ok?: boolean;
@@ -33,15 +35,27 @@ export default function ShopCheckoutPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
+  const [billingStreet, setBillingStreet] = useState("");
+  const [billingPostalCode, setBillingPostalCode] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+
+  const [shippingAddressDiffers, setShippingAddressDiffers] = useState(false);
+  const [shippingName, setShippingName] = useState("");
+  const [shippingStreet, setShippingStreet] = useState("");
+  const [shippingPostalCode, setShippingPostalCode] = useState("");
+  const [shippingCity, setShippingCity] = useState("");
+
   const [childName, setChildName] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [className, setClassName] = useState("");
 
   const [fulfillmentMethod, setFulfillmentMethod] =
     useState<FulfillmentMethod>("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("paypal");
 
   const [customerMessage, setCustomerMessage] = useState("");
 
+  const [isReviewing, setIsReviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,11 +71,80 @@ export default function ShopCheckoutPage() {
   const shippingAmount = fulfillmentMethod === "shipping" ? SHIPPING_AMOUNT : 0;
   const totalAmount = subtotal + shippingAmount;
 
+  const effectiveShippingName = shippingAddressDiffers
+    ? shippingName.trim()
+    : customerName.trim();
+  const effectiveShippingStreet = shippingAddressDiffers
+    ? shippingStreet.trim()
+    : billingStreet.trim();
+  const effectiveShippingPostalCode = shippingAddressDiffers
+    ? shippingPostalCode.trim()
+    : billingPostalCode.trim();
+  const effectiveShippingCity = shippingAddressDiffers
+    ? shippingCity.trim()
+    : billingCity.trim();
+
   function refreshCart() {
     setCartItems(readShopCart());
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function validateCheckout(currentCartItems: ShopCartItem[]) {
+    if (currentCartItems.length === 0) {
+      setFormError("Dein Warenkorb ist leer.");
+      return false;
+    }
+
+    if (!customerName.trim()) {
+      setFormError("Bitte gib Deinen Namen ein.");
+      return false;
+    }
+
+    if (!email.trim() || !email.includes("@")) {
+      setFormError("Bitte gib eine gültige E-Mail-Adresse ein.");
+      return false;
+    }
+
+    if (!billingStreet.trim()) {
+      setFormError("Bitte gib Straße und Hausnummer Deiner Rechnungsadresse ein.");
+      return false;
+    }
+
+    if (!billingPostalCode.trim()) {
+      setFormError("Bitte gib die PLZ Deiner Rechnungsadresse ein.");
+      return false;
+    }
+
+    if (!billingCity.trim()) {
+      setFormError("Bitte gib den Ort Deiner Rechnungsadresse ein.");
+      return false;
+    }
+
+    if (shippingAddressDiffers) {
+      if (!shippingName.trim()) {
+        setFormError("Bitte gib den Namen für die abweichende Lieferadresse ein.");
+        return false;
+      }
+
+      if (!shippingStreet.trim()) {
+        setFormError("Bitte gib Straße und Hausnummer der Lieferadresse ein.");
+        return false;
+      }
+
+      if (!shippingPostalCode.trim()) {
+        setFormError("Bitte gib die PLZ der Lieferadresse ein.");
+        return false;
+      }
+
+      if (!shippingCity.trim()) {
+        setFormError("Bitte gib den Ort der Lieferadresse ein.");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setFormMessage(null);
@@ -71,18 +154,22 @@ export default function ShopCheckoutPage() {
 
     const currentCartItems = readShopCart();
 
-    if (currentCartItems.length === 0) {
-      setFormError("Dein Warenkorb ist leer.");
+    if (!validateCheckout(currentCartItems)) {
       return;
     }
 
-    if (!customerName.trim()) {
-      setFormError("Bitte gib Deinen Namen ein.");
-      return;
-    }
+    if (!isReviewing) {
+      setIsReviewing(true);
+      setFormMessage(
+        "Bitte prüfe Deine Bestellung unten. Danach kannst Du verbindlich bestellen."
+      );
 
-    if (!email.trim() || !email.includes("@")) {
-      setFormError("Bitte gib eine gültige E-Mail-Adresse ein.");
+      requestAnimationFrame(() => {
+        document
+          .getElementById("shop-checkout-review")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
       return;
     }
 
@@ -98,10 +185,25 @@ export default function ShopCheckoutPage() {
           customerName,
           email,
           phone,
+
+          billingName: customerName,
+          billingEmail: email,
+          billingPhone: phone,
+          billingStreet,
+          billingPostalCode,
+          billingCity,
+
+          shippingAddressDiffers,
+          shippingName: shippingAddressDiffers ? shippingName : "",
+          shippingStreet: shippingAddressDiffers ? shippingStreet : "",
+          shippingPostalCode: shippingAddressDiffers ? shippingPostalCode : "",
+          shippingCity: shippingAddressDiffers ? shippingCity : "",
+
           childName,
           schoolName,
           className,
           fulfillmentMethod,
+          paymentMethod,
           customerMessage,
           cartItems: currentCartItems,
         }),
@@ -120,7 +222,7 @@ export default function ShopCheckoutPage() {
 
       clearShopCart();
       setCartItems([]);
-      setFormMessage("Bestellung erstellt. Du wirst zur Zahlung weitergeleitet.");
+      setFormMessage("Bestellung erstellt. Du wirst zur Rechnung weitergeleitet.");
 
       router.push(data.redirectUrl);
     } catch (error) {
@@ -154,8 +256,8 @@ export default function ShopCheckoutPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[#4c5870]">
-              Gib Deine Daten ein. Danach erzeugen wir automatisch eine Rechnung
-              und leiten Dich zur bestehenden Zahlungsseite weiter.
+              Gib Deine Rechnungsdaten ein, wähle Versand oder Abholung und prüfe
+              Deine Bestellung. Danach kannst Du verbindlich bestellen.
             </p>
           </div>
 
@@ -189,8 +291,7 @@ export default function ShopCheckoutPage() {
             </div>
 
             <div className="mt-5 rounded-2xl bg-[#e7f7ec] p-4 text-sm font-bold leading-6 text-[#246b3a] ring-1 ring-[#bfe7c9]">
-              Danach nutzt Du die bestehende Rechnung & Zahlung mit PayPal oder
-              Überweisung.
+              PayPal ist vorausgewählt. Alternativ kannst Du Überweisung wählen.
             </div>
           </div>
         </div>
@@ -238,7 +339,7 @@ export default function ShopCheckoutPage() {
             <>
               <section>
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#9b2f23]">
-                  Kundendaten
+                  Rechnungsdaten
                 </p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -278,7 +379,123 @@ export default function ShopCheckoutPage() {
                       placeholder="Optional"
                     />
                   </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#172033]">
+                      Straße und Hausnummer *
+                    </label>
+                    <input
+                      value={billingStreet}
+                      onChange={(event) => setBillingStreet(event.target.value)}
+                      className="w-full rounded-2xl border border-[#d8cdbb] bg-[#fffaf2] px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:bg-white focus:ring-4 focus:ring-[#9b2f23]/10"
+                      placeholder="z. B. Musterstraße 1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#172033]">
+                      PLZ *
+                    </label>
+                    <input
+                      value={billingPostalCode}
+                      onChange={(event) =>
+                        setBillingPostalCode(event.target.value)
+                      }
+                      className="w-full rounded-2xl border border-[#d8cdbb] bg-[#fffaf2] px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:bg-white focus:ring-4 focus:ring-[#9b2f23]/10"
+                      placeholder="z. B. 08468"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[#172033]">
+                      Ort *
+                    </label>
+                    <input
+                      value={billingCity}
+                      onChange={(event) => setBillingCity(event.target.value)}
+                      className="w-full rounded-2xl border border-[#d8cdbb] bg-[#fffaf2] px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:bg-white focus:ring-4 focus:ring-[#9b2f23]/10"
+                      placeholder="z. B. Reichenbach"
+                    />
+                  </div>
                 </div>
+              </section>
+
+              <section className="mt-8 rounded-[2rem] border border-[#eadfce] bg-[#fffaf2] p-5">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={shippingAddressDiffers}
+                    onChange={(event) =>
+                      setShippingAddressDiffers(event.target.checked)
+                    }
+                    className="mt-1 h-5 w-5 rounded border-[#d8cdbb]"
+                  />
+                  <span>
+                    <span className="block text-sm font-black text-[#172033]">
+                      Lieferadresse weicht von Rechnungsadresse ab
+                    </span>
+                    <span className="mt-1 block text-sm font-semibold leading-6 text-[#5b667a]">
+                      Wenn Du hier nichts auswählst, verwenden wir die
+                      Rechnungsadresse auch als Lieferadresse.
+                    </span>
+                  </span>
+                </label>
+
+                {shippingAddressDiffers ? (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-[#172033]">
+                        Name Lieferadresse *
+                      </label>
+                      <input
+                        value={shippingName}
+                        onChange={(event) => setShippingName(event.target.value)}
+                        className="w-full rounded-2xl border border-[#d8cdbb] bg-white px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:ring-4 focus:ring-[#9b2f23]/10"
+                        placeholder="Vor- und Nachname"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-[#172033]">
+                        Straße und Hausnummer *
+                      </label>
+                      <input
+                        value={shippingStreet}
+                        onChange={(event) =>
+                          setShippingStreet(event.target.value)
+                        }
+                        className="w-full rounded-2xl border border-[#d8cdbb] bg-white px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:ring-4 focus:ring-[#9b2f23]/10"
+                        placeholder="z. B. Lieferstraße 2"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-[#172033]">
+                        PLZ *
+                      </label>
+                      <input
+                        value={shippingPostalCode}
+                        onChange={(event) =>
+                          setShippingPostalCode(event.target.value)
+                        }
+                        className="w-full rounded-2xl border border-[#d8cdbb] bg-white px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:ring-4 focus:ring-[#9b2f23]/10"
+                        placeholder="z. B. 08468"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-[#172033]">
+                        Ort *
+                      </label>
+                      <input
+                        value={shippingCity}
+                        onChange={(event) => setShippingCity(event.target.value)}
+                        className="w-full rounded-2xl border border-[#d8cdbb] bg-white px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:ring-4 focus:ring-[#9b2f23]/10"
+                        placeholder="z. B. Reichenbach"
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </section>
 
               <section className="mt-8">
@@ -368,6 +585,47 @@ export default function ShopCheckoutPage() {
               </section>
 
               <section className="mt-8">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#9b2f23]">
+                  Zahlungsart
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("paypal")}
+                    className={
+                      paymentMethod === "paypal"
+                        ? "rounded-[2rem] border-2 border-[#2F7D50] bg-[#F0FFF6] p-5 text-left shadow-sm"
+                        : "rounded-[2rem] border border-[#eadfce] bg-[#f7f1e8] p-5 text-left transition hover:bg-white"
+                    }
+                  >
+                    <p className="text-lg font-black text-[#172033]">PayPal</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5b667a]">
+                      Empfohlen. Nach der Bestellung kannst Du direkt über
+                      PayPal bezahlen.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("bank_transfer")}
+                    className={
+                      paymentMethod === "bank_transfer"
+                        ? "rounded-[2rem] border-2 border-[#2F7D50] bg-[#F0FFF6] p-5 text-left shadow-sm"
+                        : "rounded-[2rem] border border-[#eadfce] bg-[#f7f1e8] p-5 text-left transition hover:bg-white"
+                    }
+                  >
+                    <p className="text-lg font-black text-[#172033]">
+                      Überweisung
+                    </p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#5b667a]">
+                      Du erhältst die Bankdaten nach dem verbindlichen Absenden.
+                    </p>
+                  </button>
+                </div>
+              </section>
+
+              <section className="mt-8">
                 <label className="mb-2 block text-sm font-bold text-[#172033]">
                   Hinweis zur Bestellung
                 </label>
@@ -376,9 +634,82 @@ export default function ShopCheckoutPage() {
                   onChange={(event) => setCustomerMessage(event.target.value)}
                   rows={4}
                   className="w-full rounded-2xl border border-[#d8cdbb] bg-[#fffaf2] px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:bg-white focus:ring-4 focus:ring-[#9b2f23]/10"
-                  placeholder="Optional, z. B. besondere Hinweise zur Abholung."
+                  placeholder="Optional, z. B. besondere Hinweise zur Abholung oder Lieferung."
                 />
               </section>
+
+              {isReviewing ? (
+                <section
+                  id="shop-checkout-review"
+                  className="mt-8 rounded-[2rem] border border-[#BFE3CD] bg-[#F0FFF6] p-5"
+                >
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#2F7D50]">
+                    Bitte prüfen
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-black text-[#172033]">
+                    Deine Bestellung
+                  </h2>
+
+                  <div className="mt-5 grid gap-4 text-sm font-semibold leading-6 text-[#52616F] md:grid-cols-2">
+                    <div>
+                      <p className="font-black text-[#172033]">
+                        Rechnungsadresse
+                      </p>
+                      <p>{customerName}</p>
+                      <p>{billingStreet}</p>
+                      <p>
+                        {billingPostalCode} {billingCity}
+                      </p>
+                      <p>{email}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-black text-[#172033]">
+                        Lieferadresse
+                      </p>
+                      <p>{effectiveShippingName}</p>
+                      <p>{effectiveShippingStreet}</p>
+                      <p>
+                        {effectiveShippingPostalCode} {effectiveShippingCity}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-black text-[#172033]">Übergabe</p>
+                      <p>
+                        {fulfillmentMethod === "shipping"
+                          ? "Versand"
+                          : "Abholung im Laden"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-black text-[#172033]">Zahlungsart</p>
+                      <p>
+                        {paymentMethod === "paypal" ? "PayPal" : "Überweisung"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl bg-white p-4">
+                    <div className="flex items-center justify-between gap-4 text-sm font-bold text-[#52616F]">
+                      <span>Warenwert</span>
+                      <span>{formatShopPrice(subtotal)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-4 text-sm font-bold text-[#52616F]">
+                      <span>Versand</span>
+                      <span>{formatShopPrice(shippingAmount)}</span>
+                    </div>
+                    <div className="mt-4 border-t border-[#E8DED2] pt-4">
+                      <div className="flex items-center justify-between gap-4 text-lg font-black text-[#172033]">
+                        <span>Gesamt</span>
+                        <span>{formatShopPrice(totalAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
 
               <button
                 type="submit"
@@ -386,13 +717,15 @@ export default function ShopCheckoutPage() {
                 className="mt-8 w-full rounded-2xl bg-[#172033] px-6 py-5 text-sm font-black text-white shadow-sm transition hover:bg-[#9b2f23] disabled:cursor-not-allowed disabled:bg-[#9aa3b3]"
               >
                 {isSubmitting
-                  ? "Bestellung wird vorbereitet ..."
-                  : "Bestellung absenden und zur Zahlung"}
+                  ? "Bestellung wird erstellt ..."
+                  : isReviewing
+                  ? "Verbindlich bestellen"
+                  : "Bestellung prüfen"}
               </button>
 
               <p className="mt-4 text-center text-xs font-semibold leading-5 text-[#5b667a]">
-                Du wirst danach zur bestehenden Rechnungs- und Zahlungsseite
-                weitergeleitet.
+                Nach dem verbindlichen Absenden erhältst Du die Rechnung und
+                kannst je nach Zahlungsart direkt bezahlen oder überweisen.
               </p>
             </>
           )}
@@ -420,7 +753,7 @@ export default function ShopCheckoutPage() {
 
                   <p className="mt-1 text-xs font-semibold text-[#5b667a]">
                     Menge: {item.quantity}
-                    {item.sku ? ` · Art.-Nr.: ${item.sku}` : ""}
+                    {item.sku ? " · Art.-Nr.: " + item.sku : ""}
                   </p>
 
                   {item.sourceType === "reorder_from_school_list" ? (
