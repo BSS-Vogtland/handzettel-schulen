@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import {
   PDFDocument,
@@ -80,15 +80,17 @@ type InvoiceItemRow = {
 
 const COMPANY = {
   name: "Handzettel-Schulen.de",
-  legalName: "Bürotechnik Schwalm & Staffe",
-  street: "BITTE FIRMENADRESSE ERGÄNZEN",
-  city: "BITTE PLZ ORT ERGÄNZEN",
-  email: "info@handzettel-schulen.de",
+  legalName: "BÃ¼rotechnik Schwalm & Staffe",
+  ownerLine: "Inh. Heike Leopold",
+  street: "Zwickauer Str. 167",
+  city: "08468 Reichenbach",
+  phoneLine: "Tel.: 03765 / 16175 Â· 03765 / 69808",
+  email: "kontakt@bss-vogtland.de",
   website: "www.handzettel-schulen.de",
-  taxLine: "Steuernummer / USt-IdNr.: BITTE ERGÄNZEN",
-  bankLine1: "Bankverbindung: BITTE ERGÄNZEN",
-  bankLine2: "IBAN: BITTE ERGÄNZEN",
-  paypalLine: "PayPal: BITTE PAYPAL-KONTO ERGÄNZEN",
+  taxLine: "Steuernummer: 223/244/09843 Â· USt-IdNr.: DE257963936",
+  bankLine1: "Bank: Sparkasse Vogtland",
+  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 Â· BIC: WELADED1PLX",
+  paypalLine: "PayPal-Zahlung Ã¼ber den Zahlungslink in der Rechnungs-Mail.",
 };
 
 const COLORS = {
@@ -108,7 +110,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -139,7 +141,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -153,30 +155,78 @@ function getPaymentMethodLabel(method: string | null) {
     case "paypal":
       return "PayPal";
     case "bank_transfer":
-      return "Überweisung Vorkasse";
+      return "Ãœberweisung Vorkasse";
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "Noch nicht gewählt";
+      return "Noch nicht gewÃ¤hlt";
   }
 }
 
 function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewählt";
+  return "Noch nicht gewÃ¤hlt";
 }
 
-function safeText(value: unknown, fallback = "—") {
+function safeText(value: unknown, fallback = "â€”") {
   const text = String(value || "").trim();
   return text.length > 0 ? text : fallback;
 }
 
 function cleanFileName(value: string) {
   return value
-    .replace(/[^\wäöüÄÖÜß\-]+/g, "_")
+    .replace(/[^\wÃ¤Ã¶Ã¼Ã„Ã–ÃœÃŸ\-]+/g, "_")
     .replace(/_+/g, "_")
     .slice(0, 120);
+}
+
+function drawRightAlignedText(params: {
+  page: any;
+  text: string;
+  rightX: number;
+  y: number;
+  size: number;
+  font: any;
+  color?: any;
+}) {
+  const { page, text, rightX, y, size, font, color = COLORS.text } = params;
+  const width = font.widthOfTextAtSize(text, size);
+
+  page.drawText(text, {
+    x: rightX - width,
+    y,
+    size,
+    font,
+    color,
+  });
+}
+
+function truncateTextToWidth(params: {
+  text: string;
+  font: any;
+  size: number;
+  maxWidth: number;
+}) {
+  const { text, font, size, maxWidth } = params;
+  const clean = String(text || "").trim();
+
+  if (!clean) return "â€”";
+
+  if (font.widthOfTextAtSize(clean, size) <= maxWidth) {
+    return clean;
+  }
+
+  let shortened = clean;
+
+  while (
+    shortened.length > 0 &&
+    font.widthOfTextAtSize(shortened + "â€¦", size) > maxWidth
+  ) {
+    shortened = shortened.slice(0, -1);
+  }
+
+  return shortened ? shortened + "â€¦" : "â€¦";
 }
 
 function drawText(params: {
@@ -310,6 +360,10 @@ async function createInvoicePdf(params: {
 }) {
   const { requestRow, invoice, invoiceItems } = params;
 
+  const isShopInvoice =
+    String(invoice.admin_note || "").toLowerCase().includes("shop") ||
+    invoiceItems.some((item) => String(item.source || "").startsWith("shop"));
+
   const pdfDoc = await PDFDocument.create();
 
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -373,22 +427,42 @@ async function createInvoicePdf(params: {
     color: COLORS.text,
   });
 
-  y -= 16;
+  y -= 13;
 
-  page.drawText(`${COMPANY.street} · ${COMPANY.city}`, {
+  page.drawText(COMPANY.ownerLine, {
     x: marginX,
     y,
-    size: 9,
+    size: 8.5,
     font: fontRegular,
     color: COLORS.muted,
   });
 
-  y -= 14;
+  y -= 13;
 
-  page.drawText(`${COMPANY.email} · ${COMPANY.website}`, {
+  page.drawText(`${COMPANY.street} Â· ${COMPANY.city}`, {
     x: marginX,
     y,
-    size: 9,
+    size: 8.5,
+    font: fontRegular,
+    color: COLORS.muted,
+  });
+
+  y -= 13;
+
+  page.drawText(COMPANY.phoneLine, {
+    x: marginX,
+    y,
+    size: 8.5,
+    font: fontRegular,
+    color: COLORS.muted,
+  });
+
+  y -= 13;
+
+  page.drawText(`${COMPANY.email} Â· ${COMPANY.website}`, {
+    x: marginX,
+    y,
+    size: 8.5,
     font: fontRegular,
     color: COLORS.muted,
   });
@@ -458,7 +532,7 @@ async function createInvoicePdf(params: {
     ["Rechnungsdatum", formatDate(invoice.created_at)],
     ["Anfrage", safeText(requestRow.request_number)],
     ["Zahlungsart", getPaymentMethodLabel(invoice.selected_payment_method)],
-    ["Übergabe", getFulfillmentLabel(invoice.fulfillment_method_snapshot)],
+    ["Ãœbergabe", getFulfillmentLabel(invoice.fulfillment_method_snapshot)],
   ];
 
   for (const [label, value] of metaRows) {
@@ -495,7 +569,7 @@ async function createInvoicePdf(params: {
 
   let childY = y - 18;
 
-  page.drawText("Schulpaket", {
+  page.drawText(isShopInvoice ? "Shop-Bestellung" : "Schulpaket", {
     x: marginX + 14,
     y: childY,
     size: 10,
@@ -514,7 +588,11 @@ async function createInvoicePdf(params: {
   const className =
     invoice.class_name_snapshot || requestRow.class_name || "Klasse nicht angegeben";
 
-  page.drawText(`${safeText(childName)} · ${safeText(schoolName)} · ${safeText(className)}`, {
+  const contextLine = isShopInvoice
+    ? "Direkte Bestellung Ã¼ber den Shop"
+    : `${safeText(childName)} Â· ${safeText(schoolName)} Â· ${safeText(className)}`;
+
+  page.drawText(contextLine, {
     x: marginX + 14,
     y: childY,
     size: 10,
@@ -525,7 +603,7 @@ async function createInvoicePdf(params: {
   childY -= 16;
 
   page.drawText(
-    "Vielen Dank für Deinen Auftrag. Die Positionen wurden auf Basis Deiner Schulmaterialliste zusammengestellt.",
+    "Vielen Dank fÃ¼r Deinen Auftrag. Die Positionen wurden auf Basis Deiner Schulmaterialliste zusammengestellt.",
     {
       x: marginX + 14,
       y: childY,
@@ -551,9 +629,9 @@ async function createInvoicePdf(params: {
   const tableWidth = pageWidth - marginX * 2;
   const qtyX = tableX;
   const nameX = tableX + 54;
-  const skuX = tableX + 300;
-  const unitX = tableX + 392;
-  const totalX = tableX + 472;
+  const skuX = tableX + 276;
+  const unitRightX = tableX + 472;
+  const totalRightX = tableX + tableWidth - 12;
 
   page.drawRectangle({
     x: tableX,
@@ -587,16 +665,20 @@ async function createInvoicePdf(params: {
     color: COLORS.white,
   });
 
-  page.drawText("Einzel", {
-    x: unitX,
+  drawRightAlignedText({
+    page,
+    text: "Einzel",
+    rightX: unitRightX,
     y: y - 2,
     size: 8,
     font: fontBold,
     color: COLORS.white,
   });
 
-  page.drawText("Gesamt", {
-    x: totalX,
+  drawRightAlignedText({
+    page,
+    text: "Gesamt",
+    rightX: totalRightX,
     y: y - 2,
     size: 8,
     font: fontBold,
@@ -653,28 +735,39 @@ async function createInvoicePdf(params: {
       size: 8.5,
       font: fontBold,
       color: COLORS.text,
-      maxWidth: 230,
+      maxWidth: 205,
       lineHeight: 11,
     }) + 11;
 
-    page.drawText(safeText(item.product_sku), {
+    const skuText = truncateTextToWidth({
+      text: safeText(item.product_sku),
+      font: fontRegular,
+      size: 7.5,
+      maxWidth: 118,
+    });
+
+    page.drawText(skuText, {
       x: skuX,
       y,
-      size: 8,
+      size: 7.5,
       font: fontRegular,
       color: COLORS.muted,
     });
 
-    page.drawText(formatMoney(unitPrice), {
-      x: unitX,
+    drawRightAlignedText({
+      page,
+      text: formatMoney(unitPrice),
+      rightX: unitRightX,
       y,
       size: 8,
       font: fontRegular,
       color: COLORS.text,
     });
 
-    page.drawText(formatMoney(totalPrice), {
-      x: totalX,
+    drawRightAlignedText({
+      page,
+      text: formatMoney(totalPrice),
+      rightX: totalRightX,
       y,
       size: 8,
       font: fontBold,
@@ -753,12 +846,12 @@ async function createInvoicePdf(params: {
 
   const paymentText =
     invoice.selected_payment_method === "paypal"
-      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhältst Du in der Rechnungs-Mail."
+      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhÃ¤ltst Du in der Rechnungs-Mail."
       : invoice.selected_payment_method === "bank_transfer"
-      ? "Bitte überweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
+      ? "Bitte Ã¼berweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
       : invoice.selected_payment_method === "cash_on_pickup"
-      ? "Barzahlung ist nur bei Abholung möglich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
-      : "Bitte wähle Deine Zahlungsart über den Zahlungslink in der Rechnungs-Mail.";
+      ? "Barzahlung ist nur bei Abholung mÃ¶glich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
+      : "Bitte wÃ¤hle Deine Zahlungsart Ã¼ber den Zahlungslink in der Rechnungs-Mail.";
 
   y = drawText({
     page,
@@ -774,33 +867,33 @@ async function createInvoicePdf(params: {
 
   y -= 12;
 
-  page.drawText(COMPANY.bankLine1, {
-    x: marginX,
-    y,
-    size: 8.5,
-    font: fontRegular,
-    color: COLORS.muted,
-  });
+  if (invoice.selected_payment_method === "bank_transfer") {
+    page.drawText(COMPANY.bankLine1, {
+      x: marginX,
+      y,
+      size: 8.5,
+      font: fontRegular,
+      color: COLORS.muted,
+    });
 
-  y -= 13;
+    y -= 13;
 
-  page.drawText(COMPANY.bankLine2, {
-    x: marginX,
-    y,
-    size: 8.5,
-    font: fontRegular,
-    color: COLORS.muted,
-  });
-
-  y -= 13;
-
-  page.drawText(COMPANY.paypalLine, {
-    x: marginX,
-    y,
-    size: 8.5,
-    font: fontRegular,
-    color: COLORS.muted,
-  });
+    page.drawText(COMPANY.bankLine2, {
+      x: marginX,
+      y,
+      size: 8.5,
+      font: fontRegular,
+      color: COLORS.muted,
+    });
+  } else if (invoice.selected_payment_method === "paypal") {
+    page.drawText(COMPANY.paypalLine, {
+      x: marginX,
+      y,
+      size: 8.5,
+      font: fontRegular,
+      color: COLORS.muted,
+    });
+  }
 
   const footerY = 34;
 
@@ -812,7 +905,7 @@ async function createInvoicePdf(params: {
       color: COLORS.border,
     });
 
-    pdfPage.drawText(`${COMPANY.legalName} · ${COMPANY.taxLine}`, {
+    pdfPage.drawText(`${COMPANY.legalName} Â· ${COMPANY.taxLine}`, {
       x: marginX,
       y: footerY,
       size: 7.5,
@@ -833,7 +926,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Ungültige Anfrage-ID.",
+          message: "UngÃ¼ltige Anfrage-ID.",
         },
         { status: 400 }
       );
