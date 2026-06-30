@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import {
   PDFDocument,
@@ -43,6 +43,18 @@ type InvoiceRow = {
   customer_name_snapshot: string | null;
   customer_email_snapshot: string | null;
   customer_phone_snapshot: string | null;
+  billing_name_snapshot: string | null;
+  billing_email_snapshot: string | null;
+  billing_phone_snapshot: string | null;
+  billing_street_snapshot: string | null;
+  billing_postal_code_snapshot: string | null;
+  billing_city_snapshot: string | null;
+
+  shipping_address_differs_snapshot: boolean | null;
+  shipping_name_snapshot: string | null;
+  shipping_street_snapshot: string | null;
+  shipping_postal_code_snapshot: string | null;
+  shipping_city_snapshot: string | null;
   child_name_snapshot: string | null;
   school_name_snapshot: string | null;
   class_name_snapshot: string | null;
@@ -80,17 +92,17 @@ type InvoiceItemRow = {
 
 const COMPANY = {
   name: "Handzettel-Schulen.de",
-  legalName: "Bürotechnik Schwalm & Staffe",
+  legalName: "BÃ¼rotechnik Schwalm & Staffe",
   ownerLine: "Inh. Heike Leopold",
   street: "Zwickauer Str. 167",
   city: "08468 Reichenbach",
-  phoneLine: "Tel.: 03765 / 16175 · 03765 / 69808",
+  phoneLine: "Tel.: 03765 / 16175 Â· 03765 / 69808",
   email: "kontakt@bss-vogtland.de",
   website: "www.handzettel-schulen.de",
-  taxLine: "Steuernummer: 223/244/09843 · USt-IdNr.: DE257963936",
+  taxLine: "Steuernummer: 223/244/09843 Â· USt-IdNr.: DE257963936",
   bankLine1: "Bank: Sparkasse Vogtland",
-  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 · BIC: WELADED1PLX",
-  paypalLine: "PayPal-Zahlung über den Zahlungslink in der Rechnungs-Mail.",
+  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 Â· BIC: WELADED1PLX",
+  paypalLine: "PayPal-Zahlung Ã¼ber den Zahlungslink in der Rechnungs-Mail.",
 };
 
 const COLORS = {
@@ -110,7 +122,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -141,7 +153,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -155,28 +167,33 @@ function getPaymentMethodLabel(method: string | null) {
     case "paypal":
       return "PayPal";
     case "bank_transfer":
-      return "Überweisung Vorkasse";
+      return "Ãœberweisung Vorkasse";
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "Noch nicht gewählt";
+      return "Noch nicht gewÃ¤hlt";
   }
 }
 
 function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewählt";
+  return "Noch nicht gewÃ¤hlt";
 }
 
-function safeText(value: unknown, fallback = "—") {
+function safeText(value: unknown, fallback = "â€”") {
   const text = String(value || "").trim();
   return text.length > 0 ? text : fallback;
 }
 
+function cleanOptionalText(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
+}
+
 function cleanFileName(value: string) {
   return value
-    .replace(/[^\wäöüÄÖÜß\-]+/g, "_")
+    .replace(/[^\wÃ¤Ã¶Ã¼Ã„Ã–ÃœÃŸ\-]+/g, "_")
     .replace(/_+/g, "_")
     .slice(0, 120);
 }
@@ -211,7 +228,7 @@ function truncateTextToWidth(params: {
   const { text, font, size, maxWidth } = params;
   const clean = String(text || "").trim();
 
-  if (!clean) return "—";
+  if (!clean) return "â€”";
 
   if (font.widthOfTextAtSize(clean, size) <= maxWidth) {
     return clean;
@@ -221,12 +238,12 @@ function truncateTextToWidth(params: {
 
   while (
     shortened.length > 0 &&
-    font.widthOfTextAtSize(shortened + "…", size) > maxWidth
+    font.widthOfTextAtSize(shortened + "â€¦", size) > maxWidth
   ) {
     shortened = shortened.slice(0, -1);
   }
 
-  return shortened ? shortened + "…" : "…";
+  return shortened ? shortened + "â€¦" : "â€¦";
 }
 
 function drawText(params: {
@@ -439,7 +456,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.street} · ${COMPANY.city}`, {
+  page.drawText(`${COMPANY.street} Â· ${COMPANY.city}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -459,7 +476,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.email} · ${COMPANY.website}`, {
+  page.drawText(`${COMPANY.email} Â· ${COMPANY.website}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -477,12 +494,47 @@ async function createInvoicePdf(params: {
 
   y = pageHeight - 158;
 
-  const customerName =
-    invoice.customer_name_snapshot || requestRow.customer_name || "Kunde";
-  const customerEmail =
-    invoice.customer_email_snapshot || requestRow.email || "Keine E-Mail";
-  const customerPhone =
-    invoice.customer_phone_snapshot || requestRow.phone || null;
+  const billingName =
+    cleanOptionalText(invoice.billing_name_snapshot) ||
+    cleanOptionalText(invoice.customer_name_snapshot) ||
+    cleanOptionalText(requestRow.customer_name) ||
+    "Kunde";
+  const billingEmail =
+    cleanOptionalText(invoice.billing_email_snapshot) ||
+    cleanOptionalText(invoice.customer_email_snapshot) ||
+    cleanOptionalText(requestRow.email) ||
+    "Keine E-Mail";
+  const billingPhone =
+    cleanOptionalText(invoice.billing_phone_snapshot) ||
+    cleanOptionalText(invoice.customer_phone_snapshot) ||
+    cleanOptionalText(requestRow.phone);
+  const billingStreet = cleanOptionalText(invoice.billing_street_snapshot);
+  const billingPostalLine = [
+    cleanOptionalText(invoice.billing_postal_code_snapshot),
+    cleanOptionalText(invoice.billing_city_snapshot),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const showShippingAddress =
+    Boolean(invoice.shipping_address_differs_snapshot) &&
+    Boolean(
+      invoice.shipping_name_snapshot ||
+        invoice.shipping_street_snapshot ||
+        invoice.shipping_postal_code_snapshot ||
+        invoice.shipping_city_snapshot
+    );
+
+  const shippingName =
+    cleanOptionalText(invoice.shipping_name_snapshot) || billingName;
+  const shippingStreet =
+    cleanOptionalText(invoice.shipping_street_snapshot) || billingStreet;
+  const shippingPostalLine = [
+    cleanOptionalText(invoice.shipping_postal_code_snapshot),
+    cleanOptionalText(invoice.shipping_city_snapshot),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   page.drawText("Rechnung an", {
     x: marginX,
@@ -494,126 +546,55 @@ async function createInvoicePdf(params: {
 
   y -= 18;
 
-  page.drawText(safeText(customerName), {
-    x: marginX,
-    y,
-    size: 12,
-    font: fontBold,
-    color: COLORS.text,
-  });
+  const billingLines = [
+    billingName,
+    billingStreet,
+    billingPostalLine,
+    billingEmail,
+    billingPhone,
+  ].filter((line): line is string => Boolean(line));
 
-  y -= 16;
-
-  page.drawText(safeText(customerEmail), {
-    x: marginX,
-    y,
-    size: 10,
-    font: fontRegular,
-    color: COLORS.text,
-  });
-
-  if (customerPhone) {
-    y -= 14;
-    page.drawText(customerPhone, {
+  for (const [index, line] of billingLines.entries()) {
+    page.drawText(safeText(line), {
       x: marginX,
       y,
-      size: 10,
-      font: fontRegular,
+      size: index === 0 ? 12 : 10,
+      font: index === 0 ? fontBold : fontRegular,
       color: COLORS.text,
     });
+
+    y -= index === 0 ? 16 : 14;
   }
 
-  let rightY = pageHeight - 158;
+  if (showShippingAddress) {
+    y -= 6;
 
-  const metaX = pageWidth - marginX - 210;
-
-  const metaRows = [
-    ["Rechnungsnummer", safeText(invoice.invoice_number)],
-    ["Rechnungsdatum", formatDate(invoice.created_at)],
-    ["Anfrage", safeText(requestRow.request_number)],
-    ["Zahlungsart", getPaymentMethodLabel(invoice.selected_payment_method)],
-    ["Übergabe", getFulfillmentLabel(invoice.fulfillment_method_snapshot)],
-  ];
-
-  for (const [label, value] of metaRows) {
-    page.drawText(label, {
-      x: metaX,
-      y: rightY,
+    page.drawText("Lieferadresse", {
+      x: marginX,
+      y,
       size: 9,
       font: fontBold,
       color: COLORS.muted,
     });
 
-    page.drawText(value, {
-      x: metaX + 92,
-      y: rightY,
-      size: 9,
-      font: fontRegular,
-      color: COLORS.text,
-    });
+    y -= 14;
 
-    rightY -= 16;
-  }
+    const shippingLines = [shippingName, shippingStreet, shippingPostalLine].filter(
+      (line): line is string => Boolean(line)
+    );
 
-  y -= 42;
+    for (const line of shippingLines) {
+      page.drawText(safeText(line), {
+        x: marginX,
+        y,
+        size: 9,
+        font: fontRegular,
+        color: COLORS.text,
+      });
 
-  page.drawRectangle({
-    x: marginX,
-    y: y - 64,
-    width: pageWidth - marginX * 2,
-    height: 70,
-    color: COLORS.beige,
-    borderColor: COLORS.border,
-    borderWidth: 1,
-  });
-
-  let childY = y - 18;
-
-  page.drawText(isShopInvoice ? "Shop-Bestellung" : "Schulpaket", {
-    x: marginX + 14,
-    y: childY,
-    size: 10,
-    font: fontBold,
-    color: COLORS.red,
-  });
-
-  childY -= 16;
-
-  const childName =
-    invoice.child_name_snapshot || requestRow.child_name || "Kind nicht angegeben";
-  const schoolName =
-    invoice.school_name_snapshot ||
-    requestRow.school_name ||
-    "Schule nicht angegeben";
-  const className =
-    invoice.class_name_snapshot || requestRow.class_name || "Klasse nicht angegeben";
-
-  const contextLine = isShopInvoice
-    ? "Direkte Bestellung über den Shop"
-    : `${safeText(childName)} · ${safeText(schoolName)} · ${safeText(className)}`;
-
-  page.drawText(contextLine, {
-    x: marginX + 14,
-    y: childY,
-    size: 10,
-    font: fontRegular,
-    color: COLORS.text,
-  });
-
-  childY -= 16;
-
-  page.drawText(
-    isShopInvoice
-      ? "Vielen Dank für Deinen Auftrag. Die Positionen wurden aus Deiner Shop-Bestellung übernommen."
-      : "Vielen Dank für Deinen Auftrag. Die Positionen wurden auf Basis Deiner Schulmaterialliste zusammengestellt.",
-    {
-      x: marginX + 14,
-      y: childY,
-      size: 8.5,
-      font: fontRegular,
-      color: COLORS.muted,
+      y -= 12;
     }
-  );
+  }
 
   y -= 100;
 
@@ -848,12 +829,12 @@ async function createInvoicePdf(params: {
 
   const paymentText =
     invoice.selected_payment_method === "paypal"
-      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhältst Du in der Rechnungs-Mail."
+      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhÃ¤ltst Du in der Rechnungs-Mail."
       : invoice.selected_payment_method === "bank_transfer"
-      ? "Bitte überweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
+      ? "Bitte Ã¼berweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
       : invoice.selected_payment_method === "cash_on_pickup"
-      ? "Barzahlung ist nur bei Abholung möglich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
-      : "Bitte wähle Deine Zahlungsart über den Zahlungslink in der Rechnungs-Mail.";
+      ? "Barzahlung ist nur bei Abholung mÃ¶glich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
+      : "Bitte wÃ¤hle Deine Zahlungsart Ã¼ber den Zahlungslink in der Rechnungs-Mail.";
 
   y = drawText({
     page,
@@ -907,7 +888,7 @@ async function createInvoicePdf(params: {
       color: COLORS.border,
     });
 
-    pdfPage.drawText(`${COMPANY.legalName} · ${COMPANY.taxLine}`, {
+    pdfPage.drawText(`${COMPANY.legalName} Â· ${COMPANY.taxLine}`, {
       x: marginX,
       y: footerY,
       size: 7.5,
@@ -928,7 +909,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Ungültige Anfrage-ID.",
+          message: "UngÃ¼ltige Anfrage-ID.",
         },
         { status: 400 }
       );
@@ -973,3 +954,4 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 }
+

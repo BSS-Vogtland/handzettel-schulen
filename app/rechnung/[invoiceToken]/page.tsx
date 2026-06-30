@@ -42,6 +42,21 @@ type InvoiceRow = {
 
   customer_name_snapshot: string | null;
   customer_email_snapshot: string | null;
+
+  customer_phone_snapshot: string | null;
+
+  billing_name_snapshot: string | null;
+  billing_email_snapshot: string | null;
+  billing_phone_snapshot: string | null;
+  billing_street_snapshot: string | null;
+  billing_postal_code_snapshot: string | null;
+  billing_city_snapshot: string | null;
+
+  shipping_address_differs_snapshot: boolean | null;
+  shipping_name_snapshot: string | null;
+  shipping_street_snapshot: string | null;
+  shipping_postal_code_snapshot: string | null;
+  shipping_city_snapshot: string | null;
   child_name_snapshot: string | null;
   school_name_snapshot: string | null;
   class_name_snapshot: string | null;
@@ -283,6 +298,45 @@ export default async function InvoicePaymentPage({ params }: Params) {
   const discountAmount = toNumber(invoice.discount_amount, 0);
   const hasDiscount = discountAmount > 0;
 
+  const billingName =
+    invoice.billing_name_snapshot?.trim() ||
+    invoice.customer_name_snapshot?.trim() ||
+    "Kunde";
+  const billingEmail =
+    invoice.billing_email_snapshot?.trim() ||
+    invoice.customer_email_snapshot?.trim() ||
+    null;
+  const billingPhone =
+    invoice.billing_phone_snapshot?.trim() ||
+    invoice.customer_phone_snapshot?.trim() ||
+    null;
+  const billingStreet = invoice.billing_street_snapshot?.trim() || null;
+  const billingPostalCode =
+    invoice.billing_postal_code_snapshot?.trim() || null;
+  const billingCity = invoice.billing_city_snapshot?.trim() || null;
+  const billingPostalLine = [billingPostalCode, billingCity]
+    .filter(Boolean)
+    .join(" ");
+
+  const showShippingAddress =
+    Boolean(invoice.shipping_address_differs_snapshot) &&
+    Boolean(
+      invoice.shipping_name_snapshot ||
+        invoice.shipping_street_snapshot ||
+        invoice.shipping_postal_code_snapshot ||
+        invoice.shipping_city_snapshot
+    );
+
+  const shippingName = invoice.shipping_name_snapshot?.trim() || billingName;
+  const shippingStreet =
+    invoice.shipping_street_snapshot?.trim() || billingStreet;
+  const shippingPostalCode =
+    invoice.shipping_postal_code_snapshot?.trim() || billingPostalCode;
+  const shippingCity = invoice.shipping_city_snapshot?.trim() || billingCity;
+  const shippingPostalLine = [shippingPostalCode, shippingCity]
+    .filter(Boolean)
+    .join(" ");
+
   const nextStepText = getNextStepText({
     isPaid,
     paymentStatus: invoice.payment_status,
@@ -408,6 +462,58 @@ export default async function InvoicePaymentPage({ params }: Params) {
               Zahlungsart:{" "}
               {getPaymentMethodLabel(invoice.selected_payment_method)}
             </p>
+          </div>
+        </section>
+
+        <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#12395F]">
+              <FileText className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+                Adresse
+              </p>
+              <h2 className="text-xl font-black text-[#102A43]">
+                Rechnungs- und Lieferdaten
+              </h2>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                Diese Daten werden für Rechnung, Versand und Rückfragen genutzt.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                Rechnungsadresse
+              </p>
+              <div className="mt-3 text-sm font-semibold leading-6 text-[#102A43]">
+                <p className="font-black">{billingName}</p>
+                {billingStreet ? <p>{billingStreet}</p> : null}
+                {billingPostalLine ? <p>{billingPostalLine}</p> : null}
+                {billingEmail ? <p>{billingEmail}</p> : null}
+                {billingPhone ? <p>{billingPhone}</p> : null}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                Lieferadresse
+              </p>
+              {showShippingAddress ? (
+                <div className="mt-3 text-sm font-semibold leading-6 text-[#102A43]">
+                  <p className="font-black">{shippingName}</p>
+                  {shippingStreet ? <p>{shippingStreet}</p> : null}
+                  {shippingPostalLine ? <p>{shippingPostalLine}</p> : null}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
+                  Entspricht der Rechnungsadresse.
+                </p>
+              )}
+            </div>
           </div>
         </section>
 
