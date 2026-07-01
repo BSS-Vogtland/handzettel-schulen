@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 
 type Choice = "self" | "team" | null;
+
+const TEAM_CARD_LOGO_SRC = "/handzettel-logo.png";
 
 type CustomerOpenPositionDecisionPanelProps = {
   token: string;
@@ -114,7 +117,7 @@ export default function CustomerOpenPositionDecisionPanel({
       if (!response.ok || payload?.ok === false) {
         setMessage(
           payload?.message ||
-            "Die Auswahl wurde lokal gespeichert. Falls nötig, informiere uns bitte zusätzlich kurz per E-Mail."
+            "Die Auswahl wurde lokal gespeichert. Falls nÃ¶tig, informiere uns bitte zusÃ¤tzlich kurz per E-Mail."
         );
         return;
       }
@@ -122,7 +125,7 @@ export default function CustomerOpenPositionDecisionPanel({
       setMessage("Auswahl gespeichert.");
     } catch {
       setMessage(
-        "Die Auswahl wurde lokal gespeichert. Falls nötig, informiere uns bitte zusätzlich kurz per E-Mail."
+        "Die Auswahl wurde lokal gespeichert. Falls nÃ¶tig, informiere uns bitte zusÃ¤tzlich kurz per E-Mail."
       );
     } finally {
       setIsSavingTeamChoice(false);
@@ -146,17 +149,17 @@ export default function CustomerOpenPositionDecisionPanel({
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-                Übernahme bestätigt
+                Ãœbernahme bestÃ¤tigt
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Handzettel-Schulen.de übernimmt die offenen Positionen.
+                Handzettel-Schulen.de Ã¼bernimmt die offenen Positionen.
               </h2>
 
               <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-                Du musst jetzt keine weiteren Artikel auswählen. Wir prüfen die
-                offenen Positionen persönlich und bereiten den fertigen
-                Paketwunsch für Dich vor.
+                Du musst jetzt keine weiteren Artikel auswÃ¤hlen. Wir prÃ¼fen die
+                offenen Positionen persÃ¶nlich und bereiten den fertigen
+                Paketwunsch fÃ¼r Dich vor.
               </p>
 
               {message ? (
@@ -172,7 +175,7 @@ export default function CustomerOpenPositionDecisionPanel({
             onClick={chooseSelf}
             className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#B5282D] bg-white px-5 py-3 text-sm font-black text-[#B5282D] transition hover:bg-[#FFF1F1]"
           >
-            Doch selbst auswählen
+            Doch selbst auswÃ¤hlen
             <ArrowRight className="ml-2 h-4 w-4" />
           </button>
         </div>
@@ -183,10 +186,10 @@ export default function CustomerOpenPositionDecisionPanel({
               <ShieldCheck className="h-5 w-5" />
             </div>
             <p className="mt-4 text-sm font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              1. Prüfung
+              1. PrÃ¼fung
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-              Wir schauen uns die offenen Positionen manuell an.
+              Wir schauen uns die offenen Positionen an und bearbeiten sie manuell.
             </p>
           </div>
 
@@ -207,10 +210,10 @@ export default function CustomerOpenPositionDecisionPanel({
               <Clock3 className="h-5 w-5" />
             </div>
             <p className="mt-4 text-sm font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              3. Prüfung durch Dich
+              3. PrÃ¼fung durch Dich
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-              Danach prüfst Du das fertige Paket und gehst erst dann in den Checkout.
+              Danach prÃ¼fst Du das fertige Paket und schlieÃŸt dann die Bestellung ab.
             </p>
           </div>
         </div>
@@ -233,13 +236,13 @@ export default function CustomerOpenPositionDecisionPanel({
           </p>
 
           <h2 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-            Wähle den nächsten Schritt.
+            WÃ¤hle den nÃ¤chsten Schritt.
           </h2>
 
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             {totalOpenCount === 1
               ? "Eine Position braucht noch eine Entscheidung."
-              : `${totalOpenCount} Positionen brauchen noch eine Entscheidung.`} Du kannst selbst weitermachen oder die offenen Positionen an Handzettel-Schulen.de übergeben.
+              : `${totalOpenCount} Positionen brauchen noch eine Entscheidung.`} Du kannst selbst weitermachen oder die offenen Positionen an Handzettel-Schulen.de Ã¼bergeben.
           </p>
         </div>
 
@@ -263,16 +266,16 @@ export default function CustomerOpenPositionDecisionPanel({
           </span>
 
           <span className="mt-4 text-2xl font-black leading-tight text-[#102A43]">
-            Ich wähle die Artikel selbst aus
+            Ich wÃ¤hle die Artikel selbst aus
           </span>
 
           <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            Zur Positionsliste springen, Vorschläge auswählen oder selbst nach
+            Zur Positionsliste springen, VorschlÃ¤ge auswÃ¤hlen oder selbst nach
             Artikeln suchen.
           </span>
 
           <span className="mt-5 inline-flex items-center text-sm font-black text-[#B5282D]">
-            Jetzt selbst auswählen
+            Jetzt selbst auswÃ¤hlen
             <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-1" />
           </span>
         </button>
@@ -289,16 +292,22 @@ export default function CustomerOpenPositionDecisionPanel({
             {isSavingTeamChoice ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <ShieldCheck className="h-5 w-5" />
+              <Image
+                src={TEAM_CARD_LOGO_SRC}
+                alt="Handzettel-Schulen.de"
+                width={28}
+                height={28}
+                className="h-7 w-auto object-contain"
+              />
             )}
           </span>
 
           <span className="mt-4 text-2xl font-black leading-tight text-[#102A43]">
-            Handzettel-Schulen.de übernimmt
+            Handzettel-Schulen.de Ã¼bernimmt
           </span>
 
           <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            Wir prüfen die offenen Positionen und melden uns, sobald Dein
+            Wir prÃ¼fen die offenen Positionen und melden uns, sobald Dein
             Paketwunsch fertig ist.
           </span>
 
@@ -308,33 +317,7 @@ export default function CustomerOpenPositionDecisionPanel({
           </span>
         </button>
       </div>
-
-      {choice === "self" ? (
-        <div className="mt-6 rounded-[28px] border-2 border-[#B5282D] bg-white p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-lg font-black text-[#102A43]">
-                Selbst-Auswahl aktiv.
-              </p>
-
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Unten findest Du die offenen Positionen. Wenn Du nicht weiterkommst,
-                kannst Du die offenen Positionen jederzeit an Handzettel-Schulen.de übergeben.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={chooseTeam}
-              disabled={isSavingTeamChoice}
-              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#2F7D50] bg-[#F0FFF6] px-5 py-3 text-sm font-black text-[#2F7D50] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              Team übernehmen lassen
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
+
