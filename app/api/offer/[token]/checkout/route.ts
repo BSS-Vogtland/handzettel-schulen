@@ -494,7 +494,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const requestItems = (requestItemsData || []) as RequestItemRow[];
     const coveredRequestItemIds = new Set(
-      offerItems
+      ((offerItemsData || []) as Array<{ request_item_id?: string | null }>)
         .map((item) => item.request_item_id)
         .filter((value): value is string => Boolean(value))
     );
