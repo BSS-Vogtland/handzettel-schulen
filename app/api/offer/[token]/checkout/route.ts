@@ -140,11 +140,26 @@ function roundMoney(value: number) {
 }
 
 function isResolvedRequestItemForCheckout(item: RequestItemRow) {
-  const adminResolutionStatus = String(item.admin_resolution_status || "").trim();
+  const status = String(item.status || "").trim().toLowerCase();
+  const adminResolutionStatus = String(
+    item.admin_resolution_status || ""
+  )
+    .trim()
+    .toLowerCase();
 
   return (
+    status === "customer_supplies_self" ||
+    status === "covered_by_alternative" ||
+    status === "resolved" ||
+    status === "done" ||
+    status === "not_needed" ||
+    status === "ignored" ||
     adminResolutionStatus === "customer_supplies_self" ||
-    adminResolutionStatus === "covered_by_alternative"
+    adminResolutionStatus === "covered_by_alternative" ||
+    adminResolutionStatus === "resolved" ||
+    adminResolutionStatus === "done" ||
+    adminResolutionStatus === "not_needed" ||
+    adminResolutionStatus === "ignored"
   );
 }
 
@@ -483,16 +498,16 @@ export async function POST(request: Request, context: RouteContext) {
         .map((item) => item.request_item_id)
         .filter((value): value is string => Boolean(value))
     );
-    const openRequestItems = requestItems.filter(
-      (item) => !coveredRequestItemIds.has(item.id)
-    );
+    const checkoutBlockingRequestItems = requestItems.filter((item) => {
+      const status = cleanString(item.status).toLowerCase();
 
-    const checkoutBlockingRequestItems = openRequestItems.filter(
-      (item) => !isResolvedRequestItemForCheckout(item)
-    );
+      if (isResolvedRequestItemForCheckout(item)) return false;
+
+      return status !== "selected";
+    });
 
 
-    if (requestItems.length > 0 && checkoutBlockingRequestItems.length > 0) {
+    if (checkoutBlockingRequestItems.length > 0) {
       await supabase
         .from("school_requests")
         .update({
@@ -511,6 +526,11 @@ export async function POST(request: Request, context: RouteContext) {
           "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
           open_request_items_count: checkoutBlockingRequestItems.length,
+          checkout_blocking_items: checkoutBlockingRequestItems.map((item) => ({
+            id: item.id,
+            status: item.status,
+            admin_resolution_status: item.admin_resolution_status,
+          })),
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
         },
