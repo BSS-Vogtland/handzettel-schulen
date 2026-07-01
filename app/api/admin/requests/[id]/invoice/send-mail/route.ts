@@ -38,6 +38,19 @@ type InvoiceRow = {
 
   customer_name_snapshot: string | null;
   customer_email_snapshot: string | null;
+
+  billing_name_snapshot: string | null;
+  billing_email_snapshot: string | null;
+  billing_phone_snapshot: string | null;
+  billing_street_snapshot: string | null;
+  billing_postal_code_snapshot: string | null;
+  billing_city_snapshot: string | null;
+
+  shipping_address_differs_snapshot: boolean | null;
+  shipping_name_snapshot: string | null;
+  shipping_street_snapshot: string | null;
+  shipping_postal_code_snapshot: string | null;
+  shipping_city_snapshot: string | null;
   child_name_snapshot: string | null;
   school_name_snapshot: string | null;
   class_name_snapshot: string | null;
@@ -87,6 +100,11 @@ function formatMoney(value: unknown) {
 function safeText(value: unknown, fallback = "") {
   const text = String(value || "").trim();
   return text.length > 0 ? text : fallback;
+}
+
+function cleanOptionalText(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
 }
 
 function cleanFileName(value: string) {
@@ -235,8 +253,9 @@ function buildMailContent(params: {
   const { requestRow, invoice, paymentUrl } = params;
 
   const customerName =
-    invoice.customer_name_snapshot ||
-    requestRow.customer_name ||
+    cleanOptionalText(invoice.billing_name_snapshot) ||
+    cleanOptionalText(invoice.customer_name_snapshot) ||
+    cleanOptionalText(requestRow.customer_name) ||
     "liebe Kundin, lieber Kunde";
 
   const childName = invoice.child_name_snapshot || requestRow.child_name || "—";
@@ -255,12 +274,12 @@ function buildMailContent(params: {
   const fulfillmentLabel = getFulfillmentLabel(fulfillmentMethod);
   const paymentIntro = getPaymentIntro(invoice);
 
-  const subject = `${invoiceNumber} · Dein Schulpaket von Handzettel-Schulen.de`;
+  const subject = `${invoiceNumber} · Deine Bestellung von Handzettel-Schulen.de`;
 
   const text = [
     `Hallo ${customerName},`,
     "",
-    "Dein Schulpaket wurde vorbereitet. Im Anhang findest Du Deine Rechnung als PDF.",
+    "Deine Bestellung wurde vorbereitet. Im Anhang findest Du Deine Rechnung als PDF.",
     "",
     "Kurzübersicht:",
     `Kind: ${childName}`,
@@ -300,19 +319,19 @@ function buildMailContent(params: {
                 </td>
                 <td valign="middle" style="padding:0;">
                   <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-                  <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Deine Rechnung zu Deinem Schulpaket</div>
+                  <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Deine Rechnung zu Deiner Bestellung</div>
                 </td>
               </tr>
             </table>
           </div>
 
           <h1 style="margin:18px 0 8px;font-size:28px;line-height:1.15;color:#102A43;">
-            Deine Rechnung zu Deinem Schulpaket
+            Deine Rechnung zu Deiner Bestellung
           </h1>
 
           <p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#52616F;">
             Hallo ${customerName},<br />
-            Dein Schulpaket wurde vorbereitet. Im Anhang findest Du Deine Rechnung als PDF.
+            Deine Bestellung wurde vorbereitet. Im Anhang findest Du Deine Rechnung als PDF.
           </p>
 
           <div style="background:#F0FFF6;border:1px solid #BFE3CD;border-radius:22px;padding:18px;margin:22px 0;">
@@ -441,7 +460,9 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     const customerEmail =
-      invoice.customer_email_snapshot || requestRow.email || null;
+      cleanOptionalText(invoice.billing_email_snapshot) ||
+      cleanOptionalText(invoice.customer_email_snapshot) ||
+      cleanOptionalText(requestRow.email);
 
     if (!customerEmail) {
       return NextResponse.json(
