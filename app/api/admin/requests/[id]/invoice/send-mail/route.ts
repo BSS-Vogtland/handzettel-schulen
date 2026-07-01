@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendMail } from "@/lib/sendMail";
 
@@ -67,7 +67,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -109,7 +109,7 @@ function cleanOptionalText(value: unknown) {
 
 function cleanFileName(value: string) {
   return value
-    .replace(/[^\wäöüÄÖÜß\-]+/g, "_")
+    .replace(/[^\wÃ¤Ã¶Ã¼Ã„Ã–ÃœÃŸ\-]+/g, "_")
     .replace(/_+/g, "_")
     .slice(0, 120);
 }
@@ -117,23 +117,23 @@ function cleanFileName(value: string) {
 function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewählt";
+  return "Noch nicht gewÃ¤hlt";
 }
 
 function getPaymentIntro(invoice: InvoiceRow) {
   if (invoice.selected_payment_method === "paypal") {
-    return "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Über den Zahlungslink kannst Du Deine Zahlungsart auswählen.";
+    return "PayPal wurde als Zahlungsart gewählt. Über den Zahlungslink kannst Du die PayPal-Zahlung fortsetzen.";
   }
 
   if (invoice.selected_payment_method === "bank_transfer") {
-    return "Du kannst per Überweisung bezahlen. Die Bearbeitung startet nach Zahlungseingang.";
+    return "Du kannst per Ãœberweisung bezahlen. Die Bearbeitung startet nach Zahlungseingang.";
   }
 
   if (invoice.selected_payment_method === "cash_on_pickup") {
-    return "Barzahlung ist nur bei Abholung möglich.";
+    return "Barzahlung ist nur bei Abholung mÃ¶glich.";
   }
 
-  return "Bitte wähle Deine Zahlungsart über den Zahlungslink.";
+  return "Bitte öffne den Zahlungslink, um die Zahlung fortzusetzen.";
 }
 
 
@@ -258,9 +258,9 @@ function buildMailContent(params: {
     cleanOptionalText(requestRow.customer_name) ||
     "liebe Kundin, lieber Kunde";
 
-  const childName = invoice.child_name_snapshot || requestRow.child_name || "—";
-  const schoolName = invoice.school_name_snapshot || requestRow.school_name || "—";
-  const className = invoice.class_name_snapshot || requestRow.class_name || "—";
+  const childName = invoice.child_name_snapshot || requestRow.child_name || "â€”";
+  const schoolName = invoice.school_name_snapshot || requestRow.school_name || "â€”";
+  const className = invoice.class_name_snapshot || requestRow.class_name || "â€”";
 
   const invoiceNumber = safeText(invoice.invoice_number, "Deine Rechnung");
 
@@ -274,17 +274,17 @@ function buildMailContent(params: {
   const fulfillmentLabel = getFulfillmentLabel(fulfillmentMethod);
   const paymentIntro = getPaymentIntro(invoice);
 
-  const subject = `${invoiceNumber} · Deine Bestellung von Handzettel-Schulen.de`;
+  const subject = `${invoiceNumber} Â· Deine Bestellung von Handzettel-Schulen.de`;
 
   const text = [
     `Hallo ${customerName},`,
     "",
     "Deine Bestellung wurde vorbereitet. Im Anhang findest Du Deine Rechnung als PDF.",
     "",
-    "Kurzübersicht:",
+    "KurzÃ¼bersicht:",
     `Kind: ${childName}`,
-    `Schule / Klasse: ${schoolName} · ${className}`,
-    `Übergabe: ${fulfillmentLabel}`,
+    `Schule / Klasse: ${schoolName} Â· ${className}`,
+    `Ãœbergabe: ${fulfillmentLabel}`,
     "",
     `Paketbetrag: ${subtotal}`,
     `Versandkosten: ${shipping}`,
@@ -292,13 +292,13 @@ function buildMailContent(params: {
     "",
     paymentIntro,
     "",
-    `Zahlungsart wählen: ${paymentUrl}`,
+    `Rechnung und Zahlung öffnen: ${paymentUrl}`,
     "",
     "Wichtig:",
-    "Bei PayPal oder Überweisung bearbeiten wir Dein Paket nach Zahlungseingang weiter.",
-    "Bei Barzahlung vor Ort ist die Zahlung nur bei Abholung möglich.",
+    "Bei PayPal oder Ãœberweisung bearbeiten wir Dein Paket nach Zahlungseingang weiter.",
+    "Barzahlung bei Abholung erscheint nur, wenn sie für Deinen Vorgang freigegeben wurde.",
     "",
-    "Viele Grüße",
+    "Viele GrÃ¼ÃŸe",
     "Dein Team von Handzettel-Schulen.de",
   ].join("\n");
 
@@ -336,7 +336,7 @@ function buildMailContent(params: {
 
           <div style="background:#F0FFF6;border:1px solid #BFE3CD;border-radius:22px;padding:18px;margin:22px 0;">
             <p style="margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#2F7D50;">
-              Kurzübersicht
+              KurzÃ¼bersicht
             </p>
 
             <table style="width:100%;border-collapse:collapse;font-size:15px;">
@@ -350,10 +350,10 @@ function buildMailContent(params: {
               </tr>
               <tr>
                 <td style="padding:7px 0;color:#52616F;">Schule / Klasse</td>
-                <td style="padding:7px 0;text-align:right;font-weight:800;color:#102A43;">${schoolName} · ${className}</td>
+                <td style="padding:7px 0;text-align:right;font-weight:800;color:#102A43;">${schoolName} Â· ${className}</td>
               </tr>
               <tr>
-                <td style="padding:7px 0;color:#52616F;">Übergabe</td>
+                <td style="padding:7px 0;color:#52616F;">Ãœbergabe</td>
                 <td style="padding:7px 0;text-align:right;font-weight:800;color:#102A43;">${fulfillmentLabel}</td>
               </tr>
             </table>
@@ -384,18 +384,18 @@ function buildMailContent(params: {
           </p>
 
           <a href="${paymentUrl}" style="display:block;text-align:center;background:#B5282D;color:#ffffff;text-decoration:none;border-radius:18px;padding:16px 20px;font-size:16px;font-weight:900;margin:20px 0;">
-            Zahlungsart wählen
+            Rechnung und Zahlung öffnen
           </a>
 
           <div style="background:#FFF8EE;border:1px solid #F1D1A8;border-radius:20px;padding:16px;margin-top:22px;">
             <p style="margin:0;font-size:14px;line-height:1.6;color:#A75B28;font-weight:700;">
-              Wichtig: Bei PayPal oder Überweisung bearbeiten wir Dein Paket nach Zahlungseingang weiter.
-              Bei Barzahlung vor Ort ist die Zahlung nur bei Abholung möglich.
+              Wichtig: Bei PayPal oder Ãœberweisung bearbeiten wir Dein Paket nach Zahlungseingang weiter.
+              Barzahlung bei Abholung erscheint nur, wenn sie für Deinen Vorgang freigegeben wurde.
             </p>
           </div>
 
           <p style="margin:26px 0 0;font-size:15px;line-height:1.6;color:#52616F;">
-            Viele Grüße<br />
+            Viele GrÃ¼ÃŸe<br />
             <strong style="color:#102A43;">Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span></strong>
           </p>
         </div>
@@ -446,7 +446,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Ungültige Anfrage-ID.",
+          message: "UngÃ¼ltige Anfrage-ID.",
         },
         { status: 400 }
       );
@@ -469,7 +469,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Für diese Anfrage ist keine E-Mail-Adresse hinterlegt. Die Rechnung kann nicht per Mail gesendet werden.",
+            "FÃ¼r diese Anfrage ist keine E-Mail-Adresse hinterlegt. Die Rechnung kann nicht per Mail gesendet werden.",
         },
         { status: 409 }
       );
@@ -608,3 +608,7 @@ export async function GET() {
     { status: 405 }
   );
 }
+
+
+
+

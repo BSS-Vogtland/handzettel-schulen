@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import {
   CheckCircle2,
   CreditCard,
@@ -97,7 +97,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -132,7 +132,7 @@ function formatNegativeMoney(value: unknown) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -144,7 +144,7 @@ function formatDate(value: string | null | undefined) {
 function getPaymentStatusLabel(status: string | null) {
   switch (status) {
     case "not_selected":
-      return "Zahlungsart noch nicht gewählt";
+      return "Zahlungsart noch nicht gewÃ¤hlt";
     case "waiting_for_payment":
       return "Wartet auf Zahlung";
     case "payment_received":
@@ -154,7 +154,7 @@ function getPaymentStatusLabel(status: string | null) {
     case "cash_paid":
       return "Bar bezahlt";
     case "overdue":
-      return "Überfällig";
+      return "ÃœberfÃ¤llig";
     case "cancelled":
       return "Zahlung abgebrochen";
     default:
@@ -167,18 +167,18 @@ function getPaymentMethodLabel(method: string | null) {
     case "paypal":
       return "PayPal";
     case "bank_transfer":
-      return "Überweisung Vorkasse";
+      return "Ãœberweisung Vorkasse";
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "Noch nicht gewählt";
+      return "Noch nicht gewÃ¤hlt";
   }
 }
 
 function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewählt";
+  return "Noch nicht gewÃ¤hlt";
 }
 
 function getDiscountDescription(invoice: InvoiceRow) {
@@ -221,21 +221,21 @@ function getNextStepText(params: {
 
   if (paymentStatus === "waiting_for_payment") {
     if (selectedPaymentMethod === "bank_transfer") {
-      return "Du hast Überweisung gewählt. Bitte überweise den Gesamtbetrag. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
+      return "Du hast Ãœberweisung gewÃ¤hlt. Bitte Ã¼berweise den Gesamtbetrag. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
     }
 
     if (selectedPaymentMethod === "paypal") {
-      return "Du hast PayPal gewählt. Falls die Zahlung noch nicht abgeschlossen wurde, starte die Zahlung bitte erneut über den PayPal-Button.";
+      return "Du hast PayPal gewÃ¤hlt. Falls die Zahlung noch nicht abgeschlossen wurde, starte die Zahlung bitte erneut Ã¼ber den PayPal-Button.";
     }
 
-    return "Die Zahlungsart wurde gewählt. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
+    return "Die Zahlungsart wurde gewÃ¤hlt. Nach Zahlungseingang wird Dein Paket weiter bearbeitet.";
   }
 
   if (paymentStatus === "cash_on_pickup" && canUseCashOnPickup) {
     return "Du zahlst direkt bei Abholung im Laden. Dein Paket wird vorbereitet und zur Abholung bereitgestellt.";
   }
 
-  return "Wähle jetzt Deine Zahlungsart. PayPal ist der schnellste Weg, Überweisung ist ebenfalls möglich.";
+  return "WÃ¤hle jetzt Deine Zahlungsart. PayPal ist der schnellste Weg, Ãœberweisung ist ebenfalls mÃ¶glich.";
 }
 
 export default async function InvoicePaymentPage({ params }: Params) {
@@ -259,7 +259,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
             Rechnung nicht gefunden
           </h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            Der Zahlungslink ist ungültig oder die Rechnung wurde nicht gefunden.
+            Der Zahlungslink ist ungÃ¼ltig oder die Rechnung wurde nicht gefunden.
           </p>
         </section>
       </main>
@@ -360,8 +360,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
-                Hier siehst Du Deine Rechnung für das vorbereitete Schulpaket
-                und kannst die passende Zahlungsart wählen. Sobald die Zahlung
+                Hier siehst Du Deine Rechnung fÃ¼r das vorbereitete Schulpaket
+                und kannst Deine gewählte Zahlung fortsetzen. Sobald die Zahlung
                 eingegangen ist, kann Dein Paket weiter vorbereitet werden.
               </p>
 
@@ -369,7 +369,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
                   <div>
-                    <p className="font-black">Nächster Schritt</p>
+                    <p className="font-black">NÃ¤chster Schritt</p>
                     <p className="mt-1 text-sm font-semibold leading-6">
                       {nextStepText}
                     </p>
@@ -384,7 +384,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                     <div>
                       <p className="font-black">Rabatt wurde angewendet</p>
                       <p className="mt-1 text-sm font-semibold leading-6">
-                        {getDiscountDescription(invoice)} · Du sparst{" "}
+                        {getDiscountDescription(invoice)} Â· Du sparst{" "}
                         {formatMoney(discountAmount)}.
                       </p>
                     </div>
@@ -401,12 +401,12 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 {formatMoney(invoice.total_amount)}
               </p>
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                Gesamtbetrag inkl. Versandkosten, falls Versand gewählt wurde
+                Gesamtbetrag inkl. Versandkosten, falls Versand gewÃ¤hlt wurde
               </p>
 
               {hasDiscount ? (
                 <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm font-black text-[#2F7D50]">
-                  Rabatt berücksichtigt: {formatNegativeMoney(discountAmount)}
+                  Rabatt berÃ¼cksichtigt: {formatNegativeMoney(discountAmount)}
                 </p>
               ) : null}
             </div>
@@ -434,7 +434,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <Truck className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-              Übergabe
+              Ãœbergabe
             </p>
             <p className="mt-2 font-black text-[#102A43]">
               {getFulfillmentLabel(invoice.fulfillment_method_snapshot)}
@@ -444,7 +444,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 ? "Die Versandkosten sind im Gesamtbetrag enthalten."
                 : isPickup
                   ? "Du holst Dein Paket im Laden ab."
-                  : "Die Übergabeart ist noch nicht festgelegt."}
+                  : "Die Ãœbergabeart ist noch nicht festgelegt."}
             </p>
           </div>
 
@@ -479,7 +479,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 Rechnungs- und Lieferdaten
               </h2>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                Diese Daten werden für Rechnung, Versand und Rückfragen genutzt.
+                Diese Daten werden fÃ¼r Rechnung, Versand und RÃ¼ckfragen genutzt.
               </p>
             </div>
           </div>
@@ -533,7 +533,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
                 {invoice.school_name_snapshot || "Schule nicht angegeben"}
                 {invoice.class_name_snapshot
-                  ? ` · Klasse ${invoice.class_name_snapshot}`
+                  ? ` Â· Klasse ${invoice.class_name_snapshot}`
                   : ""}
               </p>
             </div>
@@ -603,7 +603,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                     hasDiscount ? "text-[#2F7D50]" : "text-[#52616F]"
                   }`}
                 >
-                  {hasDiscount ? formatNegativeMoney(discountAmount) : "—"}
+                  {hasDiscount ? formatNegativeMoney(discountAmount) : "â€”"}
                 </p>
               </div>
 
@@ -638,13 +638,13 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <h2 className="mt-1 text-2xl font-black tracking-tight text-[#102A43]">
                 {invoice.selected_payment_method
                   ? "Zahlung fortsetzen"
-                  : "Zahlungsart auswählen"}
+                  : "Zahlungsart auswÃ¤hlen"}
               </h2>
 
               <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
                 {invoice.selected_payment_method
-                  ? `Im Checkout ausgewählt: ${getPaymentMethodLabel(invoice.selected_payment_method)}.`
-                  : "Wähle eine Zahlungsart aus. Dieser Auswahlblock erscheint nur bei älteren Rechnungen ohne Checkout-Zahlungsart."}
+                  ? `Im Checkout ausgewÃ¤hlt: ${getPaymentMethodLabel(invoice.selected_payment_method)}.`
+                  : "WÃ¤hle eine Zahlungsart aus. Dieser Auswahlblock erscheint nur bei Ã¤lteren Rechnungen ohne Checkout-Zahlungsart."}
               </p>
             </div>
           </div>
@@ -664,16 +664,16 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 invoiceToken={invoice.invoice_token}
                 paymentMethod="paypal"
                 label="PayPal"
-                description="Du hast PayPal im Checkout ausgewählt. Starte hier die PayPal-Zahlung mit dem Gesamtbetrag."
+                description="Du hast PayPal im Checkout ausgewÃ¤hlt. Starte hier die PayPal-Zahlung mit dem Gesamtbetrag."
               />
             </div>
           ) : invoice.selected_payment_method === "bank_transfer" ? (
             <div className="mt-6 rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
               <p className="text-lg font-black text-[#102A43]">
-                Überweisung Vorkasse
+                Ãœberweisung Vorkasse
               </p>
               <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
-                Du hast Überweisung im Checkout ausgewählt. Öffne die Bankdaten und überweise den Gesamtbetrag mit dem angegebenen Verwendungszweck.
+                Du hast Ãœberweisung im Checkout ausgewÃ¤hlt. Ã–ffne die Bankdaten und Ã¼berweise den Gesamtbetrag mit dem angegebenen Verwendungszweck.
               </p>
               <a
                 href={"/rechnung/" + encodeURIComponent(invoice.invoice_token) + "/abschluss?method=bank_transfer"}
@@ -688,7 +688,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                 Barzahlung bei Abholung
               </p>
               <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
-                Barzahlung wurde für diesen Vorgang freigegeben. Du zahlst direkt bei Abholung im Laden.
+                Barzahlung wurde fÃ¼r diesen Vorgang freigegeben. Du zahlst direkt bei Abholung im Laden.
               </p>
               <a
                 href={"/rechnung/" + encodeURIComponent(invoice.invoice_token) + "/abschluss?method=cash_on_pickup"}
@@ -709,8 +709,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <CustomerPaymentMethodButton
                 invoiceToken={invoice.invoice_token}
                 paymentMethod="bank_transfer"
-                label="Überweisung Vorkasse"
-                description="Du überweist den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
+                label="Ãœberweisung Vorkasse"
+                description="Du Ã¼berweist den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
               />
 
               {canUseCashOnPickup ? (
@@ -718,7 +718,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
                   invoiceToken={invoice.invoice_token}
                   paymentMethod="cash_on_pickup"
                   label="Barzahlung bei Abholung"
-                  description="Du zahlst den Gesamtbetrag direkt bei Abholung im Laden. Dein Paket wird für die angegebene Frist reserviert."
+                  description="Du zahlst den Gesamtbetrag direkt bei Abholung im Laden. Dein Paket wird fÃ¼r die angegebene Frist reserviert."
                 />
               ) : null}
             </div>
@@ -728,13 +728,13 @@ export default async function InvoicePaymentPage({ params }: Params) {
             {invoice.selected_payment_method
               ? "Wichtig: Dein Paket wird nach Zahlungseingang weiter bearbeitet."
               : canUseCashOnPickup
-              ? "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
-              : "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
+              ? "Wichtig: Bei PayPal oder Ãœberweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
+              : "Wichtig: Bei PayPal oder Ãœberweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
           </div>
         </section>
 
         <footer className="pb-8 text-center text-xs font-semibold leading-5 text-[#52616F]">
-          Handzettel-Schulen.de · Dein Schulpaket-Service
+          Handzettel-Schulen.de Â· Dein Schulpaket-Service
         </footer>
       </section>
     </main>
