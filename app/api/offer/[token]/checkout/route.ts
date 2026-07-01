@@ -481,7 +481,13 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { data: requestItemsData, error: requestItemsError } = await supabase
       .from("school_request_items")
-      .select("id")
+      .select(
+        [
+          "id",
+          "status",
+          "admin_resolution_status",
+        ].join(", ")
+      )
       .eq("request_id", requestId);
 
     if (requestItemsError) {
