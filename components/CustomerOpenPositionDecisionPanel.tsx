@@ -217,6 +217,18 @@ export default function CustomerOpenPositionDecisionPanel({
             </p>
           </div>
         </div>
+
+        <div className="mt-5 rounded-[24px] border border-[#8BC5A0] bg-white px-5 py-4">
+          <p className="text-sm font-black text-[#1E7A43]">
+            Du musst jetzt nichts weiter tun.
+          </p>
+
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#23435B]">
+            Du kannst diese Seite jetzt einfach schließen. Ab hier übernimmt
+            Handzettel-Schulen.de. Sobald Dein Paketwunsch fertig ist, bekommst
+            Du eine E-Mail und kannst danach die Bestellung abschließen.
+          </p>
+        </div>
       </section>
     );
   }
