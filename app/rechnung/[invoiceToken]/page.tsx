@@ -625,49 +625,85 @@ export default async function InvoicePaymentPage({ params }: Params) {
         </section>
 
         <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
-              <CreditCard className="h-5 w-5" />
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
+              <CreditCard className="h-7 w-7" />
             </div>
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
                 Zahlungsart
               </p>
-              <h2 className="text-xl font-black text-[#102A43]">
-                Wähle Deine Zahlungsart
+
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#102A43]">
+                {invoice.selected_payment_method
+                  ? "Zahlung fortsetzen"
+                  : "Zahlungsart auswählen"}
               </h2>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                PayPal ist der schnellste Weg. Alternativ kannst Du per
-                Überweisung bezahlen. Barzahlung erscheint nur, wenn sie für
-                Deinen Vorgang freigegeben wurde.
+
+              <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                {invoice.selected_payment_method
+                  ? `Im Checkout ausgewählt: ${getPaymentMethodLabel(invoice.selected_payment_method)}.`
+                  : "Wähle eine Zahlungsart aus. Dieser Auswahlblock erscheint nur bei älteren Rechnungen ohne Checkout-Zahlungsart."}
               </p>
             </div>
           </div>
 
           {isPaid ? (
-            <div className="rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2F7D50]" />
-                <div>
-                  <p className="font-black text-[#2F7D50]">
-                    Diese Rechnung ist bereits bezahlt.
-                  </p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[#2F7D50]">
-                    Dein Zahlungseingang ist verbucht. Dein Paket kann weiter
-                    vorbereitet werden.
-                  </p>
-                </div>
-              </div>
+            <div className="mt-6 rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
+              <p className="text-lg font-black text-[#102A43]">
+                Diese Rechnung ist bereits bezahlt.
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                Dein Zahlungseingang ist verbucht. Dein Paket kann weiter bearbeitet werden.
+              </p>
+            </div>
+          ) : invoice.selected_payment_method === "paypal" ? (
+            <div className="mt-6 rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-5">
+              <CustomerPaymentMethodButton
+                invoiceToken={invoice.invoice_token}
+                paymentMethod="paypal"
+                label="PayPal"
+                description="Du hast PayPal im Checkout ausgewählt. Starte hier die PayPal-Zahlung mit dem Gesamtbetrag."
+              />
+            </div>
+          ) : invoice.selected_payment_method === "bank_transfer" ? (
+            <div className="mt-6 rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
+              <p className="text-lg font-black text-[#102A43]">
+                Überweisung Vorkasse
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                Du hast Überweisung im Checkout ausgewählt. Öffne die Bankdaten und überweise den Gesamtbetrag mit dem angegebenen Verwendungszweck.
+              </p>
+              <a
+                href={"/rechnung/" + encodeURIComponent(invoice.invoice_token) + "/abschluss?method=bank_transfer"}
+                className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                Bankdaten anzeigen
+              </a>
+            </div>
+          ) : invoice.selected_payment_method === "cash_on_pickup" && canUseCashOnPickup ? (
+            <div className="mt-6 rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-5">
+              <p className="text-lg font-black text-[#102A43]">
+                Barzahlung bei Abholung
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[#52616F]">
+                Barzahlung wurde für diesen Vorgang freigegeben. Du zahlst direkt bei Abholung im Laden.
+              </p>
+              <a
+                href={"/rechnung/" + encodeURIComponent(invoice.invoice_token) + "/abschluss?method=cash_on_pickup"}
+                className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                Abholhinweise anzeigen
+              </a>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="mt-6 grid gap-5">
               <CustomerPaymentMethodButton
                 invoiceToken={invoice.invoice_token}
                 paymentMethod="paypal"
                 label="PayPal"
                 description="Empfohlen und am schnellsten. Du wirst direkt zur PayPal-Zahlung mit dem Gesamtbetrag weitergeleitet."
-                recommended
               />
 
               <CustomerPaymentMethodButton
@@ -689,7 +725,9 @@ export default async function InvoicePaymentPage({ params }: Params) {
           )}
 
           <div className="mt-5 rounded-[26px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
-            {canUseCashOnPickup
+            {invoice.selected_payment_method
+              ? "Wichtig: Dein Paket wird nach Zahlungseingang weiter bearbeitet."
+              : canUseCashOnPickup
               ? "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
               : "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
           </div>

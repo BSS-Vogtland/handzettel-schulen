@@ -684,76 +684,9 @@ export async function POST(request: Request) {
     });
 
     let emailSent = false;
-    let emailMessage: string | null = null;
-
-    if (email) {
-      try {
-        const emailContent = buildOfferEmail({
-          customerName,
-          childName,
-          schoolName,
-          requestNumber: createdRequest.request_number,
-          offerUrl,
-        });
-
-        await sendMail({
-          to: email,
-          subject: emailContent.subject,
-          text: emailContent.text,
-          html: emailContent.html,
-        });
-
-        emailSent = true;
-        emailMessage = "Der Angebotslink wurde automatisch per E-Mail gesendet.";
-
-        await saveRequestEvent({
-          requestId: createdRequest.id,
-          eventType: "offer_link_email_sent",
-          title: "Angebotslink per E-Mail gesendet",
-          description: `Der persönliche Angebotslink wurde automatisch an ${email} gesendet.`,
-          metadata: {
-            email,
-            offerUrl,
-          },
-        });
-      } catch (emailError) {
-        console.error("offer link email error:", emailError);
-
-        emailSent = false;
-        emailMessage =
-          "Die Anfrage wurde gespeichert, aber die E-Mail konnte nicht automatisch gesendet werden.";
-
-        await saveRequestEvent({
-          requestId: createdRequest.id,
-          eventType: "offer_link_email_failed",
-          title: "E-Mail-Versand fehlgeschlagen",
-          description:
-            emailError instanceof Error
-              ? emailError.message
-              : "Der Angebotslink konnte nicht automatisch per E-Mail gesendet werden.",
-          metadata: {
-            email,
-            offerUrl,
-          },
-        });
-      }
-    } else {
-      emailMessage =
-        "Es wurde keine E-Mail-Adresse angegeben. Der Angebotslink wurde daher nicht automatisch versendet.";
-
-      await saveRequestEvent({
-        requestId: createdRequest.id,
-        eventType: "offer_link_email_skipped",
-        title: "E-Mail-Versand übersprungen",
-        description:
-          "Es wurde keine E-Mail-Adresse angegeben. Der Angebotslink wurde nicht automatisch versendet.",
-        metadata: {
-          contact,
-          phone,
-          offerUrl,
-        },
-      });
-    }
+    let emailMessage: string | null = email
+      ? "Kundenmail nach Upload bewusst deaktiviert. Die nächste Kundenmail erfolgt erst, wenn der Paketwunsch fertig ist oder nach verbindlicher Bestellung mit Rechnung."
+      : "Es wurde keine E-Mail-Adresse angegeben. Es wurde keine Kundenmail versendet.";
 
     return NextResponse.json({
       ok: true,
