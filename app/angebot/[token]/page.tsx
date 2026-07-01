@@ -1192,11 +1192,11 @@ if (productIds.length > 0) {
 
     return adminResolutionStatus && selectedForItem.length === 0;
   });
-  const handledItemCount = new Set(
-    selectedOfferItems
-      .map((item) => item.request_item_id)
-      .filter((id): id is string => Boolean(id))
-  ).size;
+  const handledItemCount =
+    items.length - openChoiceItems.length - manualReviewItems.length;
+
+  const hasOpenCustomerBlockingItems =
+    openChoiceItems.length > 0 || manualReviewItems.length > 0;
 
   const isFreshBeforeAnalysis =
     !isConfirmed &&
@@ -1448,9 +1448,9 @@ if (productIds.length > 0) {
                 <div className="mt-5">
                   <ConfirmOfferButton
                     token={token}
-                    disabled={items.length > 0 && handledItemCount < items.length}
+                    disabled={hasOpenCustomerBlockingItems}
                     buttonLabel={
-                      items.length > 0 && handledItemCount < items.length
+                      hasOpenCustomerBlockingItems
                         ? "Offene Positionen zuerst klären"
                         : "Paketwunsch bestätigen"
                     }
@@ -2337,9 +2337,9 @@ if (productIds.length > 0) {
                     {!isConfirmed ? (
                       <ConfirmOfferButton
                         token={token}
-                        disabled={items.length > 0 && handledItemCount < items.length}
+                        disabled={hasOpenCustomerBlockingItems}
                         buttonLabel={
-                          items.length > 0 && handledItemCount < items.length
+                          hasOpenCustomerBlockingItems
                             ? "Offene Positionen zuerst klären"
                             : "Paketwunsch bestätigen"
                         }

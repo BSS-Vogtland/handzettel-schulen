@@ -66,6 +66,8 @@ type OfferItemRow = {
 
 type RequestItemRow = {
   id: string;
+  status: string | null;
+  admin_resolution_status: string | null;
 };
 
 type InvoiceRow = {
@@ -135,6 +137,15 @@ function toNumber(value: unknown, fallback = 0) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function isResolvedRequestItemForCheckout(item: RequestItemRow) {
+  const adminResolutionStatus = String(item.admin_resolution_status || "").trim();
+
+  return (
+    adminResolutionStatus === "customer_supplies_self" ||
+    adminResolutionStatus === "covered_by_alternative"
+  );
 }
 
 async function getInvoiceNumber(
@@ -476,7 +487,12 @@ export async function POST(request: Request, context: RouteContext) {
       (item) => !coveredRequestItemIds.has(item.id)
     );
 
-    if (requestItems.length > 0 && openRequestItems.length > 0) {
+    const checkoutBlockingRequestItems = openRequestItems.filter(
+      (item) => !isResolvedRequestItemForCheckout(item)
+    );
+
+
+    if (requestItems.length > 0 && checkoutBlockingRequestItems.length > 0) {
       await supabase
         .from("school_requests")
         .update({
@@ -494,7 +510,7 @@ export async function POST(request: Request, context: RouteContext) {
         description:
           "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
-          open_request_items_count: openRequestItems.length,
+          open_request_items_count: checkoutBlockingRequestItems.length,
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
         },
