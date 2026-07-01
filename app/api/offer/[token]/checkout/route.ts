@@ -556,6 +556,24 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    if (coveredRequestItemIds.size > 0) {
+      const { error: syncSelectedRequestItemsError } = await supabase
+        .from("school_request_items")
+        .update({
+          status: "selected",
+          updated_at: now,
+        })
+        .eq("request_id", requestId)
+        .in("id", Array.from(coveredRequestItemIds));
+
+      if (syncSelectedRequestItemsError) {
+        console.error(
+          "Checkout request item selected sync failed:",
+          syncSelectedRequestItemsError
+        );
+      }
+    }
+
     const shippingAmount =
       fulfillmentMethod === "shipping" ? SHIPPING_AMOUNT : 0;
 
