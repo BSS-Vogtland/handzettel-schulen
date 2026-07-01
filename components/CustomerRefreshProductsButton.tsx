@@ -47,7 +47,7 @@ export default function CustomerRefreshProductsButton({
 
       setMessage(
         result?.message ||
-          "Die Produktsuche wurde aktualisiert. Dein Paket wurde geprüft."
+          "Die Produktsuche wurde aktualisiert. Dein Paketwunsch wurde geprüft."
       );
 
       router.refresh();

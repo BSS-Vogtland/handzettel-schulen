@@ -1370,7 +1370,7 @@ if (productIds.length > 0) {
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
                       ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor. Du kannst passende Artikel später direkt nachkaufen."
-                      : "Wir haben Deine Materialliste ausgewertet und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
+                      : "Wir haben Deine Materialliste erfasst und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
                 </div>
               </div>
@@ -1391,7 +1391,7 @@ if (productIds.length > 0) {
                       Offen
                     </p>
                     <p className="mt-1 font-black">
-                      Unsichere Vorschläge kannst Du aktiv wählen.
+                      Unsichere Vorschläge kannst Du selbst auswählen oder vom Team prüfen lassen.
                     </p>
                   </div>
 
@@ -1430,7 +1430,7 @@ if (productIds.length > 0) {
                 </div>
 
                 <div className="flex justify-between gap-3">
-                  <span>Noch auswählen</span>
+                  <span>Noch klären</span>
                   <span className="font-black text-[#A75B28]">
                     {openChoiceItems.length}
                   </span>
@@ -1446,13 +1446,21 @@ if (productIds.length > 0) {
 
               {!isConfirmed && selectedOfferItems.length > 0 ? (
                 <div className="mt-5">
-                  <ConfirmOfferButton token={token} />
+                  <ConfirmOfferButton
+                    token={token}
+                    disabled={items.length > 0 && handledItemCount < items.length}
+                    buttonLabel={
+                      items.length > 0 && handledItemCount < items.length
+                        ? "Offene Positionen zuerst klären"
+                        : "Paketwunsch bestätigen"
+                    }
+                  />
                 </div>
               ) : null}
 
               {!isConfirmed ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
-                  Du sendest erst mit dem Bestätigungsbutton Deinen Paketwunsch
+                  Du kommst erst mit dem Bestätigungsbutton in den Checkout
                   ab. Vorher kannst Du Artikel entfernen oder ergänzen.
                 </p>
               ) : null}
@@ -1462,7 +1470,7 @@ if (productIds.length > 0) {
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-sm font-black">
-                      Dein Paketwunsch wurde abgesendet.
+                      Dein Paketwunsch wurde bestätigt.
                     </p>
                   </div>
                 </div>
@@ -1633,7 +1641,7 @@ if (productIds.length > 0) {
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <h2 className="font-black">
-                  Dein Paketwunsch wurde erfolgreich abgesendet.
+                  Dein Paketwunsch wurde erfolgreich bestätigt.
                 </h2>
                 <p className="mt-1 text-sm leading-6">
                   Handzettel-Schulen.de hat Deine Auswahl erhalten. Wenn noch
@@ -2326,7 +2334,17 @@ if (productIds.length > 0) {
                       </div>
                     </div>
 
-                    {!isConfirmed ? <ConfirmOfferButton token={token} /> : null}
+                    {!isConfirmed ? (
+                      <ConfirmOfferButton
+                        token={token}
+                        disabled={items.length > 0 && handledItemCount < items.length}
+                        buttonLabel={
+                          items.length > 0 && handledItemCount < items.length
+                            ? "Offene Positionen zuerst klären"
+                            : "Paketwunsch bestätigen"
+                        }
+                      />
+                    ) : null}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[#D8C8B8] bg-[#FBF7F0] p-4 text-sm font-semibold text-[#52616F]">

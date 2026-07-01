@@ -174,7 +174,7 @@ export default function CustomerPreparePackageButton({
       setProgress(100);
       setFeedbackMessage(
         payload.message ||
-          "Deine Liste wurde ausgewertet. Sichere Treffer wurden bereits für Dich ins Paket gelegt."
+          "Deine Liste wurde erfasst. Sichere Treffer wurden bereits für Dich ins Paket gelegt."
       );
 
       await new Promise((resolve) => window.setTimeout(resolve, 700));
@@ -325,7 +325,7 @@ export default function CustomerPreparePackageButton({
 
               <div className="absolute bottom-5 left-1/2 z-10 w-[80%] -translate-x-1/2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-center">
                 <p className="text-sm font-black text-[#102A43]">
-                  Schulpaket wird vorbereitet
+                  Paketwunsch wird vorbereitet
                 </p>
                 <p className="mt-1 text-xs font-semibold text-[#52616F]">
                   Sichere Treffer kommen direkt ins Paket
@@ -490,7 +490,7 @@ export default function CustomerPreparePackageButton({
 
   const introText = serviceMessage
     ? "Deine Liste liegt bei uns vor. Ab hier übernehmen wir persönlich und suchen die passenden Schulmaterialien für Dich heraus."
-    : "Starte jetzt die Auswertung. Sichere Treffer ab 80 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht eindeutig ist, übernehmen wir die persönliche Prüfung für Dich.";
+    : "Starte jetzt die Erfassung. Sichere Treffer ab 80 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht eindeutig ist, übernimmt das Team von Handzettel-Schulen.de die persönliche Prüfung für Dich.";
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
@@ -692,12 +692,12 @@ export default function CustomerPreparePackageButton({
               </div>
 
               <h3 className="mt-3 text-xl font-black text-[#102A43]">
-                Wir suchen nicht nur automatisch – wir prüfen auch persönlich.
+                Das Team von Handzettel-Schulen.de prüft bei Bedarf persönlich.
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-[#52616F]">
                 Wenn ein Artikel nicht sofort automatisch erkannt wird, ist das
-                kein Problem. Unser Team schaut sich Deine Liste an und sucht
+                kein Problem. Das Team von Handzettel-Schulen.de schaut sich Deine Liste an und sucht
                 die passenden Schulmaterialien für Dich heraus.
               </p>
             </div>

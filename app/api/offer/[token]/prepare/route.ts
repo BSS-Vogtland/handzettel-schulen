@@ -615,7 +615,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Der Paketwunsch wurde bereits abgesendet. Die Auswertung kann nicht erneut gestartet werden.",
+            "Der Paketwunsch wurde bereits abgesendet. Die Erfassung kann nicht erneut gestartet werden.",
         },
         409
       );
@@ -966,8 +966,8 @@ export async function POST(request: NextRequest, context: Params) {
       requestId,
       "customer_prepare_done",
       autoPreselectResult.preselectedCount > 0
-        ? "Automatische Listenauswertung wurde abgeschlossen. Sichere Treffer wurden direkt in den Paketwunsch gelegt."
-        : "Automatische Listenauswertung und Produktvorschläge wurden erstellt.",
+        ? "Automatische Listenerfassung wurde abgeschlossen. Sichere Treffer wurden direkt in den Paketwunsch gelegt."
+        : "Materialliste wurde erfasst und Produktvorschläge wurden erstellt.",
       {
         itemCount,
         matchCount,
@@ -988,8 +988,8 @@ export async function POST(request: NextRequest, context: Params) {
         autoPreselectResult.preselectedCount > 0
           ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`
           : matchCount > 0
-            ? "Deine Liste wurde ausgewertet. Sichere Treffer werden angezeigt, offene Positionen kannst Du aktiv auswählen."
-            : "Deine Liste wurde ausgewertet. Artikel unter 80 % prüfen wir persönlich für Dich. Optional kannst Du selbst weitere Produkte suchen.",
+            ? "Deine Liste wurde erfasst. Sichere Treffer werden angezeigt, offene Positionen kannst Du selbst auswählen oder persönlich prüfen lassen."
+            : "Deine Liste wurde erfasst. Artikel unter 80 % prüft das Team von Handzettel-Schulen.de persönlich für Dich. Optional kannst Du selbst weitere Produkte suchen.",
     });
   } catch (error) {
     console.error("Customer prepare package error:", error);
