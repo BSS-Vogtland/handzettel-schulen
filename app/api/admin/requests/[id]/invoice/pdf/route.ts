@@ -92,17 +92,17 @@ type InvoiceItemRow = {
 
 const COMPANY = {
   name: "Handzettel-Schulen.de",
-  legalName: "BÃ¼rotechnik Schwalm & Staffe",
+  legalName: "Bürotechnik Schwalm & Staffe",
   ownerLine: "Inh. Heike Leopold",
   street: "Zwickauer Str. 167",
   city: "08468 Reichenbach",
-  phoneLine: "Tel.: 03765 / 16175 Â· 03765 / 69808",
+  phoneLine: "Tel.: 03765 / 16175 · 03765 / 69808",
   email: "kontakt@bss-vogtland.de",
   website: "www.handzettel-schulen.de",
-  taxLine: "Steuernummer: 223/244/09843 Â· USt-IdNr.: DE257963936",
+  taxLine: "Steuernummer: 223/244/09843 · USt-IdNr.: DE257963936",
   bankLine1: "Bank: Sparkasse Vogtland",
-  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 Â· BIC: WELADED1PLX",
-  paypalLine: "PayPal-Zahlung Ã¼ber den Zahlungslink in der Rechnungs-Mail.",
+  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 · BIC: WELADED1PLX",
+  paypalLine: "PayPal-Zahlung über den Zahlungslink in der Rechnungs-Mail.",
 };
 
 const COLORS = {
@@ -122,7 +122,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -153,7 +153,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -167,21 +167,21 @@ function getPaymentMethodLabel(method: string | null) {
     case "paypal":
       return "PayPal";
     case "bank_transfer":
-      return "Ãœberweisung Vorkasse";
+      return "Überweisung Vorkasse";
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "Noch nicht gewÃ¤hlt";
+      return "Noch nicht gewählt";
   }
 }
 
 function getFulfillmentLabel(method: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewÃ¤hlt";
+  return "Noch nicht gewählt";
 }
 
-function safeText(value: unknown, fallback = "â€”") {
+function safeText(value: unknown, fallback = "—") {
   const text = String(value || "").trim();
   return text.length > 0 ? text : fallback;
 }
@@ -193,7 +193,7 @@ function cleanOptionalText(value: unknown) {
 
 function cleanFileName(value: string) {
   return value
-    .replace(/[^\wÃ¤Ã¶Ã¼Ã„Ã–ÃœÃŸ\-]+/g, "_")
+    .replace(/[^\wäöüÄÖÜß\-]+/g, "_")
     .replace(/_+/g, "_")
     .slice(0, 120);
 }
@@ -228,7 +228,7 @@ function truncateTextToWidth(params: {
   const { text, font, size, maxWidth } = params;
   const clean = String(text || "").trim();
 
-  if (!clean) return "â€”";
+  if (!clean) return "—";
 
   if (font.widthOfTextAtSize(clean, size) <= maxWidth) {
     return clean;
@@ -238,12 +238,12 @@ function truncateTextToWidth(params: {
 
   while (
     shortened.length > 0 &&
-    font.widthOfTextAtSize(shortened + "â€¦", size) > maxWidth
+    font.widthOfTextAtSize(shortened + "…", size) > maxWidth
   ) {
     shortened = shortened.slice(0, -1);
   }
 
-  return shortened ? shortened + "â€¦" : "â€¦";
+  return shortened ? shortened + "…" : "…";
 }
 
 function drawText(params: {
@@ -456,7 +456,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.street} Â· ${COMPANY.city}`, {
+  page.drawText(`${COMPANY.street} · ${COMPANY.city}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -476,7 +476,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.email} Â· ${COMPANY.website}`, {
+  page.drawText(`${COMPANY.email} · ${COMPANY.website}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -829,12 +829,12 @@ async function createInvoicePdf(params: {
 
   const paymentText =
     invoice.selected_payment_method === "paypal"
-      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhÃ¤ltst Du in der Rechnungs-Mail."
+      ? "PayPal ist als bevorzugter Zahlungsweg vorgesehen. Den Zahlungslink erhältst Du in der Rechnungs-Mail."
       : invoice.selected_payment_method === "bank_transfer"
-      ? "Bitte Ã¼berweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
+      ? "Bitte überweise den Gesamtbetrag vorab. Die Bearbeitung startet nach Zahlungseingang."
       : invoice.selected_payment_method === "cash_on_pickup"
-      ? "Barzahlung ist nur bei Abholung mÃ¶glich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
-      : "Bitte wÃ¤hle Deine Zahlungsart Ã¼ber den Zahlungslink in der Rechnungs-Mail.";
+      ? "Barzahlung ist nur bei Abholung möglich. Bitte hole Dein Paket innerhalb der angegebenen Frist ab."
+      : "Bitte wähle Deine Zahlungsart über den Zahlungslink in der Rechnungs-Mail.";
 
   y = drawText({
     page,
@@ -888,7 +888,7 @@ async function createInvoicePdf(params: {
       color: COLORS.border,
     });
 
-    pdfPage.drawText(`${COMPANY.legalName} Â· ${COMPANY.taxLine}`, {
+    pdfPage.drawText(`${COMPANY.legalName} · ${COMPANY.taxLine}`, {
       x: marginX,
       y: footerY,
       size: 7.5,
@@ -909,7 +909,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "UngÃ¼ltige Anfrage-ID.",
+          message: "Ungültige Anfrage-ID.",
         },
         { status: 400 }
       );
