@@ -34,6 +34,7 @@ type CheckoutBody = {
   fulfillmentMethod?: FulfillmentMethod | null;
   paymentMethod?: PaymentMethod | null;
   customerMessage?: string | null;
+  debugCheckout?: boolean | null;
 };
 
 type RequestRow = {
@@ -344,6 +345,7 @@ export async function POST(request: Request, context: RouteContext) {
       paymentMethod === "paypal" ? "paypal" : "bank_transfer";
 
     const customerMessage = cleanNullableString(body.customerMessage);
+    const debugCheckout = Boolean(body.debugCheckout);
 
     if (!customerName) {
       return NextResponse.json(
@@ -509,6 +511,32 @@ export async function POST(request: Request, context: RouteContext) {
 
 
     if (checkoutBlockingRequestItems.length > 0) {
+      const checkoutBlockDebug = {
+        checkout_debug_version: "e3g-checkout-block-debug",
+        vercel_git_commit_sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+        request_id: requestId,
+        request_status: requestRow.status,
+        request_offer_status: requestRow.offer_status,
+        offer_items_count: offerItems.length,
+        raw_offer_items_count: Array.isArray(offerItemsData) ? offerItemsData.length : 0,
+        request_items_count: requestItems.length,
+        covered_request_item_ids: Array.from(coveredRequestItemIds),
+        request_items: requestItems.map((item) => ({
+          id: item.id,
+          status: item.status,
+          admin_resolution_status: item.admin_resolution_status,
+          is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
+          is_resolved_for_checkout: isResolvedRequestItemForCheckout(item),
+        })),
+        checkout_blocking_items: checkoutBlockingRequestItems.map((item) => ({
+          id: item.id,
+          status: item.status,
+          admin_resolution_status: item.admin_resolution_status,
+          is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
+          is_resolved_for_checkout: isResolvedRequestItemForCheckout(item),
+        })),
+      };
+
       await supabase
         .from("school_requests")
         .update({
@@ -526,16 +554,7 @@ export async function POST(request: Request, context: RouteContext) {
         description:
           "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
-          open_request_items_count: checkoutBlockingRequestItems.length,
-          covered_request_item_ids: Array.from(coveredRequestItemIds),
-          checkout_blocking_items: checkoutBlockingRequestItems.map((item) => ({
-            id: item.id,
-            status: item.status,
-            admin_resolution_status: item.admin_resolution_status,
-            is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
-          })),
-          offer_items_count: offerItems.length,
-          request_items_count: requestItems.length,
+          ...checkoutBlockDebug,
         },
       });
 
@@ -544,6 +563,7 @@ export async function POST(request: Request, context: RouteContext) {
           ok: false,
           message:
             "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prüft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
+          ...(debugCheckout ? { debug: checkoutBlockDebug } : {}),
         },
         { status: 409 }
       );
