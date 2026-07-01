@@ -218,16 +218,33 @@ export default function CustomerOpenPositionDecisionPanel({
           </div>
         </div>
 
-        <div className="mt-5 rounded-[24px] border border-[#8BC5A0] bg-white px-5 py-4">
-          <p className="text-sm font-black text-[#1E7A43]">
-            Du musst jetzt nichts weiter tun.
-          </p>
+        
+        <div className="mt-6 rounded-[28px] border-2 border-[#2F8F57] bg-[#F3FBF6] px-6 py-6 shadow-[0_10px_30px_rgba(47,143,87,0.10)] sm:px-7 sm:py-7">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E7A43] shadow-sm">
+              <span className="text-2xl font-black leading-none">✓</span>
+            </div>
 
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#23435B]">
-            Du kannst diese Seite jetzt einfach schließen. Ab hier übernimmt
-            Handzettel-Schulen.de. Sobald Dein Paketwunsch fertig ist, bekommst
-            Du eine E-Mail und kannst danach die Bestellung abschließen.
-          </p>
+            <div className="flex-1">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1E7A43]">
+                Wichtiger Hinweis
+              </p>
+
+              <h3 className="mt-1 text-2xl font-black leading-tight text-[#123B23] sm:text-[30px]">
+                Du musst jetzt nichts weiter tun.
+              </h3>
+
+              <p className="mt-3 text-base font-semibold leading-7 text-[#23435B] sm:text-lg">
+                Du kannst diese Seite jetzt einfach schließen. Ab hier übernimmt
+                Handzettel-Schulen.de.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#23435B] sm:text-base">
+                Sobald Dein Paketwunsch fertig ist, bekommst Du eine E-Mail und
+                kannst danach die Bestellung abschließen.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
     );
