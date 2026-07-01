@@ -1199,6 +1199,9 @@ if (productIds.length > 0) {
   const hasOpenCustomerBlockingItems =
     openChoiceItems.length > 0 || manualReviewItems.length > 0;
 
+  const openDecisionItemCount =
+    openChoiceItems.length + manualReviewItems.length;
+
   const isFreshBeforeAnalysis =
     !isConfirmed &&
     hasNoRecognizedItems &&
@@ -1343,6 +1346,73 @@ if (productIds.length > 0) {
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {!isConfirmed ? (
+          <section className="rounded-[34px] border-2 border-[#B5282D] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#B5282D]">
+                  Ergebnis nach dem Auslesen
+                </p>
+
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
+                  {hasOpenCustomerBlockingItems
+                    ? "Bitte entscheide, wie es mit den offenen Positionen weitergeht."
+                    : "Alle Positionen sind vorbereitet. Prüfe jetzt Dein Paket."}
+                </h1>
+
+                <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                  Sichere Treffer liegen bereits im Paket. Offene Positionen
+                  kannst Du selbst ergänzen oder von Handzettel-Schulen.de
+                  übernehmen lassen.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#FFF1F1] px-4 py-3 text-sm font-black text-[#B5282D]">
+                {hasOpenCustomerBlockingItems
+                  ? "Entscheidung erforderlich"
+                  : "Bereit zur Prüfung"}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-5 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Erkannte Positionen
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {items.length}
+                </p>
+              </div>
+
+              <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Schon im Paket
+                </p>
+                <p className="mt-2 text-4xl font-black">
+                  {autoPreselectedOfferItems.length}
+                </p>
+              </div>
+
+              <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28] shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Auswahl offen
+                </p>
+                <p className="mt-2 text-4xl font-black">
+                  {openDecisionItemCount}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {!isConfirmed && hasOpenCustomerBlockingItems ? (
+          <CustomerOpenPositionDecisionPanel
+            token={token}
+            openChoiceCount={openChoiceItems.length}
+            manualReviewCount={openDecisionItemCount}
+          />
+        ) : null}
+
         <header className="overflow-hidden rounded-[34px] border border-[#E8DED2] bg-white shadow-sm">
           <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_360px] lg:items-stretch">
             <div className="flex flex-col justify-between">
@@ -1392,7 +1462,7 @@ if (productIds.length > 0) {
                       Offen
                     </p>
                     <p className="mt-1 font-black">
-                      Unsichere Vorschläge kannst Du selbst auswählen oder vom Team prüfen lassen.
+                      Wenn etwas offen bleibt, entscheidest Du: selbst ergänzen oder Team übernehmen lassen.
                     </p>
                   </div>
 
@@ -1401,7 +1471,7 @@ if (productIds.length > 0) {
                       Service
                     </p>
                     <p className="mt-1 font-black">
-                      Artikel unter 85 % prüfen wir persönlich.
+                      Wir übernehmen offene Positionen, sobald Du es auswählst.
                     </p>
                   </div>
                 </div>
@@ -1438,7 +1508,7 @@ if (productIds.length > 0) {
                 </div>
 
                 <div className="flex justify-between gap-3">
-                  <span>Persönliche Prüfung</span>
+                  <span>Auswahl offen gesamt</span>
                   <span className="font-black text-[#52616F]">
                     {manualReviewItems.length}
                   </span>
@@ -1479,47 +1549,6 @@ if (productIds.length > 0) {
             </aside>
           </div>
         </header>
-<section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Erkannte Positionen
-            </p>
-            <p className="mt-2 text-3xl font-black">{items.length}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em]">
-              Schon im Paket
-            </p>
-            <p className="mt-2 text-3xl font-black">
-              {autoPreselectedOfferItems.length}
-            </p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28] shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em]">
-              Auswahl offen
-            </p>
-            <p className="mt-2 text-3xl font-black">{openChoiceItems.length}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#52616F]">
-              Wir prüfen für Dich
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#102A43]">
-              {manualReviewItems.length}
-            </p>
-          </div>
-        </section>
-
-        {!isConfirmed && hasOpenCustomerBlockingItems ? (
-          <CustomerOpenPositionDecisionPanel
-            token={token}
-            openChoiceCount={openChoiceItems.length}
-            manualReviewCount={manualReviewItems.length}
-          />
-        ) : null}
 
         {questions.length > 0 && !isConfirmed ? (
           <section className="rounded-[34px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">

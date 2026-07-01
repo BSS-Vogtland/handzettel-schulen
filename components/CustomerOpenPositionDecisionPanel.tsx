@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
 type Choice = "self" | "team" | null;
 
@@ -25,7 +31,6 @@ export default function CustomerOpenPositionDecisionPanel({
   const [message, setMessage] = useState<string | null>(null);
 
   const totalOpenCount = openChoiceCount + manualReviewCount;
-
   const storageKey = useMemo(() => getStorageKey(token), [token]);
 
   useEffect(() => {
@@ -112,9 +117,7 @@ export default function CustomerOpenPositionDecisionPanel({
         return;
       }
 
-      setMessage(
-        "Gespeichert. Handzettel-Schulen.de übernimmt die offenen Positionen."
-      );
+      setMessage("Auswahl gespeichert.");
     } catch {
       setMessage(
         "Die Auswahl wurde lokal gespeichert. Falls nötig, informiere uns bitte zusätzlich kurz per E-Mail."
@@ -125,63 +128,60 @@ export default function CustomerOpenPositionDecisionPanel({
   }
 
   return (
-    <section className="rounded-[34px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
+    <section className="rounded-[34px] border-2 border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
       <style>{`
         body:not([data-hds-open-position-choice="self"]) .hds-open-position-self-content {
           display: none;
         }
       `}</style>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-            Entscheidung erforderlich
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+            Nächster Schritt
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-[#102A43] sm:text-3xl">
-            {totalOpenCount === 1
-              ? "Eine Position ist noch offen."
-              : `${totalOpenCount} Positionen sind noch offen.`}
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
+            Was soll mit {totalOpenCount === 1 ? "der offenen Position" : "den offenen Positionen"} passieren?
           </h2>
 
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-            Entscheide jetzt, ob Du die offenen Artikel selbst suchst und ergänzt
-            oder ob Handzettel-Schulen.de die offenen Positionen für Dich übernimmt.
+          <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+            Wähle eine klare Richtung. Du kannst später jederzeit wechseln,
+            falls Du doch nicht weiterkommst oder die Positionen lieber abgeben möchtest.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#102A43]">
-          Offen zur Auswahl: {openChoiceCount} · Persönliche Prüfung:{" "}
-          {manualReviewCount}
+        <div className="rounded-2xl border border-[#F1D1A8] bg-white px-4 py-3 text-sm font-black text-[#A75B28]">
+          {totalOpenCount} offen
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
         <button
           type="button"
           onClick={chooseSelf}
           className={
             choice === "self"
-              ? "flex min-h-[128px] flex-col items-start justify-center rounded-[28px] border-2 border-[#B5282D] bg-white px-5 py-5 text-left shadow-sm transition hover:-translate-y-0.5"
-              : "flex min-h-[128px] flex-col items-start justify-center rounded-[28px] border border-[#E8DED2] bg-white px-5 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
+              ? "flex min-h-[172px] flex-col items-start justify-between rounded-[30px] border-2 border-[#B5282D] bg-white px-6 py-6 text-left shadow-md transition hover:-translate-y-0.5"
+              : "flex min-h-[172px] flex-col items-start justify-between rounded-[30px] border-2 border-white bg-white px-6 py-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#B5282D]"
           }
         >
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF1F1] text-[#B5282D]">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF1F1] text-[#B5282D]">
             <Search className="h-5 w-5" />
           </span>
 
-          <span className="mt-4 text-xl font-black text-[#102A43]">
-            Ich suche und ergänze die Artikel selbst
+          <span className="mt-4 text-2xl font-black leading-tight text-[#102A43]">
+            Ich wähle die offenen Artikel selbst aus
           </span>
 
           <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-            Die Seite springt zur Positionsliste. Dort kannst Du Vorschläge
-            auswählen oder selbst nach passenden Produkten suchen.
+            Du springst direkt zur Positionsliste und kannst passende Vorschläge
+            auswählen oder selbst nach Artikeln suchen.
           </span>
 
-          <span className="mt-4 inline-flex items-center gap-2 text-sm font-black text-[#B5282D]">
-            Zur Positionsliste
-            <ArrowRight className="h-4 w-4" />
+          <span className="mt-5 inline-flex rounded-full bg-[#B5282D] px-5 py-3 text-sm font-black text-white">
+            Jetzt selbst Artikel auswählen
+            <ArrowRight className="ml-2 h-4 w-4" />
           </span>
         </button>
 
@@ -191,11 +191,11 @@ export default function CustomerOpenPositionDecisionPanel({
           disabled={isSavingTeamChoice}
           className={
             choice === "team"
-              ? "flex min-h-[128px] flex-col items-start justify-center rounded-[28px] border-2 border-[#2F7D50] bg-[#F0FFF6] px-5 py-5 text-left shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-              : "flex min-h-[128px] flex-col items-start justify-center rounded-[28px] border border-[#BFE3CD] bg-[#F7FBF8] px-5 py-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#2F7D50] disabled:cursor-not-allowed disabled:opacity-70"
+              ? "flex min-h-[172px] flex-col items-start justify-between rounded-[30px] border-2 border-[#2F7D50] bg-[#F0FFF6] px-6 py-6 text-left shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              : "flex min-h-[172px] flex-col items-start justify-between rounded-[30px] border-2 border-[#BFE3CD] bg-[#F7FBF8] px-6 py-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#2F7D50] disabled:cursor-not-allowed disabled:opacity-70"
           }
         >
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
             {isSavingTeamChoice ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
@@ -203,8 +203,8 @@ export default function CustomerOpenPositionDecisionPanel({
             )}
           </span>
 
-          <span className="mt-4 text-xl font-black text-[#102A43]">
-            Handzettel-Schulen.de soll übernehmen
+          <span className="mt-4 text-2xl font-black leading-tight text-[#102A43]">
+            Handzettel-Schulen.de übernimmt
           </span>
 
           <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
@@ -212,51 +212,77 @@ export default function CustomerOpenPositionDecisionPanel({
             Dein Paketwunsch fertig ist.
           </span>
 
-          <span className="mt-4 inline-flex items-center gap-2 text-sm font-black text-[#2F7D50]">
-            Team übernehmen lassen
-            <ArrowRight className="h-4 w-4" />
+          <span className="mt-5 inline-flex rounded-full bg-[#2F7D50] px-5 py-3 text-sm font-black text-white">
+            Offene Positionen prüfen lassen
+            <ArrowRight className="ml-2 h-4 w-4" />
           </span>
         </button>
       </div>
 
       {choice === "team" ? (
-        <div className="mt-5 rounded-[24px] border border-[#BFE3CD] bg-white p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
+        <div className="mt-6 rounded-[28px] border-2 border-[#2F7D50] bg-white p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#F0FFF6] text-[#2F7D50]">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
 
-            <div>
-              <p className="text-sm font-black text-[#102A43]">
-                Wir übernehmen jetzt die offenen Positionen.
-              </p>
-
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                Du musst an dieser Stelle nichts weiter auswählen. Wenn Du doch
-                selbst weitermachen möchtest, kannst Du jederzeit wieder auf
-                „Ich suche und ergänze die Artikel selbst“ wechseln.
-              </p>
-
-              {message ? (
-                <p className="mt-3 text-sm font-black text-[#2F7D50]">
-                  {message}
+              <div>
+                <p className="text-lg font-black text-[#102A43]">
+                  Auswahl gespeichert: Wir übernehmen die offenen Positionen.
                 </p>
-              ) : null}
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                  Nächster Schritt: Du musst hier nichts weiter auswählen.
+                  Handzettel-Schulen.de prüft die offenen Positionen und schickt
+                  Dir den fertigen Paketwunsch per E-Mail.
+                </p>
+
+                {message ? (
+                  <p className="mt-3 text-sm font-black text-[#2F7D50]">
+                    {message}
+                  </p>
+                ) : null}
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={chooseSelf}
+              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#B5282D] bg-white px-5 py-3 text-sm font-black text-[#B5282D] transition hover:bg-[#FFF1F1]"
+            >
+              Doch selbst auswählen
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
           </div>
         </div>
       ) : null}
 
       {choice === "self" ? (
-        <div className="mt-5 rounded-[24px] border border-[#D6E7EF] bg-white p-4">
-          <p className="text-sm font-black text-[#102A43]">
-            Selbst-Auswahl aktiv.
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Unten findest Du die offenen Positionen. Wenn Du doch nicht weiterkommst,
-            kannst Du hier jederzeit auf „Handzettel-Schulen.de soll übernehmen“
-            umschwenken.
-          </p>
+        <div className="mt-6 rounded-[28px] border-2 border-[#B5282D] bg-white p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-lg font-black text-[#102A43]">
+                Selbst-Auswahl aktiv.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
+                Nächster Schritt: Wähle unten passende Artikel aus oder suche
+                selbst nach Produkten. Wenn Du nicht weiterkommst, kannst Du die
+                offenen Positionen an Handzettel-Schulen.de übergeben.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={chooseTeam}
+              disabled={isSavingTeamChoice}
+              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#2F7D50] bg-[#F0FFF6] px-5 py-3 text-sm font-black text-[#2F7D50] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Team übernehmen lassen
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
+          </div>
         </div>
       ) : null}
     </section>
