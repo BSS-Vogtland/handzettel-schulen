@@ -317,22 +317,22 @@ export default function CustomerOpenPositionDecisionPanel({
             "group flex min-h-[190px] flex-col items-start justify-between rounded-[30px] border-2 border-[#BFE3CD] bg-[#F7FBF8] px-6 py-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#2F7D50] disabled:cursor-not-allowed disabled:opacity-70"
           }
         >
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2F7D50]">
+          <span className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-[#2F7D50] shadow-sm">
             {isSavingTeamChoice ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <Image
                 src={TEAM_CARD_LOGO_SRC}
                 alt="Handzettel-Schulen.de"
-                width={28}
-                height={28}
-                className="h-7 w-auto object-contain"
+                width={48}
+                height={48}
+                className="h-12 w-auto object-contain"
               />
             )}
           </span>
 
           <span className="mt-4 text-2xl font-black leading-tight text-[#102A43]">
-            Handzettel-Schulen.de übernimmt
+            Handzettel-Schulen.de soll übernehmen.
           </span>
 
           <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
@@ -341,7 +341,7 @@ export default function CustomerOpenPositionDecisionPanel({
           </span>
 
           <span className="mt-5 inline-flex items-center text-sm font-black text-[#2F7D50]">
-            Offene Positionen abgeben
+            Handzettel-Schulen.de übernehmen lassen
             <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-1" />
           </span>
         </button>
