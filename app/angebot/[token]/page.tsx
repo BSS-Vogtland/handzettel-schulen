@@ -1356,14 +1356,12 @@ if (productIds.length > 0) {
 
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
                   {hasOpenCustomerBlockingItems
-                    ? "Bitte entscheide, wie es mit den offenen Positionen weitergeht."
+                    ? "Ein Teil ist fertig. Für die offenen Positionen wählst Du jetzt den nächsten Schritt."
                     : "Alle Positionen sind vorbereitet. Prüfe jetzt Dein Paket."}
                 </h1>
 
                 <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                  Sichere Treffer liegen bereits im Paket. Offene Positionen
-                  kannst Du selbst ergänzen oder von Handzettel-Schulen.de
-                  übernehmen lassen.
+                  Erkannte Artikel liegen bereits im Paket. Für offene Positionen wählst Du jetzt: selbst auswählen oder von Handzettel-Schulen.de übernehmen lassen.
                 </p>
               </div>
 
