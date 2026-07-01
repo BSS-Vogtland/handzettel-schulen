@@ -413,6 +413,77 @@ function formatEuroForEvent(value: number) {
   return value.toFixed(2).replace(".", ",");
 }
 
+
+async function sendCustomerInvoiceMailSafely(params: {
+  request: NextRequest;
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+  requestId: string;
+  invoiceNumber: string | null;
+}) {
+  const { request, supabase, requestId, invoiceNumber } = params;
+
+  try {
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+      new URL(request.url).origin;
+
+    const response = await fetch(
+      `${siteUrl}/api/admin/requests/${encodeURIComponent(
+        requestId
+      )}/invoice/send-mail`,
+      {
+        method: "POST",
+        cache: "no-store",
+      }
+    );
+
+    const rawText = await response.text().catch(() => "");
+    let payload = null;
+
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok || payload?.ok === false) {
+      await insertRequestEvent({
+        supabase,
+        requestId,
+        eventType: "customer_invoice_mail_failed",
+        title: "Rechnungsmail an Kunde fehlgeschlagen",
+        description:
+          payload?.message ||
+          rawText ||
+          "Die Rechnungsmail an den Kunden konnte nach der Shop-Bestellung nicht automatisch versendet werden.",
+      });
+
+      return;
+    }
+
+    await insertRequestEvent({
+      supabase,
+      requestId,
+      eventType: "customer_invoice_mail_sent_after_shop_checkout",
+      title: "Rechnungsmail an Kunde versendet",
+      description: `Die Rechnung ${invoiceNumber || ""} wurde nach der Shop-Bestellung automatisch an den Kunden versendet.`,
+    });
+  } catch (error) {
+    console.error("Kunden-Rechnungsmail zur Shop-Bestellung konnte nicht versendet werden:", error);
+
+    await insertRequestEvent({
+      supabase,
+      requestId,
+      eventType: "customer_invoice_mail_failed",
+      title: "Rechnungsmail an Kunde fehlgeschlagen",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Die Rechnungsmail an den Kunden konnte nach der Shop-Bestellung nicht automatisch versendet werden.",
+    });
+  }
+}
+
 async function sendShopOrderAdminNotificationSafely(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
@@ -812,7 +883,7 @@ export async function POST(request: NextRequest) {
         invoice_number: invoiceNumber,
 
         invoice_status: "draft",
-        payment_status: "not_selected",
+        payment_status: "waiting_for_payment",
         selected_payment_method: paymentMethod,
         payment_provider: paymentProvider,
 
@@ -935,7 +1006,7 @@ export async function POST(request: NextRequest) {
       .from("school_requests")
       .update({
         invoice_status: "draft",
-        payment_status: "not_selected",
+        payment_status: "waiting_for_payment",
         selected_payment_method: paymentMethod,
         latest_invoice_id: invoice.id,
         shipping_amount: shippingAmount,
@@ -994,6 +1065,13 @@ export async function POST(request: NextRequest) {
           } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
             totalAmount
           )} EUR.`,
+    });
+
+    await sendCustomerInvoiceMailSafely({
+      request,
+      supabase,
+      requestId,
+      invoiceNumber: invoice.invoice_number,
     });
 
     await sendShopOrderAdminNotificationSafely({
