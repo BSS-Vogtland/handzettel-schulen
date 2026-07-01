@@ -500,7 +500,7 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const requestItems = (requestItemsData || []) as RequestItemRow[];
+    const requestItems = ((requestItemsData || []) as unknown) as RequestItemRow[];
     const coveredRequestItemIds = new Set(
       ((offerItemsData || []) as Array<{ request_item_id?: string | null }>)
         .map((item) => item.request_item_id)
