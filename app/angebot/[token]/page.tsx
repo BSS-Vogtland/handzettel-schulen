@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import CustomerPreparePackageButton from "@/components/CustomerPreparePackageButton";
+import CustomerOpenPositionDecisionPanel from "@/components/CustomerOpenPositionDecisionPanel";
 import CustomerRefreshProductsButton from "@/components/CustomerRefreshProductsButton";
 import CustomerSelectProductButton from "@/components/CustomerSelectProductButton";
 import ConfirmOfferButton from "@/components/ConfirmOfferButton";
@@ -1512,6 +1513,14 @@ if (productIds.length > 0) {
           </div>
         </section>
 
+        {!isConfirmed && hasOpenCustomerBlockingItems ? (
+          <CustomerOpenPositionDecisionPanel
+            token={token}
+            openChoiceCount={openChoiceItems.length}
+            manualReviewCount={manualReviewItems.length}
+          />
+        ) : null}
+
         {questions.length > 0 && !isConfirmed ? (
           <section className="rounded-[34px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-start gap-3">
@@ -1918,7 +1927,10 @@ if (productIds.length > 0) {
               ) : null}
 
               {!isConfirmed && openChoiceItems.length > 0 ? (
-                <section className="rounded-[32px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6">
+                <section
+                  id="customer-open-positions-list"
+                  className="hds-open-position-self-content rounded-[32px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm sm:p-6"
+                >
                   <div className="mb-5 flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#A75B28]">
                       <AlertTriangle className="h-5 w-5" />
@@ -2175,7 +2187,7 @@ if (productIds.length > 0) {
                 </section>
               ) : null}
               {!isConfirmed && manualReviewItems.length > 0 ? (
-                <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
+                <section className="hds-open-position-self-content rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
                   <div className="mb-5 flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
                       <Sparkles className="h-5 w-5" />

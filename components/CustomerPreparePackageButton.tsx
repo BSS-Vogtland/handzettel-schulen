@@ -33,7 +33,7 @@ const TIMELINE_STEPS = [
   { min: 0, label: "Liste wird geprüft" },
   { min: 22, label: "Schulmaterialien werden erkannt" },
   { min: 48, label: "Sichere Treffer werden gesucht" },
-  { min: 72, label: "Paketwunsch wird vorbereitet" },
+  { min: 72, label: "Ergebnis wird vorbereitet" },
   { min: 96, label: "Offene Positionen werden markiert" },
 ];
 
@@ -197,11 +197,11 @@ export default function CustomerPreparePackageButton({
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               <Sparkles className="h-3.5 w-3.5" />
-              Automatische Paketvorbereitung
+              2. Schritt - Liste auslesen
             </div>
 
             <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
-              Dein Paketwunsch wird vorbereitet.
+              Deine Liste wird ausgelesen.
             </h2>
 
             <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
@@ -218,7 +218,7 @@ export default function CustomerPreparePackageButton({
                     {currentStepLabel}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                    Fortschritt der Paketvorbereitung
+                    Fortschritt beim Auslesen
                   </p>
                 </div>
 
@@ -325,7 +325,7 @@ export default function CustomerPreparePackageButton({
 
               <div className="absolute bottom-5 left-1/2 z-10 w-[80%] -translate-x-1/2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-center">
                 <p className="text-sm font-black text-[#102A43]">
-                  Paketwunsch wird vorbereitet
+                  Ergebnis wird vorbereitet
                 </p>
                 <p className="mt-1 text-xs font-semibold text-[#52616F]">
                   Sichere Treffer kommen direkt ins Paket
@@ -490,7 +490,7 @@ export default function CustomerPreparePackageButton({
 
   const introText = serviceMessage
     ? "Deine Liste liegt bei uns vor. Ab hier übernehmen wir persönlich und suchen die passenden Schulmaterialien für Dich heraus."
-    : "Starte jetzt die Erfassung. Sichere Treffer ab 80 % werden direkt für Dich in den Paketwunsch gelegt. Produkte mit niedrigerer Übereinstimmung kannst Du danach selbst auswählen. Wenn etwas nicht eindeutig ist, übernimmt das Team von Handzettel-Schulen.de die persönliche Prüfung für Dich.";
+    : "Starte jetzt das Auslesen Deiner Liste. Sichere Treffer werden direkt in den Paketwunsch gelegt. Wenn danach noch Positionen offen sind, entscheidest Du selbst: Artikel suchen und ergänzen oder Handzettel-Schulen.de übernehmen lassen.";
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
@@ -510,7 +510,7 @@ export default function CustomerPreparePackageButton({
             )}
             {serviceMessage
               ? "Persönlicher Service"
-              : "Automatische Paketvorbereitung"}
+              : "2. Schritt - Liste auslesen"}
           </div>
 
           <h2 className="mt-4 text-3xl font-black tracking-tight text-[#102A43]">
@@ -663,7 +663,7 @@ export default function CustomerPreparePackageButton({
                 onClick={handlePrepare}
                 className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] bg-[#C6282D] px-8 py-5 text-center text-2xl font-black text-white shadow-[0_18px_50px_rgba(198,40,45,0.24)] transition hover:-translate-y-0.5 hover:brightness-105"
               >
-                <span>Paket jetzt vorbereiten</span>
+                <span>2. Schritt - Liste auslesen</span>
                 <ArrowRight className="h-7 w-7" />
               </button>
 

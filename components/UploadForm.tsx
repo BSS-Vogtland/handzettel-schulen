@@ -208,7 +208,7 @@ export default function UploadForm() {
       }
 
       setSuccessMessage(
-        "Deine Liste wurde hochgeladen. Du wirst jetzt zu Deinem vorbereiteten Paketwunsch weitergeleitet."
+        "Deine Liste wurde hochgeladen. Du wirst jetzt zum nächsten Schritt weitergeleitet."
       );
 
       const nextUrl =
@@ -498,7 +498,7 @@ export default function UploadForm() {
             </>
           ) : (
             <>
-              Liste hochladen & Paketwunsch vorbereiten
+              1. Schritt - Liste hochladen
               <ArrowRight className="h-6 w-6 transition group-hover:translate-x-1" />
             </>
           )}
