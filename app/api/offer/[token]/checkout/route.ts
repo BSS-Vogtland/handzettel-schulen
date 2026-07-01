@@ -501,6 +501,7 @@ export async function POST(request: Request, context: RouteContext) {
     const checkoutBlockingRequestItems = requestItems.filter((item) => {
       const status = cleanString(item.status).toLowerCase();
 
+      if (coveredRequestItemIds.has(item.id)) return false;
       if (isResolvedRequestItemForCheckout(item)) return false;
 
       return status !== "selected";
@@ -526,10 +527,12 @@ export async function POST(request: Request, context: RouteContext) {
           "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
           open_request_items_count: checkoutBlockingRequestItems.length,
+          covered_request_item_ids: Array.from(coveredRequestItemIds),
           checkout_blocking_items: checkoutBlockingRequestItems.map((item) => ({
             id: item.id,
             status: item.status,
             admin_resolution_status: item.admin_resolution_status,
+            is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
           })),
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
