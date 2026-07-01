@@ -236,7 +236,7 @@ export default function AdminOfferWorkflowStatus(
   const headerState = (() => {
     if (confirmedAfterUpdate) {
       return {
-        title: "Aktualisiertes Angebot bestätigt",
+        title: "Paketwunsch bestätigt",
         label: "Abgeschlossen",
         description:
           "Der Kunde hat das zuletzt per PDF versendete, manuell aktualisierte Angebot offiziell angenommen.",
@@ -250,10 +250,10 @@ export default function AdminOfferWorkflowStatus(
 
     if (updateMailWasSent) {
       return {
-        title: "Aktualisiertes Angebot versandt",
+        title: "Paketwunsch-Mail versendet",
         label: "Wartet auf Bestätigung",
         description:
-          "Das manuell geänderte Angebot wurde dem Kunden als PDF gesendet. Die offizielle Annahme steht noch aus.",
+          "Der vorbereitete Paketwunsch wurde dem Kunden zur Prüfung gesendet. Der Kunde muss ihn anschließend selbst bestätigen und geht danach in den Checkout.",
         tone: "amber" as const,
         icon: MailCheck,
         dateLabel: `Versendet am ${formatDateTime(updateMailDate)}`,
@@ -443,15 +443,15 @@ const tiles = [
     },
     {
       key: "offerSent",
-      title: "Aktualisiertes Angebot versandt",
-      description: "PDF-Mail wurde an den Kunden gesendet",
+      title: "Paketwunsch-Mail versendet",
+      description: "Paketwunsch-Mail wurde an den Kunden gesendet",
       icon: MailCheck,
       status: tileStatus.offerSent,
     },
     {
       key: "confirmed",
       title: confirmedAfterUpdate
-        ? "Aktualisiertes Angebot bestätigt"
+        ? "Paketwunsch bestätigt"
         : "Angebot bestätigt",
       description: confirmedAfterUpdate
         ? "Kunde hat die aktualisierte Fassung angenommen"
@@ -565,12 +565,12 @@ const tiles = [
       </div>
 
       {(headerState.title === "Paket vorbereitet" ||
-  headerState.title === "Aktualisiertes Angebot versandt") && (
+  headerState.title === "Paketwunsch-Mail versendet") && (
   <div className="mt-5 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
     <p className="text-sm font-semibold leading-6 text-[#52616F]">
       {headerState.title === "Paket vorbereitet"
-        ? "Das Paket ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Aktualisierungsmail mit PDF-Angebot."
-        : "Die Aktualisierungsmail wurde versendet. Dieser Schritt ist erledigt. Aktuell wartet der Vorgang auf die offizielle Bestätigung durch den Kunden."}
+        ? "Der Paketwunsch ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Paketwunsch-Mail."
+        : "Die Paketwunsch-Mail wurde versendet. Dieser Schritt ist erledigt. Aktuell wartet der Vorgang auf die Bestätigung durch den Kunden."}
     </p>
   </div>
 )}

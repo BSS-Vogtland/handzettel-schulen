@@ -259,7 +259,7 @@ function createMailHtml(params: {
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>Dein vorbereiteter Paketwunsch</title>
+    <title>Dein Paketwunsch ist fertig</title>
   </head>
   <body style="margin:0;padding:0;background:#FBF7F0;font-family:Arial,Helvetica,sans-serif;color:#102A43;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FBF7F0;padding:28px 12px;">
@@ -280,7 +280,7 @@ function createMailHtml(params: {
                     </td>
                     <td valign="middle" style="padding:0;">
                       <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein vorbereiteter Schulmaterial-Paketwunsch</div>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Paketwunsch prüfen und bestätigen</div>
                     </td>
                   </tr>
                 </table>
@@ -292,11 +292,11 @@ function createMailHtml(params: {
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">${greeting}</p>
 
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
-                  Deine Schulmaterialliste wurde ausgewertet und Dein Paketwunsch wurde vorbereitet.
+                  Dein Paketwunsch ist fertig.
                 </p>
 
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen.
+                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen. Wenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und gehst weiter in den Checkout.
                 </p>
 
                 ${
@@ -381,7 +381,7 @@ function createMailHtml(params: {
 
                 <div style="background:#FFF8EE;border:1px solid #F1D1A8;border-radius:18px;padding:16px;margin:24px 0;color:#8A4A1F;">
                   <p style="margin:0;font-size:14px;line-height:1.55;font-weight:700;">
-                    Wichtig: Mit dem Öffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns übermittelt.
+                    Wichtig: Mit dem Öffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite prüfst, bestätigst und den Checkout abschließt, wird daraus eine verbindliche Bestellung.
                   </p>
                 </div>
 
@@ -452,9 +452,9 @@ function createMailText(params: {
 
   return `${greeting}
 
-Deine Schulmaterialliste wurde ausgewertet und Dein Paketwunsch wurde vorbereitet.
+Dein Paketwunsch ist fertig.
 
-Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen.
+Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen. Wenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und gehst weiter in den Checkout.
 
 ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     childName ? `Kind: ${childName}\n` : ""
@@ -490,8 +490,8 @@ async function insertEvent(params: {
   const payloads = [
     {
       request_id: requestId,
-      event_type: "package_wishlist_mail_sent",
-      title: "Paketwunsch-Mail versendet",
+      event_type: "offer_update_mail_sent",
+      title: "Paketwunsch ist fertig",
       message,
       description: message,
       metadata: {
@@ -627,7 +627,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     const requestNumber = pickFirst(schoolRequest, ["request_number"], "");
 
-    const subject = "Dein vorbereiteter Paketwunsch von Handzettel-Schulen.de";
+    const subject = "Dein Paketwunsch ist fertig";
 
     const mailParams = {
       customerName,
