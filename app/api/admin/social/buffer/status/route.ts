@@ -15,20 +15,15 @@ type BufferGraphQlResponse<T> = {
 type BufferOrganization = {
   id: string;
   name: string;
-  channelCount?: number;
-  ownerEmail?: string | null;
 };
 
 type BufferChannel = {
   id: string;
   name?: string | null;
   displayName?: string | null;
-  descriptor?: string | null;
   service?: string | null;
-  type?: string | null;
-  isDisconnected?: boolean | null;
-  isLocked?: boolean | null;
-  timezone?: string | null;
+  avatar?: string | null;
+  isQueuePaused?: boolean | null;
 };
 
 function cleanString(value: unknown) {
@@ -39,10 +34,7 @@ function getBufferApiKey() {
   return cleanString(process.env.BUFFER_API_KEY);
 }
 
-async function bufferGraphQl<T>(
-  query: string,
-  variables?: Record<string, unknown>
-) {
+async function bufferGraphQl<T>(query: string) {
   const apiKey = getBufferApiKey();
 
   if (!apiKey) {
@@ -55,10 +47,7 @@ async function bufferGraphQl<T>(
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      query,
-      variables: variables || {},
-    }),
+    body: JSON.stringify({ query }),
     cache: "no-store",
   });
 
@@ -74,16 +63,12 @@ async function bufferGraphQl<T>(
     );
   }
 
-  if (!response.ok) {
+  const graphQlError = payload.errors?.map((error) => error.message).filter(Boolean).join(" | ");
+
+  if (!response.ok || graphQlError) {
     throw new Error(
-      `Buffer API Fehler: HTTP ${response.status}: ${JSON.stringify(payload).slice(0, 500)}`
+      `Buffer API Fehler. HTTP ${response.status}: ${graphQlError || JSON.stringify(payload).slice(0, 500)}`
     );
-  }
-
-  const graphQlError = payload.errors?.[0]?.message;
-
-  if (graphQlError) {
-    throw new Error(graphQlError);
   }
 
   if (!payload.data) {
@@ -108,47 +93,43 @@ export async function GET() {
       });
     }
 
-    const organizationsData = await bufferGraphQl<{
-      organizations: BufferOrganization[];
+    const accountData = await bufferGraphQl<{
+      account: {
+        organizations: BufferOrganization[];
+      };
     }>(`
-      query BufferOrganizations {
-        organizations {
-          id
-          name
-          channelCount
-          ownerEmail
+      query GetBufferOrganizations {
+        account {
+          organizations {
+            id
+            name
+          }
         }
       }
     `);
 
-    const organizations = organizationsData.organizations || [];
+    const organizations = accountData.account?.organizations || [];
     const primaryOrganization = organizations[0] || null;
 
     let channels: BufferChannel[] = [];
 
     if (primaryOrganization?.id) {
+      const organizationIdLiteral = JSON.stringify(primaryOrganization.id);
+
       const channelsData = await bufferGraphQl<{
         channels: BufferChannel[];
-      }>(
-        `
-          query BufferChannels($organizationId: OrganizationId!) {
-            channels(input: { organizationId: $organizationId }) {
-              id
-              name
-              displayName
-              descriptor
-              service
-              type
-              isDisconnected
-              isLocked
-              timezone
-            }
+      }>(`
+        query GetBufferChannels {
+          channels(input: { organizationId: ${organizationIdLiteral} }) {
+            id
+            name
+            displayName
+            service
+            avatar
+            isQueuePaused
           }
-        `,
-        {
-          organizationId: primaryOrganization.id,
         }
-      );
+      `);
 
       channels = channelsData.channels || [];
     }
