@@ -79,9 +79,34 @@ export default function CustomerOpenPositionDecisionPanel({
     setChoice(nextChoice);
   }
 
-  function chooseSelf() {
+  async function chooseSelf() {
     setMessage(null);
     rememberChoice("self");
+
+    try {
+      const response = await fetch(
+        `/api/offer/${encodeURIComponent(token)}/self-selection`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || payload?.ok === false) {
+        setMessage(
+          payload?.message ||
+            "Die Selbst-Auswahl wurde lokal gespeichert. Falls nötig, lade die Seite später neu."
+        );
+      }
+    } catch {
+      setMessage(
+        "Die Selbst-Auswahl wurde lokal gespeichert. Falls nötig, lade die Seite später neu."
+      );
+    }
 
     window.setTimeout(() => {
       document

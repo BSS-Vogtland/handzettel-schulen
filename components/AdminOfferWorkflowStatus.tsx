@@ -183,6 +183,24 @@ export default function AdminOfferWorkflowStatus(
     return type.includes("customer_requested_team_takeover");
   });
 
+  const latestSelfSelectionEvent = findLatestEvent(events, (event) => {
+    const type = getEventType(event);
+
+    return type.includes("customer_selected_self_selection");
+  });
+
+  const teamTakeoverIsCurrent =
+    Boolean(latestTeamTakeoverEvent) &&
+    !(
+      latestSelfSelectionEvent?.created_at &&
+      latestTeamTakeoverEvent?.created_at &&
+      isAfterOrSame(
+        latestSelfSelectionEvent.created_at,
+        latestTeamTakeoverEvent.created_at
+      )
+    );
+
+
 
 
   const confirmed = isConfirmed(requestStatus, offerStatus);
@@ -233,10 +251,8 @@ export default function AdminOfferWorkflowStatus(
     !confirmedAfterUpdate;
 
   const teamTakeoverOpenItemsCurrent =
-    openItemsCurrent &&
-    (Boolean(latestTeamTakeoverEvent) ||
-      requestStatus === "manual_review" ||
-      offerStatus === "manual_review");
+    openItemsCurrent && teamTakeoverIsCurrent;
+
 
 
   const packagePreparedCurrent =
