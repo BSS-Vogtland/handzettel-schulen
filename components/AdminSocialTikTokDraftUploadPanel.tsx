@@ -19,11 +19,8 @@ type TikTokDraftPreview = {
   message?: string;
   canUpload?: boolean;
   blockedReason?: string;
-  readiness?: {
-    uploadEnabled: boolean;
-    hasVideoUploadScope: boolean;
-    scope: string;
-  };
+  channelName?: string;
+  alreadyBuffered?: boolean;
   post?: {
     id: string;
     topic: string | null;
@@ -45,6 +42,9 @@ type UploadResult = {
   ok: boolean;
   message?: string;
   publishId?: string;
+  bufferPostId?: string;
+  alreadyBuffered?: boolean;
+  channelName?: string;
 };
 
 function formatFileSize(value: number | null | undefined) {
@@ -101,7 +101,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
       setIsPreviewLoading(true);
       setUploadResult(null);
 
-      const response = await fetch(`/api/admin/social/${postId}/publish-tiktok`, {
+      const response = await fetch(`/api/admin/social/${postId}/publish-buffer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
       if (!response.ok || !result) {
         throw new Error(
-          result?.message || "TikTok-Sicherheitsvorschau konnte nicht geladen werden."
+          result?.message || "Buffer-Vorschau konnte nicht geladen werden."
         );
       }
 
@@ -129,7 +129,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
         message:
           error instanceof Error
             ? error.message
-            : "TikTok-Sicherheitsvorschau konnte nicht geladen werden.",
+            : "Buffer-Vorschau konnte nicht geladen werden.",
         canUpload: false,
       });
     } finally {
@@ -138,13 +138,21 @@ export default function AdminSocialTikTokDraftUploadPanel({
   }
 
   async function startUpload() {
-    if (!window.confirm("TikTok-Draft-Upload wirklich starten?")) return;
+    const targetChannel = preview?.channelName || "Handzettel_Schulen.de";
+
+    if (
+      !window.confirm(
+        `Dieses TikTok-Video wirklich als Buffer-Entwurf im Kanal ${targetChannel} erstellen?`
+      )
+    ) {
+      return;
+    }
 
     try {
       setIsUploading(true);
       setUploadResult(null);
 
-      const response = await fetch(`/api/admin/social/${postId}/publish-tiktok`, {
+      const response = await fetch(`/api/admin/social/${postId}/publish-buffer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -161,7 +169,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
       if (!response.ok || !result?.ok) {
         throw new Error(
-          result?.message || "TikTok-Draft-Upload ist fehlgeschlagen."
+          result?.message || "Buffer-Entwurf konnte nicht erstellt werden."
         );
       }
 
@@ -173,7 +181,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
         message:
           error instanceof Error
             ? error.message
-            : "TikTok-Draft-Upload ist fehlgeschlagen.",
+            : "Buffer-Entwurf konnte nicht erstellt werden.",
       });
     } finally {
       setIsUploading(false);
@@ -185,12 +193,13 @@ export default function AdminSocialTikTokDraftUploadPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
-  const canUpload = Boolean(preview?.canUpload);
   const blockedReason = preview?.blockedReason || "";
   const videoUrl = preview?.videoAsset?.public_url || "";
   const hasVideoAsset = Boolean(preview?.videoAsset?.public_url);
-  const hasVideoUploadScope = Boolean(preview?.readiness?.hasVideoUploadScope);
-  const uploadFlagEnabled = Boolean(preview?.readiness?.uploadEnabled);
+  const hasFinalText = Boolean(preview?.finalText);
+  const reviewApproved = preview?.post?.review_status === "approved";
+  const bufferReady = Boolean(preview?.canUpload);
+  const alreadyBuffered = Boolean(preview?.alreadyBuffered);
 
   return (
     <section className="rounded-[2rem] border border-[#E7D8C3] bg-white p-5 shadow-sm sm:p-7">
@@ -198,18 +207,18 @@ export default function AdminSocialTikTokDraftUploadPanel({
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#8A5A35]">
             <ShieldCheck className="h-4 w-4 text-[#A23A2E]" />
-            TikTok Draft-Upload
+            TikTok via Buffer
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2J.1B · Review-Demo und Upload-Sicherheitsprüfung
+            V2M.1 · TikTok-Entwurf an Buffer übergeben
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
-            Diese Ansicht zeigt TikTok den vorbereiteten Draft-Upload-Workflow:
-            Video-Asset, finalen TikTok-Text, Scope-Prüfung, Upload-Flag und den
-            konkreten Sperrgrund. Der echte Upload startet nur, wenn alle
-            Sicherheitsbedingungen erfüllt sind.
+            Diese Ansicht nutzt weiter den bestehenden TikTok-Workflow: Video,
+            finaler TikTok-Text und Review-Prüfung bleiben hier sichtbar. Die
+            Übergabe geht aber nicht mehr direkt an TikTok, sondern als Entwurf
+            an Buffer.
           </p>
         </div>
 
@@ -229,11 +238,16 @@ export default function AdminSocialTikTokDraftUploadPanel({
           <button
             type="button"
             onClick={() => startUpload()}
-            disabled={!canUpload || isUploading}
+            disabled={!bufferReady || isUploading}
+            title={
+              !bufferReady
+                ? blockedReason || "Für Buffer müssen Review, TikTok-Text und Video vorhanden sein."
+                : undefined
+            }
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#A23A2E] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
-            {isUploading ? "Lädt hoch ..." : "Draft-Upload starten"}
+            {isUploading ? "Erstelle Entwurf ..." : "In Buffer als Entwurf"}
           </button>
         </div>
       </div>
@@ -248,23 +262,25 @@ export default function AdminSocialTikTokDraftUploadPanel({
         >
           {uploadResult.message ||
             (uploadResult.ok
-              ? "TikTok-Draft-Upload wurde gestartet."
-              : "TikTok-Draft-Upload ist fehlgeschlagen.")}
-          {uploadResult.publishId ? (
-            <p className="mt-2 text-xs">Publish ID: {uploadResult.publishId}</p>
+              ? "Buffer-Entwurf wurde erstellt."
+              : "Buffer-Entwurf konnte nicht erstellt werden.")}
+          {uploadResult.bufferPostId || uploadResult.publishId ? (
+            <p className="mt-2 text-xs">
+              Buffer Post ID: {uploadResult.bufferPostId || uploadResult.publishId}
+            </p>
           ) : null}
         </div>
       ) : null}
 
       <div
         className={`mt-6 rounded-[1.5rem] border p-4 ${
-          canUpload
+          bufferReady
             ? "border-emerald-200 bg-emerald-50"
             : "border-amber-200 bg-amber-50"
         }`}
       >
         <div className="flex items-start gap-3">
-          {canUpload ? (
+          {bufferReady ? (
             <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-700" />
           ) : (
             <Lock className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
@@ -272,15 +288,19 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
           <div>
             <h3 className="text-lg font-black text-[#102A43]">
-              {canUpload
-                ? "TikTok-Draft-Upload ist freigegeben"
-                : "TikTok-Draft-Upload ist vorbereitet, aber gesperrt"}
+              {bufferReady
+                ? "Buffer-Entwurf ist bereit"
+                : alreadyBuffered
+                  ? "Buffer-Entwurf wurde bereits erstellt"
+                  : "Buffer-Entwurf ist vorbereitet, aber noch gesperrt"}
             </h3>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-[#486581]">
-              {blockedReason ||
-                preview?.message ||
-                "Alle technischen Vorbedingungen sind erfüllt."}
+              {bufferReady
+                ? "Video, finaler TikTok-Text und Review-Freigabe sind vorhanden."
+                : blockedReason ||
+                  preview?.message ||
+                  "Für Buffer müssen Review, finaler TikTok-Text und Video vorhanden sein."}
             </p>
           </div>
         </div>
@@ -298,13 +318,11 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
           <div>
             <p className="flex items-center gap-2">
-              {getStatusIcon(hasVideoUploadScope)}
-              video.upload Scope: {hasVideoUploadScope ? "gesetzt" : "fehlt"}
+              {getStatusIcon(hasFinalText)}
+              TikTok-Text: {hasFinalText ? "vorhanden" : "fehlt"}
             </p>
-            <p>
-              Upload-Flag: {uploadFlagEnabled ? "aktiv" : "deaktiviert"}
-            </p>
-            <p>Scopes: {preview?.readiness?.scope || "—"}</p>
+            <p>Ziel: Buffer · {preview?.channelName || "Handzettel_Schulen.de"}</p>
+            <p>Direkte TikTok-API: nicht genutzt</p>
           </div>
         </div>
       </div>
@@ -317,12 +335,13 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
           <div>
             <h3 className="text-lg font-black text-[#102A43]">
-              Review-Demo-Check dieser Seite
+              Buffer-Check dieser TikTok-Version
             </h3>
 
             <p className="mt-1 text-sm font-semibold leading-6 text-[#627D98]">
-              Für die TikTok-Aufnahme sollten genau diese Punkte sichtbar sein.
-              Keine Tokens, Secrets, ENV-Werte oder Kundendaten zeigen.
+              Vor der Übergabe an Buffer werden Video, Text und Review geprüft.
+              Tokens, Secrets, ENV-Werte oder Kundendaten werden hier nicht
+              angezeigt.
             </p>
           </div>
         </div>
@@ -350,13 +369,13 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
           <div
             className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
-              preview?.finalText
+              hasFinalText
                 ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                 : "border-amber-200 bg-amber-50 text-amber-900"
             }`}
           >
             <div className="flex items-center gap-2">
-              {preview?.finalText ? (
+              {hasFinalText ? (
                 <CheckCircle2 className="h-4 w-4" />
               ) : (
                 <AlertTriangle className="h-4 w-4" />
@@ -364,47 +383,47 @@ export default function AdminSocialTikTokDraftUploadPanel({
               TikTok-Text
             </div>
             <p className="mt-1 font-bold">
-              {preview?.finalText ? "vorhanden" : "fehlt"}
+              {hasFinalText ? "vorhanden" : "fehlt"}
             </p>
           </div>
 
           <div
             className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
-              hasVideoUploadScope
+              reviewApproved
                 ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                 : "border-amber-200 bg-amber-50 text-amber-900"
             }`}
           >
             <div className="flex items-center gap-2">
-              {hasVideoUploadScope ? (
+              {reviewApproved ? (
                 <CheckCircle2 className="h-4 w-4" />
               ) : (
                 <Lock className="h-4 w-4" />
               )}
-              video.upload
+              Review
             </div>
             <p className="mt-1 font-bold">
-              {hasVideoUploadScope ? "im Scope" : "noch nicht im Scope"}
+              {reviewApproved ? "freigegeben" : "noch offen"}
             </p>
           </div>
 
           <div
             className={`rounded-2xl border p-3 text-xs font-black leading-5 ${
-              uploadFlagEnabled
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                : "border-amber-200 bg-amber-50 text-amber-900"
+              alreadyBuffered
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
             }`}
           >
             <div className="flex items-center gap-2">
-              {uploadFlagEnabled ? (
-                <CheckCircle2 className="h-4 w-4" />
-              ) : (
+              {alreadyBuffered ? (
                 <Lock className="h-4 w-4" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
               )}
-              Upload-Flag
+              Buffer-Modus
             </div>
             <p className="mt-1 font-bold">
-              {uploadFlagEnabled ? "aktiv" : "deaktiviert"}
+              {alreadyBuffered ? "bereits erstellt" : "Entwurf statt Live-Post"}
             </p>
           </div>
         </div>
@@ -414,7 +433,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
         <div className="mt-6 rounded-[1.5rem] border border-[#D9E2EC] bg-[#F8FAFC] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-lg font-black text-[#102A43]">
-              TikTok-Video
+              TikTok-Video für Buffer
             </h3>
 
             <a
@@ -458,12 +477,11 @@ export default function AdminSocialTikTokDraftUploadPanel({
         ) : null}
       </div>
 
-      <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-900">
-        Aktueller Sicherheitsmodus: Der echte TikTok-Upload bleibt gesperrt, bis
-        Content Posting API / video.upload in TikTok freigegeben ist und
-        TIKTOK_ENABLE_DRAFT_UPLOAD=true bewusst in Vercel gesetzt wurde.
+      <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs font-bold leading-5 text-sky-900">
+        Aktueller Sicherheitsmodus: Die direkte TikTok-API bleibt deaktiviert.
+        Diese Seite erstellt nur einen Buffer-Entwurf. Die finale Planung oder
+        Veröffentlichung erfolgt anschließend in Buffer.
       </div>
     </section>
   );
 }
-
