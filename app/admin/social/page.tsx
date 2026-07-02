@@ -474,6 +474,13 @@ export default async function AdminSocialPage() {
                   <ListChecks className="h-4 w-4" />
                   Workflow starten
                 </Link>
+                <Link
+                  href="/admin/social/buffer"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-black text-sky-800 shadow-sm transition hover:bg-sky-100"
+                >
+                  <PlugZap className="h-4 w-4" />
+                  Buffer prüfen
+                </Link>
                 <AdminSocialCreateWeekPlanButton
                   eligibleCount={approvedUnscheduledCount}
                   scheduledCount={scheduledCount}
@@ -1181,5 +1188,6 @@ export default async function AdminSocialPage() {
     </main>
   );
 }
+
 
 
