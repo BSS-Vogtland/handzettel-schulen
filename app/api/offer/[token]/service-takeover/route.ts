@@ -111,6 +111,7 @@ export async function POST(request: Request, { params }: Params) {
     const { error: updateError } = await supabase
       .from("school_requests")
       .update({
+        status: "manual_review",
         offer_status: "manual_review",
         updated_at: now,
       })
@@ -132,7 +133,7 @@ export async function POST(request: Request, { params }: Params) {
         request_id: requestRow.id,
         event_type: "customer_requested_team_takeover",
         title: "Kunde wünscht Team-Übernahme",
-        description: `Der Kunde möchte offene Positionen von Handzettel-Schulen.de prüfen und ergänzen lassen. Offene Auswahl: ${openChoiceCount}. Persönliche Prüfung: ${manualReviewCount}.`,
+        description: `Der Kunde möchte, dass Handzettel-Schulen.de die offenen Positionen übernimmt. Offene Auswahl: ${openChoiceCount}. Persönliche Prüfung: ${manualReviewCount}.`,
         created_at: now,
       });
 
