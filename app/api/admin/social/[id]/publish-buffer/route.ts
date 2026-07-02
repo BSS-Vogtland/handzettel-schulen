@@ -16,6 +16,7 @@ type SocialPostRow = {
   status: string | null;
   review_status: string | null;
   published_at: string | null;
+  scheduled_at: string | null;
   hook: string | null;
   caption: string | null;
   cta: string | null;
@@ -98,6 +99,30 @@ function normalizeHashtags(value: unknown) {
     .map((entry) => cleanString(entry))
     .filter(Boolean)
     .map((entry) => (entry.startsWith("#") ? entry : `#${entry}`));
+}
+
+function normalizeDueAt(value: string | null) {
+  const cleaned = cleanString(value);
+
+  if (!cleaned) return "";
+
+  const date = new Date(cleaned);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString();
+}
+
+function formatScheduledLabel(value: string | null) {
+  const dueAt = normalizeDueAt(value);
+
+  if (!dueAt) return "";
+
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(dueAt));
 }
 
 function buildTikTokBufferText(post: SocialPostRow) {
@@ -215,7 +240,7 @@ async function findExistingBufferDraft({
       const payload = row.payload || {};
 
       return (
-        payload.action === "buffer_tiktok_draft" &&
+        payload.action === "buffer_tiktok_scheduled" &&
         payload.channel_id === channelId &&
         payload.asset_id === assetId
       );
@@ -278,18 +303,20 @@ async function bufferGraphQl<T>(
   return payload.data;
 }
 
-async function createBufferTikTokDraft({
+async function createBufferTikTokScheduledPost({
   channelId,
   finalText,
   videoUrl,
+  dueAt,
 }: {
   channelId: string;
   finalText: string;
   videoUrl: string;
+  dueAt: string;
 }) {
   const data = await bufferGraphQl<BufferCreateDraftResponse>(
     `
-      mutation CreateBufferTikTokDraft($input: CreatePostInput!) {
+      mutation CreateBufferTikTokScheduledPost($input: CreatePostInput!) {
         createPost(input: $input) {
           __typename
           ... on PostActionSuccess {
@@ -309,10 +336,11 @@ async function createBufferTikTokDraft({
         text: finalText,
         channelId,
         schedulingType: "automatic",
-        mode: "addToQueue",
-        saveToDraft: true,
+        mode: "customScheduled",
+        dueAt,
+        saveToDraft: false,
         aiAssisted: true,
-        source: "handzettel-socialpilot-tiktok-buffer",
+        source: "handzettel-socialpilot-tiktok-buffer-scheduled",
         assets: [
           {
             video: {
@@ -335,7 +363,7 @@ async function createBufferTikTokDraft({
     typeof result.message === "string" &&
     result.message.trim()
       ? result.message
-      : "Buffer-Entwurf konnte nicht erstellt werden.";
+      : "Buffer-Planung konnte nicht erstellt werden.";
 
   throw new Error(errorMessage);
 }
@@ -364,11 +392,11 @@ async function logBufferEvent({
     meta_post_id: bufferPostId,
     meta_creation_id: null,
     image_url: asset.public_url,
-    message: "Buffer-TikTok-Entwurf erstellt.",
+    message: "Buffer-TikTok-Post geplant.",
     error_message: null,
     payload: JSON.parse(
       JSON.stringify({
-        action: "buffer_tiktok_draft",
+        action: "buffer_tiktok_scheduled",
         channel_id: channelId,
         channel_name: channelName,
         buffer_post_id: bufferPostId,
@@ -443,7 +471,9 @@ export async function POST(request: Request, context: RouteContext) {
     const finalText = buildTikTokBufferText(post);
     const videoUrl = cleanString(asset?.public_url);
     const reviewApproved = post.review_status === "approved";
-    const alreadyPublished = post.status === "published" || Boolean(post.published_at);
+        const alreadyPublished = post.status === "published" || Boolean(post.published_at);
+    const dueAt = normalizeDueAt(post.scheduled_at);
+    const scheduledLabel = formatScheduledLabel(post.scheduled_at);
 
     const existingDraft =
       asset?.id && channelId
@@ -476,9 +506,12 @@ export async function POST(request: Request, context: RouteContext) {
       finalText,
       alreadyBuffered: Boolean(existingDraft),
       existingDraft,
+      scheduledAt: dueAt,
+      scheduledLabel,
       canUpload:
         Boolean(reviewApproved) &&
         Boolean(!alreadyPublished) &&
+        Boolean(dueAt) &&
         Boolean(asset?.public_url) &&
         Boolean(videoUrl.startsWith("https://")) &&
         Boolean(finalText) &&
@@ -487,15 +520,17 @@ export async function POST(request: Request, context: RouteContext) {
         ? "Content-Review ist noch nicht freigegeben."
         : alreadyPublished
           ? "Dieser Beitrag ist bereits als veröffentlicht markiert."
-          : !asset?.public_url
-            ? "Kein öffentliches TikTok-Video für Buffer gefunden."
-            : !videoUrl.startsWith("https://")
-              ? "Buffer benötigt eine öffentliche HTTPS-Video-URL."
-              : !finalText
-                ? "Kein finaler TikTok-Text vorhanden."
-                : existingDraft
-                  ? "Für dieses TikTok-Video wurde bereits ein Buffer-Entwurf erstellt."
-                  : "",
+          : !dueAt
+            ? "Für vollautomatische Buffer-Planung fehlt ein SocialPilot-Zeitpunkt."
+            : !asset?.public_url
+              ? "Kein öffentliches TikTok-Video für Buffer gefunden."
+              : !videoUrl.startsWith("https://")
+                ? "Buffer benötigt eine öffentliche HTTPS-Video-URL."
+                : !finalText
+                  ? "Kein finaler TikTok-Text vorhanden."
+                  : existingDraft
+                    ? "Für dieses TikTok-Video wurde bereits eine Buffer-Planung erstellt."
+                    : "",
     };
 
     if (dryRun) {
@@ -562,22 +597,34 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    if (!dueAt) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Für vollautomatische Buffer-Planung fehlt ein SocialPilot-Zeitpunkt.",
+          ...previewPayload,
+        },
+        { status: 400 }
+      );
+    }
+
     if (existingDraft && !force) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Für dieses TikTok-Video wurde bereits ein Buffer-Entwurf erstellt.",
+            "Für dieses TikTok-Video wurde bereits eine Buffer-Planung erstellt.",
           ...previewPayload,
         },
         { status: 409 }
       );
     }
 
-    const bufferPost = await createBufferTikTokDraft({
+    const bufferPost = await createBufferTikTokScheduledPost({
       channelId,
       finalText,
       videoUrl,
+      dueAt,
     });
 
     const logWarning = await logBufferEvent({
@@ -593,8 +640,8 @@ export async function POST(request: Request, context: RouteContext) {
       ok: true,
       dryRun: false,
       message: logWarning
-        ? `Buffer-Entwurf wurde erstellt. Protokoll-Warnung: ${logWarning}`
-        : "Buffer-Entwurf wurde erstellt.",
+        ? `Buffer-Post wurde geplant. Protokoll-Warnung: ${logWarning}`
+        : "Buffer-Post wurde geplant.",
       publishId: bufferPost.id,
       bufferPostId: bufferPost.id,
       ...previewPayload,
@@ -612,5 +659,6 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
