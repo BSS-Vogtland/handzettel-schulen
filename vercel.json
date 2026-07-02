@@ -20,11 +20,6 @@
                   {
                       "path":  "/api/cron/archive-unpaid-requests?secret=socialpilot_2026_7Fh92KpL_reminder_SECRET_45jZ",
                       "schedule":  "0 3 * * *"
-                  },
-                  {
-                      "path":  "/api/cron/send-offer-access-mails?secret=socialpilot_2026_7Fh92KpL_reminder_SECRET_45jZ",
-                      "schedule":  "*/1 * * * *"
                   }
               ]
 }
-
