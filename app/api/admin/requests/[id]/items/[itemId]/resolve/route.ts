@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -180,6 +181,8 @@ export async function POST(request: NextRequest, context: Params) {
               resolutionStatus
             )}.`,
     });
+
+    await updateAdminRequestWorkflowState(supabase, id);
 
     return jsonResponse({
       ok: true,

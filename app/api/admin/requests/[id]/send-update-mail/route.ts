@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
+import { assertAdminRequestReadyForOfferMail } from "@/lib/adminRequestWorkflow";
 
 export const runtime = "nodejs";
 
@@ -611,6 +612,20 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
+    try {
+      await assertAdminRequestReadyForOfferMail(supabase, requestId);
+    } catch (workflowError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            workflowError instanceof Error
+              ? workflowError.message
+              : "Der Paketwunsch ist noch nicht versandbereit.",
+        },
+        { status: 400 }
+      );
+    }
     const encodedToken = encodeURIComponent(token);
     const offerUrl = `${getSiteUrl()}/angebot/${encodedToken}`;
 
@@ -659,6 +674,7 @@ export async function POST(_request: Request, context: RouteContext) {
     await supabase
       .from("school_requests")
       .update({
+        status: "offer_sent",
         offer_status: "offer_sent",
         updated_at: new Date().toISOString(),
       })

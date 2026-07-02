@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
 
 export const runtime = "nodejs";
 
@@ -210,14 +211,7 @@ export async function POST(request: Request, context: RouteContext) {
         );
       }
     }
-
-    await supabaseServer
-      .from("school_requests")
-      .update({
-        offer_status: "offer_created",
-        status: "offer_created",
-      })
-      .eq("id", id);
+    await updateAdminRequestWorkflowState(supabaseServer, id);
 
     await supabaseServer.from("school_request_events").insert({
       request_id: id,

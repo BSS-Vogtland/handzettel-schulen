@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { createUniqueProductSku } from "../../../../../../lib/productSku";
+import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -779,13 +780,7 @@ export async function POST(request: NextRequest, context: Params) {
         500
       );
     }
-
-    await supabase
-      .from("school_requests")
-      .update({
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+    await updateAdminRequestWorkflowState(supabase, id);
 
     await createRequestEvent(
       supabase,
