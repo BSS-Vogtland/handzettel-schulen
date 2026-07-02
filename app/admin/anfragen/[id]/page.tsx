@@ -35,6 +35,7 @@ import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendatio
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 import AdminPackageChecklistPanel from "@/components/AdminPackageChecklistPanel";
+import AdminCustomerPresenceBadge from "@/components/AdminCustomerPresenceBadge";
 import AdminScrollToPackageChecklist from "@/components/AdminScrollToPackageChecklist";
 import RestoreRequestButton from "@/components/RestoreRequestButton";
 import { getLeadSourceBadgeClass, getLeadSourceLabel } from "@/lib/lead-source";
@@ -911,6 +912,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                     {request.phone || "Nicht angegeben"}
                   </p>
                 </div>
+
+                <AdminCustomerPresenceBadge requestId={request.id} />
 
                 {request.message ? (
                   <div className="rounded-2xl bg-[#FBF7F0] p-3">
