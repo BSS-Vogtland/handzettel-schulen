@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -163,15 +163,15 @@ export default function AdminMarkShippedWithTrackingButton({
         </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3">
         <label>
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#52616F]">
+          <span className="mb-1 block break-words text-[11px] font-black uppercase tracking-[0.08em] text-[#52616F]">
             Versanddienst
           </span>
           <select
             value={carrier}
             onChange={(event) => setCarrier(event.target.value)}
-            className="min-h-11 w-full rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
+            className="min-h-11 w-full min-w-0 rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
           >
             <option value="dpd">DPD</option>
             <option value="dhl">DHL</option>
@@ -183,26 +183,26 @@ export default function AdminMarkShippedWithTrackingButton({
         </label>
 
         <label>
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#52616F]">
+          <span className="mb-1 block break-words text-[11px] font-black uppercase tracking-[0.08em] text-[#52616F]">
             Paketnummer
           </span>
           <input
             value={trackingNumber}
             onChange={(event) => setTrackingNumber(event.target.value)}
             placeholder="z. B. DPD Paketnummer"
-            className="min-h-11 w-full rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
+            className="min-h-11 w-full min-w-0 rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
           />
         </label>
 
-        <label className="md:col-span-2">
-          <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#52616F]">
+        <label className="">
+          <span className="mb-1 block break-words text-[11px] font-black uppercase tracking-[0.08em] text-[#52616F]">
             Trackinglink optional überschreiben
           </span>
           <input
             value={customTrackingUrl}
             onChange={(event) => setCustomTrackingUrl(event.target.value)}
             placeholder={suggestedTrackingUrl || "Optionaler Link zur Sendungsverfolgung"}
-            className="min-h-11 w-full rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
+            className="min-h-11 w-full min-w-0 rounded-2xl border border-[#BFE3CD] bg-white px-3 py-2 text-sm font-bold text-[#102A43] outline-none"
           />
 
           {suggestedTrackingUrl && !customTrackingUrl.trim() ? (
@@ -228,7 +228,7 @@ export default function AdminMarkShippedWithTrackingButton({
       <button
         type="submit"
         disabled={isSaving}
-        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-center text-sm font-black leading-5 text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? (
           <>
