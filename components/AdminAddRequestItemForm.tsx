@@ -74,8 +74,10 @@ export default function AdminAddRequestItemForm({
       }
 
       const url = new URL(window.location.href);
+      url.searchParams.set("addedItem", payload.itemId);
+      url.searchParams.set("refresh", Date.now().toString());
       url.hash = `position-${payload.itemId}`;
-      window.location.assign(url.toString());
+      window.location.href = url.toString();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -232,3 +234,4 @@ export default function AdminAddRequestItemForm({
     </form>
   );
 }
+
