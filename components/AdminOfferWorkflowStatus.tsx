@@ -4,6 +4,7 @@ import {
   Clock3,
   MailCheck,
   PackageCheck,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -176,7 +177,13 @@ export default function AdminOfferWorkflowStatus(
       message.includes("angenommen") ||
       message.includes("offiziell angenommen")
     );
+  });  const latestTeamTakeoverEvent = findLatestEvent(events, (event) => {
+    const type = getEventType(event);
+
+    return type.includes("customer_requested_team_takeover");
   });
+
+
 
   const confirmed = isConfirmed(requestStatus, offerStatus);
 
@@ -224,6 +231,13 @@ export default function AdminOfferWorkflowStatus(
     !updateMailWasSent &&
     !plainConfirmed &&
     !confirmedAfterUpdate;
+
+  const teamTakeoverOpenItemsCurrent =
+    openItemsCurrent &&
+    (Boolean(latestTeamTakeoverEvent) ||
+      requestStatus === "manual_review" ||
+      offerStatus === "manual_review");
+
 
   const packagePreparedCurrent =
     itemsCount > 0 &&
@@ -280,6 +294,18 @@ export default function AdminOfferWorkflowStatus(
           "Alle relevanten Positionen sind im Paketwunsch enthalten oder manuell ergänzt. Du kannst jetzt das aktualisierte Angebot versenden.",
         tone: "blue" as const,
         icon: PackageCheck,
+        dateLabel: null,
+      };
+    }
+
+    if (teamTakeoverOpenItemsCurrent) {
+      return {
+        title: "Kunde wünscht Team-Übernahme",
+        label: `${manualReviewItemsCount} offen`,
+        description:
+          "Der Kunde hat die offenen Positionen an Handzettel-Schulen.de übergeben. Offene Positionen manuell bearbeiten, Paketwunsch final prüfen und danach die Paketwunsch-Mail senden.",
+        tone: "green" as const,
+        icon: ShieldCheck,
         dateLabel: null,
       };
     }
@@ -429,9 +455,11 @@ const tiles = [
     },
     {
       key: "openItems",
-      title: "Manuelle Prüfung",
-      description: "Offene Positionen prüfen",
-      icon: AlertTriangle,
+      title: teamTakeoverOpenItemsCurrent ? "Team-Übernahme" : "Manuelle Prüfung",
+      description: teamTakeoverOpenItemsCurrent
+        ? "Kunde möchte Bearbeitung durch Handzettel-Schulen.de"
+        : "Offene Positionen prüfen",
+      icon: teamTakeoverOpenItemsCurrent ? ShieldCheck : AlertTriangle,
       status: tileStatus.openItems,
     },
     {
