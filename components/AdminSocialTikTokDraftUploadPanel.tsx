@@ -21,6 +21,8 @@ type TikTokDraftPreview = {
   blockedReason?: string;
   channelName?: string;
   alreadyBuffered?: boolean;
+  scheduledAt?: string;
+  scheduledLabel?: string;
   post?: {
     id: string;
     topic: string | null;
@@ -44,6 +46,8 @@ type UploadResult = {
   publishId?: string;
   bufferPostId?: string;
   alreadyBuffered?: boolean;
+  scheduledAt?: string;
+  scheduledLabel?: string;
   channelName?: string;
 };
 
@@ -142,7 +146,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
     if (
       !window.confirm(
-        `Dieses TikTok-Video wirklich als Buffer-Entwurf im Kanal ${targetChannel} erstellen?`
+        `Dieses TikTok-Video wirklich im Kanal ${targetChannel} für ${preview?.scheduledLabel || "den SocialPilot-Zeitpunkt"} automatisch planen?`
       )
     ) {
       return;
@@ -169,7 +173,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
 
       if (!response.ok || !result?.ok) {
         throw new Error(
-          result?.message || "Buffer-Entwurf konnte nicht erstellt werden."
+          result?.message || "Buffer-Planung konnte nicht erstellt werden."
         );
       }
 
@@ -181,7 +185,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
         message:
           error instanceof Error
             ? error.message
-            : "Buffer-Entwurf konnte nicht erstellt werden.",
+            : "Buffer-Planung konnte nicht erstellt werden.",
       });
     } finally {
       setIsUploading(false);
@@ -211,7 +215,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2M.1 · TikTok-Entwurf an Buffer übergeben
+            V2M.1 · TikTok-Post über Buffer automatisch planen
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
@@ -247,7 +251,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#A23A2E] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
-            {isUploading ? "Erstelle Entwurf ..." : "In Buffer als Entwurf"}
+            {isUploading ? "Plane in Buffer ..." : "In Buffer planen"}
           </button>
         </div>
       </div>
@@ -263,7 +267,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
           {uploadResult.message ||
             (uploadResult.ok
               ? "Buffer-Entwurf wurde erstellt."
-              : "Buffer-Entwurf konnte nicht erstellt werden.")}
+              : "Buffer-Planung konnte nicht erstellt werden.")}
           {uploadResult.bufferPostId || uploadResult.publishId ? (
             <p className="mt-2 text-xs">
               Buffer Post ID: {uploadResult.bufferPostId || uploadResult.publishId}
@@ -289,18 +293,18 @@ export default function AdminSocialTikTokDraftUploadPanel({
           <div>
             <h3 className="text-lg font-black text-[#102A43]">
               {bufferReady
-                ? "Buffer-Entwurf ist bereit"
+                ? "Buffer-Planung ist bereit"
                 : alreadyBuffered
-                  ? "Buffer-Entwurf wurde bereits erstellt"
-                  : "Buffer-Entwurf ist vorbereitet, aber noch gesperrt"}
+                  ? "Buffer-Post wurde bereits geplant"
+                  : "Buffer-Planung ist vorbereitet, aber noch gesperrt"}
             </h3>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-[#486581]">
               {bufferReady
-                ? "Video, finaler TikTok-Text und Review-Freigabe sind vorhanden."
+                ? "Video, finaler TikTok-Text, Review-Freigabe und SocialPilot-Zeitpunkt sind vorhanden."
                 : blockedReason ||
                   preview?.message ||
-                  "Für Buffer müssen Review, finaler TikTok-Text und Video vorhanden sein."}
+                  "Für Buffer müssen Review, finaler TikTok-Text, Video und SocialPilot-Zeitpunkt vorhanden sein."}
             </p>
           </div>
         </div>
@@ -322,6 +326,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
               TikTok-Text: {hasFinalText ? "vorhanden" : "fehlt"}
             </p>
             <p>Ziel: Buffer · {preview?.channelName || "Handzettel_Schulen.de"}</p>
+            <p>Geplant für: {preview?.scheduledLabel || "—"}</p>
             <p>Direkte TikTok-API: nicht genutzt</p>
           </div>
         </div>
@@ -423,7 +428,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
               Buffer-Modus
             </div>
             <p className="mt-1 font-bold">
-              {alreadyBuffered ? "bereits erstellt" : "Entwurf statt Live-Post"}
+              {alreadyBuffered ? "bereits geplant" : "Automatisch geplant"}
             </p>
           </div>
         </div>
@@ -485,3 +490,4 @@ export default function AdminSocialTikTokDraftUploadPanel({
     </section>
   );
 }
+
