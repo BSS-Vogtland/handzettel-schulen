@@ -19,6 +19,7 @@ import {
   Wrench,
 } from "lucide-react";
 import AdminManualOfferItemForm from "@/components/AdminManualOfferItemForm";
+import AdminAddRequestItemForm from "@/components/AdminAddRequestItemForm";
 import AdminResolveRequestItemButton from "@/components/AdminResolveRequestItemButton";
 import AdminDeleteOfferItemButton from "@/components/AdminDeleteOfferItemButton";
 import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
@@ -1136,6 +1137,10 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                     Paketwunsch übernehmen.
                   </p>
                 </div>
+              </div>
+
+              <div className="mb-5">
+                <AdminAddRequestItemForm requestId={request.id} />
               </div>
 
               {items.length > 0 ? (
