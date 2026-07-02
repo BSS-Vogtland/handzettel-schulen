@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -116,7 +116,17 @@ export default function CustomerPreparePackageButton({
     () => getCurrentStep(displayProgress),
     [displayProgress]
   );
-
+  function triggerOfferAccessMailLater() {
+    window.setTimeout(() => {
+      fetch(`/api/offer/${encodeURIComponent(token)}/send-access-mail`, {
+        method: "POST",
+        cache: "no-store",
+        keepalive: true,
+      }).catch(() => {
+        // Die Link-Mail ist Zusatzkomfort. Der Kundenflow darf dadurch nie blockieren.
+      });
+    }, 125000);
+  }
   async function handlePrepare() {
     if (isLoading || serviceMessage) return;
 
@@ -125,6 +135,7 @@ export default function CustomerPreparePackageButton({
     setServiceMessage(null);
     setIsLoading(true);
     setProgress(4);
+    triggerOfferAccessMailLater();
 
     try {
       const response = await fetch(

@@ -1,4 +1,5 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { scheduleOfferAccessMail } from "@/lib/offerAccessMail";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -689,7 +690,37 @@ export async function POST(request: NextRequest, context: Params) {
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
     );
+    try {
+      const dueAt = await scheduleOfferAccessMail({
+        supabase,
+        requestId,
+        delayMinutes: 2,
+      });
 
+      await createRequestEvent(
+        supabase,
+        requestId,
+        "offer_access_mail_scheduled",
+        "Link-Mail zum Paketwunsch wurde nach dem Auslesen geplant.",
+        {
+          dueAt,
+          delayMinutes: 2,
+        }
+      );
+    } catch (mailScheduleError) {
+      await createRequestEvent(
+        supabase,
+        requestId,
+        "offer_access_mail_schedule_failed",
+        "Link-Mail zum Paketwunsch konnte nicht geplant werden.",
+        {
+          error:
+            mailScheduleError instanceof Error
+              ? mailScheduleError.message
+              : "Unbekannter Fehler",
+        }
+      );
+    }
     const { count: existingItemCount } = await supabase
       .from("school_request_items")
       .select("id", { count: "exact", head: true })
