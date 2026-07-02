@@ -25,7 +25,6 @@ import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import AdminOfferItemSpecialInstructionsForm from "@/components/AdminOfferItemSpecialInstructionsForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
-import AdminSendRequestReceivedMailButton from "@/components/AdminSendRequestReceivedMailButton";
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
@@ -1096,15 +1095,12 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   </h2>
 
                   <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                    Sende zuerst die Eingangsmail, wenn die Liste angekommen ist.
-                    Nach der Auswertung und Vorbereitung sendest Du die
-                    Paketwunsch-Mail mit dem Link zur Kundenseite.
+                    Sobald der Paketwunsch vorbereitet ist, sendest Du dem Kunden die Paketwunsch-Mail mit dem Link zur Kundenseite.
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                <AdminSendRequestReceivedMailButton requestId={request.id} />
                 <AdminSendOfferUpdateMailButton requestId={request.id} />
               </div>
             </section>
@@ -1624,6 +1620,7 @@ return (
     </main>
   );
 }
+
 
 
 
