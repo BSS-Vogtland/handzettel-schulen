@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -35,6 +35,7 @@ import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendatio
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
 import AdminPackageChecklistPanel from "@/components/AdminPackageChecklistPanel";
+import AdminScrollToPackageChecklist from "@/components/AdminScrollToPackageChecklist";
 import RestoreRequestButton from "@/components/RestoreRequestButton";
 import { getLeadSourceBadgeClass, getLeadSourceLabel } from "@/lib/lead-source";
 
@@ -660,6 +661,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+      <AdminScrollToPackageChecklist />
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {isArchived ? (
           <section className="rounded-[32px] border border-[#F2B8B8] bg-[#FFF1F1] p-5 shadow-sm sm:p-6">
@@ -1106,7 +1108,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
             </section>
 
 
-            <AdminPackageChecklistPanel requestId={request.id} />
+            <section id="package-checklist" className="scroll-mt-28">
+              <AdminPackageChecklistPanel requestId={request.id} />
+            </section>
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
@@ -1148,12 +1152,18 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         : adminResolutionStatus === "covered_by_alternative"
                         ? "Durch Alternative/Sammelposition abgedeckt"
                         : "";
-return (
-                      <article
+
+                    const itemIsDone =
+                      selectedItems.length > 0 || Boolean(adminResolutionStatus);
+
+                    return (
+                      <details
                         id={`position-${item.id}`}
                         key={item.id}
-                        className="scroll-mt-28 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                        open={!itemIsDone}
+                        className="scroll-mt-28 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4 [&_summary::-webkit-details-marker]:hidden"
                       >
+                        <summary className="cursor-pointer list-none">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
@@ -1188,6 +1198,11 @@ return (
                             </div>
                           ) : null}
                         </div>
+
+                        <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
+                          {itemIsDone ? "Details öffnen" : "Details einklappen"}
+                        </div>
+                        </summary>
 
                         {item.notes ? (
                           <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
@@ -1461,7 +1476,7 @@ return (
                             </div>
                           </div>
                         </div>
-                      </article>
+                      </details>
                     );
                   })}
                 </div>

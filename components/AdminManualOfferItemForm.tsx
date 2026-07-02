@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -86,7 +85,12 @@ export default function AdminManualOfferItemForm({
   defaultQuantity,
   buttonLabel = "Manuell Produkt ergänzen",
 }: AdminManualOfferItemFormProps) {
-  const router = useRouter();
+  function goToPackageChecklist() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("focus", "package-checklist");
+    url.hash = "package-checklist";
+    window.location.assign(url.toString());
+  }
 
   const fieldKey = useMemo(
     () => requestItemId || "global-manual-offer-item",
@@ -398,7 +402,7 @@ export default function AdminManualOfferItemForm({
         setUnit("");
         setAliasText(defaultProductName || "");
 
-        router.refresh();
+        goToPackageChecklist();
       }
     } catch (error) {
       setErrorMessage(
@@ -445,7 +449,7 @@ export default function AdminManualOfferItemForm({
         payload.message || "Zuordnung wurde für spätere Listen gespeichert."
       );
       setPendingAliasRemember(null);
-      router.refresh();
+      goToPackageChecklist();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -931,7 +935,7 @@ export default function AdminManualOfferItemForm({
 
                 <button
                   type="button"
-                  onClick={() => setPendingAliasRemember(null)}
+                  onClick={goToPackageChecklist}
                   disabled={isRememberingAlias}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
