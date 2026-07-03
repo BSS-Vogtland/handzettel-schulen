@@ -59,7 +59,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -450,13 +450,22 @@ async function autoPreselectSafeMatches(params: {
 
   if (existingOfferItemsError) {
     throw new Error(
-      `Bestehende Paketpositionen konnten nicht geprüft werden: ${existingOfferItemsError.message}`
+      `Bestehende Paketpositionen konnten nicht geprÃƒÂ¼ft werden: ${existingOfferItemsError.message}`
     );
   }
 
   const existingOfferItems = (existingOfferItemsData || []) as OfferItemRow[];
 
-  const existingRequestItemIds = new Set(
+  
+
+  const existingProductIds = new Set(
+    existingOfferItems
+      .map((item) => item.product_id)
+      .filter((value): value is string => Boolean(value))
+  );
+
+  const selectedProductIdsInThisRun = new Set<string>();
+const existingRequestItemIds = new Set(
     existingOfferItems
       .map((item) => item.request_item_id)
       .filter((value): value is string => Boolean(value))
@@ -502,10 +511,10 @@ async function autoPreselectSafeMatches(params: {
         unit: "Stk.",
         source: "auto_preselected",
         status: "preselected",
-        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
+        notes: `Automatisch vorausgewÃƒÂ¤hlt, da der Produkttreffer ${toNumber(
           match.match_score,
           0
-        )} % Übereinstimmung erreicht hat.`,
+        )} % ÃƒÅ“bereinstimmung erreicht hat.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -563,7 +572,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Deine Anfrage konnte gerade nicht eindeutig geladen werden. Bitte öffne den Link noch einmal aus Deiner E-Mail.",
+            "Deine Anfrage konnte gerade nicht eindeutig geladen werden. Bitte ÃƒÂ¶ffne den Link noch einmal aus Deiner E-Mail.",
         },
         400
       );
@@ -592,7 +601,7 @@ export async function POST(request: NextRequest, context: Params) {
           manualReview: true,
           reason: "request_not_found",
           message:
-            "Deine Anfrage ist angekommen, konnte aber gerade nicht automatisch zugeordnet werden. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            "Deine Anfrage ist angekommen, konnte aber gerade nicht automatisch zugeordnet werden. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
           debug:
             process.env.NODE_ENV === "development"
               ? {
@@ -632,7 +641,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: `Datei konnte nicht geprüft werden: ${filesError.message}`,
+          message: `Datei konnte nicht geprÃƒÂ¼ft werden: ${filesError.message}`,
         },
         500
       );
@@ -661,7 +670,7 @@ export async function POST(request: NextRequest, context: Params) {
           manualReview: true,
           reason: "missing_file",
           message:
-            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
         },
         422
       );
@@ -765,7 +774,7 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "analyze_no_json_response",
             message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+              "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
                 ? getShortRawText(analyzePayload.rawText)
@@ -783,7 +792,7 @@ export async function POST(request: NextRequest, context: Params) {
           offerStatus: "manual_review",
           eventType: "package_prepare_needs_manual_review",
           message:
-            "Die automatische Analyse konnte die Liste nicht auswerten. Die Anfrage wurde zur manuellen Prüfung markiert.",
+            "Die automatische Analyse konnte die Liste nicht auswerten. Die Anfrage wurde zur manuellen PrÃƒÂ¼fung markiert.",
           metadata: {
             reason: "analyze_failed",
             details: analyzePayload.json,
@@ -798,7 +807,7 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "analyze_failed",
             message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+              "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
                 ? analyzePayload.json
@@ -824,7 +833,7 @@ export async function POST(request: NextRequest, context: Params) {
         offerStatus: "manual_review",
         eventType: "package_prepare_needs_manual_review",
         message:
-          "Es konnten keine Positionen aus der Liste erkannt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
+          "Es konnten keine Positionen aus der Liste erkannt werden. Die Anfrage wurde zur manuellen PrÃƒÂ¼fung markiert.",
         metadata: {
           reason: "no_items_detected",
           itemCount: 0,
@@ -844,7 +853,7 @@ export async function POST(request: NextRequest, context: Params) {
           matchCount: 0,
           preselectedCount: 0,
           message:
-            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+            "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
         },
         422
       );
@@ -916,7 +925,7 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "match_no_json_response",
             message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+              "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
                 ? getShortRawText(matchPayload.rawText)
@@ -934,7 +943,7 @@ export async function POST(request: NextRequest, context: Params) {
           offerStatus: "manual_review",
           eventType: "package_prepare_needs_manual_review",
           message:
-            "Die automatische Produktzuordnung konnte nicht erstellt werden. Die Anfrage wurde zur manuellen Prüfung markiert.",
+            "Die automatische Produktzuordnung konnte nicht erstellt werden. Die Anfrage wurde zur manuellen PrÃƒÂ¼fung markiert.",
           metadata: {
             reason: "match_failed",
             itemCount,
@@ -950,7 +959,7 @@ export async function POST(request: NextRequest, context: Params) {
             manualReview: true,
             reason: "match_failed",
             message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+              "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
                 ? matchPayload.json
@@ -998,7 +1007,7 @@ export async function POST(request: NextRequest, context: Params) {
       "customer_prepare_done",
       autoPreselectResult.preselectedCount > 0
         ? "Automatische Listenerfassung wurde abgeschlossen. Sichere Treffer wurden direkt in den Paketwunsch gelegt."
-        : "Materialliste wurde erfasst und Produktvorschläge wurden erstellt.",
+        : "Materialliste wurde erfasst und ProduktvorschlÃƒÂ¤ge wurden erstellt.",
       {
         itemCount,
         matchCount,
@@ -1017,10 +1026,10 @@ export async function POST(request: NextRequest, context: Params) {
       autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       message:
         autoPreselectResult.preselectedCount > 0
-          ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`
+          ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits fÃƒÂ¼r Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergÃƒÂ¤nzen.`
           : matchCount > 0
-            ? "Deine Liste wurde erfasst. Sichere Treffer werden angezeigt, offene Positionen kannst Du selbst auswählen oder persönlich prüfen lassen."
-            : "Deine Liste wurde erfasst. Artikel unter 80 % prüft das Team von Handzettel-Schulen.de persönlich für Dich. Optional kannst Du selbst weitere Produkte suchen.",
+            ? "Deine Liste wurde erfasst. Sichere Treffer werden angezeigt, offene Positionen kannst Du selbst auswÃƒÂ¤hlen oder persÃƒÂ¶nlich prÃƒÂ¼fen lassen."
+            : "Deine Liste wurde erfasst. Artikel unter 80 % prÃƒÂ¼ft das Team von Handzettel-Schulen.de persÃƒÂ¶nlich fÃƒÂ¼r Dich. Optional kannst Du selbst weitere Produkte suchen.",
     });
   } catch (error) {
     console.error("Customer prepare package error:", error);
@@ -1030,7 +1039,7 @@ export async function POST(request: NextRequest, context: Params) {
         ok: false,
         manualReview: true,
         message:
-          "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
+          "Deine Anfrage ist angekommen. Wir prÃƒÂ¼fen Deine Liste persÃƒÂ¶nlich und bereiten Deinen Paketwunsch manuell vor.",
         technicalMessage:
           process.env.NODE_ENV === "development" && error instanceof Error
             ? error.message
