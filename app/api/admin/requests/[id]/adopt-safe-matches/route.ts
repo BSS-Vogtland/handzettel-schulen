@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -75,6 +75,40 @@ function getRequestItemTitle(item: RequestItemRow) {
   return item.normalized_name || item.raw_text || "Unbekannte Position";
 }
 
+function isSafeAutoAdoptMatch(match: RequestMatchRow) {
+  const score = toNumber(match.match_score, 0);
+  const reason = String(match.match_reason || "").toLowerCase();
+
+  if (!match.request_item_id || !match.product_id || !match.product_name) {
+    return false;
+  }
+
+  if (score < SAFE_MATCH_SCORE) {
+    return false;
+  }
+
+  if (
+    reason.includes("artverwandter kandidat") ||
+    reason.includes("admin-prüfung") ||
+    reason.includes("admin-pruefung") ||
+    reason.includes("variantenmerkmale") ||
+    reason.includes("bitte prüfen") ||
+    reason.includes("bitte pruefen") ||
+    reason.includes("teilweise erkannt")
+  ) {
+    return false;
+  }
+
+  if (
+    reason.includes("gelernte zuordnung") &&
+    !reason.includes("exakt erkannt") &&
+    !reason.includes("wiedererkannt")
+  ) {
+    return false;
+  }
+
+  return true;
+}
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
   const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
@@ -378,7 +412,7 @@ export async function POST(_request: Request, context: Params) {
           Boolean(match.request_item_id) &&
           Boolean(match.product_id) &&
           Boolean(match.product_name) &&
-          toNumber(match.match_score, 0) >= SAFE_MATCH_SCORE
+          isSafeAutoAdoptMatch(match)
         );
       })
       .sort(compareMatches);
