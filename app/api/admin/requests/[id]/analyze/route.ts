@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v5e-clean-auto-offer-items-on-reanalysis";
+const ANALYZE_VERSION = "school-material-analyze-v6-rawline-completeness-size-guards";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -2030,6 +2030,7 @@ export async function POST(_request: Request, context: RouteContext) {
     const aiRequest = {
       model,
       temperature: 0,
+      max_output_tokens: Number(process.env.OPENAI_ANALYZE_MAX_OUTPUT_TOKENS || 8000),
       input: [
         {
           role: "system",
@@ -2041,6 +2042,15 @@ export async function POST(_request: Request, context: RouteContext) {
                 "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte Auflösung, Checkbox-Listen, mehrspaltige Listen oder eingerückte Kategorien sind. " +
                 "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Überschriften und keine Dekoration. " +
                 "Du musst jede sichtbare Materialposition vollständig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
+                "Arbeite dabei streng in zwei Phasen: Erst alle sichtbaren Rohzeilen erfassen, dann daraus strukturierte Materialpositionen bilden. Überspringe keine lesbare Listenzeile nur deshalb, weil sie eingerückt, klein gedruckt, in einer Tabelle, in einem farbigen Kasten oder unter einer Kategorie steht. " +
+                "Vollständigkeitsregel: Wenn eine Liste 20 Materialzeilen enthält, soll die Ausgabe ungefähr 20 Materialpositionen oder bewusst ausgeschlossene Hinweise enthalten. Eine kurze Ausgabe bei langer Liste ist falsch. " +
+                "Größenregel: Wörter wie klein, kleines, kleine, kleiner, groß, große, großer, dick, dünn, breit, schmal sind harte Merkmale. Sie dürfen nicht entfernt oder vertauscht werden. '2 große Klebestifte' darf niemals als kleiner Klebestift normalisiert werden. 'kleines Lineal' und 'Lineal 30 cm' sind zwei verschiedene Positionen. " +
+                "Formatregel: A3, A4, A5, DIN A3, DIN A4, DIN A5, 15 cm, 16 cm, 17 cm, 30 cm sind harte Merkmale und müssen in rawText sowie format oder notes erhalten bleiben. " +
+                "Split-Regel: Wenn eine Zeile mehrere eindeutig getrennte Materialien enthält, erstelle mehrere Positionen. Beispiele: 'Hefte DIN A4 Nr.27 und Nr.28' ergibt zwei Positionen mit Lineatur 27 und 28. '2 Lineale (15cm und 30cm)' ergibt zwei Positionen, wenn beide Lineale benötigt werden. " +
+                "Tabellenregel: Bei Tabellen mit Fach, Titel, Verlag, ISBN, Preis extrahierst du die Titel als Positionen, aber Preise nicht als Material. Verlag und ISBN kommen in notes. Hinweise wie 'kann ausgeliehen werden' sind kein Kaufartikel und müssen als Hinweis in notes markiert oder ausgelassen werden, wenn kein Kaufbedarf besteht. " +
+                "Ausschlussregel: Zeilen wie 'wird von der Lehrerin angeschafft', 'bekommen die Kinder in der Schule', 'nicht kaufen', 'kann ausgeliehen werden', 'wird separat eingesammelt', 'alle Sachen beschriften' sind keine normalen Kaufpositionen. Erfasse sie höchstens mit niedriger confidence und notes als Hinweis, aber nicht als normale benötigte Kaufposition. " +
+                "Checkbox-Regel erweitert: Nicht angekreuzte und angekreuzte Kästchen sind meist Drucklayout, nicht Auswahlstatus. Eine angekreuzte Zeile kann trotzdem ein Hinweis sein. Entscheidend ist der Text der Zeile. " +
+                "Fach-/Kastenregel: Farbig umrandete Bereiche wie Deutsch, Mathematik, Kunst, Sport sind Kontext. Die darin enthaltenen Zeilen müssen trotzdem einzeln extrahiert werden. " +
                 "Die vollständige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
                 "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie â˜, â–¡, â–¢, [ ], Häkchen, Aufzählungspunkte oder Streichpunkte ignorierst du für quantity. " +
                 "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: 'â˜ 2 dicke Bleistifte' bedeutet quantity 2, 'â˜ 1 blaue Mappe' bedeutet quantity 1. " +
@@ -2049,6 +2059,13 @@ export async function POST(_request: Request, context: RouteContext) {
                 "Hefter-Regel: Wenn in der Originalzeile ausdrücklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter für Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und überschreibt den Hauptartikel nicht. " +
                 "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
                 "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
+                "Wenn eine Position '2 Schreibhefte A4 Lineatur 2 (bitte farbig unterlegt)' lautet, ist quantity 2, normalizedName 'Schreibheft A4', category 'Heft', format 'A4', lineature '2', notes enthält 'bitte farbig unterlegt'. " +
+                "Wenn eine Position '2 Hefte A4 kariert Lineatur 8f (bitte mit Rand)' lautet, ist quantity 2, format 'A4', lineature '8f', notes enthält 'mit Rand'. " +
+                "Wenn eine Position '1 Sammelmappe A3' lautet, ist category 'Mappe', format 'A3'. Sie darf nicht als A4 erkannt werden. " +
+                "Wenn eine Position '1 Block Tonpapier weiß A3' lautet, ist category 'Papier/Block', color 'weiß', format 'A3'. Sie darf nicht als A4 erkannt werden. " +
+                "Wenn eine Position 'kleines Lineal' lautet, muss 'klein' in normalizedName oder notes erhalten bleiben. " +
+                "Wenn eine Position 'Lineal 30 cm' lautet, muss '30 cm' in normalizedName oder notes erhalten bleiben. " +
+                "Wenn eine Position '2 große Klebestifte' lautet, muss 'groß' in normalizedName oder notes erhalten bleiben. " +
                 "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
                 "Hausaufgabenheft-Regel: Hausaufgabenheft, HA-Heft und Aufgabenheft niemals als normales Schreibheft interpretieren. " +
                 "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/Blöcke geht. " +
