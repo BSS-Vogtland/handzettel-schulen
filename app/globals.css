@@ -7,3 +7,40 @@ html {
 body {
   margin: 0;
 }
+/* Admin request detail overflow guard */
+[data-admin-request-page] {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+[data-admin-request-page] *,
+[data-admin-request-page] *::before,
+[data-admin-request-page] *::after {
+  box-sizing: border-box;
+  min-width: 0 !important;
+}
+
+[data-admin-request-page] img,
+[data-admin-request-page] video,
+[data-admin-request-page] canvas,
+[data-admin-request-page] iframe {
+  max-width: 100%;
+}
+
+[data-admin-request-page] :where(p, span, li, div, a, button, td, th, h1, h2, h3, h4, label, textarea, input) {
+  overflow-wrap: anywhere;
+}
+
+[data-admin-request-page] :where([class*="whitespace-nowrap"]) {
+  white-space: normal !important;
+}
+
+[data-admin-request-page] :where([class*="w-screen"], [class*="w-max"], [class*="max-w-none"]) {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+[data-admin-request-page] :where([class*="overflow-x-auto"]) {
+  max-width: 100%;
+}
