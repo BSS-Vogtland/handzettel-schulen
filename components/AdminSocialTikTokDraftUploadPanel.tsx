@@ -215,7 +215,7 @@ export default function AdminSocialTikTokDraftUploadPanel({
           </div>
 
           <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-            V2M.1 · TikTok-Post über Buffer automatisch planen
+            V2M.2 · TikTok-Post über Buffer automatisch planen
           </h2>
 
           <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#627D98]">
@@ -490,4 +490,5 @@ export default function AdminSocialTikTokDraftUploadPanel({
     </section>
   );
 }
+
 
