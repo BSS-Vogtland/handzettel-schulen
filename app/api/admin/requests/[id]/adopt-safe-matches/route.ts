@@ -45,7 +45,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -90,26 +90,27 @@ function isSafeAutoAdoptMatch(match: RequestMatchRow) {
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prÃƒÂ¼fung") ||
+    reason.includes("admin-prüfung") ||
     reason.includes("admin-pruefung") ||
     reason.includes("variantenmerkmale") ||
-    reason.includes("bitte prÃƒÂ¼fen") ||
+    reason.includes("bitte prüfen") ||
     reason.includes("bitte pruefen") ||
-    reason.includes("teilweise erkannt")
+    reason.includes("teilweise erkannt") ||
+    reason.includes("score begrenzt") ||
+    reason.includes("abweichende explizite nummer")
   ) {
     return false;
   }
 
-  if (
-    reason.includes("gelernte zuordnung") &&
-    !reason.includes("exakt erkannt") &&
-    !reason.includes("wiedererkannt")
-  ) {
+  // S0: school_product_aliases enthält normale Suchaliase und alte Lern-Aliase.
+  // Bis echte Lernregeln getrennt sind, dürfen gelernte Alias-Treffer nicht automatisch übernehmen.
+  if (reason.includes("gelernte zuordnung")) {
     return false;
   }
 
   return true;
 }
+
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
   const scoreDifference = toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
@@ -204,12 +205,12 @@ function mergeAutoSafeRowsByProduct(rows: AutoSafeOfferInsertRow[]) {
     const existingQuantity = toNumber(existing.row.quantity, 0);
     const rowQuantity = toNumber(row.quantity, 0);
 
-    // Wichtig: Duplikate nicht addieren. Sonst wird aus 2x Umschlag fÃƒÂ¤lschlich 4x.
+    // Wichtig: Duplikate nicht addieren. Sonst wird aus 2x Umschlag fÃƒÆ’Ã‚Â¤lschlich 4x.
     existing.row.quantity = Math.max(existingQuantity, rowQuantity);
 
     existing.row.notes = [
       existing.row.notes,
-      `Automatisch zusammengefÃƒÂ¼hrt: weiterer sicherer Treffer fÃƒÂ¼r dasselbe Produkt (${row.product_name}).`,
+      `Automatisch zusammengefÃƒÆ’Ã‚Â¼hrt: weiterer sicherer Treffer fÃƒÆ’Ã‚Â¼r dasselbe Produkt (${row.product_name}).`,
       row.notes ? `Zusatztreffer: ${row.notes}` : null,
     ]
       .filter(Boolean)
@@ -223,7 +224,7 @@ function mergeAutoSafeRowsByProduct(rows: AutoSafeOfferInsertRow[]) {
     if (entry.requestItemIds.length > 1) {
       entry.row.notes = [
         entry.row.notes,
-        `ZusammengefÃƒÂ¼hrt aus ${entry.requestItemIds.length} erkannten Listenpositionen mit gleichem Produkt.`,
+        `ZusammengefÃƒÆ’Ã‚Â¼hrt aus ${entry.requestItemIds.length} erkannten Listenpositionen mit gleichem Produkt.`,
       ]
         .filter(Boolean)
         .join(" ");
@@ -273,7 +274,7 @@ export async function POST(_request: Request, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Keine Anfrage-ID ÃƒÂ¼bergeben.",
+          message: "Keine Anfrage-ID ÃƒÆ’Ã‚Â¼bergeben.",
         },
         { status: 400 }
       );
@@ -369,7 +370,7 @@ export async function POST(_request: Request, context: Params) {
         adoptedCount: 0,
         skippedCount: items.length,
         message:
-          "Alle erkannten Positionen haben bereits eine Paketposition. Es wurde nichts automatisch ergÃƒÂ¤nzt.",
+          "Alle erkannten Positionen haben bereits eine Paketposition. Es wurde nichts automatisch ergÃƒÆ’Ã‚Â¤nzt.",
       });
     }
 
@@ -459,7 +460,7 @@ export async function POST(_request: Request, context: Params) {
           source: "auto_safe_match",
           status: "confirmed",
           notes: [
-            `Automatisch aus sicherem Produktvorschlag ÃƒÂ¼bernommen.`,
+            `Automatisch aus sicherem Produktvorschlag ÃƒÆ’Ã‚Â¼bernommen.`,
             `Matchscore: ${toNumber(match.match_score, 0)} %.`,
             item ? `Listenposition: ${getRequestItemTitle(item)}` : null,
             match.match_reason ? `Grund: ${match.match_reason}` : null,
@@ -473,7 +474,7 @@ export async function POST(_request: Request, context: Params) {
     );
 
     // Jede Listenposition bleibt eine eigene Paketposition.
-    // Nicht nach product_id zusammenfÃƒÂ¼hren, sonst kÃƒÂ¶nnen Mengen und request_item_id-Zuordnungen verfÃƒÂ¤lscht werden.
+    // Nicht nach product_id zusammenfÃƒÆ’Ã‚Â¼hren, sonst kÃƒÆ’Ã‚Â¶nnen Mengen und request_item_id-Zuordnungen verfÃƒÆ’Ã‚Â¤lscht werden.
     const rowsToInsert = rawRowsToInsert;
     const insertedMatchIds = rawRowsToInsert
       .map((row) => row.match_id)
@@ -483,7 +484,7 @@ export async function POST(_request: Request, context: Params) {
         supabase,
         requestId,
         eventType: "safe_matches_adopted",
-        title: "Keine sicheren Treffer ÃƒÂ¼bernommen",
+        title: "Keine sicheren Treffer ÃƒÆ’Ã‚Â¼bernommen",
         description:
           "Es wurden keine neuen sicheren Treffer ab 80 % gefunden, die noch keine Paketposition hatten.",
       });
@@ -523,7 +524,7 @@ export async function POST(_request: Request, context: Params) {
 
       if (matchUpdateError) {
         console.error(
-          "Sichere Matches wurden ÃƒÂ¼bernommen, aber selected konnte nicht aktualisiert werden:",
+          "Sichere Matches wurden ÃƒÆ’Ã‚Â¼bernommen, aber selected konnte nicht aktualisiert werden:",
           matchUpdateError
         );
       }
@@ -544,8 +545,8 @@ export async function POST(_request: Request, context: Params) {
       supabase,
       requestId,
       eventType: "safe_matches_adopted",
-      title: "Sichere Treffer ÃƒÂ¼bernommen",
-      description: `${adoptedCount} sichere neue Treffer wurden automatisch in den Paketwunsch ÃƒÂ¼bernommen. Es wurden nur Positionen ohne bestehende Paketposition berÃƒÂ¼cksichtigt. Mindestscore: ${SAFE_MATCH_SCORE} %.`,
+      title: "Sichere Treffer ÃƒÆ’Ã‚Â¼bernommen",
+      description: `${adoptedCount} sichere neue Treffer wurden automatisch in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen. Es wurden nur Positionen ohne bestehende Paketposition berÃƒÆ’Ã‚Â¼cksichtigt. Mindestscore: ${SAFE_MATCH_SCORE} %.`,
     });
 
     return NextResponse.json({
@@ -555,8 +556,8 @@ export async function POST(_request: Request, context: Params) {
       minimumScore: SAFE_MATCH_SCORE,
       message:
         adoptedCount === 1
-          ? "1 sicherer Treffer wurde in den Paketwunsch ÃƒÂ¼bernommen."
-          : `${adoptedCount} sichere Treffer wurden in den Paketwunsch ÃƒÂ¼bernommen.`,
+          ? "1 sicherer Treffer wurde in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen."
+          : `${adoptedCount} sichere Treffer wurden in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen.`,
     });
   } catch (error) {
     console.error("adopt safe matches error:", error);
@@ -567,7 +568,7 @@ export async function POST(_request: Request, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "Sichere Treffer konnten nicht ÃƒÂ¼bernommen werden.",
+            : "Sichere Treffer konnten nicht ÃƒÆ’Ã‚Â¼bernommen werden.",
       },
       { status: 500 }
     );
