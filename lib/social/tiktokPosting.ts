@@ -178,7 +178,7 @@ export async function getTikTokDraftUploadReadiness() {
       "TikTok ist noch nicht per OAuth verbunden. Bitte zuerst TikTok verbinden.";
   } else if (!hasVideoUploadScope) {
     blockedReason =
-      "TikTok ist verbunden, aber der Scope video.upload ist noch nicht autorisiert. Der echte Draft-Upload bleibt deshalb gesperrt.";
+      "Die direkte TikTok-API wird nicht mehr genutzt. Die Veröffentlichung läuft über Buffer. Maßgeblich sind Video, finaler TikTok-Text, Review-Freigabe und SocialPilot-Zeitpunkt.";
   } else if (!uploadEnabled) {
     blockedReason =
       "TIKTOK_ENABLE_DRAFT_UPLOAD ist noch nicht aktiviert. Der echte Upload bleibt bis zur Freigabe bewusst gesperrt.";
@@ -361,7 +361,7 @@ async function uploadVideoToTikTokUploadUrl({
 
   if (!response.ok) {
     throw new Error(
-      `TikTok Video-Upload fehlgeschlagen: HTTP ${response.status} ${text}`
+      `TikTok via Buffer-Upload fehlgeschlagen: HTTP ${response.status} ${text}`
     );
   }
 
@@ -495,3 +495,4 @@ export async function createTikTokDraftUpload({
     throw error;
   }
 }
+
