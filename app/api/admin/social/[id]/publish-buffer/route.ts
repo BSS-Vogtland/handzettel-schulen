@@ -450,7 +450,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { data: postData, error: postError } = await supabaseServer
       .from("social_posts")
       .select(
-        "id, topic, status, review_status, published_at, hook, caption, cta, hashtags, tiktok_hook, tiktok_caption"
+        "id, topic, status, review_status, published_at, scheduled_at, hook, caption, cta, hashtags, tiktok_hook, tiktok_caption"
       )
       .eq("id", postId)
       .single();
@@ -659,6 +659,7 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 }
+
 
 
 
