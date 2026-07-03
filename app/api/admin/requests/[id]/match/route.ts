@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -270,6 +270,131 @@ function hasExactNameOrAliasMatch(input: {
   };
 }
 
+function calculateLearnedAliasMatch(input: {
+  item: RequestItem;
+  product: ProductRow;
+  aliases: string[];
+}) {
+  if (!input.aliases.length) return null;
+
+  const itemText = buildItemText(input.item);
+  const itemCoreText = buildItemCoreText(input.item);
+  const itemContextText = buildItemContextText(input.item);
+  const productCoreText = buildProductText(input.product, []);
+
+  const normalizedItemText = normalizeForWords(itemText);
+  const normalizedItemCoreText = normalizeSingularProductTerm(itemCoreText);
+
+  const itemCandidates = [
+    input.item.normalized_name,
+    input.item.raw_text,
+    itemCoreText,
+    itemContextText,
+    normalizeSingularProductTerm(input.item.normalized_name),
+    normalizeSingularProductTerm(input.item.raw_text),
+  ]
+    .map((value) => normalizeSingularProductTerm(value))
+    .filter((value) => value.length >= 3);
+
+  const uniqueItemCandidates = Array.from(new Set(itemCandidates));
+
+  const itemType = classifyType(itemCoreText);
+  const productType = classifyType(productCoreText);
+
+  const itemFormat = getEffectiveFormat(itemCoreText);
+  const productFormat = getEffectiveFormat(productCoreText);
+
+  const itemColor = normalizeColor(itemCoreText);
+  const productColor = normalizeColor(productCoreText);
+
+  const itemLineature = normalizeLineature(
+    `${input.item.lineature || ""} ${input.item.raw_text || ""} ${
+      input.item.normalized_name || ""
+    } ${input.item.notes || ""}`
+  );
+  const productLineature = normalizeLineature(productCoreText);
+
+  const hasVariantConflict = hasRelevantVariantConflict({
+    itemFormat,
+    productFormat,
+    itemColor,
+    productColor,
+    itemLineature,
+    productLineature,
+    itemType,
+    productType,
+  });
+
+  for (const alias of input.aliases) {
+    const cleanedAlias = String(alias || "").trim();
+    const normalizedAlias = normalizeSingularProductTerm(cleanedAlias);
+
+    if (normalizedAlias.length < 3) continue;
+
+    const aliasWords = getWords(cleanedAlias).filter((word) => {
+      if (/^\d+$/.test(word)) return false;
+      if (["stk", "stueck", "stück", "bitte", "fuer", "für"].includes(word)) {
+        return false;
+      }
+      return word.length >= 2;
+    });
+
+    const exactAliasHit = uniqueItemCandidates.some(
+      (candidate) => candidate === normalizedAlias
+    );
+
+    const aliasContainedInItem =
+      normalizedAlias.length >= 8 && normalizedItemText.includes(normalizedAlias);
+
+    const itemContainedInAlias =
+      normalizedItemCoreText.length >= 8 &&
+      normalizedAlias.includes(normalizedItemCoreText);
+
+    const aliasHitCount = aliasWords.filter((word) =>
+      normalizedItemText.includes(word)
+    ).length;
+
+    const strongPartialAliasHit =
+      aliasWords.length >= 2 && aliasHitCount >= Math.min(3, aliasWords.length);
+
+    if (
+      !exactAliasHit &&
+      !aliasContainedInItem &&
+      !itemContainedInAlias &&
+      !strongPartialAliasHit
+    ) {
+      continue;
+    }
+
+    if (hasVariantConflict) {
+      return {
+        score: 84,
+        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale müssen geprüft werden: ${cleanedAlias}`,
+      };
+    }
+
+    if (exactAliasHit) {
+      return {
+        score: 99,
+        reason: `Gelernte Zuordnung exakt erkannt: ${cleanedAlias}`,
+      };
+    }
+
+    if (aliasContainedInItem || itemContainedInAlias) {
+      return {
+        score: 96,
+        reason: `Gelernte Zuordnung wiedererkannt: ${cleanedAlias}`,
+      };
+    }
+
+    return {
+      score: 93,
+      reason: `Gelernte Zuordnung teilweise erkannt: ${cleanedAlias}`,
+    };
+  }
+
+  return null;
+}
 function isSimpleStandardArticle(type: string | null, text: unknown) {
   if (type && SIMPLE_STANDARD_TYPES.has(type)) {
     return true;
@@ -2030,7 +2155,7 @@ export async function POST(_request: NextRequest, context: Params) {
     const [{ data: productsData, error: productsError }, { data: aliasesData }] =
       await Promise.all([
         supabase.from("school_products").select("*").limit(5000),
-        supabase.from("school_product_aliases").select("*").limit(5000),
+        supabase.from("school_product_aliases").select("*").limit(20000),
       ]);
 
     if (productsError) {
@@ -2103,7 +2228,14 @@ export async function POST(_request: NextRequest, context: Params) {
           if (seenProductIds.has(product.id)) return null;
 
           const aliasesForProduct = aliasesByProduct.get(product.id) || [];
+          const learnedAliasResult = calculateLearnedAliasMatch({
+            item,
+            product,
+            aliases: aliasesForProduct,
+          });
+
           const result =
+            learnedAliasResult ||
             calculateMatch({
               item,
               product,
@@ -2176,6 +2308,10 @@ export async function POST(_request: NextRequest, context: Params) {
       }
     }
 
+    const learnedAliasMatchCount = rowsToInsert.filter((row) =>
+      row.match_reason.includes("Gelernte Zuordnung")
+    ).length;
+
     if (rowsToInsert.length > 0) {
       const { error: insertError } = await supabase
         .from("school_request_matches")
@@ -2204,10 +2340,11 @@ export async function POST(_request: NextRequest, context: Params) {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
+        learnedAliasMatchCount,
         maxMatchesPerItem: MAX_MATCHES_PER_ITEM,
         minVisibleScore: MIN_VISIBLE_SCORE,
       }
@@ -2217,11 +2354,12 @@ export async function POST(_request: NextRequest, context: Params) {
       ok: true,
       itemCount: requestItems.length,
       matchCount: rowsToInsert.length,
+      learnedAliasMatchCount,
       maxMatchesPerItem: MAX_MATCHES_PER_ITEM,
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschläge wurden neu berechnet. Exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          ? `Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschläge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
           : "Es wurden keine ausreichend sicheren Produktvorschläge gefunden. Diese Positionen bleiben zur manuellen Prüfung offen.",
     });
   } catch (error) {
