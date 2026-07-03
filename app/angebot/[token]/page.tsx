@@ -160,7 +160,7 @@ function getCustomerResolutionTitle(status: CustomerVisibleResolutionStatus) {
     case "customer_supplies_self":
       return "Bitte selbst besorgen";
     case "covered_by_alternative":
-      return "Bereits berÃ¼cksichtigt";
+      return "Bereits berÃƒÂ¼cksichtigt";
     default:
       return "";
   }
@@ -169,7 +169,7 @@ function getCustomerResolutionTitle(status: CustomerVisibleResolutionStatus) {
 function getCustomerResolutionText(status: CustomerVisibleResolutionStatus) {
   switch (status) {
     case "customer_supplies_self":
-      return "Diesen Artikel fÃ¼hren wir aktuell nicht im Sortiment. Bitte besorge ihn separat.";
+      return "Diesen Artikel fÃƒÂ¼hren wir aktuell nicht im Sortiment. Bitte besorge ihn separat.";
     case "covered_by_alternative":
       return "Diese Position ist durch einen passenden Alternativartikel oder eine Sammelposition im Paketwunsch abgedeckt.";
     default:
@@ -184,7 +184,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -218,11 +218,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
-    .replace(/grÃ¼n/g, "gruen")
+    .replace(/ÃƒÂ¤/g, "ae")
+    .replace(/ÃƒÂ¶/g, "oe")
+    .replace(/ÃƒÂ¼/g, "ue")
+    .replace(/ÃƒÆ’Ã…Â¸/g, "ss")
+    .replace(/grÃƒÂ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -536,6 +536,16 @@ function isCustomerVisibleLearnedMatch(match: RequestMatch) {
 
   return score >= 90;
 }
+function isCustomerHiddenReviewMatch(match: RequestMatch) {
+  const reason = String(match.match_reason || "").toLowerCase();
+
+  return (
+    reason.includes("artverwandter kandidat") ||
+    reason.includes("admin-prüfung") ||
+    reason.includes("admin-pruefung") ||
+    reason.includes("variantenmerkmale")
+  );
+}
 function isSafeAutoMatch(match: RequestMatch) {
   return (
     Boolean(match.product_id) &&
@@ -629,7 +639,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "Ã¢â‚¬â€";
+  if (!size) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -655,17 +665,17 @@ function getMatchScoreLabel(score: unknown) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "FÃ¼r Dich vorausgewÃ¤hlt";
+      return "FÃƒÂ¼r Dich vorausgewÃƒÂ¤hlt";
     case "admin_manual":
-      return "Von Handzettel-Schulen.de ergÃ¤nzt";
+      return "Von Handzettel-Schulen.de ergÃƒÂ¤nzt";
     case "admin_existing_product":
-      return "Von Handzettel-Schulen.de ergÃ¤nzt";
+      return "Von Handzettel-Schulen.de ergÃƒÂ¤nzt";
     case "customer_search":
       return "Von Dir gesucht";
     case "customer_selection":
-      return "Von Dir ausgewÃ¤hlt";
+      return "Von Dir ausgewÃƒÂ¤hlt";
     case "match":
-      return "Automatisch Ã¼bernommen";
+      return "Automatisch ÃƒÂ¼bernommen";
     default:
       return "Paketposition";
   }
@@ -680,7 +690,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     default:
-      return status || "RÃ¼ckfrage";
+      return status || "RÃƒÂ¼ckfrage";
   }
 }
 
@@ -730,10 +740,10 @@ function getOfferItemScoreLabel(
   if (score <= 0) return null;
 
   if (item.source === "auto_preselected" || score >= AUTO_PRESELECT_MIN_SCORE) {
-    return `VorausgewÃ¤hlt Ã‚Â· ${score} %`;
+    return `VorausgewÃƒÂ¤hlt Ãƒâ€šÃ‚Â· ${score} %`;
   }
 
-  return `${getMatchScoreLabel(score)} Ã‚Â· ${score} %`;
+  return `${getMatchScoreLabel(score)} Ãƒâ€šÃ‚Â· ${score} %`;
 }
 
 function isAutoPreselectedOfferItem(
@@ -795,10 +805,10 @@ async function insertMissingSafeMatchesIntoOffer(params: {
         unit: "Stk.",
         source: "auto_preselected",
         status: "preselected",
-        notes: `Automatisch vorausgewÃ¤hlt, da der Produkttreffer ${toNumber(
+        notes: `Automatisch vorausgewÃƒÂ¤hlt, da der Produkttreffer ${toNumber(
           bestSafeMatch.match_score,
           0
-        )} % ÃƒÅ“bereinstimmung erreicht hat.`,
+        )} % ÃƒÆ’Ã…â€œbereinstimmung erreicht hat.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -817,7 +827,7 @@ async function insertMissingSafeMatchesIntoOffer(params: {
   await supabase.from("school_request_events").insert({
     request_id: request.id,
     event_type: "customer_auto_preselected_items_repaired",
-    title: "Sichere Treffer automatisch ergÃ¤nzt",
+    title: "Sichere Treffer automatisch ergÃƒÂ¤nzt",
     description: `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt. Schwelle: ${AUTO_PRESELECT_MIN_SCORE} %.`,
     created_at: new Date().toISOString(),
   });
@@ -1021,7 +1031,7 @@ export default async function CustomerOfferPage({ params }: Params) {
 
     if (matchError) {
       throw new Error(
-        `ProduktvorschlÃ¤ge konnten nicht geladen werden: ${matchError.message}`
+        `ProduktvorschlÃƒÂ¤ge konnten nicht geladen werden: ${matchError.message}`
       );
     }
 
@@ -1049,8 +1059,9 @@ export default async function CustomerOfferPage({ params }: Params) {
     const strictMatches = allItemMatches
       .filter(
         (match) =>
-          isStrictMatchVisible(item, match) ||
-          isCustomerVisibleLearnedMatch(match)
+          isCustomerVisibleLearnedMatch(match) ||
+          (isStrictMatchVisible(item, match) &&
+            !isCustomerHiddenReviewMatch(match))
       )
       .slice(0, 3);
 
@@ -1246,26 +1257,26 @@ if (productIds.length > 0) {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  PersÃ¶nlicher Service
+                  PersÃƒÂ¶nlicher Service
                 </div>
 
                 <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-5xl">
-                  Wir Ã¼bernehmen die persÃ¶nliche PrÃ¼fung.
+                  Wir ÃƒÂ¼bernehmen die persÃƒÂ¶nliche PrÃƒÂ¼fung.
                 </h1>
 
                 <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-[#52616F]">
                   Deine Liste ist bei uns angekommen. Die automatische
                   Vorbereitung konnte Deine Liste nicht direkt eindeutig
-                  zuordnen Ã¢â‚¬â€œ das ist kein Problem. Genau dafÃ¼r gibt es unseren
-                  persÃ¶nlichen Service: Wir schauen uns Deine Liste jetzt
-                  manuell an und suchen die passenden Schulmaterialien fÃ¼r Dich
+                  zuordnen ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ das ist kein Problem. Genau dafÃƒÂ¼r gibt es unseren
+                  persÃƒÂ¶nlichen Service: Wir schauen uns Deine Liste jetzt
+                  manuell an und suchen die passenden Schulmaterialien fÃƒÂ¼r Dich
                   heraus.
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-                      BestÃ¤tigt
+                      BestÃƒÂ¤tigt
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#2F7D50]">
                       Deine Anfrage ist angekommen.
@@ -1277,16 +1288,16 @@ if (productIds.length > 0) {
                       Service
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#52616F]">
-                      Wir prÃ¼fen die Liste persÃ¶nlich.
+                      Wir prÃƒÂ¼fen die Liste persÃƒÂ¶nlich.
                     </p>
                   </div>
 
                   <div className="rounded-[22px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-                      NÃ¤chster Schritt
+                      NÃƒÂ¤chster Schritt
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#12395F]">
-                      Du erhÃ¤ltst Deinen Paketwunsch per E-Mail.
+                      Du erhÃƒÂ¤ltst Deinen Paketwunsch per E-Mail.
                     </p>
                   </div>
                 </div>
@@ -1307,9 +1318,9 @@ if (productIds.length > 0) {
                       </h2>
 
                       <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                        Unser Team sucht die passenden Artikel fÃ¼r Dich heraus.
+                        Unser Team sucht die passenden Artikel fÃƒÂ¼r Dich heraus.
                         Sobald Dein Paketwunsch vorbereitet ist, bekommst Du
-                        eine E-Mail mit Deinem persÃ¶nlichen PrÃ¼flink.
+                        eine E-Mail mit Deinem persÃƒÂ¶nlichen PrÃƒÂ¼flink.
                       </p>
                     </div>
                   </div>
@@ -1319,14 +1330,14 @@ if (productIds.length > 0) {
               <aside className="flex flex-col gap-4">
                 <div className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] px-8 py-5 text-center text-xl font-black text-[#2F7D50] shadow-sm">
                   <CheckCircle2 className="h-6 w-6" />
-                  <span>Wird persÃ¶nlich fÃ¼r Dich vorbereitet</span>
+                  <span>Wird persÃƒÂ¶nlich fÃƒÂ¼r Dich vorbereitet</span>
                 </div>
 
                 <div className="overflow-hidden rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] shadow-sm">
                   <div className="relative h-[280px] w-full bg-white">
                     <Image
                       src="/service-schulheft-assistentin.png"
-                      alt="Freundliche Mitarbeiterin sucht passende Schulhefte fÃ¼r den Kunden aus dem Regal"
+                      alt="Freundliche Mitarbeiterin sucht passende Schulhefte fÃƒÂ¼r den Kunden aus dem Regal"
                       fill
                       className="object-cover"
                       priority
@@ -1336,18 +1347,18 @@ if (productIds.length > 0) {
                   <div className="p-5">
                     <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
                       <Search className="h-3.5 w-3.5" />
-                      Unser Service fÃ¼r Dich
+                      Unser Service fÃƒÂ¼r Dich
                     </div>
 
                     <h3 className="mt-3 text-xl font-black text-[#102A43]">
-                      Wir suchen nicht nur automatisch Ã¢â‚¬â€œ wir prÃ¼fen auch
-                      persÃ¶nlich.
+                      Wir suchen nicht nur automatisch ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ wir prÃƒÂ¼fen auch
+                      persÃƒÂ¶nlich.
                     </h3>
 
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
                       Wenn ein Artikel nicht sofort automatisch erkannt wird,
                       ist das kein Problem. Genau dann schaut unser Team
-                      persÃ¶nlich auf Deine Liste.
+                      persÃƒÂ¶nlich auf Deine Liste.
                     </p>
                   </div>
                 </div>
@@ -1374,19 +1385,19 @@ if (productIds.length > 0) {
 
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
                   {hasOpenCustomerBlockingItems
-                    ? "Ein Teil ist fertig. FÃ¼r die offenen Positionen wÃ¤hlst Du jetzt den nÃ¤chsten Schritt."
-                    : "Alle Positionen sind vorbereitet. PrÃ¼fe jetzt Dein Paket."}
+                    ? "Ein Teil ist fertig. FÃƒÂ¼r die offenen Positionen wÃƒÂ¤hlst Du jetzt den nÃƒÂ¤chsten Schritt."
+                    : "Alle Positionen sind vorbereitet. PrÃƒÂ¼fe jetzt Dein Paket."}
                 </h1>
 
                 <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                  Erkannte Artikel liegen bereits im Paket. FÃ¼r offene Positionen wÃ¤hlst Du jetzt: selbst auswÃ¤hlen oder von Handzettel-Schulen.de Ã¼bernehmen lassen.
+                  Erkannte Artikel liegen bereits im Paket. FÃƒÂ¼r offene Positionen wÃƒÂ¤hlst Du jetzt: selbst auswÃƒÂ¤hlen oder von Handzettel-Schulen.de ÃƒÂ¼bernehmen lassen.
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#FFF1F1] px-4 py-3 text-sm font-black text-[#B5282D]">
                 {hasOpenCustomerBlockingItems
                   ? "Entscheidung erforderlich"
-                  : "Bereit zur PrÃ¼fung"}
+                  : "Bereit zur PrÃƒÂ¼fung"}
               </div>
             </div>
 
@@ -1450,14 +1461,14 @@ if (productIds.length > 0) {
 
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
-                      ? "Dein Schulpaket ist bestÃ¤tigt"
-                      : "PrÃ¼fe jetzt Dein vorbereitetes Schulpaket"}
+                      ? "Dein Schulpaket ist bestÃƒÂ¤tigt"
+                      : "PrÃƒÂ¼fe jetzt Dein vorbereitetes Schulpaket"}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
-                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de Ã¼bermittelt. Wir prÃ¼fen den finalen Stand und bereiten die nÃ¤chsten Schritte vor. Du kannst passende Artikel spÃ¤ter direkt nachkaufen."
-                      : "Wir haben Deine Materialliste erfasst und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergÃ¤nzen oder unklare Artikel von uns prÃ¼fen lassen."}
+                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de ÃƒÂ¼bermittelt. Wir prÃƒÂ¼fen den finalen Stand und bereiten die nÃƒÂ¤chsten Schritte vor. Du kannst passende Artikel spÃƒÂ¤ter direkt nachkaufen."
+                      : "Wir haben Deine Materialliste erfasst und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergÃƒÂ¤nzen oder unklare Artikel von uns prÃƒÂ¼fen lassen."}
                   </p>
                 </div>
               </div>
@@ -1469,7 +1480,7 @@ if (productIds.length > 0) {
                       Sicher
                     </p>
                     <p className="mt-1 font-black">
-                      Treffer ab 85 % werden vorausgewÃ¤hlt.
+                      Treffer ab 85 % werden vorausgewÃƒÂ¤hlt.
                     </p>
                   </div>
 
@@ -1478,7 +1489,7 @@ if (productIds.length > 0) {
                       Offen
                     </p>
                     <p className="mt-1 font-black">
-                      Wenn etwas offen bleibt, entscheidest Du: selbst ergÃ¤nzen oder Team Ã¼bernehmen lassen.
+                      Wenn etwas offen bleibt, entscheidest Du: selbst ergÃƒÂ¤nzen oder Team ÃƒÂ¼bernehmen lassen.
                     </p>
                   </div>
 
@@ -1487,7 +1498,7 @@ if (productIds.length > 0) {
                       Service
                     </p>
                     <p className="mt-1 font-black">
-                      Wir Ã¼bernehmen offene Positionen, sobald Du es auswÃ¤hlst.
+                      Wir ÃƒÂ¼bernehmen offene Positionen, sobald Du es auswÃƒÂ¤hlst.
                     </p>
                   </div>
                 </div>
@@ -1517,7 +1528,7 @@ if (productIds.length > 0) {
                 </div>
 
                 <div className="flex justify-between gap-3">
-                  <span>Noch klÃ¤ren</span>
+                  <span>Noch klÃƒÂ¤ren</span>
                   <span className="font-black text-[#A75B28]">
                     {openChoiceItems.length}
                   </span>
@@ -1538,8 +1549,8 @@ if (productIds.length > 0) {
                     disabled={hasOpenCustomerBlockingItems}
                     buttonLabel={
                       hasOpenCustomerBlockingItems
-                        ? "Offene Positionen zuerst klÃ¤ren"
-                        : "Paketwunsch bestÃ¤tigen"
+                        ? "Offene Positionen zuerst klÃƒÂ¤ren"
+                        : "Paketwunsch bestÃƒÂ¤tigen"
                     }
                   />
                 </div>
@@ -1547,8 +1558,8 @@ if (productIds.length > 0) {
 
               {!isConfirmed ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
-                  Du kommst erst mit dem BestÃ¤tigungsbutton in den Checkout
-                  ab. Vorher kannst Du Artikel entfernen oder ergÃ¤nzen.
+                  Du kommst erst mit dem BestÃƒÂ¤tigungsbutton in den Checkout
+                  ab. Vorher kannst Du Artikel entfernen oder ergÃƒÂ¤nzen.
                 </p>
               ) : null}
 
@@ -1557,7 +1568,7 @@ if (productIds.length > 0) {
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-sm font-black">
-                      Dein Paketwunsch wurde bestÃ¤tigt.
+                      Dein Paketwunsch wurde bestÃƒÂ¤tigt.
                     </p>
                   </div>
                 </div>
@@ -1575,14 +1586,14 @@ if (productIds.length > 0) {
 
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                  Kurze RÃ¼ckfrage
+                  Kurze RÃƒÂ¼ckfrage
                 </p>
                 <h2 className="text-2xl font-black text-[#102A43]">
                   Wir brauchen noch eine kurze Info von Dir
                 </h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                  Bitte beantworte die RÃ¼ckfrage direkt hier. Dann kÃ¶nnen wir
-                  die betroffene Position sauber prÃ¼fen und Dein Paket fertigstellen.
+                  Bitte beantworte die RÃƒÂ¼ckfrage direkt hier. Dann kÃƒÂ¶nnen wir
+                  die betroffene Position sauber prÃƒÂ¼fen und Dein Paket fertigstellen.
                 </p>
               </div>
             </div>
@@ -1603,7 +1614,7 @@ if (productIds.length > 0) {
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
                           {relatedItem
                             ? `Position: ${getRequestItemTitle(relatedItem)}`
-                            : "Allgemeine RÃ¼ckfrage"}
+                            : "Allgemeine RÃƒÂ¼ckfrage"}
                         </p>
                         <p className="mt-2 whitespace-pre-wrap text-base font-black leading-7 text-[#102A43]">
                           {question.question_text}
@@ -1650,7 +1661,7 @@ if (productIds.length > 0) {
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {request.school_name || "Schule nicht angegeben"}
-              {request.class_name ? ` Ã‚Â· Klasse ${request.class_name}` : ""}
+              {request.class_name ? ` Ãƒâ€šÃ‚Â· Klasse ${request.class_name}` : ""}
             </p>
           </div>
 
@@ -1677,7 +1688,7 @@ if (productIds.length > 0) {
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed ? "Abgesendet" : "Noch prÃ¼fbar"}
+              {isConfirmed ? "Abgesendet" : "Noch prÃƒÂ¼fbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {handledItemCount} von {items.length} Positionen im Paket
@@ -1695,11 +1706,11 @@ if (productIds.length > 0) {
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <h2 className="font-black">
-                  Dein Paketwunsch wurde erfolgreich bestÃ¤tigt.
+                  Dein Paketwunsch wurde erfolgreich bestÃƒÂ¤tigt.
                 </h2>
                 <p className="mt-1 text-sm leading-6">
                   Handzettel-Schulen.de hat Deine Auswahl erhalten. Wenn noch
-                  etwas unklar ist, prÃ¼fen wir es persÃ¶nlich, bevor Dein Paket
+                  etwas unklar ist, prÃƒÂ¼fen wir es persÃƒÂ¶nlich, bevor Dein Paket
                   final vorbereitet wird.
                 </p>
               </div>
@@ -1725,8 +1736,8 @@ if (productIds.length > 0) {
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[#2F7D50]">
                       Diese Produkte passen sehr sicher zu Deiner Liste. Du
-                      musst hier nichts tun Ã¢â‚¬â€œ nur entfernen, falls Du einen
-                      Artikel nicht mÃ¶chtest.
+                      musst hier nichts tun ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ nur entfernen, falls Du einen
+                      Artikel nicht mÃƒÂ¶chtest.
                     </p>
                   </div>
                 </div>
@@ -1764,7 +1775,7 @@ if (productIds.length > 0) {
                               <div>
                                 <div className="mb-2 flex flex-wrap gap-2">
                                   <span className="rounded-full bg-[#2F7D50] px-3 py-1 text-xs font-black text-white">
-                                    {scoreLabel || "VorausgewÃ¤hlt"}
+                                    {scoreLabel || "VorausgewÃƒÂ¤hlt"}
                                   </span>
 
                                   <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
@@ -1853,10 +1864,10 @@ if (productIds.length > 0) {
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        ZusÃ¤tzlich im Paket
+                        ZusÃƒÂ¤tzlich im Paket
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Von Dir oder unserem Team ergÃ¤nzt
+                        Von Dir oder unserem Team ergÃƒÂ¤nzt
                       </h2>
                     </div>
                   </div>
@@ -1989,9 +2000,9 @@ if (productIds.length > 0) {
                         Diese Artikel brauchen noch eine Auswahl
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#A75B28]">
-                        Hier gibt es passende VorschlÃ¤ge, aber noch keinen
+                        Hier gibt es passende VorschlÃƒÂ¤ge, aber noch keinen
                         Treffer, den wir ohne Deine Entscheidung automatisch
-                        Ã¼bernehmen mÃ¶chten.
+                        ÃƒÂ¼bernehmen mÃƒÂ¶chten.
                       </p>
                     </div>
                   </div>
@@ -2090,7 +2101,7 @@ if (productIds.length > 0) {
                                             {getMatchScoreLabel(
                                               match.match_score
                                             )}{" "}
-                                            Ã‚Â· {toNumber(match.match_score, 0)} %
+                                            Ãƒâ€šÃ‚Â· {toNumber(match.match_score, 0)} %
                                           </span>
 
                                           {matchIndex === 0 ? (
@@ -2166,10 +2177,10 @@ if (productIds.length > 0) {
                         Hinweis zu einzelnen Listenpositionen
                       </p>
                       <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                        Diese Positionen sind geklÃ¤rt
+                        Diese Positionen sind geklÃƒÂ¤rt
                       </h2>
                       <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                        FÃ¼r diese Artikel ist keine weitere Auswahl durch Dich nÃ¶tig.
+                        FÃƒÂ¼r diese Artikel ist keine weitere Auswahl durch Dich nÃƒÂ¶tig.
                       </p>
                     </div>
                   </div>
@@ -2240,15 +2251,15 @@ if (productIds.length > 0) {
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        PersÃ¶nlicher Service
+                        PersÃƒÂ¶nlicher Service
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Diese Positionen prÃ¼fen wir fÃ¼r Dich
+                        Diese Positionen prÃƒÂ¼fen wir fÃƒÂ¼r Dich
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#52616F]">
                         Wenn kein sicherer Treffer vorhanden ist, raten wir
-                        nicht einfach. Diese Artikel werden von uns persÃ¶nlich
-                        geprÃ¼ft und sauber ergÃ¤nzt.
+                        nicht einfach. Diese Artikel werden von uns persÃƒÂ¶nlich
+                        geprÃƒÂ¼ft und sauber ergÃƒÂ¤nzt.
                       </p>
                     </div>
                   </div>
@@ -2265,7 +2276,7 @@ if (productIds.length > 0) {
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                PrÃ¼fposition {index + 1}
+                                PrÃƒÂ¼fposition {index + 1}
                               </p>
 
                               <h3 className="mt-1 text-xl font-black text-[#102A43]">
@@ -2298,13 +2309,13 @@ if (productIds.length > 0) {
                               </div>
 
                               <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-                                Du musst hier nichts weiter tun. Wir prÃ¼fen
-                                diese Position persÃ¶nlich.
+                                Du musst hier nichts weiter tun. Wir prÃƒÂ¼fen
+                                diese Position persÃƒÂ¶nlich.
                               </p>
                             </div>
 
                             <div className="rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#A75B28]">
-                              Wird geprÃ¼ft
+                              Wird geprÃƒÂ¼ft
                             </div>
                           </div>
 
@@ -2397,8 +2408,8 @@ if (productIds.length > 0) {
                         disabled={hasOpenCustomerBlockingItems}
                         buttonLabel={
                           hasOpenCustomerBlockingItems
-                            ? "Offene Positionen zuerst klÃ¤ren"
-                            : "Paketwunsch bestÃ¤tigen"
+                            ? "Offene Positionen zuerst klÃƒÂ¤ren"
+                            : "Paketwunsch bestÃƒÂ¤tigen"
                         }
                       />
                     ) : null}
@@ -2416,8 +2427,8 @@ if (productIds.length > 0) {
                     Keine Sorge bei unklaren Artikeln.
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Wenn etwas nicht eindeutig erkannt wurde, prÃ¼fen wir es
-                    persÃ¶nlich, statt Dir ein falsches Produkt vorzuschlagen.
+                    Wenn etwas nicht eindeutig erkannt wurde, prÃƒÂ¼fen wir es
+                    persÃƒÂ¶nlich, statt Dir ein falsches Produkt vorzuschlagen.
                   </p>
                 </section>
               ) : null}
