@@ -66,6 +66,32 @@ type OfferItem = {
 
 const AUTO_PRESELECT_MIN_SCORE = 85;
 
+function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
+  const reason = String(match.match_reason || "").toLowerCase();
+
+  if (
+    reason.includes("artverwandter kandidat") ||
+    reason.includes("admin-prüfung") ||
+    reason.includes("admin-pruefung") ||
+    reason.includes("variantenmerkmale") ||
+    reason.includes("bitte prüfen") ||
+    reason.includes("bitte pruefen") ||
+    reason.includes("teilweise erkannt")
+  ) {
+    return true;
+  }
+
+  if (
+    reason.includes("gelernte zuordnung") &&
+    !reason.includes("exakt erkannt") &&
+    !reason.includes("wiedererkannt")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
@@ -76,7 +102,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -342,7 +368,7 @@ async function insertSafeMatchesIntoOffer(input: {
 
   if (matchesError) {
     throw new Error(
-      `ProduktvorschlÃƒÂ¤ge konnten nicht geladen werden: ${matchesError.message}`
+      `ProduktvorschlÃƒÆ’Ã‚Â¤ge konnten nicht geladen werden: ${matchesError.message}`
     );
   }
 
@@ -394,7 +420,7 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
         .filter((match) => {
           return (
             Boolean(match.product_id) &&
-            toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
+            (toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE && !isAutoPreselectBlockedMatch(match))
           );
         })
         .sort(compareMatchesStable)[0];
@@ -416,10 +442,10 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
         unit: "Stk.",
         source: "auto_preselected",
         status: "preselected",
-        notes: `Automatisch vorausgewÃƒÂ¤hlt, da der Produkttreffer ${toNumber(
+        notes: `Automatisch vorausgewÃƒÆ’Ã‚Â¤hlt, da der Produkttreffer ${toNumber(
           bestSafeMatch.match_score,
           0
-        )} % ÃƒÅ“bereinstimmung erreicht hat.`,
+        )} % ÃƒÆ’Ã…â€œbereinstimmung erreicht hat.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -433,7 +459,7 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
 
     if (insertError) {
       throw new Error(
-        `Sichere Treffer konnten nicht in den Paketwunsch ÃƒÂ¼bernommen werden: ${insertError.message}`
+        `Sichere Treffer konnten nicht in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen werden: ${insertError.message}`
       );
     }
   }
@@ -441,7 +467,7 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
   const safeMatchCount = matches.filter(
     (match) =>
       Boolean(match.product_id) &&
-      toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE
+      (toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE && !isAutoPreselectBlockedMatch(match))
   ).length;
 
   return {
@@ -461,7 +487,7 @@ export async function POST(_request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID ÃƒÂ¼bergeben.",
+          message: "Keine Anfrage-ID ÃƒÆ’Ã‚Â¼bergeben.",
         },
         400
       );
@@ -515,7 +541,7 @@ export async function POST(_request: NextRequest, context: Params) {
           requestId: id,
           eventType: "whatsapp_prepare_needs_manual_review",
           message:
-            "Die WhatsApp-Anfrage enthÃƒÂ¤lt keine erkannten Textpositionen und keine analysierbare Datei. Manuelle PrÃƒÂ¼fung nÃƒÂ¶tig.",
+            "Die WhatsApp-Anfrage enthÃƒÆ’Ã‚Â¤lt keine erkannten Textpositionen und keine analysierbare Datei. Manuelle PrÃƒÆ’Ã‚Â¼fung nÃƒÆ’Ã‚Â¶tig.",
           metadata: {
             fileCount: bundle.files.length,
           },
@@ -525,7 +551,7 @@ export async function POST(_request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Es gibt noch keine erkannten Positionen und keine analysierbare Datei. Bitte fÃƒÂ¼ge Textpositionen hinzu oder lade ein Foto/PDF hoch.",
+              "Es gibt noch keine erkannten Positionen und keine analysierbare Datei. Bitte fÃƒÆ’Ã‚Â¼ge Textpositionen hinzu oder lade ein Foto/PDF hoch.",
           },
           422
         );
@@ -536,7 +562,7 @@ export async function POST(_request: NextRequest, context: Params) {
       );
 
       analyzeRan = true;
-      analyzeMessage = analyzePayload.message || "Analyse wurde ausgefÃƒÂ¼hrt.";
+      analyzeMessage = analyzePayload.message || "Analyse wurde ausgefÃƒÆ’Ã‚Â¼hrt.";
 
       bundle = await loadRequestBundle(supabase, id);
 
@@ -608,8 +634,8 @@ export async function POST(_request: NextRequest, context: Params) {
       eventType: "whatsapp_prepare_done",
       message:
         autoPreselectResult.insertedCount > 0
-          ? `${autoPreselectResult.insertedCount} sichere Treffer wurden in den Paketwunsch ÃƒÂ¼bernommen.`
-          : "Die WhatsApp-Anfrage wurde ausgewertet. Es wurden keine sicheren Treffer automatisch ÃƒÂ¼bernommen.",
+          ? `${autoPreselectResult.insertedCount} sichere Treffer wurden in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen.`
+          : "Die WhatsApp-Anfrage wurde ausgewertet. Es wurden keine sicheren Treffer automatisch ÃƒÆ’Ã‚Â¼bernommen.",
       metadata: {
         analyzeRan,
         analyzeMessage,
@@ -632,8 +658,8 @@ export async function POST(_request: NextRequest, context: Params) {
       ok: true,
       message:
         autoPreselectResult.insertedCount > 0
-          ? "WhatsApp-Liste wurde ausgewertet und sichere Treffer wurden in den Paketwunsch ÃƒÂ¼bernommen."
-          : "WhatsApp-Liste wurde ausgewertet. Es gibt ProduktvorschlÃƒÂ¤ge oder manuelle PrÃƒÂ¼fpositionen.",
+          ? "WhatsApp-Liste wurde ausgewertet und sichere Treffer wurden in den Paketwunsch ÃƒÆ’Ã‚Â¼bernommen."
+          : "WhatsApp-Liste wurde ausgewertet. Es gibt ProduktvorschlÃƒÆ’Ã‚Â¤ge oder manuelle PrÃƒÆ’Ã‚Â¼fpositionen.",
       analyzeRan,
       analyzeMessage,
       matchMessage: matchPayload.message || null,
