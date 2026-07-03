@@ -69,7 +69,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -83,7 +83,7 @@ function formatDateTime(value: string | null | undefined) {
 function getFulfillmentMethodLabel(method?: string | null) {
   if (method === "pickup") return "Abholung im Laden";
   if (method === "shipping") return "Versand";
-  return "Noch nicht gewÃ¤hlt";
+  return "Noch nicht gewählt";
 }
 
 function getFulfillmentStatusLabel(status?: string | null) {
@@ -108,7 +108,7 @@ function getFulfillmentStatusLabel(status?: string | null) {
 function getPickingStatusLabel(status?: string | null) {
   switch (status) {
     case "picking":
-      return "Picking lÃ¤uft";
+      return "Picking läuft";
     case "picked":
       return "Artikel gepickt";
     case "packed":
@@ -123,9 +123,9 @@ function getShippingCostLabel(status?: string | null) {
     case "flat_rate_applied":
       return "Versandpauschale angesetzt";
     case "pending_calculation":
-      return "Versandkosten mÃ¼ssen noch berechnet werden";
+      return "Versandkosten müssen noch berechnet werden";
     case "not_required":
-      return "Keine Versandkosten nÃ¶tig";
+      return "Keine Versandkosten nötig";
     default:
       return "Noch nicht gesetzt";
   }
@@ -134,17 +134,17 @@ function getShippingCostLabel(status?: string | null) {
 function getSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "Automatisch vorausgewÃ¤hlt";
+      return "Automatisch vorausgewählt";
     case "customer_selection":
-      return "Vom Kunden gewÃ¤hlt";
+      return "Vom Kunden gewählt";
     case "customer_search":
       return "Vom Kunden gesucht";
     case "admin_manual":
-      return "Manuell ergÃ¤nzt";
+      return "Manuell ergänzt";
     case "admin_existing_product":
-      return "Von BSS ergÃ¤nzt";
+      return "Von BSS ergänzt";
     case "match":
-      return "Aus Treffer Ã¼bernommen";
+      return "Aus Treffer übernommen";
     default:
       return "Paketposition";
   }
@@ -155,28 +155,28 @@ function getPaymentMethodLabel(method?: string | null) {
     case "paypal":
       return "PayPal";
     case "bank_transfer":
-      return "Ãœberweisung";
+      return "Überweisung";
     case "cash_on_pickup":
       return "Barzahlung bei Abholung";
     default:
-      return "Noch nicht gewÃ¤hlt";
+      return "Noch nicht gewählt";
   }
 }
 
 function getPaymentStatusLabel(status?: string | null) {
   switch (status) {
     case "not_selected":
-      return "Zahlungsart noch nicht gewÃ¤hlt";
+      return "Zahlungsart noch nicht gewählt";
     case "waiting_for_payment":
       return "Wartet auf Zahlung";
     case "payment_received":
       return "Bezahlt";
     case "cash_on_pickup":
-      return "Barzahlung bei Abholung gewÃ¤hlt";
+      return "Barzahlung bei Abholung gewählt";
     case "cash_paid":
       return "Bar bezahlt";
     case "overdue":
-      return "ÃœberfÃ¤llig";
+      return "Überfällig";
     case "cancelled":
       return "Zahlung abgebrochen";
     default:
@@ -278,14 +278,14 @@ export default function AdminFulfillmentPanel({
   const paymentGateTitle = paymentIsPaid
     ? "Abwicklung freigegeben"
     : cashOnPickupPending
-    ? "Vorbereitung erlaubt Â· Abholung erst nach Barzahlung"
+    ? "Vorbereitung erlaubt · Abholung erst nach Barzahlung"
     : "Abwicklung bis Zahlungseingang gesperrt";
 
   const paymentGateText = paymentIsPaid
-    ? "Die Zahlung ist verbucht. Picking, Packen und Ãœbergabe kÃ¶nnen fortgefÃ¼hrt werden."
+    ? "Die Zahlung ist verbucht. Picking, Packen und Übergabe können fortgeführt werden."
     : cashOnPickupPending
-    ? "Der Kunde hat Barzahlung bei Abholung gewÃ¤hlt. Du darfst das Paket vorbereiten und abholbereit setzen. Als abgeholt markieren bitte erst, wenn die Barzahlung im Admin als erhalten markiert wurde."
-    : "Bei PayPal oder Ãœberweisung bitte erst nach Zahlungseingang fortfahren. Die technische Sperre verhindert zusÃ¤tzlich, dass Picking oder Versand zu frÃ¼h gestartet werden.";
+    ? "Der Kunde hat Barzahlung bei Abholung gewählt. Du darfst das Paket vorbereiten und abholbereit setzen. Als abgeholt markieren bitte erst, wenn die Barzahlung im Admin als erhalten markiert wurde."
+    : "Bei PayPal oder Überweisung bitte erst nach Zahlungseingang fortfahren. Die technische Sperre verhindert zusätzlich, dass Picking oder Versand zu früh gestartet werden.";
 
   const paymentGateClasses = paymentIsPaid
     ? "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]"
@@ -389,7 +389,7 @@ export default function AdminFulfillmentPanel({
                   textTransform: "uppercase",
                 }}
               >
-                Handzettel-Schulen.de Â· interne Pickingliste
+                Handzettel-Schulen.de · interne Pickingliste
               </p>
 
               <h1
@@ -424,7 +424,7 @@ export default function AdminFulfillmentPanel({
               }}
             >
               <p style={{ margin: 0 }}>
-                <strong>Ãœbergabe:</strong>{" "}
+                <strong>Übergabe:</strong>{" "}
                 {getFulfillmentMethodLabel(fulfillmentMethod)}
               </p>
               <p style={{ margin: 0 }}>
@@ -485,7 +485,7 @@ export default function AdminFulfillmentPanel({
           >
             <strong>Abholung:</strong>{" "}
             {pickupLocationLabel || "Abholung im Laden"}
-            {pickupAddressSnapshot ? ` Â· ${pickupAddressSnapshot}` : ""}
+            {pickupAddressSnapshot ? ` · ${pickupAddressSnapshot}` : ""}
           </div>
         ) : null}
 
@@ -499,7 +499,7 @@ export default function AdminFulfillmentPanel({
               lineHeight: 1.4,
             }}
           >
-            <strong>Versand:</strong> Versand vom Kunden gewÃ¼nscht Â·{" "}
+            <strong>Versand:</strong> Versand vom Kunden gewünscht ·{" "}
             {getShippingCostLabel(shippingCostStatus)}
           </div>
         ) : null}
@@ -521,7 +521,7 @@ export default function AdminFulfillmentPanel({
                   width: 26,
                 }}
               >
-                âœ“
+                ✓
               </th>
               <th
                 style={{
@@ -579,7 +579,7 @@ export default function AdminFulfillmentPanel({
                         verticalAlign: "top",
                       }}
                     >
-                      â˜
+                      ☐
                     </td>
 
                     <td
@@ -625,7 +625,7 @@ export default function AdminFulfillmentPanel({
                         verticalAlign: "top",
                       }}
                     >
-                      {item.product_sku || "â€”"}
+                      {item.product_sku || "—"}
                     </td>
 
                     <td
@@ -668,17 +668,17 @@ export default function AdminFulfillmentPanel({
           <div style={{ border: "1px solid #111827", padding: 8 }}>
             <strong>Kontrolle</strong>
             <div style={{ marginTop: 8, lineHeight: 1.8 }}>
-              â˜ alle Artikel gepickt
+              ☐ alle Artikel gepickt
               <br />
-              â˜ alle Artikel gepackt
-              <br />â˜ Zahlung geprÃ¼ft
+              ☐ alle Artikel gepackt
+              <br />☐ Zahlung geprüft
             </div>
           </div>
 
           <div style={{ border: "1px solid #111827", padding: 8 }}>
             <strong>Gepackt von</strong>
             <div style={{ marginTop: 32, borderBottom: "1px solid #111827" }} />
-            <div style={{ marginTop: 4, fontSize: 10 }}>Name / KÃ¼rzel</div>
+            <div style={{ marginTop: 4, fontSize: 10 }}>Name / Kürzel</div>
           </div>
 
           <div style={{ border: "1px solid #111827", padding: 8 }}>
@@ -701,7 +701,7 @@ export default function AdminFulfillmentPanel({
         >
           <span>
             Gesamt: {offerItems.length} Position
-            {offerItems.length === 1 ? "" : "en"} Â· {totalQuantity} Artikel
+            {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
           </span>
           <span>Paketwert intern: {formatMoney(total)}</span>
         </div>
@@ -716,15 +716,15 @@ export default function AdminFulfillmentPanel({
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                Angebot bestÃ¤tigt Â· Abwicklung
+                Angebot bestätigt · Abwicklung
               </p>
 
               <h2 className="text-2xl font-black text-[#102A43]">
-                Pickingliste & Ãœbergabe-Workflow
+                Pickingliste & Übergabe-Workflow
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Sobald das Angebot bestÃ¤tigt wurde, beginnt hier die operative
+                Sobald das Angebot bestätigt wurde, beginnt hier die operative
                 Bearbeitung: Produkte picken, Paket packen und je nach
                 Kundenwunsch zur Abholung oder zum Versand vorbereiten.
               </p>
@@ -829,8 +829,8 @@ export default function AdminFulfillmentPanel({
 
         {!isConfirmed ? (
           <div className="mb-5 rounded-3xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-bold leading-6 text-[#A75B28]">
-            Dieser Bereich wird vollstÃ¤ndig relevant, sobald der Kunde das
-            Angebot verbindlich bestÃ¤tigt hat.
+            Dieser Bereich wird vollständig relevant, sobald der Kunde das
+            Angebot verbindlich bestätigt hat.
           </div>
         ) : null}
 
@@ -878,10 +878,10 @@ export default function AdminFulfillmentPanel({
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              BestÃ¤tigung
+              Bestätigung
             </p>
             <p className="mt-2 font-black text-[#102A43]">
-              {isConfirmed ? "BestÃ¤tigt" : "Noch nicht bestÃ¤tigt"}
+              {isConfirmed ? "Bestätigt" : "Noch nicht bestätigt"}
             </p>
             <p className="mt-1 text-xs font-semibold text-[#52616F]">
               {formatDateTime(confirmedAt)}
@@ -912,7 +912,7 @@ export default function AdminFulfillmentPanel({
               )}
             </div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-              Ãœbergabe
+              Übergabe
             </p>
             <p className="mt-2 font-black text-[#102A43]">
               {getFulfillmentMethodLabel(fulfillmentMethod)}
@@ -953,7 +953,7 @@ export default function AdminFulfillmentPanel({
             </p>
             <p className="mt-1 text-xs font-semibold text-[#52616F]">
               {offerItems.length} Position
-              {offerItems.length === 1 ? "" : "en"} Â· {totalQuantity} Artikel
+              {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
             </p>
           </div>
         </div>
@@ -1009,7 +1009,7 @@ export default function AdminFulfillmentPanel({
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <MapPin className="h-4 w-4" />
-                  Route Ã¶ffnen
+                  Route öffnen
                 </a>
               ) : null}
             </div>
@@ -1022,7 +1022,7 @@ export default function AdminFulfillmentPanel({
               Versand
             </p>
             <h3 className="mt-1 font-black text-[#102A43]">
-              Versand vom Kunden gewÃ¼nscht
+              Versand vom Kunden gewünscht
             </h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
               Versandkostenstatus: {getShippingCostLabel(shippingCostStatus)}
@@ -1042,7 +1042,7 @@ export default function AdminFulfillmentPanel({
                   Pickingliste
                 </p>
                 <h3 className="font-black text-[#102A43]">
-                  Diese Positionen mÃ¼ssen gepackt werden
+                  Diese Positionen müssen gepackt werden
                 </h3>
               </div>
             </div>
@@ -1100,7 +1100,7 @@ export default function AdminFulfillmentPanel({
                     </div>
 
                     <div className="hidden text-sm font-semibold text-[#52616F] md:block">
-                      {item.product_sku || "â€”"}
+                      {item.product_sku || "—"}
                     </div>
 
                     <div className="text-right font-black text-[#102A43]">
@@ -1113,7 +1113,7 @@ export default function AdminFulfillmentPanel({
               <div className="grid grid-cols-[1fr_140px] bg-white px-4 py-4 text-sm">
                 <div className="font-black text-[#102A43]">
                   Gesamt: {offerItems.length} Position
-                  {offerItems.length === 1 ? "" : "en"} Â· {totalQuantity} Artikel
+                  {offerItems.length === 1 ? "" : "en"} · {totalQuantity} Artikel
                 </div>
                 <div className="text-right text-lg font-black text-[#102A43]">
                   {formatMoney(total)}
@@ -1133,7 +1133,7 @@ export default function AdminFulfillmentPanel({
           </p>
 
           <h3 className="mt-1 font-black text-[#102A43]">
-            Status fÃ¼r Picking, Abholung oder Versand setzen
+            Status für Picking, Abholung oder Versand setzen
           </h3>
 
           <div className="mt-3 rounded-2xl bg-[#FBF7F0] p-4 text-sm font-bold leading-6 text-[#52616F]">
@@ -1146,8 +1146,8 @@ export default function AdminFulfillmentPanel({
             ) : cashOnPickupPending ? (
               <div className="flex items-start gap-2 text-[#A75B28]">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                Barzahlung bei Abholung gewÃ¤hlt. Picking, Packen und Abholbereit
-                sind erlaubt. â€žAbgeholtâ€œ bleibt bis zur Barzahlungsbuchung
+                Barzahlung bei Abholung gewählt. Picking, Packen und Abholbereit
+                sind erlaubt. „Abgeholt“ bleibt bis zur Barzahlungsbuchung
                 gesperrt.
               </div>
             ) : (
@@ -1230,7 +1230,7 @@ export default function AdminFulfillmentPanel({
             </div>
 
             <div>
-              <p className="font-black text-[#102A43]">Ãœbergabe</p>
+              <p className="font-black text-[#102A43]">Übergabe</p>
               <p>Versendet: {formatDateTime(shippedAt)}</p>
               <p>Abgeholt: {formatDateTime(pickedUpAt)}</p>
             </div>

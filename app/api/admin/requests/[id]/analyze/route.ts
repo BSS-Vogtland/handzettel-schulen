@@ -67,7 +67,7 @@ const materialSchema: Record<string, unknown> = {
           rawText: {
             type: "string",
             description:
-              "Die vollstÃƒÂ¤ndige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), BuchmaÃƒÅ¸, Farbe und Format unbedingt ÃƒÂ¼bernehmen.",
+              "Die vollständige Originalzeile der Materialposition. Wichtig: Klammern und Angaben wie (Lineatur 0), (Lineatur 8f), (Lin. 0), (L0), Buchmaß, Farbe und Format unbedingt übernehmen.",
           },
           normalizedName: {
             type: ["string", "null"],
@@ -86,12 +86,12 @@ const materialSchema: Record<string, unknown> = {
           format: {
             type: ["string", "null"],
             description:
-              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus BuchmaÃƒÅ¸ ableitbar.",
+              "Format exakt als A3, A4 oder A5, falls vorhanden oder aus Buchmaß ableitbar.",
           },
           color: {
             type: ["string", "null"],
             description:
-              "Farbe exakt, z. B. blau, rot, grÃƒÂ¼n, gelb, orange, braun, transparent.",
+              "Farbe exakt, z. B. blau, rot, grün, gelb, orange, braun, transparent.",
           },
           lineature: {
             type: ["string", "null"],
@@ -101,7 +101,7 @@ const materialSchema: Record<string, unknown> = {
           notes: {
             type: ["string", "null"],
             description:
-              "ZusÃƒÂ¤tzliche Hinweise, z. B. BuchmaÃƒÅ¸, Pappe, ROTH, Klipp & Klar.",
+              "Zusätzliche Hinweise, z. B. Buchmaß, Pappe, ROTH, Klipp & Klar.",
           },
           confidence: {
             type: "number",
@@ -177,7 +177,7 @@ async function createSignedUrl(storagePath: string) {
     .createSignedUrl(storagePath, 60 * 10);
 
   if (error || !data?.signedUrl) {
-    throw new Error("Die Datei konnte nicht fÃƒÂ¼r die Analyse geÃƒÂ¶ffnet werden.");
+    throw new Error("Die Datei konnte nicht für die Analyse geöffnet werden.");
   }
 
   return data.signedUrl;
@@ -205,11 +205,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
-    .replace(/grÃƒÂ¼n/g, "gruen")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -217,8 +217,8 @@ function normalizeText(value: unknown) {
 
 function stripCheckboxNoise(value: unknown) {
   return String(value ?? "")
-    .replace(/^[\s\-Ã¢â‚¬â€œÃ¢â‚¬â€*Ã¢â‚¬Â¢]+/g, "")
-    .replace(/^(?:ÃƒÂ¢Ã‹Å“Ã‚Â|ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¡|ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¢|ÃƒÂ¢Ã¢â‚¬â€Ã‚Â»|ÃƒÂ¢Ã‚ÂÃ¢â‚¬Ëœ|ÃƒÂ¢Ã‚ÂÃ¢â‚¬â„¢|ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“|ÃƒÂ¢Ã…â€œÃ¢â‚¬Â|x|\[ \]|\[\]|0)\s*/i, "")
+    .replace(/^[\s\-–—*•]+/g, "")
+    .replace(/^(?:☐|□|▢|◻|❑|❒|✓|✔|x|\[ \]|\[\]|0)\s*/i, "")
     .trim();
 }
 
@@ -322,7 +322,7 @@ if (text.includes("transparent") || text.includes("klar")) {
   const colors: Array<{ key: string; label: string }> = [
     { key: "rot", label: "rot" },
     { key: "blau", label: "blau" },
-    { key: "gruen", label: "grÃƒÂ¼n" },
+    { key: "gruen", label: "grün" },
     { key: "gelb", label: "gelb" },
     { key: "orange", label: "orange" },
     { key: "lila", label: "lila" },
@@ -330,7 +330,7 @@ if (text.includes("transparent") || text.includes("klar")) {
     { key: "pink", label: "pink" },
     { key: "rosa", label: "rosa" },
     { key: "schwarz", label: "schwarz" },
-    { key: "weiss", label: "weiÃƒÅ¸" },
+    { key: "weiss", label: "weiß" },
     { key: "braun", label: "braun" },
   ];
 
@@ -820,7 +820,7 @@ function splitOutsideParentheses(value: string, separator = ",") {
 
 function cleanCompoundSegment(value: unknown) {
   return String(value || "")
-    .replace(/^[\s\-Ã¢â‚¬â€œÃ¢â‚¬â€Ã¢â‚¬Â¢Ã¢â€”ÂÃ¢â€“ÂªÃ¢â€“Â«Ã¢â€“Â¡Ã¢ËœÂÃ¢â€“Â¢\[\]]+/g, "")
+    .replace(/^[\s\-–—•●▪▫□☐▢\[\]]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -829,8 +829,8 @@ function removeNonArticleHintsFromSegment(value: string) {
   return value
     .replace(/\(\s*ggf?s?\.?\s+[^)]*\)/gi, "")
     .replace(/\(\s*von\s+letztem\s+jahr\s+[^)]*\)/gi, "")
-    .replace(/\bggf?s?\.?\s+von\s+letztem\s+jahr\s+kontrollieren\s*\/?\s*auffÃƒÂ¼llen\b/gi, "")
-    .replace(/\bggf?s?\.?\s+kontrollieren\s*\/?\s*auffÃƒÂ¼llen\b/gi, "")
+    .replace(/\bggf?s?\.?\s+von\s+letztem\s+jahr\s+kontrollieren\s*\/?\s*auffüllen\b/gi, "")
+    .replace(/\bggf?s?\.?\s+kontrollieren\s*\/?\s*auffüllen\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -856,13 +856,13 @@ function normalizePluralMaterialName(value: string) {
     .replace(/\bMathematikhefte\b/i, "Mathematikheft")
     .replace(/\bMathehefte\b/i, "Matheheft")
     .replace(/\bHefte\b/i, "Heft")
-    .replace(/\bBlÃƒÂ¶cke\b/i, "Block")
+    .replace(/\bBlöcke\b/i, "Block")
     .replace(/\bBloecke\b/i, "Block")
     .replace(/\bLineale\b/i, "Lineal")
     .replace(/\bBleistifte\b/i, "Bleistift")
     .replace(/\bErsatzpatronen\b/i, "Ersatzpatronen")
-    .replace(/\bFÃƒÂ¼ller\b/i, "FÃƒÂ¼ller")
-    .replace(/\bFueller\b/i, "FÃƒÂ¼ller")
+    .replace(/\bFüller\b/i, "Füller")
+    .replace(/\bFueller\b/i, "Füller")
     .trim();
 }
 
@@ -873,12 +873,12 @@ function inferCompoundCategory(value: string, fallback: unknown) {
   if (text.includes("deutschheft") || text.includes("mathematikheft") || text.includes("matheheft") || text.includes("heft")) return "Heft";
   if (text.includes("block")) return "Block";
   if (text.includes("farbkasten")) return "Farbkasten";
-  if (text.includes("deckweiss") || text.includes("deckweiÃƒÅ¸")) return "DeckweiÃƒÅ¸";
+  if (text.includes("deckweiss") || text.includes("deckweiß")) return "Deckweiß";
   if (text.includes("pinsel")) return "Pinsel";
   if (text.includes("wasserbecher")) return "Wasserbecher";
   if (text.includes("radiergummi")) return "Radiergummi";
   if (text.includes("spitzer")) return "Spitzer";
-  if (text.includes("fueller") || text.includes("fÃƒÂ¼ller")) return "FÃƒÂ¼ller";
+  if (text.includes("fueller") || text.includes("füller")) return "Füller";
   if (text.includes("ersatzpatrone")) return "Ersatzpatronen";
   if (text.includes("bleistift")) return "Bleistift";
   if (text.includes("buntstift")) return "Buntstift";
@@ -911,7 +911,7 @@ function shouldSplitCommaMaterialLine(value: string) {
 
   const materialHints = [
     "farbkasten",
-    "deckweiÃƒÅ¸",
+    "deckweiß",
     "deckweiss",
     "pinsel",
     "wasserbecher",
@@ -919,7 +919,7 @@ function shouldSplitCommaMaterialLine(value: string) {
     "spitzer",
     "lineal",
     "geodreieck",
-    "fÃƒÂ¼ller",
+    "füller",
     "fueller",
     "ersatzpatrone",
     "bleistift",
@@ -993,9 +993,9 @@ function extractCoverColor(value: string) {
 
   if (text.includes("rotem umschlag") || text.includes("roter umschlag") || text.includes("rot umschlag")) return "rot";
   if (text.includes("blauem umschlag") || text.includes("blauer umschlag") || text.includes("blau umschlag")) return "blau";
-  if (text.includes("gruenem umschlag") || text.includes("grÃƒÂ¼ner umschlag") || text.includes("gruen umschlag")) return "grÃƒÂ¼n";
+  if (text.includes("gruenem umschlag") || text.includes("grüner umschlag") || text.includes("gruen umschlag")) return "grün";
   if (text.includes("gelbem umschlag") || text.includes("gelber umschlag") || text.includes("gelb umschlag")) return "gelb";
-  if (text.includes("weissem umschlag") || text.includes("weiÃƒÅ¸em umschlag") || text.includes("weisser umschlag") || text.includes("weiÃƒÅ¸er umschlag")) return "weiÃƒÅ¸";
+  if (text.includes("weissem umschlag") || text.includes("weißem umschlag") || text.includes("weisser umschlag") || text.includes("weißer umschlag")) return "weiß";
   if (text.includes("schwarzem umschlag") || text.includes("schwarzer umschlag")) return "schwarz";
   if (text.includes("lila umschlag") || text.includes("lilafarbenem umschlag")) return "lila";
   if (text.includes("orangem umschlag") || text.includes("oranger umschlag")) return "orange";
@@ -1106,10 +1106,10 @@ const COLOR_ONLY_TERMS = new Set([
   "blaue",
   "blauer",
   "blaues",
-  "grÃƒÂ¼n",
-  "grÃƒÂ¼ne",
-  "grÃƒÂ¼ner",
-  "grÃƒÂ¼nes",
+  "grün",
+  "grüne",
+  "grüner",
+  "grünes",
   "gruen",
   "gruene",
   "gruener",
@@ -1122,13 +1122,13 @@ const COLOR_ONLY_TERMS = new Set([
   "schwarze",
   "schwarzer",
   "schwarzes",
-  "weiÃƒÅ¸",
+  "weiß",
   "weiss",
-  "weiÃƒÅ¸e",
+  "weiße",
   "weisse",
-  "weiÃƒÅ¸er",
+  "weißer",
   "weisser",
-  "weiÃƒÅ¸es",
+  "weißes",
   "weisses",
   "lila",
   "violett",
@@ -1145,10 +1145,10 @@ function normalizeDedupeText(value: unknown) {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
@@ -1245,10 +1245,10 @@ function normalizeAnalyzeColorWord(value: unknown) {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1258,12 +1258,12 @@ function detectOrderedColorWords(value: unknown) {
   const text = normalizeAnalyzeColorWord(value);
 
   const colorMap: Array<[string, string]> = [
-    ["hellgruen", "hellgrÃƒÂ¼n"],
-    ["hellgrun", "hellgrÃƒÂ¼n"],
-    ["dunkelgruen", "dunkelgrÃƒÂ¼n"],
-    ["dunkelgrun", "dunkelgrÃƒÂ¼n"],
-    ["gruen", "grÃƒÂ¼n"],
-    ["grun", "grÃƒÂ¼n"],
+    ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -1274,7 +1274,7 @@ function detectOrderedColorWords(value: unknown) {
     ["braun", "braun"],
     ["rosa", "rosa"],
     ["pink", "pink"],
-    ["weiss", "weiÃƒÅ¸"],
+    ["weiss", "weiß"],
     ["grau", "grau"],
   ];
 
@@ -1308,8 +1308,8 @@ function removeColorSuffixFromMaterialName(value: unknown) {
   let text = String(value || "").trim();
 
   text = text.replace(/:\s*.+$/g, "");
-  text = text.replace(/\b(hellgrÃƒÂ¼n|hellgruen|dunkelgrÃƒÂ¼n|dunkelgruen|grÃƒÂ¼n|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiÃƒÅ¸|weiss|grau)\b/gi, "");
-  text = text.replace(/[-Ã¢â‚¬â€œÃ¢â‚¬â€]\s*$/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/[-–—]\s*$/g, "");
   text = text.replace(/\s+/g, " ").trim();
 
   return text;
@@ -1373,10 +1373,10 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
   function normalizeFinalColorToken(value: unknown) {
     return String(value || "")
       .toLowerCase()
-      .replace(/ÃƒÂ¤/g, "ae")
-      .replace(/ÃƒÂ¶/g, "oe")
-      .replace(/ÃƒÂ¼/g, "ue")
-      .replace(/ÃƒÅ¸/g, "ss")
+      .replace(/ä/g, "ae")
+      .replace(/ö/g, "oe")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss")
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, " ")
@@ -1387,9 +1387,9 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
   function mapFinalColorToken(value: unknown) {
     const text = normalizeFinalColorToken(value);
 
-    if (text.includes("hellgruen") || text.includes("hellgrun")) return "hellgrÃƒÂ¼n";
-    if (text.includes("dunkelgruen") || text.includes("dunkelgrun")) return "dunkelgrÃƒÂ¼n";
-    if (text.includes("gruen") || text.includes("grun")) return "grÃƒÂ¼n";
+    if (text.includes("hellgruen") || text.includes("hellgrun")) return "hellgrün";
+    if (text.includes("dunkelgruen") || text.includes("dunkelgrun")) return "dunkelgrün";
+    if (text.includes("gruen") || text.includes("grun")) return "grün";
     if (text.includes("schwarz")) return "schwarz";
     if (text.includes("rot")) return "rot";
     if (text.includes("blau")) return "blau";
@@ -1400,7 +1400,7 @@ function splitFinalColorQuantityItems(items: CleanedItem[]) {
     if (text.includes("braun")) return "braun";
     if (text.includes("rosa")) return "rosa";
     if (text.includes("pink")) return "pink";
-    if (text.includes("weiss") || text.includes("weis")) return "weiÃƒÅ¸";
+    if (text.includes("weiss") || text.includes("weis")) return "weiß";
     if (text.includes("grau")) return "grau";
 
     return null;
@@ -1474,10 +1474,10 @@ function normalizeColorListTextV2(value: unknown) {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1487,12 +1487,12 @@ function detectColorListWordsV2(value: unknown) {
   const text = normalizeColorListTextV2(value);
 
   const colorMap: Array<[string, string]> = [
-    ["hellgruen", "hellgrÃƒÂ¼n"],
-    ["hellgrun", "hellgrÃƒÂ¼n"],
-    ["dunkelgruen", "dunkelgrÃƒÂ¼n"],
-    ["dunkelgrun", "dunkelgrÃƒÂ¼n"],
-    ["gruen", "grÃƒÂ¼n"],
-    ["grun", "grÃƒÂ¼n"],
+    ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -1503,7 +1503,7 @@ function detectColorListWordsV2(value: unknown) {
     ["braun", "braun"],
     ["rosa", "rosa"],
     ["pink", "pink"],
-    ["weiss", "weiÃƒÅ¸"],
+    ["weiss", "weiß"],
     ["grau", "grau"],
   ];
 
@@ -1528,8 +1528,8 @@ function removeColorListSuffixV2(value: unknown) {
   let text = String(value || "").trim();
 
   text = text.replace(/:\s*.+$/g, "");
-  text = text.replace(/\b(hellgrÃƒÂ¼n|hellgruen|dunkelgrÃƒÂ¼n|dunkelgruen|grÃƒÂ¼n|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiÃƒÅ¸|weiss|grau)\b/gi, "");
-  text = text.replace(/^\s*[-Ã¢â‚¬â€œÃ¢â‚¬â€]\s*/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/^\s*[-–—]\s*/g, "");
   text = text.replace(/^\s*\d+\s*x?\s*/gi, "");
   text = text.replace(/\s+/g, " ").trim();
 
@@ -1585,10 +1585,10 @@ function expandColorListExtractedItemV2(item: ExtractedItem) {
 function normalizeColorListTextV3(value: unknown) {
   return String(value || "")
     .toLowerCase()
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -1632,12 +1632,12 @@ function detectColorListWordsV3(value: unknown) {
   const text = normalizeColorListTextV3(value);
 
   const colorMap: Array<[string, string]> = [
-    ["hellgruen", "hellgrÃƒÂ¼n"],
-    ["hellgrun", "hellgrÃƒÂ¼n"],
-    ["dunkelgruen", "dunkelgrÃƒÂ¼n"],
-    ["dunkelgrun", "dunkelgrÃƒÂ¼n"],
-    ["gruen", "grÃƒÂ¼n"],
-    ["grun", "grÃƒÂ¼n"],
+    ["hellgruen", "hellgrün"],
+    ["hellgrun", "hellgrün"],
+    ["dunkelgruen", "dunkelgrün"],
+    ["dunkelgrun", "dunkelgrün"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
     ["schwarz", "schwarz"],
     ["rot", "rot"],
     ["blau", "blau"],
@@ -1648,7 +1648,7 @@ function detectColorListWordsV3(value: unknown) {
     ["braun", "braun"],
     ["rosa", "rosa"],
     ["pink", "pink"],
-    ["weiss", "weiÃƒÅ¸"],
+    ["weiss", "weiß"],
     ["grau", "grau"],
   ];
 
@@ -1673,8 +1673,8 @@ function removeColorListSuffixV3(value: unknown) {
   let text = String(value || "").trim();
 
   text = text.replace(/:\s*.+$/g, "");
-  text = text.replace(/\b(hellgrÃƒÂ¼n|hellgruen|dunkelgrÃƒÂ¼n|dunkelgruen|grÃƒÂ¼n|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiÃƒÅ¸|weiss|grau)\b/gi, "");
-  text = text.replace(/^\s*[-Ã¢â‚¬â€œÃ¢â‚¬â€]\s*/g, "");
+  text = text.replace(/\b(hellgrün|hellgruen|dunkelgrün|dunkelgruen|grün|gruen|schwarz|rot|blau|gelb|orange|lila|violett|braun|rosa|pink|weiß|weiss|grau)\b/gi, "");
+  text = text.replace(/^\s*[-–—]\s*/g, "");
   text = text.replace(/^\s*\d+\s*x?\s*/gi, "");
   text = text.replace(/\s+/g, " ").trim();
 
@@ -1705,8 +1705,8 @@ function expandColorListExtractedItemV3(item: ExtractedItem) {
     return null;
   }
 
-  // Bei "3 Fineliner: grÃƒÂ¼n, schwarz, rot" sind Menge und Farbanzahl identisch.
-  // Falls OCR spÃƒÂ¤ter eine Menge leicht falsch liest, splitten wir nur, wenn mindestens 2 Farben klar erkannt wurden.
+  // Bei "3 Fineliner: grün, schwarz, rot" sind Menge und Farbanzahl identisch.
+  // Falls OCR später eine Menge leicht falsch liest, splitten wir nur, wenn mindestens 2 Farben klar erkannt wurden.
   const baseName =
     removeColorListSuffixV3(normalizedName) ||
     removeColorListSuffixV3(rawText) ||
@@ -1767,7 +1767,7 @@ function cleanExtractedItem(item: ExtractedItem): CleanedItem {
     cleanNullableString(item.notes),
     productType ? `Produkttyp: ${productType}` : null,
     lineature === "0"
-      ? "Lineatur 0 wurde als eigenstÃƒÂ¤ndige Lineatur erkannt."
+      ? "Lineatur 0 wurde als eigenständige Lineatur erkannt."
       : null,
     lineature === "8f" ? "Lineatur 8 wurde als 8f normalisiert." : null,
     `Analyse-Version: ${ANALYZE_VERSION}`,
@@ -1799,11 +1799,11 @@ function normalizeAnalyzerText(value: unknown) {
   return String(value || "")
     .toLowerCase()
     .trim()
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
-    .replace(/grÃƒÂ¼n/g, "gruen")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1818,10 +1818,10 @@ function getAnalyzerColor(value: unknown) {
     ["blau", "blau"],
     ["rot", "rot"],
     ["schwarz", "schwarz"],
-    ["gruen", "grÃƒÂ¼n"],
-    ["grun", "grÃƒÂ¼n"],
+    ["gruen", "grün"],
+    ["grun", "grün"],
     ["braun", "braun"],
-    ["weiss", "weiÃƒÅ¸"],
+    ["weiss", "weiß"],
     ["gelb", "gelb"],
     ["lila", "lila"],
     ["orange", "orange"],
@@ -1839,7 +1839,7 @@ function getAnalyzerColor(value: unknown) {
 
 function getHefterSubjectFromRawText(value: unknown) {
   const text = String(value || "");
-  const match = text.match(/(?:fÃƒÂ¼r|fuer)\s+[Ã¢â‚¬Å¾"Ã¢â‚¬Å“]?([^"Ã¢â‚¬ÂÃ¢â‚¬Å¾(]+)[Ã¢â‚¬Å“"]?/i);
+  const match = text.match(/(?:für|fuer)\s+[„"“]?([^"”„(]+)[“"]?/i);
 
   if (!match?.[1]) return "";
 
@@ -1878,7 +1878,7 @@ function getHefterCorrection(
     productType: "Schnellhefter",
     color: detectedColor,
     note:
-      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext ÃƒÂ¼berschreibt den Hauptartikel nicht.",
+      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext überschreibt den Hauptartikel nicht.",
   };
 }
 function getFriendlyOpenAiError(error: unknown) {
@@ -1890,7 +1890,7 @@ function getFriendlyOpenAiError(error: unknown) {
       message.toLowerCase().includes("incorrect api key") ||
       message.toLowerCase().includes("invalid api key")
     ) {
-      return "Der OpenAI API-Key ist falsch oder noch ein Platzhalter. Bitte OPENAI_API_KEY in .env.local prÃƒÂ¼fen und den Server neu starten.";
+      return "Der OpenAI API-Key ist falsch oder noch ein Platzhalter. Bitte OPENAI_API_KEY in .env.local prüfen und den Server neu starten.";
     }
 
     if (
@@ -1898,7 +1898,7 @@ function getFriendlyOpenAiError(error: unknown) {
       message.toLowerCase().includes("billing") ||
       message.toLowerCase().includes("insufficient_quota")
     ) {
-      return "OpenAI konnte nicht genutzt werden, vermutlich wegen Guthaben, Billing oder Limit. Bitte OpenAI Platform Billing prÃƒÂ¼fen.";
+      return "OpenAI konnte nicht genutzt werden, vermutlich wegen Guthaben, Billing oder Limit. Bitte OpenAI Platform Billing prüfen.";
     }
 
     if (
@@ -1923,7 +1923,7 @@ const { id } = await context.params;
   try {
     if (!id) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID ÃƒÂ¼bergeben." },
+        { ok: false, message: "Keine Anfrage-ID übergeben." },
         { status: 400 }
       );
     }
@@ -2020,7 +2020,7 @@ const { id } = await context.params;
         .in("request_item_id", oldItemIds);
     }
     // Bei einer Neuanalyse werden die Request-Items neu geschrieben.
-    // Alte automatisch erzeugte Paketpositionen zeigen sonst auf gelÃƒÂ¶schte request_item_ids
+    // Alte automatisch erzeugte Paketpositionen zeigen sonst auf gelöschte request_item_ids
     // und verursachen doppelte Paketpositionen bzw. falsche offene Checklistenpunkte.
     await supabaseServer
       .from("school_offer_items")
@@ -2071,40 +2071,40 @@ const { id } = await context.params;
             {
               type: "input_text",
               text:
-                "Du bist ein extrem genauer Assistent fÃƒÂ¼r deutsche Schulmateriallisten. " +
-                "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte AuflÃƒÂ¶sung, Checkbox-Listen, mehrspaltige Listen oder eingerÃƒÂ¼ckte Kategorien sind. " +
-                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen ÃƒÅ“berschriften und keine Dekoration. " +
-                "Du musst jede sichtbare Materialposition vollstÃƒÂ¤ndig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
-                "Arbeite dabei streng in zwei Phasen: Erst alle sichtbaren Rohzeilen erfassen, dann daraus strukturierte Materialpositionen bilden. ÃƒÅ“berspringe keine lesbare Listenzeile nur deshalb, weil sie eingerÃƒÂ¼ckt, klein gedruckt, in einer Tabelle, in einem farbigen Kasten oder unter einer Kategorie steht. " +
-                "VollstÃƒÂ¤ndigkeitsregel: Wenn eine Liste 20 Materialzeilen enthÃƒÂ¤lt, soll die Ausgabe ungefÃƒÂ¤hr 20 Materialpositionen oder bewusst ausgeschlossene Hinweise enthalten. Eine kurze Ausgabe bei langer Liste ist falsch. " +
-                "GrÃƒÂ¶ÃƒÅ¸enregel: WÃƒÂ¶rter wie klein, kleines, kleine, kleiner, groÃƒÅ¸, groÃƒÅ¸e, groÃƒÅ¸er, dick, dÃƒÂ¼nn, breit, schmal sind harte Merkmale. Sie dÃƒÂ¼rfen nicht entfernt oder vertauscht werden. '2 groÃƒÅ¸e Klebestifte' darf niemals als kleiner Klebestift normalisiert werden. 'kleines Lineal' und 'Lineal 30 cm' sind zwei verschiedene Positionen. " +
-                "Formatregel: A3, A4, A5, DIN A3, DIN A4, DIN A5, 15 cm, 16 cm, 17 cm, 30 cm sind harte Merkmale und mÃƒÂ¼ssen in rawText sowie format oder notes erhalten bleiben. " +
-                "Split-Regel: Wenn eine Zeile mehrere eindeutig getrennte Materialien enthÃƒÂ¤lt, erstelle mehrere Positionen. Beispiele: 'Hefte DIN A4 Nr.27 und Nr.28' ergibt zwei Positionen mit Lineatur 27 und 28. '2 Lineale (15cm und 30cm)' ergibt zwei Positionen, wenn beide Lineale benÃƒÂ¶tigt werden. " +
-                "Tabellenregel: Bei Tabellen mit Fach, Titel, Verlag, ISBN, Preis extrahierst du die Titel als Positionen, aber Preise nicht als Material. Verlag und ISBN kommen in notes. Hinweise wie 'kann ausgeliehen werden' sind kein Kaufartikel und mÃƒÂ¼ssen als Hinweis in notes markiert oder ausgelassen werden, wenn kein Kaufbedarf besteht. " +
-                "Ausschlussregel: Zeilen wie 'wird von der Lehrerin angeschafft', 'bekommen die Kinder in der Schule', 'nicht kaufen', 'kann ausgeliehen werden', 'wird separat eingesammelt', 'alle Sachen beschriften' sind keine normalen Kaufpositionen. Erfasse sie hÃƒÂ¶chstens mit niedriger confidence und notes als Hinweis, aber nicht als normale benÃƒÂ¶tigte Kaufposition. " +
-                "Checkbox-Regel erweitert: Nicht angekreuzte und angekreuzte KÃƒÂ¤stchen sind meist Drucklayout, nicht Auswahlstatus. Eine angekreuzte Zeile kann trotzdem ein Hinweis sein. Entscheidend ist der Text der Zeile. " +
-                "Fach-/Kastenregel: Farbig umrandete Bereiche wie Deutsch, Mathematik, Kunst, Sport sind Kontext. Die darin enthaltenen Zeilen mÃƒÂ¼ssen trotzdem einzeln extrahiert werden. " +
-                "Die vollstÃƒÂ¤ndige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dÃƒÂ¼rfen niemals weggelassen werden. " +
-                "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie ÃƒÂ¢Ã‹Å“Ã‚Â, ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¡, ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¢, [ ], HÃƒÂ¤kchen, AufzÃƒÂ¤hlungspunkte oder Streichpunkte ignorierst du fÃƒÂ¼r quantity. " +
-                "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: 'ÃƒÂ¢Ã‹Å“Ã‚Â 2 dicke Bleistifte' bedeutet quantity 2, 'ÃƒÂ¢Ã‹Å“Ã‚Â 1 blaue Mappe' bedeutet quantity 1. " +
-                "Kategorie-Regel: ÃƒÅ“berschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext fÃƒÂ¼r die darunterstehenden eingerÃƒÂ¼ckten Zeilen. " +
-                "Wenn unter der ÃƒÅ“berschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
-                "Hefter-Regel: Wenn in der Originalzeile ausdrÃƒÂ¼cklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter fÃƒÂ¼r Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und ÃƒÂ¼berschreibt den Hauptartikel nicht. " +
-                "Wenn unter der ÃƒÅ“berschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
+                "Du bist ein extrem genauer Assistent für deutsche Schulmateriallisten. " +
+                "Du extrahierst echte Materialpositionen aus deutschen Schulmateriallisten, auch wenn es Screenshots, kleine Schrift, schlechte Auflösung, Checkbox-Listen, mehrspaltige Listen oder eingerückte Kategorien sind. " +
+                "Du extrahierst keine Schule, keine Namen, keine Datenschutztexte, keine Preise, keine reinen Überschriften und keine Dekoration. " +
+                "Du musst jede sichtbare Materialposition vollständig als eigene Position erfassen. Lieber eine plausible Position mit niedriger confidence erfassen als eine lesbare Materialposition ganz weglassen. " +
+                "Arbeite dabei streng in zwei Phasen: Erst alle sichtbaren Rohzeilen erfassen, dann daraus strukturierte Materialpositionen bilden. Überspringe keine lesbare Listenzeile nur deshalb, weil sie eingerückt, klein gedruckt, in einer Tabelle, in einem farbigen Kasten oder unter einer Kategorie steht. " +
+                "Vollständigkeitsregel: Wenn eine Liste 20 Materialzeilen enthält, soll die Ausgabe ungefähr 20 Materialpositionen oder bewusst ausgeschlossene Hinweise enthalten. Eine kurze Ausgabe bei langer Liste ist falsch. " +
+                "Größenregel: Wörter wie klein, kleines, kleine, kleiner, groß, große, großer, dick, dünn, breit, schmal sind harte Merkmale. Sie dürfen nicht entfernt oder vertauscht werden. '2 große Klebestifte' darf niemals als kleiner Klebestift normalisiert werden. 'kleines Lineal' und 'Lineal 30 cm' sind zwei verschiedene Positionen. " +
+                "Formatregel: A3, A4, A5, DIN A3, DIN A4, DIN A5, 15 cm, 16 cm, 17 cm, 30 cm sind harte Merkmale und müssen in rawText sowie format oder notes erhalten bleiben. " +
+                "Split-Regel: Wenn eine Zeile mehrere eindeutig getrennte Materialien enthält, erstelle mehrere Positionen. Beispiele: 'Hefte DIN A4 Nr.27 und Nr.28' ergibt zwei Positionen mit Lineatur 27 und 28. '2 Lineale (15cm und 30cm)' ergibt zwei Positionen, wenn beide Lineale benötigt werden. " +
+                "Tabellenregel: Bei Tabellen mit Fach, Titel, Verlag, ISBN, Preis extrahierst du die Titel als Positionen, aber Preise nicht als Material. Verlag und ISBN kommen in notes. Hinweise wie 'kann ausgeliehen werden' sind kein Kaufartikel und müssen als Hinweis in notes markiert oder ausgelassen werden, wenn kein Kaufbedarf besteht. " +
+                "Ausschlussregel: Zeilen wie 'wird von der Lehrerin angeschafft', 'bekommen die Kinder in der Schule', 'nicht kaufen', 'kann ausgeliehen werden', 'wird separat eingesammelt', 'alle Sachen beschriften' sind keine normalen Kaufpositionen. Erfasse sie höchstens mit niedriger confidence und notes als Hinweis, aber nicht als normale benötigte Kaufposition. " +
+                "Checkbox-Regel erweitert: Nicht angekreuzte und angekreuzte Kästchen sind meist Drucklayout, nicht Auswahlstatus. Eine angekreuzte Zeile kann trotzdem ein Hinweis sein. Entscheidend ist der Text der Zeile. " +
+                "Fach-/Kastenregel: Farbig umrandete Bereiche wie Deutsch, Mathematik, Kunst, Sport sind Kontext. Die darin enthaltenen Zeilen müssen trotzdem einzeln extrahiert werden. " +
+                "Die vollständige Originalzeile muss in rawText erhalten bleiben. Klammerangaben sind sehr wichtig und dürfen niemals weggelassen werden. " +
+                "Checkbox-Regel: Eine Checkbox vor einer Zeile ist kein Mengenwert. Zeichen wie ☐, □, ▢, [ ], Häkchen, Aufzählungspunkte oder Streichpunkte ignorierst du für quantity. " +
+                "Die Menge steht meist nach der Checkbox oder am Zeilenanfang: '☐ 2 dicke Bleistifte' bedeutet quantity 2, '☐ 1 blaue Mappe' bedeutet quantity 1. " +
+                "Kategorie-Regel: Überschriften wie 'Hefte', 'Mappen', 'Kunst', 'Federmappe', 'Schreiben', 'Mathematik', 'Deutsch' oder 'Werken' sind Kontext für die darunterstehenden eingerückten Zeilen. " +
+                "Wenn unter der Überschrift 'Mappen' die Zeile '1 blaue' oder '1 blaue Mappe' steht, ist category 'Mappe', color 'blau', quantity 1. " +
+                "Hefter-Regel: Wenn in der Originalzeile ausdrücklich 'Hefter' oder 'Schnellhefter' steht, ist der Hauptartikel immer ein Schnellhefter/Hefter, niemals Mappe. Beispiel: '1 Hefter für Mathematik (blau) mit einer Einsteckfolie' => normalizedName 'Schnellhefter Mathematik blau', category 'Schnellhefter', color 'blau'. Eine Einsteckfolie ist nur Zusatzkontext und überschreibt den Hauptartikel nicht. " +
+                "Wenn unter der Überschrift 'Hefte' die Zeile '1 Schreibheft 1 DIN A5 roter Umschlag' steht, ist es ein Heft bzw. Schreibheft mit Lineatur 1, Format A5 und Hinweis roter Umschlag. " +
                 "Wenn eine Position '1 Rechenh. Nr. 7' oder '1 Rechenheft Nr. 7' lautet, ist normalizedName 'Rechenheft', category 'Heft', lineature '7', quantity 1. " +
-                "Wenn eine Position '2 Schreibhefte A4 Lineatur 2 (bitte farbig unterlegt)' lautet, ist quantity 2, normalizedName 'Schreibheft A4', category 'Heft', format 'A4', lineature '2', notes enthÃƒÂ¤lt 'bitte farbig unterlegt'. " +
-                "Wenn eine Position '2 Hefte A4 kariert Lineatur 8f (bitte mit Rand)' lautet, ist quantity 2, format 'A4', lineature '8f', notes enthÃƒÂ¤lt 'mit Rand'. " +
+                "Wenn eine Position '2 Schreibhefte A4 Lineatur 2 (bitte farbig unterlegt)' lautet, ist quantity 2, normalizedName 'Schreibheft A4', category 'Heft', format 'A4', lineature '2', notes enthält 'bitte farbig unterlegt'. " +
+                "Wenn eine Position '2 Hefte A4 kariert Lineatur 8f (bitte mit Rand)' lautet, ist quantity 2, format 'A4', lineature '8f', notes enthält 'mit Rand'. " +
                 "Wenn eine Position '1 Sammelmappe A3' lautet, ist category 'Mappe', format 'A3'. Sie darf nicht als A4 erkannt werden. " +
-                "Wenn eine Position '1 Block Tonpapier weiÃƒÅ¸ A3' lautet, ist category 'Papier/Block', color 'weiÃƒÅ¸', format 'A3'. Sie darf nicht als A4 erkannt werden. " +
+                "Wenn eine Position '1 Block Tonpapier weiß A3' lautet, ist category 'Papier/Block', color 'weiß', format 'A3'. Sie darf nicht als A4 erkannt werden. " +
                 "Wenn eine Position 'kleines Lineal' lautet, muss 'klein' in normalizedName oder notes erhalten bleiben. " +
                 "Wenn eine Position 'Lineal 30 cm' lautet, muss '30 cm' in normalizedName oder notes erhalten bleiben. " +
-                "Wenn eine Position '2 groÃƒÅ¸e Klebestifte' lautet, muss 'groÃƒÅ¸' in normalizedName oder notes erhalten bleiben. " +
-                "AbkÃƒÂ¼rzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
+                "Wenn eine Position '2 große Klebestifte' lautet, muss 'groß' in normalizedName oder notes erhalten bleiben. " +
+                "Abkürzungen: 'Rechenh.' = Rechenheft, 'Schreibh.' = Schreibheft, 'HA-Heft' oder 'HA Heft' = Hausaufgabenheft, 'Hs.' nur bei eindeutiger Heft-Kontextzeile als Heft interpretieren. " +
                 "Hausaufgabenheft-Regel: Hausaufgabenheft, HA-Heft und Aufgabenheft niemals als normales Schreibheft interpretieren. " +
-                "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/BlÃƒÂ¶cke geht. " +
+                "Blanko-Regel: 'blanko', 'unliniert' und 'ohne Lineatur' bedeuten lineature '0', wenn es um Hefte/Blöcke geht. " +
                 "Kariert-Regel: 'kariert' bedeutet lineature '28', wenn keine exakte Nummer angegeben ist. 'liniert' bedeutet lineature 'liniert', wenn keine exakte Nummer angegeben ist. " +
                 "Mehrspalten-Regel: Bei mehreren Spalten musst du alle sichtbaren Materialpositionen aus allen Spalten extrahieren. " +
-                "StÃƒÂ¶rgrafiken, Stempel, Logos, Illustrationen und Randgrafiken ignorierst du. " +
+                "Störgrafiken, Stempel, Logos, Illustrationen und Randgrafiken ignorierst du. " +
                 "Beispiele: " +
                 "'40x Schreibheft A5 (Lineatur 0)' bedeutet lineature exakt '0'. Lineatur 0 ist NICHT unklar. " +
                 "'40x Schreibheft A5 (Lineatur 1)' bedeutet lineature exakt '1'. " +
@@ -2113,7 +2113,7 @@ const { id } = await context.params;
                 "'Lin. 8', 'L8', '8 F' und '8f' bedeuten immer lineature exakt '8f'. " +
                 "Wenn irgendwo Lineatur 0, Lin. 0, L0 oder L 0 steht, ist lineature exakt '0'. Niemals 'unklar'. " +
                 "Wenn eine Lineatur wirklich nicht vorhanden oder nicht lesbar ist, nutze null oder 'unknown'. " +
-                "Bei UmschlÃƒÂ¤gen achte besonders auf Farbe und BuchmaÃƒÅ¸. BuchmaÃƒÅ¸ 30 x 21 cm entspricht ungefÃƒÂ¤hr A4. BuchmaÃƒÅ¸ um 26,5 x 19,5 cm entspricht ungefÃƒÂ¤hr A5. " +
+                "Bei Umschlägen achte besonders auf Farbe und Buchmaß. Buchmaß 30 x 21 cm entspricht ungefähr A4. Buchmaß um 26,5 x 19,5 cm entspricht ungefähr A5. " +
                 `Interne Analyse-Version: ${ANALYZE_VERSION}.`,
             },
           ],
@@ -2124,16 +2124,16 @@ const { id } = await context.params;
             {
               type: "input_text",
               text:
-                "Analysiere diese Schulmaterialliste vollstÃƒÂ¤ndig. " +
-                "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerÃƒÂ¼ckten Kategorien. " +
-                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von ÃƒÅ“berschriften. " +
-                "Wichtig: Schreibe rawText als vollstÃƒÂ¤ndige Originalzeile inklusive Klammern und sichtbarer AbkÃƒÂ¼rzungen. " +
-                "Checkboxen oder AufzÃƒÂ¤hlungszeichen sind keine Mengen. " +
+                "Analysiere diese Schulmaterialliste vollständig. " +
+                "Extrahiere alle Materialpositionen strukturiert, auch aus kleinen Screenshots, Checkbox-Listen, mehrspaltigen Bereichen und eingerückten Kategorien. " +
+                "Achte besonders auf Menge, Format, Lineatur, Farbe, Artikelart und den Kontext von Überschriften. " +
+                "Wichtig: Schreibe rawText als vollständige Originalzeile inklusive Klammern und sichtbarer Abkürzungen. " +
+                "Checkboxen oder Aufzählungszeichen sind keine Mengen. " +
                 "Wenn Text teilweise unsicher ist, extrahiere die plausible Materialposition trotzdem mit niedrigerer confidence, statt sie wegzulassen. " +
                 "Lineatur 0, blanko, unliniert oder ohne Lineatur muss als lineature '0' gespeichert werden. " +
                 "Lineatur 8, 8f, 8 F, L8 oder Lin. 8 muss als lineature '8f' gespeichert werden. " +
                 "Rechenh. bedeutet Rechenheft. Schreibh. bedeutet Schreibheft. HA-Heft bedeutet Hausaufgabenheft. " +
-                "ÃƒÅ“berschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext fÃƒÂ¼r die darunter stehenden Positionen.",
+                "Überschriften wie Hefte, Mappen, Kunst oder Federmappe dienen als Kontext für die darunter stehenden Positionen.",
             },
             fileContentPart,
           ],
@@ -2173,7 +2173,7 @@ const { id } = await context.params;
         event_type: "analysis_no_items",
         title: "Keine Artikel erkannt",
         description:
-          "Die Analyse wurde ausgefÃƒÂ¼hrt, es konnten aber keine Materialpositionen sicher erkannt werden.",
+          "Die Analyse wurde ausgeführt, es konnten aber keine Materialpositionen sicher erkannt werden.",
       });
 
       return NextResponse.json({
@@ -2196,11 +2196,11 @@ const { id } = await context.params;
 
       if (!name) return true;
 
-      // FarbwÃƒÂ¶rter sind keine eigenstÃƒÂ¤ndigen Artikel.
-      // Beispiel-Fehler: "schwarz" mit Farbe "rot" aus "3 Fineliner: grÃƒÂ¼n, schwarz, rot".
+      // Farbwörter sind keine eigenständigen Artikel.
+      // Beispiel-Fehler: "schwarz" mit Farbe "rot" aus "3 Fineliner: grün, schwarz, rot".
       if (isColorOnlyExtractedName(name)) return true;
 
-      // Fineliner-Farblisten dÃƒÂ¼rfen nicht zu einzelnen Farb-Artikeln werden.
+      // Fineliner-Farblisten dürfen nicht zu einzelnen Farb-Artikeln werden.
       if (
         raw.includes("fineliner") &&
         (isColorOnlyExtractedName(name) ||
