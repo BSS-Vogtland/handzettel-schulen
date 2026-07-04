@@ -76,6 +76,7 @@ function getRequestItemTitle(item: RequestItemRow) {
   return item.normalized_name || item.raw_text || "Unbekannte Position";
 }
 
+
 function isSafeAutoAdoptMatch(match: RequestMatchRow) {
   const score = toNumber(match.match_score, 0);
   const reason = String(match.match_reason || "").toLowerCase();
@@ -90,11 +91,9 @@ function isSafeAutoAdoptMatch(match: RequestMatchRow) {
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prüfung") ||
-    reason.includes("admin-pruefung") ||
+    reason.includes("admin-pr") ||
     reason.includes("variantenmerkmale") ||
-    reason.includes("bitte prüfen") ||
-    reason.includes("bitte pruefen") ||
+    reason.includes("bitte pr") ||
     reason.includes("teilweise erkannt") ||
     reason.includes("score begrenzt") ||
     reason.includes("abweichende explizite nummer")
@@ -102,8 +101,7 @@ function isSafeAutoAdoptMatch(match: RequestMatchRow) {
     return false;
   }
 
-  // S0: school_product_aliases enthält normale Suchaliase und alte Lern-Aliase.
-  // Bis echte Lernregeln getrennt sind, dürfen gelernte Alias-Treffer nicht automatisch übernehmen.
+  // S0: learned aliases are not separated from normal search aliases yet.
   if (reason.includes("gelernte zuordnung")) {
     return false;
   }

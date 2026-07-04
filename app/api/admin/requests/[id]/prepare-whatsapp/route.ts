@@ -89,26 +89,24 @@ function isUnsafeAutoPreselectMatchReason(match: { match_reason?: string | null 
   return false;
 }
 
+
 function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
   const reason = String(match.match_reason || "").toLowerCase();
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prüfung") ||
-    reason.includes("admin-pruefung") ||
+    reason.includes("admin-pr") ||
     reason.includes("variantenmerkmale") ||
-    reason.includes("bitte prüfen") ||
-    reason.includes("bitte pruefen") ||
-    reason.includes("teilweise erkannt")
+    reason.includes("bitte pr") ||
+    reason.includes("teilweise erkannt") ||
+    reason.includes("score begrenzt") ||
+    reason.includes("abweichende explizite nummer")
   ) {
     return true;
   }
 
-  if (
-    reason.includes("gelernte zuordnung") &&
-    !reason.includes("exakt erkannt") &&
-    !reason.includes("wiedererkannt")
-  ) {
+  // S0: learned aliases are not separated from normal search aliases yet.
+  if (reason.includes("gelernte zuordnung")) {
     return true;
   }
 

@@ -20,6 +20,7 @@ type SchoolRequest = {
 
 type RequestItemRow = {
   id: string;
+  quantity: number | string | null;
 };
 
 type RequestMatchRow = {
@@ -72,26 +73,24 @@ function isUnsafeAutoPreselectMatchReason(match: { match_reason?: string | null 
   return false;
 }
 
+
 function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
   const reason = String(match.match_reason || "").toLowerCase();
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prüfung") ||
-    reason.includes("admin-pruefung") ||
+    reason.includes("admin-pr") ||
     reason.includes("variantenmerkmale") ||
-    reason.includes("bitte prüfen") ||
-    reason.includes("bitte pruefen") ||
-    reason.includes("teilweise erkannt")
+    reason.includes("bitte pr") ||
+    reason.includes("teilweise erkannt") ||
+    reason.includes("score begrenzt") ||
+    reason.includes("abweichende explizite nummer")
   ) {
     return true;
   }
 
-  if (
-    reason.includes("gelernte zuordnung") &&
-    !reason.includes("exakt erkannt") &&
-    !reason.includes("wiedererkannt")
-  ) {
+  // S0: learned aliases are not separated from normal search aliases yet.
+  if (reason.includes("gelernte zuordnung")) {
     return true;
   }
 
@@ -493,6 +492,24 @@ async function autoPreselectSafeMatches(params: {
     };
   }
 
+  const { data: requestItemsData, error: requestItemsError } = await supabase
+    .from("school_request_items")
+    .select("id, quantity")
+    .in("id", requestItemIds);
+
+  if (requestItemsError) {
+    throw new Error(
+      `Erkannte Positionen konnten nicht fuer Mengen geladen werden: ${requestItemsError.message}`
+    );
+  }
+
+  const requestItemQuantityById = new Map(
+    ((requestItemsData || []) as RequestItemRow[]).map((item) => [
+      item.id,
+      Math.max(1, Math.min(99, Math.floor(toNumber(item.quantity, 1)))),
+    ])
+  );
+
   const { data: existingOfferItemsData, error: existingOfferItemsError } =
     await supabase
       .from("school_offer_items")
@@ -558,7 +575,7 @@ const existingRequestItemIds = new Set(
         product_name: cleanText(match.product_name, "Produkt"),
         product_sku: cleanText(match.product_sku, "") || null,
         product_price: productPrice,
-        quantity: 1,
+        quantity: requestItemQuantityById.get(match.request_item_id) || 1,
         unit: "Stk.",
         source: "auto_preselected",
         status: "preselected",
@@ -912,7 +929,7 @@ export async function POST(request: NextRequest, context: Params) {
 
     const { data: requestItems, error: itemsError } = await supabase
       .from("school_request_items")
-      .select("id")
+      .select("id, quantity")
       .eq("request_id", requestId);
 
     if (itemsError) {
