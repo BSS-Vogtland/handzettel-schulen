@@ -392,7 +392,123 @@ function unique(values: string[]) {
   return Array.from(new Set(values.map((value) => clean(value)).filter(Boolean)));
 }
 
-export default async function ProductAuditPage() {
+
+type AuditFilter =
+  | "all"
+  | "missing-type"
+  | "missing-variants"
+  | "generic-aliases"
+  | "incomplete"
+  | "good";
+
+function normalizeSearchParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
+function getAuditFilter(value: string | string[] | undefined): AuditFilter {
+  const filter = normalizeSearchParam(value);
+
+  if (
+    filter === "missing-type" ||
+    filter === "missing-variants" ||
+    filter === "generic-aliases" ||
+    filter === "incomplete" ||
+    filter === "good"
+  ) {
+    return filter;
+  }
+
+  return "all";
+}
+
+function matchesAuditFilter(entry: { audit: AuditResult }, filter: AuditFilter) {
+  if (filter === "all") return true;
+
+  if (filter === "missing-type") {
+    return entry.audit.missing.some((item) =>
+      normalize(item).includes("typ kernartikel fehlt")
+    );
+  }
+
+  if (filter === "missing-variants") {
+    return entry.audit.missing.some((item) => {
+      const normalized = normalize(item);
+
+      return (
+        normalized.includes("format fehlt") ||
+        normalized.includes("farbe fehlt") ||
+        normalized.includes("lineatur fehlt") ||
+        normalized.includes("pinselnummer fehlt") ||
+        normalized.includes("lineallaenge fehlt") ||
+        normalized.includes("klebestift groesse fehlt")
+      );
+    });
+  }
+
+  if (filter === "generic-aliases") {
+    return entry.audit.genericAliases.length > 0;
+  }
+
+  if (filter === "incomplete") {
+    return entry.audit.level === "warning";
+  }
+
+  if (filter === "good") {
+    return entry.audit.level === "good";
+  }
+
+  return true;
+}
+
+function matchesAuditSearch(entry: { product: ProductRow; aliases: string[] }, searchQuery: string) {
+  const query = normalize(searchQuery);
+
+  if (!query) return true;
+
+  const haystack = normalize([
+    getProductName(entry.product),
+    getProductSku(entry.product),
+    entry.product.category,
+    entry.product.product_type,
+    entry.product.format,
+    entry.product.color,
+    entry.product.lineature,
+    entry.aliases.join(" "),
+  ].join(" "));
+
+  return haystack.includes(query);
+}
+
+function buildAuditHref(filter: AuditFilter, searchQuery: string) {
+  const params = new URLSearchParams();
+
+  if (filter !== "all") params.set("filter", filter);
+  if (searchQuery.trim()) params.set("q", searchQuery.trim());
+
+  const query = params.toString();
+
+  return query ? `/admin/produkte/audit?${query}` : "/admin/produkte/audit";
+}
+
+function filterButtonClass(active: boolean) {
+  return [
+    "inline-flex rounded-full border px-4 py-2 text-xs font-black transition",
+    active
+      ? "border-[#12395F] bg-[#12395F] text-white"
+      : "border-[#D8C8B8] bg-white text-[#12395F] hover:border-[#12395F]",
+  ].join(" ");
+}
+
+export default async function ProductAuditPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const activeFilter = getAuditFilter(resolvedSearchParams.filter);
+  const searchQuery = normalizeSearchParam(resolvedSearchParams.q);
+
   let products: ProductRow[] = [];
   let aliasesByProductId = new Map<string, string[]>();
   let errorMessage: string | null = null;
@@ -444,7 +560,32 @@ export default async function ProductAuditPage() {
     };
   });
 
-  const sortedProducts = auditedProducts.sort((a, b) => {
+  const filteredProducts = auditedProducts.filter((entry) => {
+    return (
+      matchesAuditFilter(entry, activeFilter) &&
+      matchesAuditSearch(entry, searchQuery)
+    );
+  });
+
+  const filterCounts: Record<AuditFilter, number> = {
+    all: auditedProducts.length,
+    "missing-type": auditedProducts.filter((entry) =>
+      matchesAuditFilter(entry, "missing-type")
+    ).length,
+    "missing-variants": auditedProducts.filter((entry) =>
+      matchesAuditFilter(entry, "missing-variants")
+    ).length,
+    "generic-aliases": auditedProducts.filter((entry) =>
+      matchesAuditFilter(entry, "generic-aliases")
+    ).length,
+    incomplete: auditedProducts.filter((entry) =>
+      matchesAuditFilter(entry, "incomplete")
+    ).length,
+    good: auditedProducts.filter((entry) => matchesAuditFilter(entry, "good"))
+      .length,
+  };
+
+  const sortedProducts = filteredProducts.sort((a, b) => {
     const rank: Record<AuditLevel, number> = {
       danger: 0,
       warning: 1,
@@ -493,6 +634,87 @@ export default async function ProductAuditPage() {
           </section>
         ) : null}
 
+        <section className="rounded-[28px] border border-[#D8C8B8] bg-white p-4 shadow-sm">
+          <div className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+            Filter und Suche
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={buildAuditHref("all", searchQuery)}
+              className={filterButtonClass(activeFilter === "all")}
+            >
+              Alle ({filterCounts.all})
+            </Link>
+
+            <Link
+              href={buildAuditHref("missing-type", searchQuery)}
+              className={filterButtonClass(activeFilter === "missing-type")}
+            >
+              Typ fehlt ({filterCounts["missing-type"]})
+            </Link>
+
+            <Link
+              href={buildAuditHref("missing-variants", searchQuery)}
+              className={filterButtonClass(activeFilter === "missing-variants")}
+            >
+              Varianten fehlen ({filterCounts["missing-variants"]})
+            </Link>
+
+            <Link
+              href={buildAuditHref("generic-aliases", searchQuery)}
+              className={filterButtonClass(activeFilter === "generic-aliases")}
+            >
+              Allgemeine Aliase ({filterCounts["generic-aliases"]})
+            </Link>
+
+            <Link
+              href={buildAuditHref("incomplete", searchQuery)}
+              className={filterButtonClass(activeFilter === "incomplete")}
+            >
+              Unvollständig ({filterCounts.incomplete})
+            </Link>
+
+            <Link
+              href={buildAuditHref("good", searchQuery)}
+              className={filterButtonClass(activeFilter === "good")}
+            >
+              Gut ({filterCounts.good})
+            </Link>
+          </div>
+
+          <form
+            action="/admin/produkte/audit"
+            className="mt-4 flex flex-col gap-2 md:flex-row"
+          >
+            <input type="hidden" name="filter" value={activeFilter} />
+
+            <input
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Produkt, SKU, Kategorie, Typ oder Alias suchen..."
+              className="min-h-11 flex-1 rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-4 text-sm font-bold outline-none focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
+            />
+
+            <button className="rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white">
+              Suchen
+            </button>
+
+            {searchQuery ? (
+              <Link
+                href={buildAuditHref(activeFilter, "")}
+                className="inline-flex items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-5 py-3 text-sm font-black text-[#12395F]"
+              >
+                Suche löschen
+              </Link>
+            ) : null}
+          </form>
+
+          <p className="mt-3 text-xs font-semibold text-[#52616F]">
+            Angezeigt: {filteredProducts.length} von {auditedProducts.length} Artikeln.
+          </p>
+        </section>
+
         <section className="grid gap-3 md:grid-cols-3">
           <div className="rounded-[24px] border border-[#B8E2C8] bg-[#F4FBF6] p-5">
             <div className="text-xs font-black uppercase tracking-[0.14em] text-[#1F6B35]">Gut</div>
@@ -511,6 +733,12 @@ export default async function ProductAuditPage() {
         </section>
 
         <section className="grid gap-4">
+          {sortedProducts.length === 0 ? (
+            <div className="rounded-[28px] border border-[#D8C8B8] bg-white p-6 text-sm font-bold text-[#52616F]">
+              Keine Produkte für diesen Filter gefunden.
+            </div>
+          ) : null}
+
           {sortedProducts.map(({ product, aliases, audit }) => (
             <article
               key={product.id}
