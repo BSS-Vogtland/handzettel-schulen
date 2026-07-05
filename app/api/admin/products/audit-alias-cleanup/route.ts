@@ -120,6 +120,26 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
   const lineature = normalize(product.lineature);
   const productType = normalize(product.product_type);
 
+  const protectedProductText = normalize([
+    getProductName(product),
+    product.category,
+    product.product_type,
+  ].join(" "));
+
+  const protectedProductFamilies = [
+    "schulranzen",
+    "schulranzenset",
+    "ranzen",
+    "school mood",
+    "schoolmood",
+    "ergobag",
+    "turnbeutel",
+  ];
+
+  if (protectedProductFamilies.some((term) => protectedProductText.includes(normalize(term)))) {
+    return "";
+  }
+
   const categoryWords = [
     "kunst",
     "hefte",
