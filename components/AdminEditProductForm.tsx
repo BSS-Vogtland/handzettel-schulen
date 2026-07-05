@@ -91,6 +91,212 @@ function normalizeOptionalIntegerInput(value: string) {
   return cleaned;
 }
 
+type MatchingQualityLevel = "good" | "warning" | "danger";
+
+type MatchingQualityInput = {
+  productName: string;
+  category: string;
+  productType: string;
+  format: string;
+  color: string;
+  lineature: string;
+  aliases: string;
+};
+
+type MatchingQualityResult = {
+  level: MatchingQualityLevel;
+  title: string;
+  summary: string;
+  positives: string[];
+  missing: string[];
+  warnings: string[];
+};
+
+function normalizeMatchingText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u00df/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function containsAnyText(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function hasPinselNumber(text: string) {
+  return /\b(nr|nummer)?\s*(1|2|3|4|5|6|8|10|12)\b/.test(text);
+}
+
+function hasLinealLength(text: string) {
+  return /\b(15|16|17|30)\s*cm\b/.test(text) || /\b(15|16|17|30)\b/.test(text);
+}
+
+function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResult {
+  const productName = normalizeMatchingText(input.productName);
+  const category = normalizeMatchingText(input.category);
+  const productType = normalizeMatchingText(input.productType);
+  const format = normalizeMatchingText(input.format);
+  const color = normalizeMatchingText(input.color);
+  const lineature = normalizeMatchingText(input.lineature);
+  const aliases = normalizeMatchingText(input.aliases);
+
+  const combined = [productName, category, productType, format, color, lineature, aliases]
+    .filter(Boolean)
+    .join(" ");
+
+  const positives: string[] = [];
+  const missing: string[] = [];
+  const warnings: string[] = [];
+
+  if (category) {
+    positives.push("Kategorie ist gepflegt.");
+  } else {
+    missing.push("Kategorie fehlt.");
+  }
+
+  if (productType) {
+    positives.push("Kernartikel / Typ ist gepflegt.");
+  } else {
+    missing.push("Kernartikel / Typ fehlt. Ohne Typ ist das Matching deutlich unsicherer.");
+  }
+
+  const isHeft = containsAnyText(combined, [
+    "schreibheft",
+    "hausaufgabenheft",
+    "vokabelheft",
+    "notizheft",
+    "heft lineatur",
+  ]);
+
+  const isMappe = containsAnyText(combined, [
+    "schnellhefter",
+    "papphefter",
+    "sammelmappe",
+    "postmappe",
+    "kunstmappe",
+    "hefter",
+  ]);
+
+  const isFedermappe = containsAnyText(combined, ["federmappe", "federtasche", "schlampermappe"]);
+  const isPinsel = containsAnyText(combined, ["pinsel", "borstenpinsel", "haarpinsel"]);
+  const isLineal = containsAnyText(combined, ["lineal"]);
+  const isKlebestift = containsAnyText(combined, ["klebestift", "kleber stift"]);
+  const isWachsmalstift = containsAnyText(combined, ["wachsmalstift", "wachsmalstifte"]);
+  const isTuschkasten = containsAnyText(combined, ["tuschkasten", "farbkasten", "schulmalfarben"]);
+  const isSchere = containsAnyText(combined, ["schere", "bastelschere"]);
+  const isStehsammler = containsAnyText(combined, ["stehsammler"]);
+
+  if (isHeft) {
+    if (format) {
+      positives.push("Format ist fuer Heft-Matching gepflegt.");
+    } else {
+      missing.push("Format fehlt, obwohl der Artikel wie ein Heft wirkt.");
+    }
+
+    if (lineature) {
+      positives.push("Lineatur ist fuer Heft-Matching gepflegt.");
+    } else {
+      missing.push("Lineatur fehlt, obwohl der Artikel wie ein Heft wirkt.");
+    }
+  }
+
+  if (isMappe && !isFedermappe) {
+    if (format) {
+      positives.push("Format ist fuer Mappen-/Hefter-Matching gepflegt.");
+    } else {
+      missing.push("Format fehlt, obwohl der Artikel wie Mappe/Hefter wirkt.");
+    }
+
+    if (color) {
+      positives.push("Farbe ist fuer Mappen-/Hefter-Matching gepflegt.");
+    } else {
+      missing.push("Farbe fehlt, obwohl der Artikel wie Mappe/Hefter wirkt.");
+    }
+  }
+
+  if (isPinsel) {
+    if (hasPinselNumber(combined)) {
+      positives.push("Pinselnummer ist erkennbar.");
+    } else {
+      missing.push("Pinselnummer fehlt. Pinsel Nr. 6, 9 und 12 koennen sonst nicht sicher getrennt werden.");
+    }
+  }
+
+  if (isLineal) {
+    if (hasLinealLength(combined)) {
+      positives.push("Lineallaenge ist erkennbar.");
+    } else {
+      missing.push("Lineallaenge fehlt. Kleines Lineal und 30-cm-Lineal koennen sonst nicht sicher getrennt werden.");
+    }
+  }
+
+  if (isKlebestift) {
+    if (containsAnyText(combined, ["gross", "großer", "grosser", "klein", "mittel"])) {
+      positives.push("Klebestift-Groesse ist erkennbar.");
+    } else {
+      missing.push("Klebestift-Groesse fehlt. Klein, mittel und gross sollten getrennt gepflegt sein.");
+    }
+  }
+
+  if (isFedermappe && containsAnyText(combined, ["sammelmappe", "schnellhefter", "papphefter", "postmappe", "kunstmappe"])) {
+    warnings.push("Federmappe ist mit normalen Mappen-/Hefter-Begriffen vermischt.");
+  }
+
+  if (isMappe && containsAnyText(combined, ["federmappe", "federtasche", "schlampermappe"])) {
+    warnings.push("Mappe/Hefter ist mit Federmappe/Federtasche vermischt.");
+  }
+
+  if (containsAnyText(combined, ["schnellhefter", "papphefter"]) && containsAnyText(combined, ["schreibheft", "hausaufgabenheft", "lineatur"])) {
+    warnings.push("Hefter-Begriffe sind mit Schreibheft-/Lineatur-Begriffen vermischt.");
+  }
+
+  if (isWachsmalstift && containsAnyText(combined, ["pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "mischpalette"])) {
+    warnings.push("Wachsmalstifte sind mit Pinsel-/Tuschkasten-/Mischpaletten-Begriffen vermischt.");
+  }
+
+  if (isTuschkasten && containsAnyText(combined, ["pinsel", "wachsmalstift", "wachsmalstifte", "mischpalette"])) {
+    warnings.push("Tuschkasten/Schulmalfarben sind mit Pinsel-/Wachsmalstift-/Mischpaletten-Begriffen vermischt.");
+  }
+
+  if (isPinsel && containsAnyText(combined, ["wachsmalstift", "wachsmalstifte", "tuschkasten", "farbkasten", "schulmalfarben", "mischpalette"])) {
+    warnings.push("Pinsel ist mit anderen Kunstartikeln vermischt.");
+  }
+
+  if (isSchere && containsAnyText(combined, ["kleber", "klebestift", "uhu"])) {
+    warnings.push("Schere ist mit Kleber-/Klebestift-Begriffen vermischt.");
+  }
+
+  if (isStehsammler && containsAnyText(combined, ["schulranzen", "schulrucksack", "ranzen", "rucksack"])) {
+    warnings.push("Stehsammler ist mit Schulranzen-/Rucksack-Begriffen vermischt.");
+  }
+
+  const level: MatchingQualityLevel =
+    warnings.length > 0 ? "danger" : missing.length > 0 ? "warning" : "good";
+
+  return {
+    level,
+    title:
+      level === "good"
+        ? "Matching-Qualitaet gut"
+        : level === "warning"
+          ? "Matching-Qualitaet unvollstaendig"
+          : "Matching-Qualitaet Risiko",
+    summary:
+      level === "good"
+        ? "Die wichtigsten Matching-Daten sind gepflegt."
+        : level === "warning"
+          ? "Der Artikel kann gespeichert werden, ist fuer automatische Vorschlaege aber noch nicht optimal gepflegt."
+          : "Der Artikel enthaelt widerspruechliche Begriffe. Das kann falsche Produktvorschlaege erzeugen.",
+    positives,
+    missing,
+    warnings,
+  };
+}
+
 export default function AdminEditProductForm({
   productId,
   productName,
@@ -143,6 +349,16 @@ export default function AdminEditProductForm({
   }
 
   const [formData, setFormData] = useState(buildInitialFormData);
+
+  const matchingQuality = buildMatchingQuality({
+    productName: formData.productName,
+    category: formData.category,
+    productType: formData.productType,
+    format: formData.format,
+    color: formData.color,
+    lineature: formData.lineature,
+    aliases: formData.aliases,
+  });
 
   useEffect(() => {
     const savedAliases = aliases
@@ -740,7 +956,104 @@ export default function AdminEditProductForm({
             </label>
           </div>
 
-                              <section className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+          <section
+            className={[
+              "rounded-[24px] border p-4",
+              matchingQuality.level === "good"
+                ? "border-[#B8E2C8] bg-[#F4FBF6]"
+                : matchingQuality.level === "warning"
+                  ? "border-[#F0D59A] bg-[#FFF9E8]"
+                  : "border-[#F1B7B7] bg-[#FFF5F5]",
+            ].join(" ")}
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                  {matchingQuality.level === "good" ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4" />
+                  )}
+                  {"Matching-Qualit\u00e4t"}
+                </div>
+
+                <h3 className="font-black text-[#102A43]">
+                  {matchingQuality.title}
+                </h3>
+
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                  {matchingQuality.summary}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-[#102A43] shadow-sm">
+                {matchingQuality.warnings.length > 0
+                  ? "Risiko"
+                  : matchingQuality.missing.length > 0
+                    ? "Unvollst\u00e4ndig"
+                    : "Gut"}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-white p-3">
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#2F7A3E]">
+                  {"Gepflegt"}
+                </div>
+                {matchingQuality.positives.length > 0 ? (
+                  <ul className="space-y-1 text-xs font-semibold leading-5 text-[#2B4634]">
+                    {matchingQuality.positives.map((item) => (
+                      <li key={item}>{"\u2022 "}{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs font-semibold text-[#52616F]">
+                    {"Noch keine klaren Matching-St\u00e4rken erkannt."}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl bg-white p-3">
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                  {"Fehlt"}
+                </div>
+                {matchingQuality.missing.length > 0 ? (
+                  <ul className="space-y-1 text-xs font-semibold leading-5 text-[#5F4B23]">
+                    {matchingQuality.missing.map((item) => (
+                      <li key={item}>{"\u2022 "}{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs font-semibold text-[#52616F]">
+                    {"Keine Pflichtl\u00fccken erkannt."}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl bg-white p-3">
+                <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#B5282D]">
+                  {"Risiken"}
+                </div>
+                {matchingQuality.warnings.length > 0 ? (
+                  <ul className="space-y-1 text-xs font-semibold leading-5 text-[#6F1D1B]">
+                    {matchingQuality.warnings.map((item) => (
+                      <li key={item}>{"\u2022 "}{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs font-semibold text-[#52616F]">
+                    {"Keine gef\u00e4hrlichen Begriffskombinationen erkannt."}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-white/70 p-3 text-xs font-semibold leading-5 text-[#52616F]">
+              {"Regel: Kategorie beschreibt den Bereich, Typ beschreibt den echten Kernartikel. Aliase sollen nur echte Suchvarianten enthalten, keine verwandten Artikel."}
+            </div>
+          </section>
+
+          <section className="rounded-[24px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
             <div className="mb-3">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
                 Optional
