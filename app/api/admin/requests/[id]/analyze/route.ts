@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v6-rawline-completeness-size-guards";
+const ANALYZE_VERSION = "school-material-analyze-v7-fragment-filter-detail-merge";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -935,7 +935,15 @@ function shouldSplitCommaMaterialLine(value: string) {
     "zeichenkarton",
   ];
 
-  return materialHints.some((hint) => text.includes(hint));
+  const productLikeParts = parts
+    .map((part) => normalizeText(part))
+    .filter((part) => materialHints.some((hint) => part.includes(hint)));
+
+  // Nicht splitten, wenn nur ein echter Produktkern vorhanden ist und die
+  // restlichen Komma-Segmente nur Eigenschaften/Hinweise sind.
+  // Beispiel: "Buntstift dick weich, dick und weiss, mit Noppen"
+  // darf nicht zu drei Kaufpositionen werden.
+  return productLikeParts.length >= 2;
 }
 
 function buildCompoundItemFromSegment(
@@ -1740,6 +1748,200 @@ function expandCompoundExtractedItems(items: ExtractedItem[]) {
     return [item];
   });
 }
+
+function hasMaterialCoreTextForFragmentFilter(value: unknown) {
+  const text = normalizeDedupeText(value);
+
+  if (!text) return false;
+
+  const coreTerms = [
+    "heft",
+    "umschlag",
+    "mappe",
+    "hefter",
+    "block",
+    "papier",
+    "karton",
+    "stift",
+    "bleistift",
+    "buntstift",
+    "filzstift",
+    "fineliner",
+    "folienstift",
+    "fueller",
+    "fuller",
+    "patrone",
+    "radier",
+    "spitzer",
+    "lineal",
+    "geodreieck",
+    "zirkel",
+    "schere",
+    "kleber",
+    "klebestift",
+    "farbkasten",
+    "tuschkasten",
+    "schulmalfarbe",
+    "wasserfarbe",
+    "deckweiss",
+    "pinsel",
+    "wasserbecher",
+    "becher",
+    "malschuerze",
+    "knete",
+    "tonzeichen",
+    "zeichenkarton",
+    "zeichenblock",
+    "sportbeutel",
+    "turnbeutel",
+    "schulbox",
+    "kopfhoerer",
+    "kopfhörer",
+    "parabelschablone",
+    "kurvenschablone",
+    "steckwuerfel",
+    "steckwürfel",
+    "zeugnismappe",
+  ];
+
+  return coreTerms.some((term) => text.includes(normalizeDedupeText(term)));
+}
+
+function isDetailOnlyCleanedItem(item: CleanedItem) {
+  const name = normalizeDedupeText(item.normalizedName);
+  const raw = normalizeDedupeText(item.rawText);
+  const sourceText = [name, raw].filter(Boolean).join(" ");
+
+  if (!sourceText) return true;
+
+  if (hasMaterialCoreTextForFragmentFilter(sourceText)) {
+    return false;
+  }
+
+  if (isColorOnlyExtractedName(name) || isColorOnlyExtractedName(raw)) {
+    return true;
+  }
+
+  const detailPhrases = [
+    "mit noppen",
+    "ohne noppen",
+    "dick und weiss",
+    "dick weiss",
+    "dick weich",
+    "weich dick",
+    "auf einzelblatt",
+    "einzelblatt gedruckt",
+    "auf einzelblatt gedruckt",
+    "verschiedene farben",
+    "verschiedene motive",
+    "fuer mathematikmaterialien",
+    "fur mathematikmaterialien",
+    "mathematikmaterialien",
+    "fuer draussen",
+    "fur draussen",
+    "fuer die schule",
+    "fur die schule",
+    "mit namen",
+    "mit name",
+    "mit titel",
+    "mit logo",
+    "beschriften",
+    "beschriftet",
+    "abwaschbar",
+    "non permanent",
+    "nicht permanent",
+  ];
+
+  if (detailPhrases.some((phrase) => sourceText.includes(phrase))) {
+    return true;
+  }
+
+  const tokens = sourceText.split(" ").filter(Boolean);
+
+  const allowedDetailTokens = new Set([
+    "dick",
+    "duenn",
+    "dunn",
+    "weich",
+    "hart",
+    "weiss",
+    "weis",
+    "mit",
+    "ohne",
+    "noppen",
+    "auf",
+    "einzelblatt",
+    "gedruckt",
+    "verschiedene",
+    "verschieden",
+    "farben",
+    "motive",
+    "motiv",
+    "fuer",
+    "fur",
+    "mathematik",
+    "mathematikmaterialien",
+    "materialien",
+    "draussen",
+    "draußen",
+    "name",
+    "namen",
+    "titel",
+    "logo",
+    "beschriften",
+    "beschriftet",
+    "abwaschbar",
+    "permanent",
+    "non",
+    "nicht",
+  ]);
+
+  return (
+    tokens.length > 0 &&
+    tokens.length <= 8 &&
+    tokens.every((token) => allowedDetailTokens.has(token) || /^\d+$/.test(token))
+  );
+}
+
+function mergeDetailFragmentsIntoPreviousItems(items: CleanedItem[]) {
+  const result: CleanedItem[] = [];
+
+  for (const item of items) {
+    if (!isDetailOnlyCleanedItem(item)) {
+      result.push(item);
+      continue;
+    }
+
+    const previous = result[result.length - 1];
+
+    if (!previous) {
+      continue;
+    }
+
+    const detailText =
+      cleanNullableString(item.normalizedName) ||
+      cleanNullableString(item.rawText) ||
+      "unbekanntes Detail";
+
+    const mergedNote = [
+      previous.notes,
+      "Detailfragment nicht als eigene Position gespeichert: " + detailText,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    result[result.length - 1] = {
+      ...previous,
+      format: previous.format || item.format,
+      color: previous.color || item.color,
+      lineature: previous.lineature || item.lineature,
+      notes: mergedNote,
+    };
+  }
+
+  return result;
+}
+
 function cleanExtractedItem(item: ExtractedItem): CleanedItem {
   const rawText = cleanNullableString(item.rawText) || "";
   const aiName = cleanNullableString(item.normalizedName);
@@ -2187,7 +2389,12 @@ const { id } = await context.params;
     }
 
     const expandedItems = dedupeExtractedItems(expandCompoundExtractedItems(items));
-    const cleanedItems = dedupeExtractedItems(expandedItems.map(cleanExtractedItem));
+    const cleanedItemsBeforeFragmentMerge = dedupeExtractedItems(
+      expandedItems.map(cleanExtractedItem)
+    );
+    const cleanedItems = mergeDetailFragmentsIntoPreviousItems(
+      cleanedItemsBeforeFragmentMerge
+    );
 
     function shouldDropFinalCleanedItem(item: CleanedItem) {
       const name = normalizeDedupeText(item.normalizedName);
