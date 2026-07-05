@@ -153,9 +153,6 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     "mehrfarbig",
   ];
 
-  if (isExactOneOf(alias, categoryWords)) {
-    return "Nur Kategorie als Alias";
-  }
 
   if (isExactOneOf(alias, formatWords)) {
     return "Nur Format als Alias";
@@ -188,16 +185,7 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     return "Einzelnes Produktmerkmal als Alias";
   }
 
-  const isBroadCategory = category ? isExactOneOf(category, categoryWords) : false;
-
   const genericCombinations = [
-    ...(isBroadCategory
-      ? [
-          compactParts([category, safeSingleColor]),
-          compactParts([category, format]),
-          compactParts([category, lineature]),
-        ]
-      : []),
     compactParts([format, safeSingleColor]),
     compactParts([format, lineature]),
     compactParts([safeSingleColor, lineature]),
