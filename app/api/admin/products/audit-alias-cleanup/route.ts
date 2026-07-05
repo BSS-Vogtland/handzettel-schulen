@@ -140,6 +140,48 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     return "";
   }
 
+  const productCoreText = normalize([
+    getProductName(product),
+    product.category,
+    product.product_type,
+  ].join(" "));
+
+  const unsafeAliasRules: Array<{
+    productTerms: string[];
+    aliasTerms: string[];
+    reason: string;
+  }> = [
+    {
+      productTerms: ["schnellhefter", "papphefter", "sammelmappe", "postmappe", "kunstmappe"],
+      aliasTerms: ["schreibheft", "schulheft", "hausaufgabenheft", "vokabelheft", "lineatur"],
+      reason: "Hefter/Mappe enthaelt Schreibheft- oder Lineatur-Alias",
+    },
+    {
+      productTerms: ["schreibheft", "schulheft", "hausaufgabenheft", "vokabelheft"],
+      aliasTerms: ["schnellhefter", "papphefter", "sammelmappe", "postmappe", "kunstmappe"],
+      reason: "Heft enthaelt Mappen-/Hefter-Alias",
+    },
+    {
+      productTerms: ["federmappe", "federtasche", "schlampermappe"],
+      aliasTerms: ["schnellhefter", "papphefter", "sammelmappe", "postmappe", "kunstmappe", "schreibheft", "schulheft"],
+      reason: "Federmappe enthaelt falschen Mappen-/Heft-Alias",
+    },
+  ];
+
+  for (const rule of unsafeAliasRules) {
+    const productMatches = rule.productTerms.some((term) =>
+      productCoreText.includes(normalize(term))
+    );
+
+    const aliasMatches = rule.aliasTerms.some((term) =>
+      alias.includes(normalize(term))
+    );
+
+    if (productMatches && aliasMatches) {
+      return rule.reason;
+    }
+  }
+
   const categoryWords = [
     "kunst",
     "hefte",
