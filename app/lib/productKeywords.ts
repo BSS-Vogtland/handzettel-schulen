@@ -27,11 +27,16 @@ export function normalizeKeywordText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/\u00e4/g, "ae")
+    .replace(/\u00f6/g, "oe")
+    .replace(/\u00fc/g, "ue")
+    .replace(/\u00df/g, "ss")
+    .replace(/ÃƒÂ¤/g, "ae")
+    .replace(/ÃƒÂ¶/g, "oe")
+    .replace(/ÃƒÂ¼/g, "ue")
+    .replace(/ÃƒÅ¸/g, "ss")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -93,6 +98,241 @@ function dedupeClean(values: unknown[]) {
   return result;
 }
 
+
+type ProductAliasCore =
+  | "wachsmalstifte"
+  | "filzstifte"
+  | "buntstifte"
+  | "pinsel"
+  | "tuschkasten"
+  | "mischpalette"
+  | "federmappe"
+  | "mappe"
+  | "heft"
+  | "schere"
+  | "klebestift"
+  | "lineal"
+  | "stehsammler"
+  | null;
+
+const BLOCKED_ALIAS_TERMS_BY_CORE: Record<Exclude<ProductAliasCore, null>, string[]> = {
+  wachsmalstifte: [
+    "filzstift",
+    "filzstifte",
+    "buntstift",
+    "buntstifte",
+    "pinsel",
+    "tuschkasten",
+    "farbkasten",
+    "schulmalfarben",
+    "mischpalette",
+  ],
+  filzstifte: [
+    "wachsmalstift",
+    "wachsmalstifte",
+    "wachsmalkreide",
+    "buntstift",
+    "buntstifte",
+    "pinsel",
+    "tuschkasten",
+    "farbkasten",
+    "schulmalfarben",
+    "mischpalette",
+  ],
+  buntstifte: [
+    "wachsmalstift",
+    "wachsmalstifte",
+    "wachsmalkreide",
+    "filzstift",
+    "filzstifte",
+    "pinsel",
+    "tuschkasten",
+    "farbkasten",
+    "schulmalfarben",
+    "mischpalette",
+  ],
+  pinsel: [
+    "wachsmalstift",
+    "wachsmalstifte",
+    "wachsmalkreide",
+    "filzstift",
+    "filzstifte",
+    "buntstift",
+    "buntstifte",
+    "tuschkasten",
+    "farbkasten",
+    "schulmalfarben",
+    "mischpalette",
+  ],
+  tuschkasten: [
+    "wachsmalstift",
+    "wachsmalstifte",
+    "wachsmalkreide",
+    "filzstift",
+    "filzstifte",
+    "buntstift",
+    "buntstifte",
+    "pinsel",
+    "mischpalette",
+  ],
+  mischpalette: [
+    "wachsmalstift",
+    "wachsmalstifte",
+    "wachsmalkreide",
+    "filzstift",
+    "filzstifte",
+    "buntstift",
+    "buntstifte",
+    "pinsel",
+    "tuschkasten",
+    "farbkasten",
+    "schulmalfarben",
+  ],
+  federmappe: [
+    "sammelmappe",
+    "postmappe",
+    "kunstmappe",
+    "schnellhefter",
+    "papphefter",
+    "hefter",
+    "schreibheft",
+    "hausaufgabenheft",
+  ],
+  mappe: [
+    "federmappe",
+    "federtasche",
+    "schlampermappe",
+    "schreibheft",
+    "hausaufgabenheft",
+    "lineatur",
+  ],
+  heft: [
+    "schnellhefter",
+    "papphefter",
+    "federmappe",
+    "federtasche",
+    "sammelmappe",
+    "postmappe",
+    "kunstmappe",
+  ],
+  schere: [
+    "kleber",
+    "klebestift",
+    "uhu",
+    "pinsel",
+    "wachsmalstift",
+    "tuschkasten",
+  ],
+  klebestift: [
+    "schere",
+    "bastelschere",
+    "pinsel",
+    "wachsmalstift",
+    "tuschkasten",
+  ],
+  lineal: [
+    "geodreieck",
+    "zirkel",
+    "winkelmesser",
+  ],
+  stehsammler: [
+    "schulranzen",
+    "schulrucksack",
+    "ranzen",
+    "rucksack",
+    "federmappe",
+    "turnbeutel",
+  ],
+};
+
+function detectProductAliasCore(input: ProductKeywordInput): ProductAliasCore {
+  const productName = normalizeKeywordText(input.productName);
+  const productType = normalizeKeywordText(input.productType);
+  const category = normalizeKeywordText(input.category);
+  const combined = [productType, productName, category].filter(Boolean).join(" ");
+
+  if (
+    combined.includes("wachsmalstift") ||
+    combined.includes("wachsmalkreide") ||
+    combined.includes("malkreide")
+  ) {
+    return "wachsmalstifte";
+  }
+
+  if (combined.includes("filzstift")) return "filzstifte";
+  if (combined.includes("buntstift")) return "buntstifte";
+
+  if (
+    combined.includes("borstenpinsel") ||
+    combined.includes("haarpinsel") ||
+    combined.includes("pinsel")
+  ) {
+    return "pinsel";
+  }
+
+  if (
+    combined.includes("tuschkasten") ||
+    combined.includes("farbkasten") ||
+    combined.includes("schulmalfarben")
+  ) {
+    return "tuschkasten";
+  }
+
+  if (combined.includes("mischpalette")) return "mischpalette";
+
+  if (
+    combined.includes("federmappe") ||
+    combined.includes("federtasche") ||
+    combined.includes("schlampermappe")
+  ) {
+    return "federmappe";
+  }
+
+  if (
+    combined.includes("schnellhefter") ||
+    combined.includes("papphefter") ||
+    combined.includes("sammelmappe") ||
+    combined.includes("postmappe") ||
+    combined.includes("kunstmappe") ||
+    combined.includes("mappe") ||
+    combined.includes("hefter")
+  ) {
+    return "mappe";
+  }
+
+  if (
+    combined.includes("schreibheft") ||
+    combined.includes("hausaufgabenheft") ||
+    combined.includes("vokabelheft")
+  ) {
+    return "heft";
+  }
+
+  if (combined.includes("bastelschere") || combined.includes("schere")) return "schere";
+  if (combined.includes("klebestift") || combined.includes("kleber stift")) return "klebestift";
+  if (combined.includes("lineal")) return "lineal";
+  if (combined.includes("stehsammler")) return "stehsammler";
+
+  return null;
+}
+
+function isBlockedAliasForCore(alias: string, core: ProductAliasCore) {
+  if (!core) return false;
+
+  const normalizedAlias = normalizeKeywordText(alias);
+  const blockedTerms = BLOCKED_ALIAS_TERMS_BY_CORE[core] || [];
+
+  return blockedTerms.some((term) =>
+    normalizedAlias.includes(normalizeKeywordText(term))
+  );
+}
+
+function filterUnsafeAliasesForInput(input: ProductKeywordInput, aliases: string[]) {
+  const core = detectProductAliasCore(input);
+
+  return aliases.filter((alias) => !isBlockedAliasForCore(alias, core));
+}
+
 export function buildBookSizeAliases(input: {
   productName: string;
   bookWidthMm: number | null;
@@ -114,10 +354,10 @@ export function buildBookSizeAliases(input: {
     `${width} x ${height}`,
     `${width} ${height}`,
     `${width}x${height}`,
-    `Buchmaß ${sizeLabel}`,
+    `BuchmaÃŸ ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
-    `Buchhülle ${sizeLabel}`,
+    `BuchhÃ¼lle ${sizeLabel}`,
     `Buchhuelle ${sizeLabel}`,
     `Umschlag ${sizeLabel}`,
     `${input.productName} ${sizeLabel}`,
@@ -189,7 +429,10 @@ export function buildProductAliases(input: ProductKeywordInput) {
     }),
   ]);
 
-  return dedupeClean([...manualAliases, ...generatedAliases]);
+  return filterUnsafeAliasesForInput(
+    input,
+    dedupeClean([...manualAliases, ...generatedAliases])
+  );
 }
 
 export function buildProductMatchKeywords(input: ProductKeywordInput) {
@@ -210,7 +453,7 @@ export function buildProductMatchKeywords(input: ProductKeywordInput) {
     ...splitKeywordWords(input.bookSizeNote),
     ...aliases.flatMap((alias) => splitKeywordWords(alias)),
     bookWidthMm && bookHeightMm ? `${bookWidthMm}x${bookHeightMm}` : "",
-  ]);
+  ]).filter((keyword) => !isBlockedAliasForCore(keyword, detectProductAliasCore(input)));
 }
 
 export function buildProductKeywordData(
