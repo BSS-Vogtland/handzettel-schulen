@@ -98,7 +98,9 @@ function inferProductType(product: ProductRow) {
     ["Filzstifte", ["filzstift", "filzstifte"]],
     ["Buntstifte", ["buntstift", "buntstifte"]],
     ["Pinsel", ["borstenpinsel", "haarpinsel", "pinsel"]],
-    ["Tuschkasten", ["tuschkasten", "farbkasten", "schulmalfarben"]],
+    ["Tubenfarben", ["tubenfarben"]],
+    ["Tuschkasten", ["tuschkasten", "farbkasten"]],
+    ["Schulmalfarben", ["schulmalfarben"]],
     ["Mischpalette", ["mischpalette"]],
     ["Federmappe", ["federmappe", "federtasche", "schlampermappe"]],
     ["Schnellhefter", ["schnellhefter"]],
@@ -139,7 +141,7 @@ function inferProductType(product: ProductRow) {
 function inferCategory(product: ProductRow, inferredType: string) {
   const text = textFor(product) + " " + normalize(inferredType);
 
-  if (has(text, ["wachsmal", "pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "mischpalette", "schere"])) {
+  if (has(text, ["wachsmal", "pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "tubenfarben", "mischpalette", "schere"])) {
     return "Kunst";
   }
 
@@ -263,7 +265,7 @@ function buildSafeUpdates(product: ProductRow): AutoFixChange | null {
 
   if (!clean(product.product_type) && inferredType) {
     updates.product_type = inferredType;
-    reasons.push("Typ aus Produktname/SKU eindeutig erkannt");
+    reasons.push("Typ aus Produktname eindeutig erkannt");
   }
 
   if (!clean(product.category) && inferredCategory) {
