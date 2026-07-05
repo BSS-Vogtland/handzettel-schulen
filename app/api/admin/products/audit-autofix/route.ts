@@ -96,12 +96,17 @@ function inferProductType(product: ProductRow) {
   const checks: Array<[string, string[]]> = [
     ["Wachsmalstifte", ["wachsmalstift", "wachsmalstifte", "wachsmalkreide", "malkreide"]],
     ["Filzstifte", ["filzstift", "filzstifte"]],
+    ["Fineliner", ["fineliner"]],
+    ["Folienstift", ["folienstift", "folienstifte", "folienschreiber"]],
     ["Buntstifte", ["buntstift", "buntstifte"]],
     ["Pinsel", ["borstenpinsel", "haarpinsel", "pinsel"]],
     ["Tubenfarben", ["tubenfarben"]],
     ["Tuschkasten", ["tuschkasten", "farbkasten"]],
     ["Schulmalfarben", ["schulmalfarben"]],
     ["Mischpalette", ["mischpalette"]],
+    ["Knete", ["knete", "knetmasse"]],
+    ["Malschuerze", ["malschuerze", "malkittel"]],
+    ["Wasserbecher", ["wasserbecher", "malbecher"]],
     ["Federmappe", ["federmappe", "federtasche", "schlampermappe"]],
     ["Schnellhefter", ["schnellhefter"]],
     ["Papphefter", ["papphefter"]],
@@ -119,16 +124,30 @@ function inferProductType(product: ProductRow) {
     ["Klebestift", ["klebestift"]],
     ["Schere", ["bastelschere", "schere"]],
     ["Stehsammler", ["stehsammler"]],
+    ["Schuhbox", ["schuhbox"]],
+    ["Kopfhoerer", ["kopfhoerer", "kopfhörer"]],
     ["Schulranzen", ["schulranzen", "schulranzenset", "ranzen"]],
     ["Turnbeutel", ["turnbeutel"]],
+    ["Sportbeutel", ["sportbeutel"]],
     ["Bleistift", ["bleistift"]],
     ["Radiergummi", ["radiergummi"]],
     ["Spitzer", ["doppelanspitzer", "spitzer"]],
     ["Textmarker", ["textmarker"]],
     ["Fuellhalter", ["fueller", "fuller", "fuellhalter", "fullhalter"]],
+    ["Loeschblattblock", ["loeschblattblock", "löschblattblock", "loeschblock", "löschblock"]],
+    ["Schreibblock", ["schreibblock"]],
+    ["Schreiblernheft", ["schreiblernheft"]],
+    ["Schulblock", ["schulblock"]],
     ["Zeichenblock", ["zeichenblock"]],
     ["Malblock", ["malblock"]],
+    ["Millimeterpapier", ["millimeterpapier"]],
+    ["Tonzeichenkarton", ["tonzeichenkarton"]],
+    ["Zeichenkarton", ["zeichenkarton"]],
     ["Zeichenpapier", ["zeichenpapier"]],
+    ["Kurvenschablone", ["kurvenschablone"]],
+    ["Parabelschablone", ["parabel schablone", "parabelschablone"]],
+    ["Steckwuerfel", ["steckwuerfel", "steckwürfel"]],
+    ["Zeugnismappe", ["zeugnismappe", "zeugnis mappe"]],
   ];
 
   for (const [type, words] of checks) {
@@ -141,7 +160,7 @@ function inferProductType(product: ProductRow) {
 function inferCategory(product: ProductRow, inferredType: string) {
   const text = textFor(product) + " " + normalize(inferredType);
 
-  if (has(text, ["wachsmal", "pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "tubenfarben", "mischpalette", "schere"])) {
+  if (has(text, ["wachsmal", "pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "tubenfarben", "mischpalette", "schere", "knete", "malschuerze", "malkittel", "wasserbecher"])) {
     return "Kunst";
   }
 
@@ -157,7 +176,7 @@ function inferCategory(product: ProductRow, inferredType: string) {
     return "Mappen";
   }
 
-  if (has(text, ["lineal", "geodreieck", "zirkel", "zeichenblock", "zeichenpapier", "malblock"])) {
+  if (has(text, ["lineal", "geodreieck", "zirkel", "zeichenblock", "zeichenpapier", "malblock", "zeichenkarton", "tonzeichenkarton", "millimeterpapier", "kurvenschablone", "parabelschablone", "parabel schablone"])) {
     return "Zeichnen";
   }
 
@@ -165,11 +184,15 @@ function inferCategory(product: ProductRow, inferredType: string) {
     return "Kleben";
   }
 
-  if (has(text, ["bleistift", "radiergummi", "spitzer", "textmarker", "buntstift", "filzstift", "fueller", "fuellhalter"])) {
+  if (has(text, ["kopfhörer", "kopfhoerer"])) {
+    return "Technik";
+  }
+
+  if (has(text, ["bleistift", "radiergummi", "spitzer", "textmarker", "buntstift", "filzstift", "fineliner", "folienstift", "fueller", "fuellhalter"])) {
     return "Schreiben";
   }
 
-  if (has(text, ["stehsammler"])) {
+  if (has(text, ["stehsammler", "schuhbox", "zeugnismappe", "zeugnis mappe"])) {
     return "Organisation";
   }
 
@@ -177,8 +200,12 @@ function inferCategory(product: ProductRow, inferredType: string) {
     return "Schulranzen";
   }
 
-  if (has(text, ["turnbeutel"])) {
+  if (has(text, ["turnbeutel", "sportbeutel"])) {
     return "Sport";
+  }
+
+  if (has(text, ["steckwuerfel", "steckwürfel"])) {
+    return "Mathematik";
   }
 
   return "";
