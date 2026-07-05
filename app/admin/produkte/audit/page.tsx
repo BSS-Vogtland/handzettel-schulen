@@ -338,7 +338,7 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
     missing.push("Lineallaenge fehlt");
   }
 
-  if (isKlebestift && !includesAny(combined, ["gross", "grosser", "groß", "klein", "mittel"])) {
+  if (isKlebestift && !includesAny(combined, ["gross", "grosser", "groÃŸ", "klein", "mittel"])) {
     missing.push("Klebestift-Groesse fehlt");
   }
 
@@ -360,7 +360,7 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
   }
 
   if (unsafeAliases.length > 0) warnings.push("Gefaehrliche artverwandte Aliase vorhanden");
-  if (genericAliases.length > 0) warnings.push("Zu allgemeine Aliase vorhanden");
+  if (genericAliases.length > 0) missing.push("Zu allgemeine Aliase prüfen");
 
   const level: AuditLevel =
     warnings.length > 0 ? "danger" : missing.length > 0 || suggestions.length > 0 ? "warning" : "good";
