@@ -174,7 +174,6 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
   }
 
   const productSpecificSingles = compactParts([
-    category,
     format,
     color,
     lineature,
@@ -184,10 +183,16 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     return "Einzelnes Produktmerkmal als Alias";
   }
 
+  const isBroadCategory = category ? isExactOneOf(category, categoryWords) : false;
+
   const genericCombinations = [
-    compactParts([category, color]),
-    compactParts([category, format]),
-    compactParts([category, lineature]),
+    ...(isBroadCategory
+      ? [
+          compactParts([category, color]),
+          compactParts([category, format]),
+          compactParts([category, lineature]),
+        ]
+      : []),
     compactParts([format, color]),
     compactParts([format, lineature]),
     compactParts([color, lineature]),
