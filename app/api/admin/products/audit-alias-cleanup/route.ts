@@ -161,6 +161,11 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     return "Nur Format als Alias";
   }
 
+  const safeSingleColor =
+    color && tokenCount(color) === 1 && isExactOneOf(color, colorWords)
+      ? color
+      : "";
+
   if (isExactOneOf(alias, colorWords)) {
     return "Nur Farbe als Alias";
   }
@@ -175,7 +180,7 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
 
   const productSpecificSingles = compactParts([
     format,
-    color,
+    safeSingleColor,
     lineature,
   ]);
 
@@ -188,14 +193,14 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
   const genericCombinations = [
     ...(isBroadCategory
       ? [
-          compactParts([category, color]),
+          compactParts([category, safeSingleColor]),
           compactParts([category, format]),
           compactParts([category, lineature]),
         ]
       : []),
-    compactParts([format, color]),
+    compactParts([format, safeSingleColor]),
     compactParts([format, lineature]),
-    compactParts([color, lineature]),
+    compactParts([safeSingleColor, lineature]),
   ]
     .filter((parts) => parts.length >= 2)
     .map((parts) => parts.join(" "));
