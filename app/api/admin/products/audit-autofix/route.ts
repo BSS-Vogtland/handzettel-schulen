@@ -83,7 +83,6 @@ function textFor(product: ProductRow) {
     product.format,
     product.color,
     product.lineature,
-    getProductSku(product),
   ].join(" "));
 }
 
@@ -108,9 +107,10 @@ function inferProductType(product: ProductRow) {
     ["Sammelmappe", ["sammelmappe", "kunstmappe"]],
     ["Buchumschlag", ["buchumschlag", "buchhuelle", "buchhulle"]],
     ["Umschlag", ["heftumschlag", "umschlag"]],
+    ["Heftstreifen", ["heftstreifen", "aktendulli"]],
     ["Hausaufgabenheft", ["hausaufgabenheft"]],
     ["Vokabelheft", ["vokabelheft"]],
-    ["Schreibheft", ["schreibheft", "geometrie heft", "schulheft", "heft"]],
+    ["Schreibheft", ["schreibheft", "geometrie heft", "schulheft"]],
     ["Lineal", ["lineal"]],
     ["Geodreieck", ["geodreieck"]],
     ["Zirkel", ["zirkel"]],
@@ -143,7 +143,11 @@ function inferCategory(product: ProductRow, inferredType: string) {
     return "Kunst";
   }
 
-  if (has(text, ["schreibheft", "hausaufgabenheft", "vokabelheft", "heft", "umschlag", "buchumschlag"])) {
+  if (has(text, ["heftstreifen", "aktendulli"])) {
+    return "Organisation";
+  }
+
+  if (has(text, ["schreibheft", "hausaufgabenheft", "vokabelheft", "schulheft", "umschlag", "buchumschlag"])) {
     return "Hefte";
   }
 
@@ -222,6 +226,10 @@ function inferColor(product: ProductRow) {
 function isLineatureRelevant(type: string, product: ProductRow) {
   const text = textFor(product) + " " + normalize(type);
 
+  if (has(text, ["ringhefter", "heftstreifen", "aktendulli", "schnellhefter", "papphefter"])) {
+    return false;
+  }
+
   return has(text, [
     "schreibheft",
     "hausaufgabenheft",
@@ -229,7 +237,6 @@ function isLineatureRelevant(type: string, product: ProductRow) {
     "schulheft",
     "geometrie heft",
     "lineatur",
-    "heft",
   ]);
 }
 
@@ -241,9 +248,7 @@ function inferLineature(product: ProductRow, inferredType: string) {
 
   if (match?.[2]) return match[2];
 
-  const bracketMatch = text.match(/\b(0|1|2|3|4|5|6|7|8f|9|10|20|25|26|27|28)\b/);
-
-  return bracketMatch?.[1] || "";
+  return "";
 }
 
 function buildSafeUpdates(product: ProductRow): AutoFixChange | null {
