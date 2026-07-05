@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabase
       .from("school_products")
-      .select("id, name, product_name, sku, product_sku, category, product_type, format, color, lineature")
+      .select("*")
       .order("name", { ascending: true });
 
     if (error) {
@@ -371,13 +371,19 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
+    console.error("product audit autofix error:", error);
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null
+          ? JSON.stringify(error)
+          : "Produktdaten-Autofix fehlgeschlagen.";
+
     return NextResponse.json(
       {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Produktdaten-Autofix fehlgeschlagen.",
+        message: errorMessage,
       },
       { status: 500 }
     );
