@@ -229,9 +229,8 @@ function getSafeAliasDeletionReason(aliasValue: string, product: ProductRow) {
     return "Nur Farbe als Alias";
   }
 
-  if (/^\d{1,2}\s*farben$/.test(alias)) {
-    return "Nur Farbanzahl als Alias";
-  }
+  // Farbanzahlen wie "12 Farben" oder "20 Farben" koennen bei Sets relevant sein.
+  // Deshalb nicht pauschal automatisch loeschen.
 
   if (/^\d{1,2}$/.test(alias)) {
     return "Nur Zahl/Lineatur als Alias";
