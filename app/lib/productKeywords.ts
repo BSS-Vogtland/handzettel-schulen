@@ -327,10 +327,78 @@ function isBlockedAliasForCore(alias: string, core: ProductAliasCore) {
   );
 }
 
+function isSkuAlias(alias: string, input: ProductKeywordInput) {
+  const normalizedAlias = normalizeKeywordText(alias);
+  const normalizedSku = normalizeKeywordText(input.productSku);
+
+  return Boolean(normalizedSku && normalizedAlias.includes(normalizedSku));
+}
+
+function isGenericGeneratedAliasForInput(alias: string, input: ProductKeywordInput) {
+  const normalizedAlias = normalizeKeywordText(alias);
+
+  if (!normalizedAlias) return true;
+  if (isSkuAlias(alias, input)) return false;
+
+  const productName = normalizeKeywordText(input.productName);
+  const productType = normalizeKeywordText(input.productType);
+  const category = normalizeKeywordText(input.category);
+  const format = normalizeKeywordText(input.format);
+  const color = normalizeKeywordText(input.color);
+  const lineature = normalizeKeywordText(input.lineature);
+
+  const genericSingleValues = new Set(
+    [category, format, color, lineature]
+      .filter(Boolean)
+  );
+
+  if (genericSingleValues.has(normalizedAlias)) {
+    return true;
+  }
+
+  if (/^\\d{1,2} farben$/.test(normalizedAlias)) {
+    return true;
+  }
+
+  const genericCombinations = [
+    [category, color],
+    [category, format],
+    [category, lineature],
+    [format, color],
+    [format, lineature],
+    [color, lineature],
+  ]
+    .filter((parts) => parts.every(Boolean))
+    .map((parts) => parts.join(" "));
+
+  if (genericCombinations.includes(normalizedAlias)) {
+    return true;
+  }
+
+  if (
+    category &&
+    normalizedAlias.startsWith(category + " ") &&
+    productType &&
+    !normalizedAlias.includes(productType) &&
+    !normalizedAlias.includes(productName)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+
 function filterUnsafeAliasesForInput(input: ProductKeywordInput, aliases: string[]) {
   const core = detectProductAliasCore(input);
 
-  return aliases.filter((alias) => !isBlockedAliasForCore(alias, core));
+  return aliases.filter((alias) => {
+    if (isBlockedAliasForCore(alias, core)) return false;
+    if (isGenericGeneratedAliasForInput(alias, input)) return false;
+
+    return true;
+  });
 }
 
 export function buildBookSizeAliases(input: {
