@@ -31,10 +31,10 @@ export function normalizeKeywordText(value: unknown) {
     .replace(/\u00f6/g, "oe")
     .replace(/\u00fc/g, "ue")
     .replace(/\u00df/g, "ss")
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ÃƒÆ’Ã‚Â¤/g, "ae")
+    .replace(/ÃƒÆ’Ã‚Â¶/g, "oe")
+    .replace(/ÃƒÆ’Ã‚Â¼/g, "ue")
+    .replace(/ÃƒÆ’Ã…Â¸/g, "ss")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -356,7 +356,7 @@ function isGenericGeneratedAliasForInput(alias: string, input: ProductKeywordInp
     return true;
   }
 
-  if (/^\\d{1,2} farben$/.test(normalizedAlias)) {
+  if (/^\d{1,2} farben$/.test(normalizedAlias)) {
     return true;
   }
 
@@ -422,10 +422,10 @@ export function buildBookSizeAliases(input: {
     `${width} x ${height}`,
     `${width} ${height}`,
     `${width}x${height}`,
-    `BuchmaÃŸ ${sizeLabel}`,
+    `BuchmaÃƒÅ¸ ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
-    `BuchhÃ¼lle ${sizeLabel}`,
+    `BuchhÃƒÂ¼lle ${sizeLabel}`,
     `Buchhuelle ${sizeLabel}`,
     `Umschlag ${sizeLabel}`,
     `${input.productName} ${sizeLabel}`,
