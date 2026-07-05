@@ -128,11 +128,14 @@ function containsAnyText(text: string, needles: string[]) {
 }
 
 function hasPinselNumber(text: string) {
-  return /\b(nr|nummer)?\s*(1|2|3|4|5|6|8|10|12)\b/.test(text);
+  return (
+    /\bpinsel\s*(nr|nummer)?\s*([1-9]|[12][0-9]|30)\b/.test(text) ||
+    /\b(nr|nummer)\s*([1-9]|[12][0-9]|30)\b/.test(text)
+  );
 }
 
 function hasLinealLength(text: string) {
-  return /\b(15|16|17|30)\s*cm\b/.test(text) || /\b(15|16|17|30)\b/.test(text);
+  return /\b(10|15|16|17|20|30)\s*cm\b/.test(text) || /\b(10|15|16|17|20|30)\b/.test(text);
 }
 
 function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResult {
@@ -164,15 +167,21 @@ function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResul
     missing.push("Kernartikel / Typ fehlt. Ohne Typ ist das Matching deutlich unsicherer.");
   }
 
-  const isHeft = containsAnyText(combined, [
+  const auditText = [productName, category, productType, format, color, lineature]
+    .filter(Boolean)
+    .join(" ");
+
+  const isUmschlag = containsAnyText(auditText, ["umschlag", "buchumschlag", "heftumschlag", "buchfolie"]);
+  const isHeft = containsAnyText(auditText, [
     "schreibheft",
+    "schulheft",
+    "geometrie heft",
     "hausaufgabenheft",
     "vokabelheft",
     "notizheft",
-    "heft lineatur",
   ]);
 
-  const isMappe = containsAnyText(combined, [
+  const isMappe = containsAnyText(auditText, [
     "schnellhefter",
     "papphefter",
     "sammelmappe",
@@ -181,10 +190,11 @@ function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResul
     "hefter",
   ]);
 
-  const isFedermappe = containsAnyText(combined, ["federmappe", "federtasche", "schlampermappe"]);
-  const isPinsel = containsAnyText(combined, ["pinsel", "borstenpinsel", "haarpinsel"]);
-  const isLineal = containsAnyText(combined, ["lineal"]);
-  const isKlebestift = containsAnyText(combined, ["klebestift", "kleber stift"]);
+  const isFedermappe = containsAnyText(auditText, ["federmappe", "federtasche", "schlampermappe"]);
+  const isPinsel = containsAnyText(auditText, ["pinsel", "borstenpinsel", "haarpinsel"]);
+  const isPinselSortiment = containsAnyText(auditText, ["pinselsortiment", "pinsel sortiment", "pinselset", "pinsel set", "sortiment"]);
+  const isLineal = containsAnyText(auditText, ["lineal"]);
+  const isKlebestift = containsAnyText(auditText, ["klebestift", "kleber stift"]);
   const isWachsmalstift = containsAnyText(combined, ["wachsmalstift", "wachsmalstifte"]);
   const isTuschkasten = containsAnyText(combined, ["tuschkasten", "farbkasten", "schulmalfarben"]);
   const isSchere = containsAnyText(combined, ["schere", "bastelschere"]);
@@ -204,7 +214,7 @@ function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResul
     }
   }
 
-  if (isMappe && !isFedermappe) {
+  if ((isMappe || isUmschlag) && !isFedermappe) {
     if (format) {
       positives.push("Format ist fuer Mappen-/Hefter-Matching gepflegt.");
     } else {
@@ -218,7 +228,7 @@ function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResul
     }
   }
 
-  if (isPinsel) {
+  if (isPinsel && !isPinselSortiment) {
     if (hasPinselNumber(combined)) {
       positives.push("Pinselnummer ist erkennbar.");
     } else {
@@ -250,8 +260,11 @@ function buildMatchingQuality(input: MatchingQualityInput): MatchingQualityResul
     warnings.push("Mappe/Hefter ist mit Federmappe/Federtasche vermischt.");
   }
 
-  if (containsAnyText(combined, ["schnellhefter", "papphefter"]) && containsAnyText(combined, ["schreibheft", "hausaufgabenheft", "lineatur"])) {
-    warnings.push("Hefter-Begriffe sind mit Schreibheft-/Lineatur-Begriffen vermischt.");
+  if (
+    containsAnyText(auditText, ["schnellhefter", "papphefter"]) &&
+    containsAnyText(combined, ["schreibheft", "schulheft", "hausaufgabenheft", "vokabelheft"])
+  ) {
+    warnings.push("Hefter-Begriffe sind mit echten Schreibheft-Begriffen vermischt.");
   }
 
   if (isWachsmalstift && containsAnyText(combined, ["pinsel", "tuschkasten", "farbkasten", "schulmalfarben", "mischpalette"])) {
