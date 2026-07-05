@@ -204,7 +204,7 @@ function inferColor(product: ProductRow) {
 
 function inferLineature(product: ProductRow) {
   const text = normalize(getProductName(product));
-  const match = text.match(/\b(lineatur|lin|nr|nummer)\s*(0|1|2|3|4|5|7|8f|20|27|28)\b/);
+  const match = text.match(/\b(lineatur|lin|nr|nummer)\s*(0|1|2|3|4|5|6|7|8f|9|10|20|25|26|27|28|dm|sl)\b/);
 
   return match?.[2] || "";
 }
@@ -299,12 +299,16 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
   const combined = normalize([getProductName(product), category, productType, format, color, lineature].join(" "));
   const effectiveType = normalize(productType || inferredType);
 
-  const isHeft = includesAny(effectiveType + " " + combined, ["schreibheft", "hausaufgabenheft", "vokabelheft", "umschlag"]);
-  const isMappe = includesAny(effectiveType + " " + combined, ["schnellhefter", "papphefter", "sammelmappe", "postmappe", "kunstmappe"]);
-  const isFedermappe = includesAny(effectiveType + " " + combined, ["federmappe", "federtasche", "schlampermappe"]);
-  const isPinsel = includesAny(effectiveType + " " + combined, ["pinsel"]);
-  const isLineal = includesAny(effectiveType + " " + combined, ["lineal"]);
-  const isKlebestift = includesAny(effectiveType + " " + combined, ["klebestift"]);
+  const auditText = effectiveType + " " + combined;
+  const isUmschlag = includesAny(auditText, ["umschlag", "buchumschlag", "heftumschlag", "buchfolie"]);
+  const isTrueLineatureHeft = includesAny(auditText, ["schreibheft", "schulheft", "geometrie heft"]);
+  const isHeft = isTrueLineatureHeft || includesAny(auditText, ["hausaufgabenheft", "vokabelheft"]) || isUmschlag;
+  const isMappe = includesAny(auditText, ["schnellhefter", "papphefter", "sammelmappe", "postmappe", "kunstmappe"]);
+  const isFedermappe = includesAny(auditText, ["federmappe", "federtasche", "schlampermappe"]);
+  const isPinsel = includesAny(auditText, ["pinsel"]);
+  const isLineal = includesAny(auditText, ["lineal"]);
+  const isKlebestift = includesAny(auditText, ["klebestift"]);
+  const needsLineature = isTrueLineatureHeft;
 
   if ((isHeft || isMappe) && !isFedermappe) {
     if (format) positives.push("Format gepflegt");
@@ -314,7 +318,7 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
     }
   }
 
-  if (isMappe && !isFedermappe) {
+  if ((isMappe || isUmschlag) && !isFedermappe) {
     if (color) positives.push("Farbe gepflegt");
     else {
       missing.push("Farbe fehlt");
@@ -322,7 +326,7 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
     }
   }
 
-  if (isHeft) {
+  if (needsLineature) {
     if (lineature) positives.push("Lineatur gepflegt");
     else {
       missing.push("Lineatur fehlt");
@@ -330,11 +334,15 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
     }
   }
 
-  if (isPinsel && !/\b(nr|nummer)?\s*(1|2|3|4|5|6|8|9|10|12)\b/.test(combined)) {
+  const hasPinselNumber =
+    /\bpinsel\s*(nr|nummer)?\s*([1-9]|[12][0-9]|30)\b/.test(combined) ||
+    /\b(nr|nummer)\s*([1-9]|[12][0-9]|30)\b/.test(combined);
+
+  if (isPinsel && !hasPinselNumber) {
     missing.push("Pinselnummer fehlt");
   }
 
-  if (isLineal && !/\b(15|16|17|30)\s*cm\b|\b(15|16|17|30)\b/.test(combined)) {
+  if (isLineal && !/\b(10|15|16|17|20|30)\s*cm\b|\b(10|15|16|17|20|30)\b/.test(combined)) {
     missing.push("Lineallaenge fehlt");
   }
 
