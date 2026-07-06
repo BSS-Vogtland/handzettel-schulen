@@ -1314,12 +1314,14 @@ const persistedOpenPositionDecision =
       ? ("team" as const)
       : null);
 
-  const shouldGateCustomerOpenPositionDecision =
-    !isConfirmed &&
-    hasOpenCustomerBlockingItems &&
-    customerOpenPositionDecision !== "self";
+const customerOpenPositionScreenMode =
+    !isConfirmed && openDecisionItemCount > 0
+      ? customerOpenPositionDecision === "self"
+        ? ("self" as const)
+        : ("decision" as const)
+      : ("package" as const);
 
-if (shouldGateCustomerOpenPositionDecision) {
+  if (customerOpenPositionScreenMode === "decision") {
     return (
       <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
         <CustomerOfferPresenceHeartbeat token={token} context="offer_page" />
@@ -1390,7 +1392,12 @@ if (shouldGateCustomerOpenPositionDecision) {
     );
   }
 
-  const isFreshBeforeAnalysis =
+  const shouldGateCustomerOpenPositionDecision =
+    !isConfirmed &&
+    hasOpenCustomerBlockingItems &&
+    customerOpenPositionDecision !== "self";
+
+const isFreshBeforeAnalysis =
     !isConfirmed &&
     hasNoRecognizedItems &&
     !isManualReviewState &&
