@@ -60,6 +60,133 @@ function getFirstCleanString(
   return null;
 }
 
+
+type UploadedChildInput = {
+  clientId: string;
+  label: string | null;
+  childName: string | null;
+  schoolName: string | null;
+  className: string | null;
+  sortOrder: number;
+  fileFieldKey: string;
+};
+
+function cleanNullableStringValue(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
+}
+
+function parseUploadedChildren(formData: FormData): UploadedChildInput[] {
+  const raw = cleanString(formData.get("children"));
+
+  if (!raw) return [];
+
+  let parsed: unknown = null;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((entry, index) => {
+      const record = entry as Record<string, unknown>;
+      const clientId =
+        cleanNullableStringValue(record.clientId) || `child-${index + 1}`;
+      const label = cleanNullableStringValue(record.label);
+      const childName = cleanNullableStringValue(record.childName);
+      const schoolName = cleanNullableStringValue(record.schoolName);
+      const className = cleanNullableStringValue(record.className);
+      const fileFieldKey =
+        cleanNullableStringValue(record.fileFieldKey) || `childFile_${clientId}`;
+      const sortOrderValue = Number(record.sortOrder);
+      const sortOrder =
+        Number.isFinite(sortOrderValue) && sortOrderValue > 0
+          ? Math.floor(sortOrderValue)
+          : index + 1;
+
+      return {
+        clientId,
+        label: label || childName || `Kind ${index + 1}`,
+        childName,
+        schoolName,
+        className,
+        sortOrder,
+        fileFieldKey,
+      };
+    })
+    .filter((entry) => entry.childName || entry.label);
+}
+
+function getFileFromFormData(formData: FormData, key: string) {
+  const value = formData.get(key);
+
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+function validateUploadFile(file: File) {
+  if (file.size <= 0) {
+    return "Die hochgeladene Datei ist leer.";
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return "Die Datei darf maximal 20 MB gross sein.";
+  }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return "Dieses Dateiformat wird noch nicht unterstuetzt. Bitte nutze PDF, JPG, PNG, WEBP oder ein Handyfoto.";
+  }
+
+  return null;
+}
+
+async function uploadRequestFile(input: {
+  requestId: string;
+  childId: string | null;
+  file: File;
+  source: string;
+}) {
+  const extension = getFileExtension(input.file.name);
+  const safeFileName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const storagePath = `${input.requestId}/${safeFileName}`;
+  const arrayBuffer = await input.file.arrayBuffer();
+
+  const { error: uploadError } = await supabaseServer.storage
+    .from("school-request-files")
+    .upload(storagePath, arrayBuffer, {
+      contentType: input.file.type,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Datei konnte nicht gespeichert werden: ${uploadError.message}`);
+  }
+
+  const { error: fileRowError } = await supabaseServer
+    .from("school_request_files")
+    .insert({
+      request_id: input.requestId,
+      child_id: input.childId,
+      storage_path: storagePath,
+      file_url: storagePath,
+      original_filename: input.file.name,
+      file_type: input.file.type,
+      file_size: input.file.size,
+      source: input.source,
+    });
+
+  if (fileRowError) {
+    throw new Error(
+      `Datei wurde gespeichert, aber nicht sauber verknuepft: ${fileRowError.message}`
+    );
+  }
+
+  return storagePath;
+}
+
 function looksLikeEmail(value: string | null) {
   if (!value) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -488,60 +615,82 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
 
-    const file = formData.get("file");
-
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { ok: false, message: "Bitte lade eine Datei hoch." },
-        { status: 400 }
-      );
-    }
-
-    if (file.size <= 0) {
-      return NextResponse.json(
-        { ok: false, message: "Die hochgeladene Datei ist leer." },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { ok: false, message: "Die Datei darf maximal 20 MB groß sein." },
-        { status: 400 }
-      );
-    }
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "Dieses Dateiformat wird noch nicht unterstützt. Bitte nutze PDF, JPG, PNG, WEBP oder ein Handyfoto.",
-        },
-        { status: 400 }
-      );
-    }
-
     const customerName = getFirstCleanString(formData, [
       "customer_name",
       "customerName",
       "name",
     ]);
 
-    const childName = getFirstCleanString(formData, [
+    const uploadedChildrenFromForm = parseUploadedChildren(formData);
+    const legacyFile = getFileFromFormData(formData, "file");
+
+    const legacyChildName = getFirstCleanString(formData, [
       "child_name",
       "childName",
     ]);
 
-    const className = getFirstCleanString(formData, [
+    const legacyClassName = getFirstCleanString(formData, [
       "class_name",
       "className",
     ]);
 
-    const schoolName = getFirstCleanString(formData, [
+    const legacySchoolName = getFirstCleanString(formData, [
       "school_name",
       "schoolName",
     ]);
+
+    const uploadedChildren =
+      uploadedChildrenFromForm.length > 0
+        ? uploadedChildrenFromForm
+        : [
+            {
+              clientId: "legacy-child-1",
+              label: legacyChildName || "Kind 1",
+              childName: legacyChildName,
+              schoolName: legacySchoolName,
+              className: legacyClassName,
+              sortOrder: 1,
+              fileFieldKey: "file",
+            },
+          ];
+
+    const childrenWithFiles = uploadedChildren
+      .map((child) => {
+        const file =
+          getFileFromFormData(formData, child.fileFieldKey) ||
+          (child.fileFieldKey === "file" ? legacyFile : null);
+
+        return {
+          child,
+          file,
+        };
+      })
+      .filter((entry): entry is { child: UploadedChildInput; file: File } =>
+        Boolean(entry.file)
+      );
+
+    if (childrenWithFiles.length === 0) {
+      return NextResponse.json(
+        { ok: false, message: "Bitte lade mindestens eine Datei hoch." },
+        { status: 400 }
+      );
+    }
+
+    for (const entry of childrenWithFiles) {
+      const validationMessage = validateUploadFile(entry.file);
+
+      if (validationMessage) {
+        return NextResponse.json(
+          { ok: false, message: validationMessage },
+          { status: 400 }
+        );
+      }
+    }
+
+    const firstChild = childrenWithFiles[0].child;
+    const childName = firstChild.childName || firstChild.label;
+    const className = firstChild.className;
+    const schoolName = firstChild.schoolName;
 
     const contact = cleanString(formData.get("contact"));
     const rawEmail = cleanString(formData.get("email"));
@@ -595,60 +744,76 @@ export async function POST(request: Request) {
       );
     }
 
-    const extension = getFileExtension(file.name);
-    const safeFileName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const storagePath = `${createdRequest.id}/${safeFileName}`;
+    const childRows = uploadedChildren.map((child, index) => ({
+      request_id: createdRequest.id,
+      sort_order: child.sortOrder || index + 1,
+      label: child.label || child.childName || `Kind ${index + 1}`,
+      child_name: child.childName,
+      school_name: child.schoolName,
+      class_name: child.className,
+      source: "customer_upload",
+    }));
 
-    const arrayBuffer = await file.arrayBuffer();
+    const { data: createdChildren, error: childrenError } = await supabaseServer
+      .from("school_request_children")
+      .insert(childRows)
+      .select("id, label, child_name, school_name, class_name, sort_order");
 
-    const { error: uploadError } = await supabaseServer.storage
-      .from("school-request-files")
-      .upload(storagePath, arrayBuffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("storage upload error:", uploadError);
+    if (childrenError || !createdChildren) {
+      console.error("school_request_children insert error:", childrenError);
 
       return NextResponse.json(
         {
           ok: false,
-          message: "Die Datei konnte nicht gespeichert werden.",
+          message:
+            "Die Anfrage wurde gespeichert, aber die Kinder konnten nicht sauber angelegt werden.",
         },
         { status: 500 }
       );
     }
 
-    const { error: fileRowError } = await supabaseServer
-      .from("school_request_files")
-      .insert({
-        request_id: createdRequest.id,
-        storage_path: storagePath,
-        file_url: storagePath,
-        original_filename: file.name,
-        file_type: file.type,
-        file_size: file.size,
+    const childIdBySortOrder = new Map<number, string>();
+
+    for (const child of createdChildren) {
+      const sortOrder = Number(child.sort_order || 0);
+      if (sortOrder > 0 && child.id) {
+        childIdBySortOrder.set(sortOrder, child.id);
+      }
+    }
+
+    const uploadedFiles: Array<{
+      childLabel: string;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+    }> = [];
+
+    for (const entry of childrenWithFiles) {
+      const childId = childIdBySortOrder.get(entry.child.sortOrder) || null;
+
+      await uploadRequestFile({
+        requestId: createdRequest.id,
+        childId,
+        file: entry.file,
         source: "website",
       });
 
-    if (fileRowError) {
-      console.error("school_request_files insert error:", fileRowError);
-
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Die Datei wurde gespeichert, aber nicht sauber verknüpft.",
-        },
-        { status: 500 }
-      );
+      uploadedFiles.push({
+        childLabel: entry.child.label || entry.child.childName || "Kind",
+        fileName: entry.file.name,
+        fileType: entry.file.type,
+        fileSize: entry.file.size,
+      });
     }
 
     await saveRequestEvent({
       requestId: createdRequest.id,
       eventType: "request_received",
       title: "Materialliste eingegangen",
-      description: "Die Materialliste wurde über die Website hochgeladen.",
+      description:
+        uploadedFiles.length > 1
+          ? `${uploadedFiles.length} Materiallisten wurden ueber die Website hochgeladen.`
+          : "Die Materialliste wurde ueber die Website hochgeladen.",
       metadata: {
         customerName,
         childName,
@@ -657,14 +822,20 @@ export async function POST(request: Request) {
         contact,
         email,
         phone,
-        originalFilename: file.name,
-        fileType: file.type,
-        fileSize: file.size,
+        children: uploadedChildren.map((child) => ({
+          label: child.label,
+          childName: child.childName,
+          schoolName: child.schoolName,
+          className: child.className,
+          sortOrder: child.sortOrder,
+        })),
+        uploadedFiles,
       },
     });
 
     const siteUrl = getSiteUrl();
     const offerUrl = `${siteUrl}/angebot/${createdRequest.offer_token}`;
+    const firstFile = childrenWithFiles[0].file;
 
     await sendAdminUploadNotificationSafely({
       requestId: createdRequest.id,
@@ -677,15 +848,25 @@ export async function POST(request: Request) {
       email,
       phone,
       contact,
-      message,
-      originalFilename: file.name,
-      fileType: file.type,
-      fileSize: file.size,
+      message:
+        uploadedFiles.length > 1
+          ? [
+              message,
+              `Mehrkind-Upload: ${uploadedFiles
+                .map((file) => `${file.childLabel}: ${file.fileName}`)
+                .join(", ")}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : message,
+      originalFilename: firstFile.name,
+      fileType: firstFile.type,
+      fileSize: firstFile.size,
     });
 
     let emailSent = false;
     let emailMessage: string | null = email
-      ? "Kundenmail nach Upload bewusst deaktiviert. Die nächste Kundenmail erfolgt erst, wenn der Paketwunsch fertig ist oder nach verbindlicher Bestellung mit Rechnung."
+      ? "Kundenmail nach Upload bewusst deaktiviert. Die naechste Kundenmail erfolgt erst, wenn der Paketwunsch fertig ist oder nach verbindlicher Bestellung mit Rechnung."
       : "Es wurde keine E-Mail-Adresse angegeben. Es wurde keine Kundenmail versendet.";
 
     return NextResponse.json({
@@ -698,6 +879,8 @@ export async function POST(request: Request) {
       redirectUrl: `/angebot/${createdRequest.offer_token}`,
       emailSent,
       emailMessage,
+      childCount: createdChildren.length,
+      fileCount: uploadedFiles.length,
     });
   } catch (error) {
     console.error("upload route error:", error);

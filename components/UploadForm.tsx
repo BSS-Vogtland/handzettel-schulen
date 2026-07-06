@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   FileText,
   Loader2,
+  Plus,
   ShieldCheck,
+  Trash2,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -16,10 +18,19 @@ type UploadResponse = {
   ok?: boolean;
   message?: string;
   offerUrl?: string;
+  redirectUrl?: string;
   token?: string;
   offerToken?: string;
   requestId?: string;
   requestNumber?: string;
+};
+
+type ChildUploadFormState = {
+  id: string;
+  childName: string;
+  schoolName: string;
+  className: string;
+  file: File | null;
 };
 
 const MAX_FILE_SIZE_MB = 20;
@@ -29,6 +40,16 @@ const ACCEPTED_FILE_TYPES = [
   "image/webp",
   "application/pdf",
 ];
+
+function createChildState(index: number): ChildUploadFormState {
+  return {
+    id: `child-${Date.now()}-${Math.random().toString(16).slice(2)}-${index}`,
+    childName: "",
+    schoolName: "",
+    className: "",
+    file: null,
+  };
+}
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) {
@@ -42,7 +63,6 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-
 function getStoredLeadSource() {
   if (typeof window === "undefined") return "website";
 
@@ -52,43 +72,84 @@ function getStoredLeadSource() {
     return "website";
   }
 }
+
+function getFileInputId(childId: string) {
+  return `school-list-file-${childId}`;
+}
+
+function TrustItem({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-3 py-3 text-sm font-semibold leading-5 text-[#52616F]">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2F7D50]" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
 export default function UploadForm() {
   const router = useRouter();
 
   const [customerName, setCustomerName] = useState("");
-  const [childName, setChildName] = useState("");
-  const [schoolName, setSchoolName] = useState("");
-  const [className, setClassName] = useState("");
+  const [children, setChildren] = useState<ChildUploadFormState[]>([
+    createChildState(1),
+  ]);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [file, setFile] = useState<File | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const filePreviewLabel = useMemo(() => {
-    if (!file) return "JPG, PNG, WEBP oder PDF hochladen";
+  const uploadedChildCount = useMemo(
+    () => children.filter((child) => child.file).length,
+    [children]
+  );
 
-    return `${file.name} · ${formatFileSize(file.size)}`;
-  }, [file]);
+  function updateChild(
+    childId: string,
+    patch: Partial<Omit<ChildUploadFormState, "id">>
+  ) {
+    setChildren((current) =>
+      current.map((child) =>
+        child.id === childId ? { ...child, ...patch } : child
+      )
+    );
+  }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  function addChild() {
+    setChildren((current) => [...current, createChildState(current.length + 1)]);
+  }
+
+  function removeChild(childId: string) {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    setChildren((current) => {
+      if (current.length <= 1) return current;
+
+      return current.filter((child) => child.id !== childId);
+    });
+  }
+
+  function handleChildFileChange(
+    childId: string,
+    event: ChangeEvent<HTMLInputElement>
+  ) {
     const selectedFile = event.target.files?.[0] || null;
 
     setErrorMessage(null);
     setSuccessMessage(null);
 
     if (!selectedFile) {
-      setFile(null);
+      updateChild(childId, { file: null });
       return;
     }
 
     if (!ACCEPTED_FILE_TYPES.includes(selectedFile.type)) {
-      setFile(null);
+      updateChild(childId, { file: null });
       setErrorMessage(
-        "Bitte lade Deine Schulmaterialliste als JPG, PNG, WEBP oder PDF hoch."
+        "Bitte lade die Schulmaterialliste als JPG, PNG, WEBP oder PDF hoch."
       );
       event.target.value = "";
       return;
@@ -97,24 +158,24 @@ export default function UploadForm() {
     const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
 
     if (selectedFile.size > maxBytes) {
-      setFile(null);
+      updateChild(childId, { file: null });
       setErrorMessage(
-        `Die Datei ist zu groß. Bitte lade maximal ${MAX_FILE_SIZE_MB} MB hoch.`
+        `Die Datei ist zu gross. Bitte lade maximal ${MAX_FILE_SIZE_MB} MB hoch.`
       );
       event.target.value = "";
       return;
     }
 
-    setFile(selectedFile);
+    updateChild(childId, { file: selectedFile });
   }
 
-  function removeFile() {
-    setFile(null);
+  function removeChildFile(childId: string) {
+    updateChild(childId, { file: null });
     setErrorMessage(null);
     setSuccessMessage(null);
 
     const input = document.getElementById(
-      "school-list-file"
+      getFileInputId(childId)
     ) as HTMLInputElement | null;
 
     if (input) {
@@ -130,8 +191,18 @@ export default function UploadForm() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!file) {
-      setErrorMessage("Bitte lade zuerst Deine Schulmaterialliste hoch.");
+    const normalizedChildren = children.map((child, index) => ({
+      ...child,
+      label: child.childName.trim() || `Kind ${index + 1}`,
+      childName: child.childName.trim(),
+      schoolName: child.schoolName.trim(),
+      className: child.className.trim(),
+    }));
+
+    if (normalizedChildren.every((child) => !child.file)) {
+      setErrorMessage(
+        "Bitte lade mindestens eine Schulmaterialliste fuer ein Kind hoch."
+      );
       return;
     }
 
@@ -140,8 +211,14 @@ export default function UploadForm() {
       return;
     }
 
-    if (!childName.trim()) {
-      setErrorMessage("Bitte gib den Namen Deines Kindes ein.");
+    const firstChildWithoutName = normalizedChildren.find(
+      (child) => child.file && !child.childName
+    );
+
+    if (firstChildWithoutName) {
+      setErrorMessage(
+        "Bitte gib fuer jede hochgeladene Liste den Namen des Kindes ein."
+      );
       return;
     }
 
@@ -151,24 +228,26 @@ export default function UploadForm() {
     }
 
     if (!isValidEmail(email)) {
-      setErrorMessage("Bitte gib eine gültige E-Mail-Adresse ein.");
+      setErrorMessage("Bitte gib eine gueltige E-Mail-Adresse ein.");
       return;
     }
 
     const cleanEmail = email.trim();
     const cleanPhone = phone.trim();
+    const firstUploadedChild =
+      normalizedChildren.find((child) => child.file) || normalizedChildren[0];
 
     const formData = new FormData();
 
-    formData.append("file", file);
     formData.append("customerName", customerName.trim());
     formData.append("customer_name", customerName.trim());
-    formData.append("childName", childName.trim());
-    formData.append("child_name", childName.trim());
-    formData.append("schoolName", schoolName.trim());
-    formData.append("school_name", schoolName.trim());
-    formData.append("className", className.trim());
-    formData.append("class_name", className.trim());
+
+    formData.append("childName", firstUploadedChild.childName);
+    formData.append("child_name", firstUploadedChild.childName);
+    formData.append("schoolName", firstUploadedChild.schoolName);
+    formData.append("school_name", firstUploadedChild.schoolName);
+    formData.append("className", firstUploadedChild.className);
+    formData.append("class_name", firstUploadedChild.className);
 
     formData.append("email", cleanEmail);
     formData.append("customer_email", cleanEmail);
@@ -179,6 +258,32 @@ export default function UploadForm() {
 
     formData.append("message", message.trim());
     formData.append("source", getStoredLeadSource());
+
+    formData.append(
+      "children",
+      JSON.stringify(
+        normalizedChildren.map((child, index) => ({
+          clientId: child.id,
+          label: child.label,
+          childName: child.childName,
+          schoolName: child.schoolName,
+          className: child.className,
+          sortOrder: index + 1,
+          hasFile: Boolean(child.file),
+          fileFieldKey: `childFile_${child.id}`,
+        }))
+      )
+    );
+
+    for (const child of normalizedChildren) {
+      if (!child.file) continue;
+
+      formData.append(`childFile_${child.id}`, child.file);
+
+      if (child.id === firstUploadedChild.id) {
+        formData.append("file", child.file);
+      }
+    }
 
     setIsSubmitting(true);
 
@@ -196,29 +301,30 @@ export default function UploadForm() {
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Upload-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Upload-Route hat keine JSON-Antwort geliefert. Pruefe bitte zusaetzlich das Terminal."
         );
       }
 
       if (!response.ok || !payload?.ok) {
         throw new Error(
           payload?.message ||
-            "Die Liste konnte nicht hochgeladen werden. Prüfe bitte zusätzlich das Terminal."
+            "Die Liste konnte nicht hochgeladen werden. Pruefe bitte zusaetzlich das Terminal."
         );
       }
 
       setSuccessMessage(
-        "Deine Liste wurde hochgeladen. Du wirst jetzt zum nächsten Schritt weitergeleitet."
+        "Deine Liste wurde hochgeladen. Du wirst jetzt zum naechsten Schritt weitergeleitet."
       );
 
       const nextUrl =
         payload.offerUrl ||
+        payload.redirectUrl ||
         (payload.token ? `/angebot/${payload.token}` : null) ||
         (payload.offerToken ? `/angebot/${payload.offerToken}` : null);
 
       if (!nextUrl) {
         throw new Error(
-          "Die Anfrage wurde erstellt, aber es wurde kein Angebotslink zurückgegeben."
+          "Die Anfrage wurde erstellt, aber es wurde kein Angebotslink zurueckgegeben."
         );
       }
 
@@ -247,12 +353,12 @@ export default function UploadForm() {
         </div>
 
         <h2 className="text-2xl font-black tracking-tight text-[#102A43] sm:text-3xl">
-          Materialliste hochladen
+          Materiallisten hochladen
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-[#52616F] sm:text-base">
-          Lade Deine Liste als Foto, Screenshot oder PDF hoch. Danach erhältst
-          Du einen vorbereiteten Paketwunsch, den Du erst noch prüfen kannst.
+          Lade fuer jedes Kind die passende Schulmaterialliste hoch. Du kannst
+          mehrere Kinder in einer Anfrage erfassen.
         </p>
       </div>
 
@@ -267,211 +373,300 @@ export default function UploadForm() {
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
-        <TrustItem text="Deine Liste wird vertraulich behandelt." />
-        <TrustItem text="Unklare Artikel werden persönlich geprüft." />
-        <TrustItem text="Du kannst Artikel vor dem Absenden entfernen." />
+        <TrustItem text="Deine Listen werden vertraulich behandelt." />
+        <TrustItem text="Jedes Kind bekommt eine eigene Zusammenfassung." />
+        <TrustItem text="Unklare Artikel werden persoenlich geprueft." />
         <TrustItem text="Zahlung erfolgt erst nach Rechnung." />
       </div>
 
       <div className="grid gap-5">
-        <div>
-          <label
-            htmlFor="school-list-file"
-            className="group flex cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-[#D8C8B8] bg-[#FBF7F0] px-5 py-8 text-center transition hover:border-[#B5282D] hover:bg-[#FFF8F4]"
-          >
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-[#B5282D] shadow-sm transition group-hover:scale-105">
-              <UploadCloud className="h-8 w-8" />
-            </div>
+        <div className="rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+          <h3 className="text-lg font-black text-[#102A43]">
+            Deine Kontaktdaten
+          </h3>
 
-            <span className="text-lg font-black text-[#102A43]">
-              {file ? "Datei ausgewählt" : "Liste auswählen"}
-            </span>
-
-            <span className="mt-2 max-w-md text-sm leading-6 text-[#52616F]">
-              {filePreviewLabel}
-            </span>
-
-            <span className="mt-3 rounded-full bg-white px-3 py-1 text-xs font-bold text-[#A75B28]">
-              Max. {MAX_FILE_SIZE_MB} MB
-            </span>
-
-            <input
-              id="school-list-file"
-              name="file"
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-              onChange={handleFileChange}
-              className="sr-only"
-            />
-          </label>
-
-          {file ? (
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <FileText className="h-5 w-5" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[#102A43]">
-                    {file.name}
-                  </p>
-                  <p className="text-xs font-semibold text-[#52616F]">
-                    {formatFileSize(file.size)}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={removeFile}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
-                aria-label="Datei entfernen"
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="customerName"
+                className="mb-2 block text-sm font-black text-[#102A43]"
               >
-                <X className="h-4 w-4" />
-              </button>
+                Dein Name*
+              </label>
+              <input
+                id="customerName"
+                name="customerName"
+                type="text"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="z. B. Maria Mueller"
+                className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
             </div>
-          ) : null}
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="customerName"
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Dein Name*
-            </label>
-            <input
-              id="customerName"
-              name="customerName"
-              type="text"
-              value={customerName}
-              onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="z. B. Maria Müller"
-              className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                E-Mail-Adresse*
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="z. B. name@email.de"
+                className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
           </div>
 
-          <div>
-            <label
-              htmlFor="childName"
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Name des Kindes*
-            </label>
-            <input
-              id="childName"
-              name="childName"
-              type="text"
-              value={childName}
-              onChange={(event) => setChildName(event.target.value)}
-              placeholder="z. B. Martin"
-              className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </div>
-        </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="phone"
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Telefonnummer
+                <span className="font-semibold text-[#52616F]"> optional</span>
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="Optional fuer Rueckfragen"
+                className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="schoolName"
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Schule
-            </label>
-            <input
-              id="schoolName"
-              name="schoolName"
-              type="text"
-              value={schoolName}
-              onChange={(event) => setSchoolName(event.target.value)}
-              placeholder="z. B. Grundschule Musterstadt"
-              className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="className"
-              className="mb-2 block text-sm font-black text-[#102A43]"
-            >
-              Klasse
-            </label>
-            <input
-              id="className"
-              name="className"
-              type="text"
-              value={className}
-              onChange={(event) => setClassName(event.target.value)}
-              placeholder="z. B. 1a"
-              className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+            <div>
+              <label
+                htmlFor="message"
+                className="mb-2 block text-sm font-black text-[#102A43]"
+              >
+                Bemerkung
+              </label>
+              <textarea
+                id="message"
+                name="message"
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="Optional: Hinweise zu besonderen Wuenschen, Abholung oder Rueckfragen"
+                rows={3}
+                className="w-full resize-y rounded-2xl border border-[#D8C8B8] bg-white px-4 py-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="email"
-            className="mb-2 block text-sm font-black text-[#102A43]"
+        <section className="rounded-[26px] border border-[#E8DED2] bg-white p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                Kinder und Listen
+              </p>
+              <h3 className="mt-1 text-xl font-black text-[#102A43]">
+                Pro Kind eine Liste hochladen
+              </h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                Wenn Du mehrere Kinder hast, fuege sie hier hinzu. So koennen
+                wir die Listen direkt getrennt auswerten.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-black text-[#102A43]">
+              {uploadedChildCount}/{children.length} Liste
+              {children.length === 1 ? "" : "n"}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            {children.map((child, index) => {
+              const fileInputId = getFileInputId(child.id);
+              const filePreviewLabel = child.file
+                ? `${child.file.name} - ${formatFileSize(child.file.size)}`
+                : "JPG, PNG, WEBP oder PDF hochladen";
+
+              return (
+                <article
+                  key={child.id}
+                  className="rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                >
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                        Kind {index + 1}
+                      </p>
+                      <h4 className="text-lg font-black text-[#102A43]">
+                        {child.childName.trim() || `Kind ${index + 1}`}
+                      </h4>
+                    </div>
+
+                    {children.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeChild(child.id)}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border border-[#F0C7C7] bg-white px-4 py-2 text-sm font-black text-[#B5282D] transition hover:bg-[#FFF1F1]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Entfernen
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
+                    <div className="grid gap-4">
+                      <div>
+                        <label
+                          htmlFor={`childName-${child.id}`}
+                          className="mb-2 block text-sm font-black text-[#102A43]"
+                        >
+                          Name des Kindes*
+                        </label>
+                        <input
+                          id={`childName-${child.id}`}
+                          type="text"
+                          value={child.childName}
+                          onChange={(event) =>
+                            updateChild(child.id, {
+                              childName: event.target.value,
+                            })
+                          }
+                          placeholder="z. B. Emma"
+                          className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+                        />
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor={`className-${child.id}`}
+                            className="mb-2 block text-sm font-black text-[#102A43]"
+                          >
+                            Klasse
+                          </label>
+                          <input
+                            id={`className-${child.id}`}
+                            type="text"
+                            value={child.className}
+                            onChange={(event) =>
+                              updateChild(child.id, {
+                                className: event.target.value,
+                              })
+                            }
+                            placeholder="z. B. 2a"
+                            className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor={`schoolName-${child.id}`}
+                            className="mb-2 block text-sm font-black text-[#102A43]"
+                          >
+                            Schule
+                          </label>
+                          <input
+                            id={`schoolName-${child.id}`}
+                            type="text"
+                            value={child.schoolName}
+                            onChange={(event) =>
+                              updateChild(child.id, {
+                                schoolName: event.target.value,
+                              })
+                            }
+                            placeholder="z. B. Grundschule"
+                            className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={fileInputId}
+                        className="group flex h-full min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-[#D8C8B8] bg-white px-5 py-7 text-center transition hover:border-[#B5282D] hover:bg-[#FFF8F4]"
+                      >
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FBF7F0] text-[#B5282D] shadow-sm transition group-hover:scale-105">
+                          <UploadCloud className="h-7 w-7" />
+                        </div>
+
+                        <span className="text-lg font-black text-[#102A43]">
+                          {child.file
+                            ? "Liste ausgewaehlt"
+                            : "Liste fuer dieses Kind auswaehlen"}
+                        </span>
+
+                        <span className="mt-2 max-w-md text-sm leading-6 text-[#52616F]">
+                          {filePreviewLabel}
+                        </span>
+
+                        <span className="mt-3 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-bold text-[#A75B28]">
+                          Max. {MAX_FILE_SIZE_MB} MB
+                        </span>
+
+                        <input
+                          id={fileInputId}
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                          onChange={(event) =>
+                            handleChildFileChange(child.id, event)
+                          }
+                          className="sr-only"
+                        />
+                      </label>
+
+                      {child.file ? (
+                        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                              <FileText className="h-5 w-5" />
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-[#102A43]">
+                                {child.file.name}
+                              </p>
+                              <p className="text-xs font-semibold text-[#52616F]">
+                                {formatFileSize(child.file.size)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeChildFile(child.id)}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
+                            aria-label="Datei entfernen"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={addChild}
+            className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-5 py-3 text-sm font-black text-[#102A43] transition hover:border-[#B5282D] hover:text-[#B5282D]"
           >
-            E-Mail-Adresse*
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="z. B. name@email.de"
-            className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-          />
-          <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-            An diese Adresse senden wir später den Angebots- oder
-            Rechnungslink.
-          </p>
-        </div>
-
-        <div>
-          <label
-            htmlFor="phone"
-            className="mb-2 block text-sm font-black text-[#102A43]"
-          >
-            Telefonnummer
-            <span className="font-semibold text-[#52616F]"> optional</span>
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="Optional für Rückfragen"
-            className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="message"
-            className="mb-2 block text-sm font-black text-[#102A43]"
-          >
-            Bemerkung
-          </label>
-          <textarea
-            id="message"
-            name="message"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Optional: Hinweise zu besonderen Wünschen, Abholung oder Rückfragen"
-            rows={4}
-            className="w-full resize-y rounded-2xl border border-[#D8C8B8] bg-white px-4 py-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-          />
-        </div>
+            <Plus className="h-4 w-4" />
+            Weiteres Kind hinzufuegen
+          </button>
+        </section>
 
         {errorMessage ? (
           <div className="rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#B5282D]">
@@ -494,7 +689,7 @@ export default function UploadForm() {
           {isSubmitting ? (
             <>
               <Loader2 className="h-6 w-6 animate-spin" />
-              Liste wird hochgeladen …
+              Listen werden hochgeladen ...
             </>
           ) : (
             <>
@@ -510,14 +705,5 @@ export default function UploadForm() {
         </div>
       </div>
     </form>
-  );
-}
-
-function TrustItem({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-3 py-3 text-xs font-black leading-5 text-[#102A43]">
-      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2F7D50]" />
-      <span>{text}</span>
-    </div>
   );
 }
