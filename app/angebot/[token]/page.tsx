@@ -126,6 +126,14 @@ type RequestItemQuestion = {
   updated_at?: string | null;
 };
 
+type RequestEvent = {
+  id: string;
+  request_id: string;
+  event_type?: string | null;
+  type?: string | null;
+  created_at: string | null;
+};
+
 type ProductRow = {
   id: string;
   image_url?: string | null;
@@ -331,7 +339,8 @@ function normalizeLineature(value: unknown) {
 function isHeftText(value: unknown) {
   const text = normalizeText(value);
 
-  return (
+
+return (
     text.includes("heft") ||
     text.includes("schulheft") ||
     text.includes("schreibheft")
@@ -936,6 +945,32 @@ function isArchivedCustomerRequest(request: SchoolRequest) {
   );
 }
 
+function getCustomerDecisionEventType(event: RequestEvent) {
+  return String(event.event_type || event.type || "").toLowerCase();
+}
+
+function getCustomerOpenPositionDecision(events: RequestEvent[]) {
+  const relevantEvents = events.filter((event) => {
+    const type = getCustomerDecisionEventType(event);
+
+    return (
+      type.includes("customer_requested_team_takeover") ||
+      type.includes("customer_selected_self_selection")
+    );
+  });
+
+  const latestEvent = relevantEvents[0] || null;
+
+  if (!latestEvent) return null;
+
+  const type = getCustomerDecisionEventType(latestEvent);
+
+  if (type.includes("customer_requested_team_takeover")) return "team" as const;
+  if (type.includes("customer_selected_self_selection")) return "self" as const;
+
+  return null;
+}
+
 export default async function CustomerOfferPage({ params }: Params) {
   const { token } = await params;
   const supabase = getSupabaseAdmin();
@@ -1029,6 +1064,25 @@ export default async function CustomerOfferPage({ params }: Params) {
     (question) => question.status !== "cancelled" && question.status !== "resolved"
   );
   const uploadedFiles = (files || []) as RequestFile[];
+
+const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
+    await supabase
+      .from("school_request_events")
+      .select("id, request_id, event_type, type, created_at")
+      .eq("request_id", request.id)
+      .or(
+        "event_type.eq.customer_requested_team_takeover,event_type.eq.customer_selected_self_selection,type.eq.customer_requested_team_takeover,type.eq.customer_selected_self_selection"
+      )
+      .order("created_at", { ascending: false });
+
+  if (customerDecisionEventsError) {
+    throw new Error(
+      `Kundenentscheidung konnte nicht geladen werden: ${customerDecisionEventsError.message}`
+    );
+  }
+
+  const customerDecisionEvents =
+    (customerDecisionEventsData || []) as RequestEvent[];
 
   const requestItemByIdForQuestions = new Map<string, RequestItem>();
 
@@ -1249,6 +1303,92 @@ if (productIds.length > 0) {
 
   const openDecisionItemCount =
     openChoiceItems.length + manualReviewItems.length;
+
+const persistedOpenPositionDecision =
+    getCustomerOpenPositionDecision(customerDecisionEvents);
+
+  const customerOpenPositionDecision =
+    persistedOpenPositionDecision ||
+    (hasOpenCustomerBlockingItems &&
+    (request.status === "manual_review" || request.offer_status === "manual_review")
+      ? ("team" as const)
+      : null);
+
+  const shouldGateCustomerOpenPositionDecision =
+    !isConfirmed &&
+    hasOpenCustomerBlockingItems &&
+    customerOpenPositionDecision !== "self";
+
+if (shouldGateCustomerOpenPositionDecision) {
+    return (
+      <main className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8">
+        <CustomerOfferPresenceHeartbeat token={token} context="offer_page" />
+
+        <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+          <section className="rounded-[34px] border-2 border-[#B5282D] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#B5282D]">
+                  Ergebnis nach dem Auslesen
+                </p>
+
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
+                  Ein Teil ist fertig. Für die offenen Positionen wählst Du jetzt den nächsten Schritt.
+                </h1>
+
+                <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                  Erkannte Artikel liegen bereits im Paket. Für offene Positionen entscheidest Du zuerst:
+                  selbst auswählen oder von Handzettel-Schulen.de übernehmen lassen.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#FFF1F1] px-4 py-3 text-sm font-black text-[#B5282D]">
+                Entscheidung erforderlich
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-5 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Erkannte Positionen
+                </p>
+                <p className="mt-2 text-4xl font-black text-[#102A43]">
+                  {items.length}
+                </p>
+              </div>
+
+              <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Schon im Paket
+                </p>
+                <p className="mt-2 text-4xl font-black">
+                  {autoPreselectedOfferItems.length}
+                </p>
+              </div>
+
+              <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28] shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em]">
+                  Auswahl offen
+                </p>
+                <p className="mt-2 text-4xl font-black">
+                  {openDecisionItemCount}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <CustomerOpenPositionDecisionPanel
+            token={token}
+            openChoiceCount={openChoiceItems.length}
+            manualReviewCount={openDecisionItemCount}
+            initialChoice={customerOpenPositionDecision}
+          />
+        </section>
+
+        <LegalFooter />
+      </main>
+    );
+  }
 
   const isFreshBeforeAnalysis =
     !isConfirmed &&
