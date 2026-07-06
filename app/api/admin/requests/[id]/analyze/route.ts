@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7c-cover-split-preserve-type";
+const ANALYZE_VERSION = "school-material-analyze-v7d-final-purchase-sanitizer";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -2633,6 +2633,92 @@ const { id } = await context.params;
       );
     }
 
+
+    function normalizeFinalLineatureValue(value: unknown) {
+      const text = normalizeDedupeText(value);
+
+      if (!text) return null;
+      if (text === "8" || text === "8f") return "8f";
+
+      return String(value || "").trim() || null;
+    }
+
+    function isFinalCoverItem(item: CleanedItem) {
+      const text = normalizeDedupeText([
+        item.normalizedName,
+        item.category,
+        item.productType,
+      ].filter(Boolean).join(" "));
+
+      return (
+        text.includes("umschlag") ||
+        text.includes("buchumschlag") ||
+        text.includes("heftumschlag") ||
+        text.includes("buchfolie")
+      );
+    }
+
+    function isFinalExerciseBookItem(item: CleanedItem) {
+      const text = normalizeDedupeText([
+        item.normalizedName,
+        item.category,
+        item.productType,
+      ].filter(Boolean).join(" "));
+
+      return (
+        text.includes("rechenheft") ||
+        text.includes("schreibheft") ||
+        text.includes("schulheft") ||
+        text.includes("matheheft") ||
+        text.includes("mathematikheft") ||
+        text.includes("hausaufgabenheft") ||
+        text.includes("vokabelheft") ||
+        (text.includes("heft") && !text.includes("hefter"))
+      );
+    }
+
+    function sanitizeFinalPurchaseItem(item: CleanedItem): CleanedItem {
+      const isCover = isFinalCoverItem(item);
+      const isExerciseBook = isFinalExerciseBookItem(item);
+
+      if (isCover) {
+        const format = getEffectiveFormat(item.normalizedName, item.rawText, item.format);
+        const color = getEffectiveColor(item.normalizedName, item.rawText, item.color);
+
+        return {
+          ...item,
+          normalizedName: ["Umschlag", format, color].filter(Boolean).join(" ") || "Umschlag",
+          category: "Umschlag",
+          productType: "Umschlag",
+          format,
+          color,
+          lineature: null,
+          notes: [
+            item.notes,
+            "Final normalisiert: Umschlag darf keine Lineatur tragen.",
+          ].filter(Boolean).join(" | "),
+        };
+      }
+
+      if (isExerciseBook) {
+        const normalizedName = normalizeDedupeText(item.normalizedName);
+        const lineature = normalizeFinalLineatureValue(item.lineature);
+
+        return {
+          ...item,
+          normalizedName:
+            normalizedName.includes("rechenheft")
+              ? ["Rechenheft", item.format].filter(Boolean).join(" ")
+              : item.normalizedName,
+          category: item.category || "Heft",
+          productType: item.productType || "Heft",
+          lineature,
+        };
+      }
+
+      return item;
+    }
+
     function shouldDropFinalCleanedItem(item: CleanedItem) {
       const name = normalizeDedupeText(item.normalizedName);
       const raw = normalizeDedupeText(item.rawText);
@@ -2685,13 +2771,15 @@ const { id } = await context.params;
         canonicalName = "umschlag";
       }
 
+      const isCoverKey = canonicalName === "umschlag" || category.includes("umschlag");
+
       return [
         canonicalName,
         String(item.quantity || 1),
         category,
         normalizeDedupeText(item.format),
         normalizeDedupeText(item.color),
-        normalizeDedupeText(item.lineature),
+        isCoverKey ? "" : normalizeDedupeText(item.lineature),
       ].join("|");
     }
 
@@ -2703,7 +2791,9 @@ const { id } = await context.params;
       const seen = new Set<string>();
       const result: CleanedItem[] = [];
 
-      for (const item of sourceItems) {
+      for (const sourceItem of sourceItems) {
+        const item = sanitizeFinalPurchaseItem(sourceItem);
+
         if (shouldDropFinalCleanedItem(item)) {
           continue;
         }
