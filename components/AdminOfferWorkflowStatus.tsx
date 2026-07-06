@@ -246,7 +246,6 @@ export default function AdminOfferWorkflowStatus(
 
   const openItemsCurrent =
     manualReviewItemsCount > 0 &&
-    !updateMailWasSent &&
     !plainConfirmed &&
     !confirmedAfterUpdate;
 
@@ -277,13 +276,36 @@ export default function AdminOfferWorkflowStatus(
           : `Zuletzt aktualisiert am ${formatDateTime(updatedAt)}`,
       };
     }
+    if (teamTakeoverOpenItemsCurrent) {
+      return {
+        title: "Kunde wünscht Team-Übernahme",
+        label: `${manualReviewItemsCount} offen`,
+        description:
+          "Der Kunde hat die offenen Positionen an Handzettel-Schulen.de übergeben. Offene Positionen manuell bearbeiten, Paketwunsch final prüfen und danach erneut zur Bestätigung bereitstellen.",
+        tone: "green" as const,
+        icon: ShieldCheck,
+        dateLabel: null,
+      };
+    }
+
+    if (updateMailWasSent && manualReviewItemsCount > 0) {
+      return {
+        title: "Kunde muss offene Positionen entscheiden",
+        label: `${manualReviewItemsCount} offen`,
+        description:
+          "Die Paketwunsch-Mail wurde versendet. Der Kunde muss die offenen Positionen selbst auswählen oder an Handzettel-Schulen.de übergeben. Eine finale Bestätigung ist noch nicht möglich.",
+        tone: "amber" as const,
+        icon: AlertTriangle,
+        dateLabel: `Versendet am ${formatDateTime(updateMailDate)}`,
+      };
+    }
 
     if (updateMailWasSent) {
       return {
         title: "Paketwunsch-Mail versendet",
         label: "Wartet auf Bestätigung",
         description:
-          "Der vorbereitete Paketwunsch wurde dem Kunden zur Prüfung gesendet. Der Kunde muss ihn anschließend selbst bestätigen und geht danach in den Checkout.",
+          "Der vorbereitete Paketwunsch wurde dem Kunden zur Prüfung gesendet. Es gibt keine offenen Listenpositionen mehr; der Kunde kann den Paketwunsch jetzt bestätigen und in den Checkout gehen.",
         tone: "amber" as const,
         icon: MailCheck,
         dateLabel: `Versendet am ${formatDateTime(updateMailDate)}`,
@@ -427,7 +449,10 @@ export default function AdminOfferWorkflowStatus(
         return "aktuell" as TileStatus;
       }
 
-      if (plainConfirmed || updateMailWasSent || confirmedAfterUpdate) {
+      if (
+        manualReviewItemsCount === 0 &&
+        (plainConfirmed || updateMailWasSent || confirmedAfterUpdate)
+      ) {
         return "erledigt" as TileStatus;
       }
 
@@ -447,7 +472,7 @@ confirmed: (() => {
     return "erledigt" as TileStatus;
   }
 
-  if (updateMailWasSent) {
+  if (updateMailWasSent && manualReviewItemsCount === 0) {
     return "aktuell" as TileStatus;
   }
 
@@ -494,12 +519,16 @@ const tiles = [
     },
     {
       key: "confirmed",
-      title: confirmedAfterUpdate
-        ? "Paketwunsch bestätigt"
-        : "Angebot bestätigt",
-      description: confirmedAfterUpdate
-        ? "Kunde hat die aktualisierte Fassung angenommen"
-        : "Kunde hat offiziell angenommen",
+      title:
+        confirmedAfterUpdate || plainConfirmed || hasUpdatedOfferConfirmed
+          ? "Paketwunsch bestätigt"
+          : "Paketwunsch bestätigen",
+      description:
+        confirmedAfterUpdate || plainConfirmed || hasUpdatedOfferConfirmed
+          ? "Kunde hat den Paketwunsch offiziell angenommen"
+          : manualReviewItemsCount > 0
+            ? "Erst möglich, wenn alle offenen Positionen bearbeitet oder an Handzettel-Schulen.de übergeben wurden"
+            : "Kunde kann den Paketwunsch offiziell annehmen",
       icon: CheckCircle2,
       status: tileStatus.confirmed,
     },
@@ -609,12 +638,15 @@ const tiles = [
       </div>
 
       {(headerState.title === "Paket vorbereitet" ||
-  headerState.title === "Paketwunsch-Mail versendet") && (
+  headerState.title === "Paketwunsch-Mail versendet" ||
+  headerState.title === "Kunde muss offene Positionen entscheiden") && (
   <div className="mt-5 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
     <p className="text-sm font-semibold leading-6 text-[#52616F]">
       {headerState.title === "Paket vorbereitet"
         ? "Der Paketwunsch ist vorbereitet. Prüfe die Positionen kurz final und sende dann die Paketwunsch-Mail."
-        : "Die Paketwunsch-Mail wurde versendet. Dieser Schritt ist erledigt. Aktuell wartet der Vorgang auf die Bestätigung durch den Kunden."}
+        : headerState.title === "Kunde muss offene Positionen entscheiden"
+          ? "Die Paketwunsch-Mail wurde versendet. Der Kunde muss jetzt entweder alle offenen Positionen selbst bearbeiten oder Handzettel-Schulen.de mit der Übernahme beauftragen."
+          : "Die Paketwunsch-Mail wurde versendet. Dieser Schritt ist erledigt. Aktuell wartet der Vorgang auf die Bestätigung durch den Kunden."}
     </p>
   </div>
 )}
