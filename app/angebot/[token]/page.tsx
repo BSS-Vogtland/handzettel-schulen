@@ -1262,6 +1262,397 @@ function CustomerChildPackageOverview({
   );
 }
 
+function cleanK4e2Text(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
+}
+
+function getK4e2RowChildId(row: unknown) {
+  const record = row as { child_id?: string | null };
+
+  return String(record.child_id || "").trim() || null;
+}
+
+function toK4e2Number(value: unknown, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatK4e2Money(value: unknown) {
+  const amount = toK4e2Number(value, 0);
+  return amount.toFixed(2).replace(".", ",") + " €";
+}
+
+function getK4e2ChildLabel(child: RequestChild, index: number) {
+  return (
+    cleanK4e2Text(child.label) ||
+    cleanK4e2Text(child.child_name) ||
+    "Kind " + (index + 1)
+  );
+}
+
+function getK4e2ChildMeta(child: RequestChild) {
+  return [
+    cleanK4e2Text(child.class_name)
+      ? "Klasse " + cleanK4e2Text(child.class_name)
+      : null,
+    cleanK4e2Text(child.school_name),
+  ].filter(Boolean) as string[];
+}
+
+function getK4e2OfferTitle(item: OfferItem) {
+  const record = item as unknown as {
+    product_name?: string | null;
+    normalized_name?: string | null;
+    product_sku?: string | null;
+    name?: string | null;
+  };
+
+  return (
+    cleanK4e2Text(record.product_name) ||
+    cleanK4e2Text(record.normalized_name) ||
+    cleanK4e2Text(record.name) ||
+    cleanK4e2Text(record.product_sku) ||
+    "Paketposition"
+  );
+}
+
+function getK4e2OfferSourceLabel(item: OfferItem) {
+  const source = String(item.source || "").trim();
+
+  switch (source) {
+    case "auto_preselected":
+    case "auto_safe_match":
+      return "Automatisch übernommen";
+    case "customer_selection":
+    case "customer_search":
+      return "Vom Kunden gewählt";
+    case "admin_manual":
+    case "admin_existing_product":
+      return "Vom Team ergänzt";
+    default:
+      return source || "Paketposition";
+  }
+}
+
+function getK4e2RequestItemTitle(item: RequestItem) {
+  return (
+    cleanK4e2Text(item.normalized_name) ||
+    cleanK4e2Text(item.raw_text) ||
+    "Offene Listenposition"
+  );
+}
+
+function getK4e2RequestItemFacts(item: RequestItem) {
+  return [
+    cleanK4e2Text(item.category),
+    cleanK4e2Text(item.format),
+    cleanK4e2Text(item.color),
+    cleanK4e2Text(item.lineature)
+      ? "Lineatur " + cleanK4e2Text(item.lineature)
+      : null,
+  ].filter(Boolean) as string[];
+}
+
+function isK4e2RequestItemOpen(
+  item: RequestItem,
+  offerItemsByRequestItem: Map<string, OfferItem[]>
+) {
+  const selected = offerItemsByRequestItem.get(item.id) || [];
+  const adminResolutionStatus = String(
+    (item as unknown as { admin_resolution_status?: string | null })
+      .admin_resolution_status || ""
+  ).trim();
+
+  return !adminResolutionStatus && selected.length === 0;
+}
+
+function CustomerChildDetailedPackageSections({
+  request,
+  children,
+  files,
+  items,
+  offerItems,
+  questions,
+}: {
+  request: SchoolRequest;
+  children: RequestChild[];
+  files: RequestFile[];
+  items: RequestItem[];
+  offerItems: OfferItem[];
+  questions: RequestItemQuestion[];
+}) {
+  const hasRealChildren = children.length > 0;
+  const activeChildren =
+    hasRealChildren
+      ? children
+      : [
+          {
+            id: "fallback-child",
+            request_id: request.id,
+            sort_order: 1,
+            label: request.child_name || "Kind 1",
+            child_name: request.child_name,
+            school_name: request.school_name,
+            class_name: request.class_name,
+            source: "fallback",
+            notes: null,
+            is_active: true,
+            created_at: null,
+            updated_at: null,
+          },
+        ];
+
+  const offerItemsByRequestItem = new Map<string, OfferItem[]>();
+
+  for (const offerItem of offerItems) {
+    if (!offerItem.request_item_id) continue;
+
+    const current = offerItemsByRequestItem.get(offerItem.request_item_id) || [];
+    current.push(offerItem);
+    offerItemsByRequestItem.set(offerItem.request_item_id, current);
+  }
+
+  const groups = activeChildren.map((child, index) => {
+    const childId = child.id;
+
+    const rowBelongsToChild = (row: unknown) => {
+      return hasRealChildren ? getK4e2RowChildId(row) === childId : true;
+    };
+
+    const childFiles = files.filter(rowBelongsToChild);
+    const childItems = items.filter(rowBelongsToChild);
+    const childOfferItems = offerItems.filter(rowBelongsToChild);
+    const childQuestions = questions.filter(rowBelongsToChild);
+    const childOpenItems = childItems.filter((item) =>
+      isK4e2RequestItemOpen(item, offerItemsByRequestItem)
+    );
+
+    return {
+      id: childId,
+      label: getK4e2ChildLabel(child, index),
+      meta: getK4e2ChildMeta(child),
+      files: childFiles,
+      items: childItems,
+      offerItems: childOfferItems,
+      openItems: childOpenItems,
+      questions: childQuestions,
+    };
+  });
+
+  if (hasRealChildren) {
+    const unassignedFiles = files.filter((file) => !getK4e2RowChildId(file));
+    const unassignedItems = items.filter((item) => !getK4e2RowChildId(item));
+    const unassignedOfferItems = offerItems.filter(
+      (offerItem) => !getK4e2RowChildId(offerItem)
+    );
+    const unassignedQuestions = questions.filter(
+      (question) => !getK4e2RowChildId(question)
+    );
+    const unassignedOpenItems = unassignedItems.filter((item) =>
+      isK4e2RequestItemOpen(item, offerItemsByRequestItem)
+    );
+
+    if (
+      unassignedFiles.length > 0 ||
+      unassignedItems.length > 0 ||
+      unassignedOfferItems.length > 0 ||
+      unassignedQuestions.length > 0
+    ) {
+      groups.push({
+        id: "unassigned",
+        label: "Noch nicht zugeordnet",
+        meta: ["Diese Positionen werden vom Team geprüft."],
+        files: unassignedFiles,
+        items: unassignedItems,
+        offerItems: unassignedOfferItems,
+        openItems: unassignedOpenItems,
+        questions: unassignedQuestions,
+      });
+    }
+  }
+
+  if (
+    groups.every(
+      (group) => group.offerItems.length === 0 && group.openItems.length === 0
+    )
+  ) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-[34px] border border-[#C8D8E8] bg-white p-5 shadow-sm sm:p-7">
+      <div className="mb-5">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#12395F]">
+          Detailansicht nach Kind
+        </p>
+        <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+          Paketpositionen und offene Listenpositionen getrennt
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+          Die folgenden Listen zeigen nicht mehr alles gemischt, sondern je Kind
+          getrennt: was bereits im Paket liegt und was noch offen ist.
+        </p>
+      </div>
+
+      <div className="grid gap-5">
+        {groups.map((group) => (
+          <article
+            key={group.id}
+            className={
+              group.id === "unassigned"
+                ? "rounded-[30px] border border-[#F1D1A8] bg-[#FFF8EE] p-4 sm:p-5"
+                : "rounded-[30px] border border-[#C8D8E8] bg-[#EEF4FA] p-4 sm:p-5"
+            }
+          >
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-[#102A43]">
+                  {group.label}
+                </h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                  {group.meta.length > 0
+                    ? group.meta.join(" - ")
+                    : "Keine Zusatzangaben hinterlegt."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center text-xs font-black text-[#102A43]">
+                <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                  <p className="text-[#A75B28]">Dateien</p>
+                  <p className="text-lg">{group.files.length}</p>
+                </div>
+                <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                  <p className="text-[#2F7D50]">Paket</p>
+                  <p className="text-lg">{group.offerItems.length}</p>
+                </div>
+                <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                  <p className="text-[#B5282D]">Offen</p>
+                  <p className="text-lg">{group.openItems.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              <div className="rounded-[26px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-lg font-black text-[#102A43]">
+                    Im Paket
+                  </h4>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#2F7D50]">
+                    {group.offerItems.length}
+                  </span>
+                </div>
+
+                {group.offerItems.length > 0 ? (
+                  <ul className="grid gap-3">
+                    {group.offerItems.map((item) => {
+                      const quantity = toK4e2Number(item.quantity, 1) || 1;
+                      const price = toK4e2Number(item.product_price, 0);
+                      const total = quantity * price;
+
+                      return (
+                        <li
+                          key={item.id}
+                          className="rounded-2xl border border-[#BFE3CD] bg-white p-3"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-black text-[#102A43]">
+                                {getK4e2OfferTitle(item)}
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                                {quantity} {item.unit || "Stk."} - {formatK4e2Money(total)}
+                              </p>
+                            </div>
+
+                            <span className="w-fit rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
+                              {getK4e2OfferSourceLabel(item)}
+                            </span>
+                          </div>
+
+                          {item.notes ? (
+                            <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+                              {item.notes}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="rounded-2xl border border-[#BFE3CD] bg-white p-3 text-sm font-semibold text-[#52616F]">
+                    Für dieses Kind liegt noch keine Paketposition vor.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-[26px] border border-[#F1D1A8] bg-[#FFF8EE] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-lg font-black text-[#102A43]">
+                    Noch offen
+                  </h4>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
+                    {group.openItems.length}
+                  </span>
+                </div>
+
+                {group.openItems.length > 0 ? (
+                  <ul className="grid gap-3">
+                    {group.openItems.map((item) => {
+                      const facts = getK4e2RequestItemFacts(item);
+
+                      return (
+                        <li
+                          key={item.id}
+                          className="rounded-2xl border border-[#F1D1A8] bg-white p-3"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-black text-[#102A43]">
+                                {getK4e2RequestItemTitle(item)}
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                                Menge: {toK4e2Number(item.quantity, 1) || 1}
+                                {facts.length > 0 ? " - " + facts.join(" - ") : ""}
+                              </p>
+                            </div>
+
+                            <span className="w-fit rounded-full bg-[#FFF8EE] px-3 py-1 text-xs font-black text-[#A75B28]">
+                              Auswahl offen
+                            </span>
+                          </div>
+
+                          {item.raw_text &&
+                          item.raw_text !== item.normalized_name ? (
+                            <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+                              Original: {item.raw_text}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="rounded-2xl border border-[#F1D1A8] bg-white p-3 text-sm font-semibold text-[#52616F]">
+                    Für dieses Kind sind aktuell keine Listenpositionen offen.
+                  </p>
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function CustomerOfferPage({ params }: Params) {
   const { token } = await params;
   const supabase = getSupabaseAdmin();
@@ -1927,6 +2318,17 @@ const isFreshBeforeAnalysis =
           offerItems={selectedOfferItems}
           questions={questions}
         />
+
+        <CustomerChildDetailedPackageSections
+          request={request}
+          children={requestChildren}
+          files={uploadedFiles}
+          items={items}
+          offerItems={selectedOfferItems}
+          questions={questions}
+        />
+
+
 
         <header className="overflow-hidden rounded-[34px] border border-[#E8DED2] bg-white shadow-sm">
           <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_360px] lg:items-stretch">
