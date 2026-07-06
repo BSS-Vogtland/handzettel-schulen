@@ -223,7 +223,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -254,7 +254,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
+  if (!value) return "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -266,7 +266,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
+  if (!value) return "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -276,7 +276,7 @@ function formatDate(value: string | null) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
+  if (!size) return "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -292,17 +292,17 @@ function getStatusLabel(status: string | null) {
     case "analysis_pending":
       return "Analyse offen";
     case "analysis_running":
-      return "Analyse lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤uft";
+      return "Analyse lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤uft";
     case "analysis_done":
       return "Analyse fertig";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
       return "Angebot gesendet";
     case "confirmed":
-      return "BestÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tigt";
+      return "BestÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tigt";
     case "cancelled":
       return "Abgebrochen";
     default:
@@ -315,7 +315,7 @@ function getOfferStatusLabel(status: string | null) {
     case "not_created":
       return "Noch nicht erstellt";
     case "matching_done":
-      return "ProduktvorschlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ge erstellt";
+      return "ProduktvorschlÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ge erstellt";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
@@ -323,11 +323,11 @@ function getOfferStatusLabel(status: string | null) {
     case "customer_selection":
       return "Kundenauswahl";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung";
     case "confirmed":
-      return "BestÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tigt";
+      return "BestÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tigt";
     default:
-      return status || "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
+      return status || "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â";
   }
 }
 
@@ -336,21 +336,21 @@ function getAiStatusLabel(status: string | null) {
     case "pending":
       return "Offen";
     case "running":
-      return "LÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤uft";
+      return "LÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤uft";
     case "done":
       return "Fertig";
     case "error":
       return "Fehler";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung";
     case "missing_file":
       return "Datei fehlt";
     case "unsupported_file_type":
-      return "Dateityp nicht unterstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼tzt";
+      return "Dateityp nicht unterstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼tzt";
     case "no_items_detected":
       return "Keine Positionen erkannt";
     default:
-      return status || "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
+      return status || "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â";
   }
 }
 
@@ -363,8 +363,8 @@ function getMatchScoreLabel(score: unknown) {
 
   if (value >= 80) return "Sehr passend";
   if (value >= 70) return "Passend";
-  if (value >= 55) return "MÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶glich";
-  return "PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen";
+  if (value >= 55) return "MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶glich";
+  return "PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fen";
 }
 
 function getItemKeyFacts(item: RequestItem) {
@@ -392,18 +392,18 @@ function getItemKeyFacts(item: RequestItem) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "Automatisch vorausgewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt";
+      return "Automatisch vorausgewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlt";
     case "auto_safe_match":
-      return "Sicher automatisch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernommen";
+      return "Sicher automatisch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernommen";
     case "match":
-      return "Aus Produktvorschlag ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernommen";
+      return "Aus Produktvorschlag ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernommen";
     case "admin_manual":
-      return "Manuell im Admin ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzt";
+      return "Manuell im Admin ergÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nzt";
     case "manual":
-      return "Manuell ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzt";
+      return "Manuell ergÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nzt";
     case "customer":
     case "customer_selected":
-      return "Vom Kunden gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt";
+      return "Vom Kunden gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlt";
     default:
       return source || "Unbekannte Quelle";
   }
@@ -455,7 +455,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     case "cancelled":
-      return "ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen";
+      return "ZurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckgezogen";
     default:
       return status || "Unbekannt";
   }
@@ -487,7 +487,7 @@ function isArchivedSchoolRequest(request: SchoolRequest) {
 function getArchiveReasonLabel(reason?: string | null) {
   switch (reason) {
     case "auto_unpaid_14_days":
-      return "Automatisch archiviert: lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nger als 14 Tage nicht bezahlt";
+      return "Automatisch archiviert: lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nger als 14 Tage nicht bezahlt";
     default:
       return reason || "Archiviert";
   }
@@ -512,6 +512,50 @@ function getAdminChildLabel(child: RequestChild, index: number) {
   );
 }
 
+function AdminChildBadge({
+  label,
+  tone = "blue",
+}: {
+  label: string;
+  tone?: "blue" | "amber";
+}) {
+  return (
+    <span
+      className={
+        tone === "amber"
+          ? "inline-flex w-fit items-center rounded-full border border-[#F1D1A8] bg-[#FFF8EE] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]"
+          : "inline-flex w-fit items-center rounded-full border border-[#D6E7EF] bg-[#F5FAFD] px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#12395F]"
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
+function getAdminChildBadgeLabel(
+  row: unknown,
+  children: RequestChild[],
+  request: SchoolRequest
+) {
+  const childId = getChildRowId(row);
+
+  if (children.length === 0) {
+    return request.child_name || "Kind 1";
+  }
+
+  if (!childId) {
+    return "Nicht zugeordnet";
+  }
+
+  const childIndex = children.findIndex((child) => child.id === childId);
+  const child = childIndex >= 0 ? children[childIndex] : null;
+
+  if (!child) {
+    return "Unbekanntes Kind";
+  }
+
+  return getAdminChildLabel(child, childIndex);
+}
 function AdminRequestChildrenOverview({
   request,
   children,
@@ -652,7 +696,7 @@ function AdminRequestChildrenOverview({
       answer_text?: string | null;
     };
 
-    return cleanChildText(record.question_text) || "RÃ¼ckfrage ohne Text";
+    return cleanChildText(record.question_text) || "RÃƒÂ¼ckfrage ohne Text";
   };
 
   const groups = activeChildren.map((child, index) => {
@@ -756,12 +800,12 @@ function AdminRequestChildrenOverview({
             Kinder / Listen-Gruppen
           </p>
           <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-            Admin-Ãœbersicht nach Kind
+            Admin-ÃƒÅ“bersicht nach Kind
           </h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             Dateien, erkannte Listenpositionen, Paketpositionen, offene Punkte
-            und RÃ¼ckfragen werden pro Kind getrennt angezeigt. Die normalen
-            Bearbeitungsaktionen bleiben darunter unverÃ¤ndert erhalten.
+            und RÃƒÂ¼ckfragen werden pro Kind getrennt angezeigt. Die normalen
+            Bearbeitungsaktionen bleiben darunter unverÃƒÂ¤ndert erhalten.
           </p>
         </div>
 
@@ -785,7 +829,7 @@ function AdminRequestChildrenOverview({
                 </h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                   {group.meta.length > 0
-                    ? group.meta.join(" Â· ")
+                    ? group.meta.join(" Ã‚Â· ")
                     : "Keine Zusatzangaben hinterlegt."}
                 </p>
               </div>
@@ -796,7 +840,7 @@ function AdminRequestChildrenOverview({
                   ["Listen", group.items.length],
                   ["Paket", group.offerItems.length],
                   ["Offen", group.openItems.length],
-                  ["RÃ¼ckfragen", group.questions.length],
+                  ["RÃƒÂ¼ckfragen", group.questions.length],
                 ].map(([label, count]) => (
                   <div
                     key={label}
@@ -848,7 +892,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getRequestItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getRequestItemMeta(item).join(" Â· ")}
+                            {getRequestItemMeta(item).join(" Ã‚Â· ")}
                           </p>
                         ) : null}
                       </li>
@@ -882,7 +926,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getOfferItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getOfferItemMeta(item).join(" Â· ")}
+                            {getOfferItemMeta(item).join(" Ã‚Â· ")}
                           </p>
                         ) : null}
                       </li>
@@ -902,7 +946,7 @@ function AdminRequestChildrenOverview({
 
               <div className="rounded-2xl border border-[#F1D1A8] bg-white p-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                  Offen / RÃ¼ckfragen
+                  Offen / RÃƒÂ¼ckfragen
                 </p>
 
                 {group.openItems.length > 0 ? (
@@ -930,7 +974,7 @@ function AdminRequestChildrenOverview({
                 {group.questions.length > 0 ? (
                   <div>
                     <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                      RÃ¼ckfragen
+                      RÃƒÂ¼ckfragen
                     </p>
                     <ul className="space-y-2">
                       {group.questions.slice(0, 5).map((question) => (
@@ -952,7 +996,7 @@ function AdminRequestChildrenOverview({
                   </div>
                 ) : (
                   <p className="text-xs font-semibold text-[#52616F]">
-                    Keine RÃ¼ckfragen.
+                    Keine RÃƒÂ¼ckfragen.
                   </p>
                 )}
               </div>
@@ -1051,13 +1095,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   if (offerItemsError) {
     throw new Error(
-      `AusgewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
+      `AusgewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
     );
   }
 
   if (questionsError) {
     throw new Error(
-      `RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
+      `RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
     );
   }
 
@@ -1102,7 +1146,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
     if (matchesError) {
       throw new Error(
-        `ProduktvorschlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ge konnten nicht geladen werden: ${matchesError.message}`
+        `ProduktvorschlÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ge konnten nicht geladen werden: ${matchesError.message}`
       );
     }
 
@@ -1146,7 +1190,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
         ""
     ).trim();
 
-    // ZÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt alle Positionen, die noch nicht im Paketwunsch liegen
+    // ZÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlt alle Positionen, die noch nicht im Paketwunsch liegen
     // und noch nicht manuell entschieden wurden.
     // Matches allein erledigen eine Position nicht.
     return !adminResolutionStatus && selected.length === 0;
@@ -1207,7 +1251,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
                   {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
                   keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
-                  VorgangszÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hler mehr.
+                  VorgangszÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hler mehr.
                 </p>
                 {request.archived_at ? (
                   <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
@@ -1227,7 +1271,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
             className="inline-flex items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
           >
             <ArrowLeft className="h-4 w-4" />
-            ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ck zur ÃƒÆ’Ã†â€™Ãƒâ€¦Ã¢â‚¬Å“bersicht
+            ZurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ck zur ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œbersicht
           </Link>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1265,7 +1309,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <Eye className="h-4 w-4" />
-                  Kundenseite ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen
+                  Kundenseite ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffnen
                 </a>
 
                 <div className="sm:min-w-[250px]">
@@ -1291,8 +1335,8 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
                 zuerst Anfrage und Kundendaten, dann Materialliste und
-                ProduktprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
-                Abwicklung. SpÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tere Schritte liegen bewusst weiter unten.
+                ProduktprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
+                Abwicklung. SpÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tere Schritte liegen bewusst weiter unten.
               </p>
             </div>
 
@@ -1375,7 +1419,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <Sparkles className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              VorschlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ge
+              VorschlÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ge
             </p>
             <p className="mt-2 text-3xl font-black">{matches.length}</p>
           </div>
@@ -1395,7 +1439,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Manuell prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen
+              Manuell prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fen
             </p>
             <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
           </div>
@@ -1429,7 +1473,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   </p>
                   <p className="text-[#52616F]">
                     {request.school_name || "Schule nicht angegeben"}
-                    {request.class_name ? ` ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· Klasse ${request.class_name}` : ""}
+                    {request.class_name ? ` ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· Klasse ${request.class_name}` : ""}
                   </p>
                 </div>
 
@@ -1492,7 +1536,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         {file.original_filename || "Datei"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {formatFileSize(file.file_size)} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·{" "}
+                        {formatFileSize(file.file_size)} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·{" "}
                         {file.file_type || "Dateityp unbekannt"}
                       </p>
 
@@ -1504,7 +1548,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                           className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#12395F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Datei ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen
+                          Datei ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffnen
                         </a>
                       ) : null}
                     </div>
@@ -1578,7 +1622,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         return (
                           <div className="mt-3 rounded-2xl border border-[#D9E8F5] bg-white p-3 text-xs text-[#102A43]">
                             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#12395F]">
-                              Zuordnung prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen
+                              Zuordnung prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fen
                             </p>
 
                             <div className="mt-3 rounded-xl bg-[#F7FBFF] p-3">
@@ -1614,7 +1658,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                                 </>
                               ) : (
                                 <p className="mt-1 font-semibold leading-5 text-[#B5282D]">
-                                  Keine gelesene Listenposition verknÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼pft. Das ist
+                                  Keine gelesene Listenposition verknÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼pft. Das ist
                                   wahrscheinlich eine manuelle oder freie
                                   Paketposition.
                                 </p>
@@ -1623,7 +1667,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
                             <div className="mt-2 rounded-xl bg-[#FFF8EE] p-3">
                               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                                ÃƒÆ’Ã†â€™Ãƒâ€¦Ã¢â‚¬Å“bernommener Shopartikel
+                                ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œbernommener Shopartikel
                               </p>
 
                               <p className="mt-1 font-black leading-5 text-[#102A43]">
@@ -1659,7 +1703,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                       })()}
                       {item.source === "admin_manual" ? (
                         <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                          Manuell ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzt
+                          Manuell ergÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nzt
                         </p>
                       ) : null}
 
@@ -1762,14 +1806,14 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                   </p>
 
                   <h2 className="text-xl font-black text-[#102A43]">
-                    Positionen, VorschlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ge und manuelle Bearbeitung
+                    Positionen, VorschlÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ge und manuelle Bearbeitung
                   </h2>
 
                   <p className="mt-1 text-sm leading-6 text-[#52616F]">
                     Unter jeder Position findest Du dauerhaft den Bereich
-                    ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾Manuelle BearbeitungÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“. Wenn keine Positionen erkannt
+                    ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾Manuelle BearbeitungÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ. Wenn keine Positionen erkannt
                     wurden, kannst Du trotzdem direkt Produkte in den
-                    Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen.
+                    Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernehmen.
                   </p>
                 </div>
               </div>
@@ -1837,13 +1881,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                           ) : itemMatches.length === 0 ? (
                             <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF8EE] px-3 py-2 text-xs font-black text-[#A75B28]">
                               <AlertTriangle className="h-4 w-4" />
-                              manuell prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen
+                              manuell prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fen
                             </div>
                           ) : null}
                         </div>
 
                         <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
-                          {itemIsDone ? "Details ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen" : "Details einklappen"}
+                          {itemIsDone ? "Details ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffnen" : "Details einklappen"}
                         </div>
                         </summary>
 
@@ -1869,7 +1913,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                                 requestId={request.id}
                                 requestItemId={item.id}
                                 resolutionStatus="open"
-                                buttonLabel="Wieder ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen"
+                                buttonLabel="Wieder ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffnen"
                                 confirmMessage="Soll diese Position wieder als offen markiert werden?"
                                 className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
                               />
@@ -1881,10 +1925,10 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfragen
+                                RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckfragen
                               </p>
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Stelle hier eine konkrete RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfrage zu dieser Listenposition.
+                                Stelle hier eine konkrete RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckfrage zu dieser Listenposition.
                                 Die Antwort erscheint danach direkt an dieser Position.
                               </p>
                             </div>
@@ -2016,13 +2060,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                                     <div>
                                       <div className="mb-2 flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                          {getMatchScoreLabel(match.match_score)} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·{" "}
+                                          {getMatchScoreLabel(match.match_score)} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·{" "}
                                           {toNumber(match.match_score, 0)} %
                                         </span>
 
                                         {isSelected ? (
                                           <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                            AusgewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt
+                                            AusgewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlt
                                           </span>
                                         ) : null}
                                       </div>
@@ -2060,7 +2104,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                               </div>
 
                               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#B42318]">
-                                Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung
+                                Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung
                               </p>
 
                               <p className="text-sm font-black leading-6 text-[#8E1C1C]">
@@ -2082,9 +2126,9 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                               </p>
 
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Hier kannst Du fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r diese erkannte Position
-                                jederzeit einen zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlichen oder ersetzenden
-                                Artikel in den Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen.
+                                Hier kannst Du fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r diese erkannte Position
+                                jederzeit einen zusÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tzlichen oder ersetzenden
+                                Artikel in den Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernehmen.
                               </p>
 
                               {selectedItems.length === 0 && !adminResolutionStatus ? (
@@ -2114,7 +2158,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                                 requestItemId={item.id}
                                 defaultProductName={getRequestItemTitle(item)}
                                 defaultQuantity={item.quantity}
-                                buttonLabel="Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzen"
+                                buttonLabel="Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nzen"
                               />
                             </div>
                           </div>
@@ -2143,7 +2187,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         Die automatische Erkennung konnte keine eindeutigen
                         Listenpositionen erstellen. Du kannst trotzdem direkt
                         Produkte in den Paketwunsch legen. Diese Produkte
-                        erscheinen anschlieÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸end auf der Kundenseite und kÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶nnen
+                        erscheinen anschlieÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸end auf der Kundenseite und kÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶nnen
                         dem Kunden per Paketwunsch-Mail geschickt werden.
                       </p>
 
@@ -2152,7 +2196,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                         requestItemId={null}
                         defaultProductName=""
                         defaultQuantity={1}
-                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gen"
+                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gen"
                       />
                     </div>
                   </div>
@@ -2169,13 +2213,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-                    NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤chster Abschnitt
+                    NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chster Abschnitt
                   </p>
                   <h2 className="mt-1 text-xl font-black text-[#102A43]">
                     Rechnung, Zahlung und Abwicklung
                   </h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung.
+                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fung.
                     Dadurch bleibt die Detailseite in der gleichen Reihenfolge
                     wie der echte Arbeitsablauf.
                   </p>
