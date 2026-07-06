@@ -16,6 +16,8 @@ type RequestItemRow = {
   raw_text: string | null;
   normalized_name: string | null;
   quantity: number | string | null;
+  category?: string | null;
+  notes?: string | null;
 };
 
 type RequestMatchRow = {
@@ -107,6 +109,57 @@ function isSafeAutoAdoptMatch(match: RequestMatchRow) {
   }
 
   return true;
+}
+
+
+function normalizeAutoAdoptGuardText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isManualComboNoAutoAdoptItem(item: {
+  raw_text?: string | null;
+  normalized_name?: string | null;
+  category?: string | null;
+  notes?: string | null;
+}) {
+  const text = normalizeAutoAdoptGuardText([
+    item.raw_text,
+    item.normalized_name,
+    item.category,
+    item.notes,
+  ].filter(Boolean).join(" "));
+
+  if (!text) return false;
+
+  if (text.includes("manual_combo_no_auto_adopt")) {
+    return true;
+  }
+
+  const isCombo = text.includes("kombiposition");
+  const hasCover = text.includes("umschlag");
+  const hasExerciseBook =
+    text.includes("heft") ||
+    text.includes("rechenheft") ||
+    text.includes("schreibheft") ||
+    text.includes("deutschheft") ||
+    text.includes("matheheft") ||
+    text.includes("mathematikheft");
+
+  return isCombo && hasCover && hasExerciseBook;
 }
 
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
@@ -309,7 +362,7 @@ export async function POST(_request: Request, context: Params) {
 
     const { data: itemsData, error: itemsError } = await supabase
       .from("school_request_items")
-      .select("id, request_id, raw_text, normalized_name, quantity")
+      .select("id, request_id, raw_text, normalized_name, quantity, category, notes")
       .eq("request_id", requestId)
       .order("created_at", { ascending: true });
 
@@ -359,6 +412,10 @@ export async function POST(_request: Request, context: Params) {
     );
 
     const candidateItems = items.filter((item) => {
+      if (isManualComboNoAutoAdoptItem(item)) {
+        return false;
+      }
+
       return !requestItemIdsWithOfferItem.has(item.id);
     });
 

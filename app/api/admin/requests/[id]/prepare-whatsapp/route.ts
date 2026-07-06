@@ -35,6 +35,8 @@ type RequestItem = {
   normalized_name: string | null;
   quantity: number | string | null;
   status: string | null;
+  category?: string | null;
+  notes?: string | null;
 };
 
 type RequestMatch = {
@@ -111,6 +113,57 @@ function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
   }
 
   return false;
+}
+
+
+function normalizeAutoAdoptGuardText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isManualComboNoAutoAdoptItem(item: {
+  raw_text?: string | null;
+  normalized_name?: string | null;
+  category?: string | null;
+  notes?: string | null;
+}) {
+  const text = normalizeAutoAdoptGuardText([
+    item.raw_text,
+    item.normalized_name,
+    item.category,
+    item.notes,
+  ].filter(Boolean).join(" "));
+
+  if (!text) return false;
+
+  if (text.includes("manual_combo_no_auto_adopt")) {
+    return true;
+  }
+
+  const isCombo = text.includes("kombiposition");
+  const hasCover = text.includes("umschlag");
+  const hasExerciseBook =
+    text.includes("heft") ||
+    text.includes("rechenheft") ||
+    text.includes("schreibheft") ||
+    text.includes("deutschheft") ||
+    text.includes("matheheft") ||
+    text.includes("mathematikheft");
+
+  return isCombo && hasCover && hasExerciseBook;
 }
 
 function jsonResponse(data: unknown, status = 200) {
@@ -431,8 +484,16 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
     matchesByItem.set(item.id, itemMatches);
   }
 
+  const autoAdoptableItemIds = new Set(
+    items
+      .filter((item) => !isManualComboNoAutoAdoptItem(item))
+      .map((item) => item.id)
+  );
+
   const rowsToInsert = items
     .map((item) => {
+      if (!autoAdoptableItemIds.has(item.id)) return null;
+
       const existingForItem = existingByRequestItem.get(item.id) || [];
 
       if (existingForItem.length > 0) return null;
@@ -488,6 +549,7 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
   const safeMatchCount = matches.filter(
     (match) =>
       Boolean(match.product_id) &&
+      autoAdoptableItemIds.has(match.request_item_id) &&
       ((toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE && !isUnsafeAutoPreselectMatchReason(match)) && !isAutoPreselectBlockedMatch(match))
   ).length;
 

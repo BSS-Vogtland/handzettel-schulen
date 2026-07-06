@@ -21,6 +21,10 @@ type SchoolRequest = {
 type RequestItemRow = {
   id: string;
   quantity: number | string | null;
+  raw_text?: string | null;
+  normalized_name?: string | null;
+  category?: string | null;
+  notes?: string | null;
 };
 
 type RequestMatchRow = {
@@ -95,6 +99,57 @@ function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
   }
 
   return false;
+}
+
+
+function normalizeAutoAdoptGuardText(value: unknown) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isManualComboNoAutoAdoptItem(item: {
+  raw_text?: string | null;
+  normalized_name?: string | null;
+  category?: string | null;
+  notes?: string | null;
+}) {
+  const text = normalizeAutoAdoptGuardText([
+    item.raw_text,
+    item.normalized_name,
+    item.category,
+    item.notes,
+  ].filter(Boolean).join(" "));
+
+  if (!text) return false;
+
+  if (text.includes("manual_combo_no_auto_adopt")) {
+    return true;
+  }
+
+  const isCombo = text.includes("kombiposition");
+  const hasCover = text.includes("umschlag");
+  const hasExerciseBook =
+    text.includes("heft") ||
+    text.includes("rechenheft") ||
+    text.includes("schreibheft") ||
+    text.includes("deutschheft") ||
+    text.includes("matheheft") ||
+    text.includes("mathematikheft");
+
+  return isCombo && hasCover && hasExerciseBook;
 }
 
 function jsonResponse(data: unknown, status = 200) {
@@ -482,7 +537,7 @@ async function autoPreselectSafeMatches(params: {
   }
 
   const matches = (matchesData || []) as RequestMatchRow[];
-  const candidates = getBestAutoPreselectMatches(matches);
+  let candidates = getBestAutoPreselectMatches(matches);
 
   if (candidates.length === 0) {
     return {
@@ -494,7 +549,7 @@ async function autoPreselectSafeMatches(params: {
 
   const { data: requestItemsData, error: requestItemsError } = await supabase
     .from("school_request_items")
-    .select("id, quantity")
+    .select("id, quantity, raw_text, normalized_name, category, notes")
     .in("id", requestItemIds);
 
   if (requestItemsError) {
@@ -503,8 +558,28 @@ async function autoPreselectSafeMatches(params: {
     );
   }
 
+  const requestItems = (requestItemsData || []) as RequestItemRow[];
+
+  const manualComboRequestItemIds = new Set(
+    requestItems
+      .filter((item) => isManualComboNoAutoAdoptItem(item))
+      .map((item) => item.id)
+  );
+
+  candidates = candidates.filter(
+    (match) => !manualComboRequestItemIds.has(match.request_item_id)
+  );
+
+  if (candidates.length === 0) {
+    return {
+      preselectedCount: 0,
+      alreadyExistingCount: 0,
+      candidateCount: 0,
+    };
+  }
+
   const requestItemQuantityById = new Map(
-    ((requestItemsData || []) as RequestItemRow[]).map((item) => [
+    requestItems.map((item) => [
       item.id,
       Math.max(1, Math.min(99, Math.floor(toNumber(item.quantity, 1)))),
     ])
