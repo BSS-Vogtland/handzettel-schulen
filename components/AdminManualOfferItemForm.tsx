@@ -12,9 +12,17 @@ import {
   X,
 } from "lucide-react";
 
+type AdminManualOfferChildOption = {
+  id: string;
+  label: string;
+};
+
 type AdminManualOfferItemFormProps = {
   requestId: string;
   requestItemId?: string | null;
+  childOptions?: AdminManualOfferChildOption[];
+  defaultChildId?: string | null;
+  childSelectLabel?: string;
   defaultProductName?: string | null;
   defaultQuantity?: number | string | null;
   buttonLabel?: string;
@@ -25,6 +33,9 @@ type ManualOfferItemResponse = {
   message?: string;
   productId?: string | null;
   requestItemId?: string | null;
+  childOptions?: AdminManualOfferChildOption[];
+  defaultChildId?: string | null;
+  childSelectLabel?: string;
   aliasText?: string | null;
 };
 
@@ -81,9 +92,12 @@ function formatMoney(value: number) {
 export default function AdminManualOfferItemForm({
   requestId,
   requestItemId = null,
+  childOptions = [],
+  defaultChildId = null,
+  childSelectLabel = "Kind zuordnen",
   defaultProductName,
   defaultQuantity,
-  buttonLabel = "Manuell Produkt ergänzen",
+  buttonLabel = "Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzen",
 }: AdminManualOfferItemFormProps) {
   function goToPackageChecklist() {
     const url = new URL(window.location.href);
@@ -103,7 +117,13 @@ export default function AdminManualOfferItemForm({
   const [productSku, setProductSku] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [quantity, setQuantity] = useState(toInputNumber(defaultQuantity, "1"));
-  const [unit, setUnit] = useState("");
+    const [selectedChildId, setSelectedChildId] = useState(defaultChildId || "");
+  const showChildSelect = !requestItemId && childOptions.length > 0;
+
+  useEffect(() => {
+    setSelectedChildId(defaultChildId || "");
+  }, [defaultChildId, isOpen]);
+const [unit, setUnit] = useState("");
   const [notes, setNotes] = useState("");
 
   const [productCategory, setProductCategory] = useState("");
@@ -176,6 +196,39 @@ export default function AdminManualOfferItemForm({
     setFeedback(null);
 
     try {
+      const cleanSelectedChildId = showChildSelect
+
+        ? selectedChildId.trim()
+
+        : "";
+
+
+      if (showChildSelect && !cleanSelectedChildId) {
+
+        setErrorMessage("Bitte ein Kind auswÃƒÆ’Ã‚Â¤hlen.");
+
+        return;
+
+      }
+
+
+      if (showChildSelect && !selectedChildId.trim()) {
+
+
+
+        setErrorMessage("Bitte ein Kind auswählen.");
+
+
+
+        return;
+
+
+
+      }
+
+
+
+
       const response = await fetch(
         `/api/admin/products/search?q=${encodeURIComponent(searchQuery.trim())}`
       );
@@ -188,7 +241,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produktsuche hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Produktsuche hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlich das Terminal."
         );
       }
 
@@ -267,32 +320,32 @@ export default function AdminManualOfferItemForm({
     const quantityNumber = parseGermanNumber(quantity);
 
     if (!selectedProductId && !createProductMode) {
-      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf „Neues Produkt erfassen“. ";
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾Neues Produkt erfassenÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“. ";
     }
 
     if (!productName.trim() && !selectedProductId) {
-      return "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.";
+      return "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hle ein Bestandsprodukt aus.";
     }
 
     if (quantityNumber <= 0) {
-      return "Bitte gib eine Menge größer als 0 ein.";
+      return "Bitte gib eine Menge grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸er als 0 ein.";
     }
 
     if (selectedProductId && priceNumber <= 0) {
-      return "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
+      return "Das gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
     }
 
     if (createProductMode && !selectedProductId) {
       const missingFields: string[] = [];
 
       if (!productName.trim()) missingFields.push("Produktname");
-      if (priceNumber <= 0) missingFields.push("Einzelpreis größer 0");
+      if (priceNumber <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸er 0");
       if (!productCategory.trim()) missingFields.push("Kategorie");
       if (!productType.trim()) missingFields.push("Produkttyp");
       if (!unit.trim()) missingFields.push("Einheit");
 
       if (missingFields.length > 0) {
-        return `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
+        return `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
           ", "
         )}.`;
       }
@@ -319,6 +372,15 @@ export default function AdminManualOfferItemForm({
     setIsSaving(true);
 
     try {
+      if (showChildSelect && !selectedChildId.trim()) {
+
+        setErrorMessage("Bitte ein Kind auswählen.");
+
+        return;
+
+      }
+
+
       const response = await fetch(
         `/api/admin/requests/${requestId}/offer-items/manual`,
         {
@@ -328,6 +390,7 @@ export default function AdminManualOfferItemForm({
           },
           body: JSON.stringify({
             requestItemId: requestItemId || null,
+      childId: showChildSelect ? selectedChildId.trim() || null : null,
             productName: productName.trim(),
             productSku: productSku.trim(),
             productPrice: productPrice.trim(),
@@ -357,7 +420,7 @@ export default function AdminManualOfferItemForm({
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Admin-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Admin-Route hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlich das Terminal."
         );
       }
 
@@ -368,7 +431,7 @@ export default function AdminManualOfferItemForm({
         );
       }
 
-      setFeedback(payload.message || "Manuelle Position wurde hinzugefügt.");
+      setFeedback(payload.message || "Manuelle Position wurde hinzugefÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gt.");
 
       const nextPendingAliasRemember =
         payload.productId && payload.aliasText
@@ -382,9 +445,9 @@ export default function AdminManualOfferItemForm({
       if (nextPendingAliasRemember) {
         setPendingAliasRemember(nextPendingAliasRemember);
       } else {
-        // Wichtig für Sammelpositionen:
-        // Formular bleibt offen, damit direkt das nächste Produkt aus derselben
-        // Listenposition gesucht und übernommen werden kann.
+        // Wichtig fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r Sammelpositionen:
+        // Formular bleibt offen, damit direkt das nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤chste Produkt aus derselben
+        // Listenposition gesucht und ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernommen werden kann.
         setSelectedProductId(null);
         setSelectedProductLabel(null);
         setSelectedProductImageUrl(null);
@@ -422,6 +485,15 @@ export default function AdminManualOfferItemForm({
     setErrorMessage(null);
 
     try {
+      if (showChildSelect && !selectedChildId.trim()) {
+
+        setErrorMessage("Bitte ein Kind auswählen.");
+
+        return;
+
+      }
+
+
       const response = await fetch(
         `/api/admin/requests/${requestId}/offer-items/manual/remember`,
         {
@@ -446,7 +518,7 @@ export default function AdminManualOfferItemForm({
       }
 
       setFeedback(
-        payload.message || "Zuordnung wurde für spätere Listen gespeichert."
+        payload.message || "Zuordnung wurde fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tere Listen gespeichert."
       );
       setPendingAliasRemember(null);
       goToPackageChecklist();
@@ -516,7 +588,7 @@ export default function AdminManualOfferItemForm({
           type="button"
           onClick={() => setIsOpen(false)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
-          aria-label="Formular schließen"
+          aria-label="Formular schlieÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸en"
         >
           <X className="h-4 w-4" />
         </button>
@@ -545,7 +617,7 @@ export default function AdminManualOfferItemForm({
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Suche …
+                Suche ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦
               </>
             ) : (
               <>
@@ -576,7 +648,7 @@ export default function AdminManualOfferItemForm({
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                    Bestandsprodukt gewählt
+                    Bestandsprodukt gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt
                   </p>
                   <p className="mt-1 font-black text-[#102A43]">
                     {selectedProductLabel}
@@ -683,7 +755,7 @@ export default function AdminManualOfferItemForm({
                   <p className="mt-1 text-sm font-bold leading-6 text-[#8A4A1F]">
                     Pflichtfelder: Produktname, Einzelpreis, Kategorie,
                     Produkttyp, Menge und Einheit. Die Artikelnummer wird
-                    automatisch erzeugt, wenn Du sie leer lässt.
+                    automatisch erzeugt, wenn Du sie leer lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤sst.
                   </p>
                 </div>
 
@@ -692,13 +764,41 @@ export default function AdminManualOfferItemForm({
                   onClick={stopCreateProductMode}
                   className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-black text-[#B5282D]"
                 >
-                  Zurück zur Suche
+                  ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ck zur Suche
                 </button>
               </div>
             </div>
           ) : null}
 
-          <div>
+          <div>              {showChildSelect ? (
+                <div>
+                  <label
+                    htmlFor={`manual-child-id-${fieldKey}`}
+                    className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]"
+                  >
+                    {childSelectLabel}
+                  </label>
+
+                  <select
+                    id={`manual-child-id-${fieldKey}`}
+                    value={selectedChildId}
+                    onChange={(event) => setSelectedChildId(event.target.value)}
+                    className="mt-2 min-h-12 w-full rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
+                  >
+                    <option value="">Kind auswÃƒÆ’Ã‚Â¤hlen</option>
+                    {childOptions.map((child) => (
+                      <option key={child.id} value={child.id}>
+                        {child.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+                    Diese Auswahl gilt nur fÃƒÆ’Ã‚Â¼r freie Paketpositionen ohne erkannte Listenposition.
+                  </p>
+                </div>
+              ) : null}
+
             <label
               htmlFor={`manual-product-name-${fieldKey}`}
               className="mb-2 block text-sm font-black text-[#102A43]"
@@ -792,7 +892,7 @@ export default function AdminManualOfferItemForm({
                 type="text"
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                placeholder="z. B. Stück"
+                placeholder="z. B. StÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ck"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </div>
@@ -818,7 +918,7 @@ export default function AdminManualOfferItemForm({
           {isCreatingNewProduct ? (
             <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Produktdaten für Katalog & Matching
+                Produktdaten fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r Katalog & Matching
               </p>
 
               <div className="grid gap-4 sm:grid-cols-5">
@@ -869,7 +969,7 @@ export default function AdminManualOfferItemForm({
                     type="text"
                     value={productColor}
                     onChange={(event) => setProductColor(event.target.value)}
-                    placeholder="z. B. weiß"
+                    placeholder="z. B. weiÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸"
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
                   />
                 </div>
@@ -907,11 +1007,11 @@ export default function AdminManualOfferItemForm({
           {pendingAliasRemember ? (
             <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Zuordnung für spätere Listen merken?
+                Zuordnung fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tere Listen merken?
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Soll diese erkannte Listenposition künftig automatisch besser diesem Produkt zugeordnet werden?
+                Soll diese erkannte Listenposition kÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼nftig automatisch besser diesem Produkt zugeordnet werden?
               </p>
 
               <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#102A43]">
@@ -939,7 +1039,7 @@ export default function AdminManualOfferItemForm({
                   disabled={isRememberingAlias}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Nur diesmal übernehmen
+                  Nur diesmal ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen
                 </button>
               </div>
             </div>
@@ -953,20 +1053,20 @@ export default function AdminManualOfferItemForm({
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Wird gespeichert …
+                Wird gespeichert ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦
               </>
             ) : (
               <>
                 <PackagePlus className="h-4 w-4" />
-                Produkt in Paketwunsch übernehmen
+                Produkt in Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen
               </>
             )}
           </button>
         </div>
       ) : (
         <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
-          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, öffnest Du die
-          Erfassung für ein neues Bestandsprodukt.
+          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnest Du die
+          Erfassung fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r ein neues Bestandsprodukt.
         </div>
       )}
     </form>
