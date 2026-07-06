@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7e-db-cover-split-sanitizer";
+const ANALYZE_VERSION = "school-material-analyze-v7f-cover-combo-manual-review";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -1060,6 +1060,8 @@ function buildExerciseBookName(value: string) {
     .join(" ");
 }
 
+
+
 function expandCoverMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
   const sourceLine = cleanNullableString(item.rawText) || cleanNullableString(item.normalizedName);
   if (!sourceLine || !shouldSplitCoverLine(sourceLine)) return null;
@@ -1072,43 +1074,37 @@ function expandCoverMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
   const exerciseBookName = buildExerciseBookName(sourceLine);
   const coverName = ["Umschlag", format, coverColor].filter(Boolean).join(" ");
 
-  const exerciseBookItem: ExtractedItem = {
-    ...item,
-    rawText: sourceLine,
-    normalizedName: exerciseBookName,
-    quantity,
-    category: "Heft",
-    format,
-    color: null,
-    lineature,
-    notes: [
-      cleanNullableString(item.notes),
-      "Heft-mit-Umschlag-Zeile deterministisch getrennt: Heft ist eigener Artikel.",
-      `Analyse-Version: ${ANALYZE_VERSION}`,
-    ]
-      .filter(Boolean)
-      .join(" | "),
-  };
+  const comboName = [
+    exerciseBookName || "Heft",
+    coverName ? "mit " + coverName : "mit Umschlag",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const coverItem: ExtractedItem = {
-    ...item,
-    rawText: sourceLine,
-    normalizedName: coverName || "Umschlag",
-    quantity,
-    category: "Umschlag",
-    format,
-    color: coverColor,
-    lineature: null,
-    notes: [
-      cleanNullableString(item.notes),
-      "Heft-mit-Umschlag-Zeile deterministisch getrennt: Umschlag ist eigener Artikel.",
-      `Analyse-Version: ${ANALYZE_VERSION}`,
-    ]
-      .filter(Boolean)
-      .join(" | "),
-  };
-
-  return [exerciseBookItem, coverItem];
+  return [
+    {
+      ...item,
+      rawText: sourceLine,
+      normalizedName: comboName,
+      quantity,
+      category: "Kombiposition",
+      format,
+      color: null,
+      lineature,
+      notes: [
+        cleanNullableString(item.notes),
+        "MANUAL_COMBO_NO_AUTO_ADOPT",
+        "Kombiposition: Heft/Rechenheft/Schreibheft mit Umschlag. Nicht automatisch in Paketwunsch uebernehmen. Admin soll Heft und Umschlag manuell als Shopartikel hinzufuegen.",
+        coverName ? "Enthaltener Umschlag: " + coverName : null,
+        `Analyse-Version: ${ANALYZE_VERSION}`,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      confidence: Math.min(cleanConfidence(item.confidence), 0.74),
+    },
+  ];
 }
 
 const COLOR_ONLY_TERMS = new Set([
@@ -2896,6 +2892,18 @@ const { id } = await context.params;
 
     function expandAndSanitizeFinalDbItems(items: CleanedItem[]) {
       const expanded = items.map((item) => {
+        if (String(item.notes || "").includes("MANUAL_COMBO_NO_AUTO_ADOPT")) {
+          return {
+            ...item,
+            category: "Kombiposition",
+            productType: "Kombiposition",
+            notes: [
+              item.notes,
+              "MANUAL_COMBO_NO_AUTO_ADOPT_DB_PROTECT",
+            ].filter(Boolean).join(" | "),
+          };
+        }
+
         if (isSplitExerciseBookDbItem(item)) {
           return normalizeDbExerciseBookItem(item);
         }
