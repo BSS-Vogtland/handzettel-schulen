@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
 
@@ -21,6 +21,7 @@ type RequestBody = {
   color?: unknown;
   lineature?: unknown;
   notes?: unknown;
+  childId?: unknown;
 };
 
 function getSupabaseAdmin() {
@@ -126,10 +127,46 @@ export async function POST(request: NextRequest, context: Params) {
 
     const now = new Date().toISOString();
 
+    const explicitChildId = body.childId ? String(body.childId).trim() : "";
+    let manualChildId: string | null = null;
+
+    if (explicitChildId) {
+      const { data: manualChildData, error: manualChildError } = await supabase
+        .from("school_request_children")
+        .select("id, request_id")
+        .eq("id", explicitChildId)
+        .eq("request_id", id)
+        .maybeSingle();
+
+      if (manualChildError) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: `Kind-Zuordnung konnte nicht geprüft werden: ${manualChildError.message}`,
+          },
+          500
+        );
+      }
+
+      if (!manualChildData) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: "Das ausgewählte Kind gehört nicht zu dieser Anfrage.",
+          },
+          400
+        );
+      }
+
+      manualChildId = explicitChildId;
+    }
+
+
     const { data: insertedItem, error: insertError } = await supabase
       .from("school_request_items")
       .insert({
         request_id: id,
+        child_id: manualChildId,
         raw_text: rawText || normalizedName,
         normalized_name: normalizedName,
         quantity: toQuantity(body.quantity),

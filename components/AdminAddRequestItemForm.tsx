@@ -1,10 +1,17 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useState } from "react";
 import { PlusCircle } from "lucide-react";
 
+type AdminAddRequestItemChildOption = {
+  id: string;
+  label: string;
+};
+
 type AdminAddRequestItemFormProps = {
   requestId: string;
+  childOptions?: AdminAddRequestItemChildOption[];
+  defaultChildId?: string | null;
 };
 
 type AddItemResponse = {
@@ -15,9 +22,13 @@ type AddItemResponse = {
 
 export default function AdminAddRequestItemForm({
   requestId,
+  childOptions = [],
+  defaultChildId = null,
 }: AdminAddRequestItemFormProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+    const [selectedChildId, setSelectedChildId] = useState(defaultChildId || "");
+  const showChildSelect = childOptions.length > 0 && !defaultChildId;
+const [isSaving, setIsSaving] = useState(false);
   const [rawText, setRawText] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [category, setCategory] = useState("");
@@ -43,6 +54,15 @@ export default function AdminAddRequestItemForm({
     setErrorMessage(null);
 
     try {
+      if (showChildSelect && !selectedChildId.trim()) {
+
+        setErrorMessage("Bitte ein Kind auswählen.");
+
+        return;
+
+      }
+
+
       const response = await fetch(
         `/api/admin/requests/${encodeURIComponent(requestId)}/items/manual`,
         {
@@ -51,7 +71,8 @@ export default function AdminAddRequestItemForm({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            rawText: cleanRawText,
+            
+        childId: childOptions.length > 0 ? selectedChildId.trim() || defaultChildId || null : null,rawText: cleanRawText,
             normalizedName: cleanRawText,
             quantity,
             category,
@@ -132,7 +153,31 @@ export default function AdminAddRequestItemForm({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <label className="md:col-span-2">
+                {showChildSelect ? (
+          <div className="rounded-[22px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
+            <label
+              htmlFor="manual-request-item-child-id"
+              className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]"
+            >
+              Kind für neue Listenposition
+            </label>
+
+            <select
+              id="manual-request-item-child-id"
+              value={selectedChildId}
+              onChange={(event) => setSelectedChildId(event.target.value)}
+              className="mt-2 min-h-12 w-full rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
+            >
+              <option value="">Kind auswählen</option>
+              {childOptions.map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+<label className="md:col-span-2">
           <span className="mb-1 block text-xs font-black uppercase tracking-[0.14em] text-[#52616F]">
             Bezeichnung / Listenzeile
           </span>
