@@ -197,6 +197,7 @@ type WorkflowStatus = {
 type AdminRequestsPageProps = {
   searchParams?: Promise<{
     filter?: string | string[];
+    sort?: string | string[];
   }>;
 };
 
@@ -212,6 +213,8 @@ type AdminFilter =
   | "pickup"
   | "completed"
   | "archived";
+
+type AdminSort = "workflow" | "created_desc" | "created_asc";
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1423,6 +1426,36 @@ function getFilterValue(rawFilter: string | string[] | undefined): AdminFilter {
   return "all";
 }
 
+function getSortValue(rawSort: string | string[] | undefined): AdminSort {
+  const value = Array.isArray(rawSort) ? rawSort[0] : rawSort;
+
+  if (value === "created_desc" || value === "created_asc") {
+    return value;
+  }
+
+  return "workflow";
+}
+
+function buildAdminRequestsHref(filter: AdminFilter, sort: AdminSort) {
+  const params = new URLSearchParams();
+
+  if (filter !== "all") params.set("filter", filter);
+  if (sort !== "workflow") params.set("sort", sort);
+
+  const query = params.toString();
+
+  return query ? `/admin/anfragen?${query}` : "/admin/anfragen";
+}
+
+function getSortPillClass(active: boolean) {
+  return [
+    "inline-flex min-h-10 items-center justify-center rounded-2xl border px-4 py-2 text-sm font-black transition",
+    active
+      ? "border-[#12395F] bg-[#12395F] text-white"
+      : "border-[#E8DED2] bg-white text-[#52616F] hover:border-[#12395F] hover:text-[#12395F]",
+  ].join(" ");
+}
+
 function filterOverviews(overviews: RequestOverview[], filter: AdminFilter) {
   switch (filter) {
     case "questions-answered":
@@ -1501,6 +1534,45 @@ function compareRequestOverviewsByWorkflow(a: RequestOverview, b: RequestOvervie
       sensitivity: "base",
     }
   );
+}
+
+function compareRequestOverviewsByCreatedAt(
+  a: RequestOverview,
+  b: RequestOverview,
+  direction: "asc" | "desc"
+) {
+  const aTime = getRequestSortTime(a);
+  const bTime = getRequestSortTime(b);
+
+  const timeDifference =
+    direction === "asc" ? aTime - bTime : bTime - aTime;
+
+  if (timeDifference !== 0) return timeDifference;
+
+  return String(a.request.request_number || a.request.id).localeCompare(
+    String(b.request.request_number || b.request.id),
+    "de",
+    {
+      numeric: true,
+      sensitivity: "base",
+    }
+  );
+}
+
+function compareRequestOverviews(
+  a: RequestOverview,
+  b: RequestOverview,
+  sort: AdminSort
+) {
+  if (sort === "created_asc") {
+    return compareRequestOverviewsByCreatedAt(a, b, "asc");
+  }
+
+  if (sort === "created_desc") {
+    return compareRequestOverviewsByCreatedAt(a, b, "desc");
+  }
+
+  return compareRequestOverviewsByWorkflow(a, b);
 }
 
 function FilterPill({
@@ -1933,6 +2005,7 @@ export default async function AdminRequestsPage({
 }: AdminRequestsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const activeFilter = getFilterValue(resolvedSearchParams.filter);
+  const activeSort = getSortValue(resolvedSearchParams.sort);
 
   const supabase = getSupabaseAdmin();
   const siteUrl =
@@ -1955,7 +2028,7 @@ export default async function AdminRequestsPage({
   let requestsQuery = supabase
     .from("school_requests")
     .select("*")
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: activeSort === "created_asc" })
     .limit(100);
 
   if (activeFilter === "archived") {
@@ -2231,7 +2304,7 @@ export default async function AdminRequestsPage({
       totalPrice,
       hasAdminEdits: adminManualCount > 0 || hasAdminEditEvent,
     };
-  }).sort(compareRequestOverviewsByWorkflow);
+  }).sort((a, b) => compareRequestOverviews(a, b, activeSort));
 
   const openOverviews = overviews.filter(
     (overview) => getWorkflowStatus(overview).area === "open"
@@ -2333,7 +2406,7 @@ export default async function AdminRequestsPage({
               </p>
 
               <a
-                href="/admin/anfragen"
+                href={buildAdminRequestsHref("all", activeSort)}
                 className="mt-4 inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -2345,7 +2418,7 @@ export default async function AdminRequestsPage({
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Link
-            href="/admin/anfragen"
+            href={buildAdminRequestsHref("all", activeSort)}
             className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
               activeFilter === "all"
                 ? "border-[#102A43] bg-white"
@@ -2390,7 +2463,7 @@ export default async function AdminRequestsPage({
           </div>
 
           <Link
-            href="/admin/anfragen?filter=questions-answered"
+            href={buildAdminRequestsHref("questions-answered", activeSort)}
             className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
               activeFilter === "questions-answered"
                 ? "border-[#2F7D50] bg-[#F0FFF6]"
@@ -2416,7 +2489,7 @@ export default async function AdminRequestsPage({
           </Link>
 
           <Link
-            href="/admin/anfragen?filter=questions-open"
+            href={buildAdminRequestsHref("questions-open", activeSort)}
             className={`rounded-[30px] border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] ${
               activeFilter === "questions-open"
                 ? "border-[#A75B28] bg-[#FFF8EE]"
@@ -2460,29 +2533,63 @@ export default async function AdminRequestsPage({
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2">
+                        <div className="rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-3">
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+                  Sortierung
+                </p>
+                <p className="text-xs font-semibold text-[#52616F]">
+                  Nach Eingangsdatum oder nach Arbeitspriorität sortieren.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={buildAdminRequestsHref(activeFilter, "workflow")}
+                  className={getSortPillClass(activeSort === "workflow")}
+                >
+                  Arbeitspriorität
+                </Link>
+
+                <Link
+                  href={buildAdminRequestsHref(activeFilter, "created_desc")}
+                  className={getSortPillClass(activeSort === "created_desc")}
+                >
+                  Neueste zuerst
+                </Link>
+
+                <Link
+                  href={buildAdminRequestsHref(activeFilter, "created_asc")}
+                  className={getSortPillClass(activeSort === "created_asc")}
+                >
+                  Älteste zuerst
+                </Link>
+              </div>
+            </div>
+
+<div className="flex flex-wrap gap-2">
               <FilterPill
-                href="/admin/anfragen"
+                href={buildAdminRequestsHref("all", activeSort)}
                 label="Alle"
                 count={totalRequests}
                 active={activeFilter === "all"}
               />
               <FilterPill
-                href="/admin/anfragen?filter=questions-answered"
+                href={buildAdminRequestsHref("questions-answered", activeSort)}
                 label="Antworten eingegangen"
                 count={answeredQuestionsCount}
                 active={activeFilter === "questions-answered"}
                 tone="green"
               />
               <FilterPill
-                href="/admin/anfragen?filter=questions-open"
+                href={buildAdminRequestsHref("questions-open", activeSort)}
                 label="Rückfragen offen"
                 count={openQuestionsCount}
                 active={activeFilter === "questions-open"}
                 tone="amber"
               />
               <FilterPill
-                href="/admin/anfragen?filter=manual"
+                href={buildAdminRequestsHref("manual", activeSort)}
                 label="Prüfung"
                 count={manualCount}
                 active={activeFilter === "manual"}
@@ -2492,49 +2599,49 @@ export default async function AdminRequestsPage({
 
             <div className="flex flex-wrap gap-2 border-t border-[#E8DED2] pt-4">
               <FilterPill
-                href="/admin/anfragen?filter=payment-open"
+                href={buildAdminRequestsHref("payment-open", activeSort)}
                 label="Zahlung offen"
                 count={waitingPaymentCount}
                 active={activeFilter === "payment-open"}
                 tone="amber"
               />
               <FilterPill
-                href="/admin/anfragen?filter=paid"
+                href={buildAdminRequestsHref("paid", activeSort)}
                 label="Bezahlt"
                 count={paidCount}
                 active={activeFilter === "paid"}
                 tone="green"
               />
               <FilterPill
-                href="/admin/anfragen?filter=packable"
+                href={buildAdminRequestsHref("packable", activeSort)}
                 label="Packen"
                 count={packableCount}
                 active={activeFilter === "packable"}
                 tone="green"
               />
               <FilterPill
-                href="/admin/anfragen?filter=shipping"
+                href={buildAdminRequestsHref("shipping", activeSort)}
                 label="Versand"
                 count={shippingCount}
                 active={activeFilter === "shipping"}
                 tone="blue"
               />
               <FilterPill
-                href="/admin/anfragen?filter=pickup"
+                href={buildAdminRequestsHref("pickup", activeSort)}
                 label="Abholung"
                 count={pickupCount}
                 active={activeFilter === "pickup"}
                 tone="green"
               />
               <FilterPill
-                href="/admin/anfragen?filter=completed"
+                href={buildAdminRequestsHref("completed", activeSort)}
                 label="Abgeschlossen"
                 count={completedCount}
                 active={activeFilter === "completed"}
                 tone="green"
               />
               <FilterPill
-                href="/admin/anfragen?filter=archived"
+                href={buildAdminRequestsHref("archived", activeSort)}
                 label="Archiviert"
                 count={archivedCount}
                 active={activeFilter === "archived"}
@@ -2694,7 +2801,7 @@ export default async function AdminRequestsPage({
                   </p>
 
                   <Link
-                    href="/admin/anfragen"
+                    href={buildAdminRequestsHref("all", activeSort)}
                     className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                   >
                     Alle Anfragen anzeigen
