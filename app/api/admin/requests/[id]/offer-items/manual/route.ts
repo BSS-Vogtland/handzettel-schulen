@@ -61,7 +61,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -111,11 +111,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/ÃƒÂ¤/g, "ae")
+    .replace(/ÃƒÂ¶/g, "oe")
+    .replace(/ÃƒÂ¼/g, "ue")
+    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/grÃƒÂ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -180,10 +180,10 @@ function getMissingNewProductFields(input: {
   const missingFields: string[] = [];
 
   if (!input.productName) missingFields.push("Produktname");
-  if (input.productPrice <= 0) missingFields.push("Einzelpreis größer 0");
+  if (input.productPrice <= 0) missingFields.push("Einzelpreis grÃƒÂ¶ÃƒÅ¸er 0");
   if (!input.productCategory) missingFields.push("Kategorie");
   if (!input.productType) missingFields.push("Produkttyp");
-  if (input.quantity <= 0) missingFields.push("Menge größer 0");
+  if (input.quantity <= 0) missingFields.push("Menge grÃƒÂ¶ÃƒÅ¸er 0");
   if (!input.unit) missingFields.push("Einheit");
 
   return missingFields;
@@ -353,7 +353,7 @@ async function createProductFlexible(
 
   throw new Error(
     `Produkt konnte nicht angelegt werden: ${
-      lastError instanceof Error ? lastError.message : "Tabellenstruktur prüfen."
+      lastError instanceof Error ? lastError.message : "Tabellenstruktur prÃƒÂ¼fen."
     }`
   );
 }
@@ -406,7 +406,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID übergeben.",
+          message: "Keine Anfrage-ID ÃƒÂ¼bergeben.",
         },
         400
       );
@@ -449,7 +449,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte suche zuerst ein Bestandsprodukt. Wenn der Artikel nicht vorhanden ist, öffne bewusst „Neues Produkt erfassen“.",
+            "Bitte suche zuerst ein Bestandsprodukt. Wenn der Artikel nicht vorhanden ist, ÃƒÂ¶ffne bewusst Ã¢â‚¬Å¾Neues Produkt erfassenÃ¢â‚¬Å“.",
         },
         400
       );
@@ -460,7 +460,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.",
+            "Bitte gib einen Produktnamen ein oder wÃƒÂ¤hle ein Bestandsprodukt aus.",
         },
         400
       );
@@ -470,7 +470,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Die Menge muss größer als 0 sein.",
+          message: "Die Menge muss grÃƒÂ¶ÃƒÅ¸er als 0 sein.",
         },
         400
       );
@@ -490,7 +490,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
+            message: `Neues Produkt nicht gespeichert: Bitte fÃƒÂ¼lle folgende Pflichtfelder aus: ${missingFields.join(
               ", "
             )}.`,
           },
@@ -529,7 +529,31 @@ export async function POST(request: NextRequest, context: Params) {
       ? String(body.requestItemId).trim()
       : null;
 
-    if (requestItemId) {
+    
+  let requestItemChildId: string | null = null;
+
+  if (requestItemId) {
+    const { data: requestItemChildData, error: requestItemChildError } =
+      await supabase
+        .from("school_request_items")
+        .select("id, request_id, child_id")
+        .eq("id", requestItemId)
+        .eq("request_id", id)
+        .maybeSingle();
+
+    if (requestItemChildError) {
+      throw new Error(
+        `Kind-Zuordnung der Listenposition konnte nicht geladen werden: ${requestItemChildError.message}`
+      );
+    }
+
+    requestItemChildId =
+      String(
+        (requestItemChildData as { child_id?: string | null } | null)
+          ?.child_id || ""
+      ).trim() || null;
+  }
+if (requestItemId) {
       const { data: requestItem, error: itemError } = await supabase
         .from("school_request_items")
         .select("id, request_id")
@@ -540,7 +564,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Listenposition konnte nicht geprüft werden: ${itemError.message}`,
+            message: `Listenposition konnte nicht geprÃƒÂ¼ft werden: ${itemError.message}`,
           },
           500
         );
@@ -551,7 +575,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Die gewählte Listenposition gehört nicht zu dieser Anfrage.",
+              "Die gewÃƒÂ¤hlte Listenposition gehÃƒÂ¶rt nicht zu dieser Anfrage.",
           },
           400
         );
@@ -593,7 +617,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: "Das gewählte Bestandsprodukt wurde nicht gefunden.",
+            message: "Das gewÃƒÂ¤hlte Bestandsprodukt wurde nicht gefunden.",
           },
           404
         );
@@ -611,7 +635,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+              "Das gewÃƒÂ¤hlte Bestandsprodukt hat keinen gÃƒÂ¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
           },
           400
         );
@@ -672,7 +696,7 @@ export async function POST(request: NextRequest, context: Params) {
             {
               ok: false,
               message:
-                "Ein gleiches Bestandsprodukt wurde gefunden, hat aber keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+                "Ein gleiches Bestandsprodukt wurde gefunden, hat aber keinen gÃƒÂ¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
             },
             400
           );
@@ -728,7 +752,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Bestehende Paketposition konnte nicht geprüft werden: ${duplicateError.message}`,
+            message: `Bestehende Paketposition konnte nicht geprÃƒÂ¼ft werden: ${duplicateError.message}`,
           },
           500
         );
@@ -739,7 +763,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Dieses Produkt wurde für diese Listenposition bereits in den Paketwunsch übernommen.",
+              "Dieses Produkt wurde fÃƒÂ¼r diese Listenposition bereits in den Paketwunsch ÃƒÂ¼bernommen.",
           },
           409
         );
@@ -751,6 +775,7 @@ export async function POST(request: NextRequest, context: Params) {
       .insert({
         request_id: id,
         request_item_id: requestItemId,
+        child_id: requestItemChildId,
         match_id: null,
         product_id: productId,
         product_name: productName,
@@ -763,10 +788,10 @@ export async function POST(request: NextRequest, context: Params) {
         notes:
           notes ||
           (productWasCreated
-            ? "Manuell durch Admin hinzugefügt und als Produkt gespeichert"
+            ? "Manuell durch Admin hinzugefÃƒÂ¼gt und als Produkt gespeichert"
             : productWasExisting
-              ? "Manuell durch Admin aus Bestandsprodukt hinzugefügt"
-              : "Manuell durch Admin hinzugefügt"),
+              ? "Manuell durch Admin aus Bestandsprodukt hinzugefÃƒÂ¼gt"
+              : "Manuell durch Admin hinzugefÃƒÂ¼gt"),
       })
       .select("*")
       .single();
@@ -786,7 +811,7 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       id,
       "admin_manual_offer_item_added",
-      "Admin hat eine manuelle Paketposition hinzugefügt.",
+      "Admin hat eine manuelle Paketposition hinzugefÃƒÂ¼gt.",
       {
         requestItemId,
         productId,
@@ -816,10 +841,10 @@ export async function POST(request: NextRequest, context: Params) {
       productWasExisting,
       aliasCount,
       message: productWasCreated
-        ? "Position wurde hinzugefügt und als neues Produkt gespeichert."
+        ? "Position wurde hinzugefÃƒÂ¼gt und als neues Produkt gespeichert."
         : productWasExisting
-          ? "Bestandsprodukt wurde in den Paketwunsch übernommen."
-          : "Manuelle Position wurde dem Paketwunsch hinzugefügt.",
+          ? "Bestandsprodukt wurde in den Paketwunsch ÃƒÂ¼bernommen."
+          : "Manuelle Position wurde dem Paketwunsch hinzugefÃƒÂ¼gt.",
     });
   } catch (error) {
     console.error("Admin manual offer item error:", error);
