@@ -55,6 +55,21 @@ type SchoolRequest = {
   created_at: string | null;
 };
 
+type RequestChild = {
+  id: string;
+  request_id: string;
+  sort_order: number | string | null;
+  label: string | null;
+  child_name: string | null;
+  school_name: string | null;
+  class_name: string | null;
+  source: string | null;
+  notes: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type RequestFile = {
   id: string;
   request_id: string;
@@ -971,6 +986,282 @@ function getCustomerOpenPositionDecision(events: RequestEvent[]) {
   return null;
 }
 
+function cleanCustomerChildText(value: unknown) {
+  const text = String(value || "").trim();
+  return text.length > 0 ? text : null;
+}
+
+function getCustomerRowChildId(row: unknown) {
+  const record = row as { child_id?: string | null };
+
+  return String(record.child_id || "").trim() || null;
+}
+
+function getCustomerChildLabel(child: RequestChild, index: number) {
+  return (
+    cleanCustomerChildText(child.label) ||
+    cleanCustomerChildText(child.child_name) ||
+    "Kind " + (index + 1)
+  );
+}
+
+function getCustomerChildMeta(child: RequestChild) {
+  return [
+    cleanCustomerChildText(child.class_name)
+      ? "Klasse " + cleanCustomerChildText(child.class_name)
+      : null,
+    cleanCustomerChildText(child.school_name),
+  ].filter(Boolean) as string[];
+}
+
+function getCustomerVisibleOpenItemCount(
+  items: RequestItem[],
+  offerItemsByRequestItem: Map<string, OfferItem[]>
+) {
+  return items.filter((item) => {
+    const selected = offerItemsByRequestItem.get(item.id) || [];
+    const adminResolutionStatus = String(
+      (item as unknown as { admin_resolution_status?: string | null })
+        .admin_resolution_status || ""
+    ).trim();
+
+    return !adminResolutionStatus && selected.length === 0;
+  }).length;
+}
+
+function CustomerChildPackageOverview({
+  request,
+  children,
+  files,
+  items,
+  offerItems,
+  questions,
+}: {
+  request: SchoolRequest;
+  children: RequestChild[];
+  files: RequestFile[];
+  items: RequestItem[];
+  offerItems: OfferItem[];
+  questions: RequestItemQuestion[];
+}) {
+  const activeChildren =
+    children.length > 0
+      ? children
+      : [
+          {
+            id: "fallback-child",
+            request_id: request.id,
+            sort_order: 1,
+            label: request.child_name || "Kind 1",
+            child_name: request.child_name,
+            school_name: request.school_name,
+            class_name: request.class_name,
+            source: "fallback",
+            notes: null,
+            is_active: true,
+            created_at: null,
+            updated_at: null,
+          },
+        ];
+
+  const offerItemsByRequestItem = new Map<string, OfferItem[]>();
+
+  for (const offerItem of offerItems) {
+    if (!offerItem.request_item_id) continue;
+
+    const current = offerItemsByRequestItem.get(offerItem.request_item_id) || [];
+    current.push(offerItem);
+    offerItemsByRequestItem.set(offerItem.request_item_id, current);
+  }
+
+  const groups = activeChildren.map((child, index) => {
+    const childId = child.id;
+    const childFiles = files.filter((file) => getCustomerRowChildId(file) === childId);
+    const childItems = items.filter((item) => getCustomerRowChildId(item) === childId);
+    const childOfferItems = offerItems.filter(
+      (offerItem) => getCustomerRowChildId(offerItem) === childId
+    );
+    const childQuestions = questions.filter(
+      (question) => getCustomerRowChildId(question) === childId
+    );
+
+    const previewOfferItems = childOfferItems.slice(0, 4).map((item) => {
+      return (
+        cleanCustomerChildText(
+          (item as unknown as { product_name?: string | null }).product_name
+        ) ||
+        cleanCustomerChildText(
+          (item as unknown as { normalized_name?: string | null }).normalized_name
+        ) ||
+        cleanCustomerChildText(
+          (item as unknown as { product_sku?: string | null }).product_sku
+        ) ||
+        "Paketposition"
+      );
+    });
+
+    return {
+      id: childId,
+      label: getCustomerChildLabel(child, index),
+      meta: getCustomerChildMeta(child),
+      fileCount: childFiles.length,
+      itemCount: childItems.length,
+      offerItemCount: childOfferItems.length,
+      openItemCount: getCustomerVisibleOpenItemCount(
+        childItems,
+        offerItemsByRequestItem
+      ),
+      questionCount: childQuestions.length,
+      previewOfferItems,
+    };
+  });
+
+  const unassignedFiles = files.filter((file) => !getCustomerRowChildId(file));
+  const unassignedItems = items.filter((item) => !getCustomerRowChildId(item));
+  const unassignedOfferItems = offerItems.filter(
+    (offerItem) => !getCustomerRowChildId(offerItem)
+  );
+  const unassignedQuestions = questions.filter(
+    (question) => !getCustomerRowChildId(question)
+  );
+
+  if (
+    unassignedFiles.length > 0 ||
+    unassignedItems.length > 0 ||
+    unassignedOfferItems.length > 0 ||
+    unassignedQuestions.length > 0
+  ) {
+    groups.push({
+      id: "unassigned",
+      label: "Noch nicht zugeordnet",
+      meta: ["Diese Positionen werden vom Team geprüft."],
+      fileCount: unassignedFiles.length,
+      itemCount: unassignedItems.length,
+      offerItemCount: unassignedOfferItems.length,
+      openItemCount: getCustomerVisibleOpenItemCount(
+        unassignedItems,
+        offerItemsByRequestItem
+      ),
+      questionCount: unassignedQuestions.length,
+      previewOfferItems: unassignedOfferItems.slice(0, 4).map((item) => {
+        return (
+          cleanCustomerChildText(
+            (item as unknown as { product_name?: string | null }).product_name
+          ) || "Paketposition"
+        );
+      }),
+    });
+  }
+
+  if (groups.length <= 1 && groups[0]?.itemCount === 0 && groups[0]?.offerItemCount === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-[34px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm sm:p-7">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#12395F]">
+            Pakete nach Kind
+          </p>
+          <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+            Deine Listen sind nach Kind getrennt
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+            So siehst Du auf einen Blick, welche Positionen bereits im Paket
+            liegen und wo noch eine Auswahl offen ist.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#C8D8E8] bg-white px-4 py-3 text-sm font-black text-[#12395F]">
+          {groups.filter((group) => group.id !== "unassigned").length} Kind
+          {groups.filter((group) => group.id !== "unassigned").length === 1
+            ? ""
+            : "er"}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        {groups.map((group) => (
+          <article
+            key={group.id}
+            className={
+              group.id === "unassigned"
+                ? "rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-4"
+                : "rounded-[28px] border border-[#C8D8E8] bg-white p-4"
+            }
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-xl font-black text-[#102A43]">
+                  {group.label}
+                </h3>
+
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                  {group.meta.length > 0
+                    ? group.meta.join(" - ")
+                    : "Keine Zusatzangaben hinterlegt."}
+                </p>
+              </div>
+
+              <span
+                className={
+                  group.openItemCount > 0
+                    ? "rounded-full border border-[#F1D1A8] bg-[#FFF8EE] px-3 py-1 text-xs font-black text-[#A75B28]"
+                    : "rounded-full border border-[#BFE3CD] bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]"
+                }
+              >
+                {group.openItemCount} offen
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Dateien", value: group.fileCount },
+                { label: "Erkannt", value: group.itemCount },
+                { label: "Im Paket", value: group.offerItemCount },
+                { label: "Rückfragen", value: group.questionCount },
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-3 py-2"
+                >
+                  <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                    {metric.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-black text-[#102A43]">
+                    {metric.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {group.previewOfferItems.length > 0 ? (
+              <div className="mt-4 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
+                  Beispiele im Paket
+                </p>
+
+                <ul className="mt-2 grid gap-1 text-sm font-semibold leading-6 text-[#102A43]">
+                  {group.previewOfferItems.map((name, index) => (
+                    <li key={index}>• {name}</li>
+                  ))}
+                </ul>
+
+                {group.offerItemCount > group.previewOfferItems.length ? (
+                  <p className="mt-2 text-xs font-bold text-[#52616F]">
+                    plus {group.offerItemCount - group.previewOfferItems.length} weitere Positionen
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function CustomerOfferPage({ params }: Params) {
   const { token } = await params;
   const supabase = getSupabaseAdmin();
@@ -1064,6 +1355,24 @@ export default async function CustomerOfferPage({ params }: Params) {
     (question) => question.status !== "cancelled" && question.status !== "resolved"
   );
   const uploadedFiles = (files || []) as RequestFile[];
+
+  const { data: requestChildrenData, error: requestChildrenError } =
+    await supabase
+      .from("school_request_children")
+      .select("*")
+      .eq("request_id", request.id)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+  if (requestChildrenError) {
+    throw new Error(
+      "Kinder/Gruppen konnten nicht geladen werden: " +
+        requestChildrenError.message
+    );
+  }
+
+  const requestChildren = (requestChildrenData || []) as RequestChild[];
 
 const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
     await supabase
@@ -1609,6 +1918,15 @@ const isFreshBeforeAnalysis =
             manualReviewCount={openDecisionItemCount}
           />
         ) : null}
+
+        <CustomerChildPackageOverview
+          request={request}
+          children={requestChildren}
+          files={uploadedFiles}
+          items={items}
+          offerItems={selectedOfferItems}
+          questions={questions}
+        />
 
         <header className="overflow-hidden rounded-[34px] border border-[#E8DED2] bg-white shadow-sm">
           <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_360px] lg:items-stretch">
