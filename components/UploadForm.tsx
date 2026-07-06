@@ -490,7 +490,7 @@ export default function UploadForm() {
             {children.map((child, index) => {
               const fileInputId = getFileInputId(child.id);
               const filePreviewLabel = child.file
-                ? `${child.file.name} - ${formatFileSize(child.file.size)}`
+                ? `Datei gespeichert - ${formatFileSize(child.file.size)}`
                 : "JPG, PNG, WEBP oder PDF hochladen";
 
               return (
@@ -520,7 +520,7 @@ export default function UploadForm() {
                     ) : null}
                   </div>
 
-                  <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
+                  <div className="grid gap-4">
                     <div className="grid gap-4">
                       <div>
                         <label
@@ -543,7 +543,7 @@ export default function UploadForm() {
                         />
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4">
                         <div>
                           <label
                             htmlFor={`className-${child.id}`}
@@ -591,7 +591,7 @@ export default function UploadForm() {
                     <div>
                       <label
                         htmlFor={fileInputId}
-                        className="group flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-[#D8C8B8] bg-white px-5 py-7 text-center transition hover:border-[#B5282D] hover:bg-[#FFF8F4]"
+                        className="group flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-[#D8C8B8] bg-white px-5 py-7 text-center transition hover:border-[#B5282D] hover:bg-[#FFF8F4]"
                       >
                         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#FBF7F0] text-[#B5282D] shadow-sm transition group-hover:scale-105">
                           <UploadCloud className="h-7 w-7" />
