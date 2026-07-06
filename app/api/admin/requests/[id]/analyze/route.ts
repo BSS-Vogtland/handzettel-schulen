@@ -16,6 +16,7 @@ type RequestFile = {
   storage_path: string | null;
   file_type: string | null;
   original_filename: string | null;
+  child_id: string | null;
 };
 
 type ExtractedItem = {
@@ -52,7 +53,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7f-cover-combo-manual-review";
+const ANALYZE_VERSION = "school-material-analyze-v9a-child-scoped-files";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -2189,7 +2190,8 @@ const { id } = await context.params;
           id,
           storage_path,
           file_type,
-          original_filename
+          original_filename,
+          child_id
         )
       `
       )
@@ -2205,11 +2207,14 @@ const { id } = await context.params;
 
     const files = (requestData.school_request_files || []) as RequestFile[];
 
-    const usableFile = files.find(
-      (file) => isSupportedImage(file) || isSupportedPdf(file)
+    const usableFiles = files.filter(
+      (
+        file
+      ): file is RequestFile & { storage_path: string } =>
+        Boolean(file.storage_path) && (isSupportedImage(file) || isSupportedPdf(file))
     );
 
-    if (!usableFile || !usableFile.storage_path) {
+    if (usableFiles.length === 0) {
       await supabaseServer
         .from("school_requests")
         .update({
@@ -2277,6 +2282,23 @@ const { id } = await context.params;
 
     analyzeModeForMetadata = useStrongAnalyze ? "strong" : "standard";
     analyzeModelForMetadata = model;
+
+    const allFinalDbItems: Array<
+      CleanedItem & {
+        childId: string | null;
+        sourceFileId: string | null;
+      }
+    > = [];
+
+    const analyzedFileResults: Array<{
+      fileId: string;
+      childId: string | null;
+      fileName: string | null;
+      itemCount: number;
+    }> = [];
+
+    for (const usableFile of usableFiles) {
+      const childIdForFile = String(usableFile.child_id || "").trim() || null;
 
     const fileContentPart = isSupportedPdf(usableFile)
       ? {
@@ -2390,6 +2412,16 @@ const { id } = await context.params;
     const items = Array.isArray(parsed.items) ? parsed.items : [];
 
     if (items.length === 0) {
+      analyzedFileResults.push({
+        fileId: usableFile.id,
+        childId: childIdForFile,
+        fileName: usableFile.original_filename || null,
+        itemCount: 0,
+      });
+      continue;
+    }
+
+    if (false && items.length === 0) {
       await supabaseServer
         .from("school_requests")
         .update({
@@ -2955,8 +2987,59 @@ const { id } = await context.params;
 
     const finalDbItems = expandAndSanitizeFinalDbItems(finalCleanedItems);
 
-    const rows = finalDbItems.map((item) => ({
+    allFinalDbItems.push(
+      ...finalDbItems.map((item) => ({
+        ...item,
+        childId: childIdForFile,
+        sourceFileId: usableFile.id,
+      }))
+    );
+
+    analyzedFileResults.push({
+      fileId: usableFile.id,
+      childId: childIdForFile,
+      fileName: usableFile.original_filename || null,
+      itemCount: finalDbItems.length,
+    });
+
+    }
+
+    if (allFinalDbItems.length === 0) {
+      await supabaseServer
+        .from("school_requests")
+        .update({
+          status: "manual_review",
+          ai_status: "no_items_detected",
+        })
+        .eq("id", id);
+
+      await supabaseServer.from("school_request_events").insert({
+        request_id: id,
+        event_type: "analysis_no_items",
+        title: "Keine Artikel erkannt",
+        description:
+          "Die Analyse wurde fuer alle hochgeladenen Dateien ausgefuehrt, es konnten aber keine Materialpositionen sicher erkannt werden.",
+        metadata: {
+          analyzeVersion: ANALYZE_VERSION,
+          files: analyzedFileResults,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        message: "Analyse abgeschlossen, aber keine Artikel erkannt.",
+        itemCount: 0,
+        fileCount: usableFiles.length,
+        analyzeVersion: ANALYZE_VERSION,
+        analyzeMode: analyzeModeForMetadata,
+        analyzeModel: analyzeModelForMetadata || null,
+        files: analyzedFileResults,
+      });
+    }
+
+    const rows = allFinalDbItems.map((item) => ({
       request_id: id,
+      child_id: item.childId,
       raw_text: item.rawText,
       normalized_name: item.normalizedName,
       quantity: item.quantity || 1,
@@ -2990,15 +3073,21 @@ const { id } = await context.params;
       request_id: id,
       event_type: "analysis_done",
       title: "Materialliste analysiert",
-      description: `${rows.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
+      description: `${rows.length} Materialpositionen aus ${usableFiles.length} Datei(en) wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
+      metadata: {
+        analyzeVersion: ANALYZE_VERSION,
+        files: analyzedFileResults,
+      },
     });
 
     return NextResponse.json({
       ok: true,
       message: "Materialliste wurde analysiert.",
       itemCount: rows.length,
+      fileCount: usableFiles.length,
       analyzeVersion: ANALYZE_VERSION,
-      items: finalDbItems.map((item) => ({
+      files: analyzedFileResults,
+      items: allFinalDbItems.map((item) => ({
         rawText: item.rawText,
         normalizedName: item.normalizedName,
         quantity: item.quantity,
@@ -3007,6 +3096,8 @@ const { id } = await context.params;
         color: item.color,
         lineature: item.lineature,
         confidence: item.confidence,
+        childId: item.childId,
+        sourceFileId: item.sourceFileId,
       })),
     });
   } catch (error) {
