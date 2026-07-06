@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7b-final-fragment-filter";
+const ANALYZE_VERSION = "school-material-analyze-v7c-cover-split-preserve-type";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -364,7 +364,9 @@ function normalizeLineature(value: unknown) {
     text.match(/^(28|27|26|25|24|23|22|21|20|19|18|17|16|15|14|13|12|11|10|9|8f|8|7|6|5|4|3|2|1|0)$/);
 
   if (exactLineatureMatch) {
-    return exactLineatureMatch[1] === "8f" ? "8" : exactLineatureMatch[1];
+    const value = exactLineatureMatch[1];
+
+    return value === "8" || value === "8f" ? "8f" : value;
   }
 
 const compact = text.replace(/\s+/g, "");
@@ -1017,6 +1019,9 @@ function shouldSplitCoverLine(value: string) {
   const hasExerciseBook =
     text.includes("deutschheft") ||
     text.includes("deutschhefte") ||
+    text.includes("rechenheft") ||
+    text.includes("rechenhefte") ||
+    text.includes("rechenh") ||
     text.includes("mathematikheft") ||
     text.includes("mathematikhefte") ||
     text.includes("matheheft") ||
@@ -1031,6 +1036,7 @@ function getExerciseBookBaseName(value: string) {
   const text = normalizeText(value);
 
   if (text.includes("deutschheft") || text.includes("deutschhefte")) return "Deutschheft";
+  if (text.includes("rechenheft") || text.includes("rechenhefte") || text.includes("rechenh")) return "Rechenheft";
   if (text.includes("mathematikheft") || text.includes("mathematikhefte")) return "Mathematikheft";
   if (text.includes("matheheft") || text.includes("mathehefte")) return "Matheheft";
 
@@ -1942,34 +1948,60 @@ function mergeDetailFragmentsIntoPreviousItems(items: CleanedItem[]) {
   return result;
 }
 
+
 function cleanExtractedItem(item: ExtractedItem): CleanedItem {
   const rawText = cleanNullableString(item.rawText) || "";
   const aiName = cleanNullableString(item.normalizedName);
+  const itemNotes = cleanNullableString(item.notes) || "";
 
-  const productType = classifyType(
-    `${rawText} ${aiName || ""} ${item.category || ""}`
+  const splitAsExerciseBook = itemNotes.includes(
+    "Heft-mit-Umschlag-Zeile deterministisch getrennt: Heft ist eigener Artikel."
   );
+  const splitAsCover = itemNotes.includes(
+    "Heft-mit-Umschlag-Zeile deterministisch getrennt: Umschlag ist eigener Artikel."
+  );
+
+  const productType = splitAsExerciseBook
+    ? "Heft"
+    : splitAsCover
+      ? "Umschlag"
+      : classifyType(`${aiName || ""} ${item.category || ""}`) ||
+        classifyType(rawText);
 
   const format = getEffectiveFormat(rawText, aiName, item.format);
-  const color = getEffectiveColor(rawText, aiName, item.color);
 
-  const detectedLineature = getEffectiveLineature(
-    rawText,
-    aiName,
-    item.notes,
-    item.lineature
-  );
+  const color =
+    productType === "Heft" || productType === "Hausaufgabenheft"
+      ? getEffectiveColor(aiName, item.color)
+      : getEffectiveColor(rawText, aiName, item.color);
 
-  const lineature = forceLineatureForKnownPatterns(item, detectedLineature);
+  const isLineatureProduct =
+    productType === "Heft" || productType === "Hausaufgabenheft";
+
+  const detectedLineature = isLineatureProduct
+    ? getEffectiveLineature(rawText, aiName, item.notes, item.lineature)
+    : null;
+
+  const lineature = isLineatureProduct
+    ? forceLineatureForKnownPatterns(item, detectedLineature)
+    : null;
+
   const hefterCorrection = getHefterCorrection(rawText, aiName, item.category, color);
-
   const normalizedName = cleanNormalizedName(item, productType);
 
+  const effectiveCategory = hefterCorrection?.category
+    ? hefterCorrection.category
+    : splitAsExerciseBook
+      ? "Heft"
+      : splitAsCover
+        ? "Umschlag"
+        : getEffectiveCategory(aiName, item.category, rawText);
+
   const notesParts = [
-    cleanNullableString(item.notes),
+    itemNotes,
     productType ? `Produkttyp: ${productType}` : null,
     lineature === "0"
-      ? "Lineatur 0 wurde als eigenständige Lineatur erkannt."
+      ? "Lineatur 0 wurde als eigenstaendige Lineatur erkannt."
       : null,
     lineature === "8f" ? "Lineatur 8 wurde als 8f normalisiert." : null,
     `Analyse-Version: ${ANALYZE_VERSION}`,
@@ -1979,7 +2011,7 @@ function cleanExtractedItem(item: ExtractedItem): CleanedItem {
     rawText,
     normalizedName: hefterCorrection?.normalizedName || normalizedName,
     quantity: cleanQuantity(item.quantity),
-    category: hefterCorrection?.category || getEffectiveCategory(rawText, aiName, item.category),
+    category: effectiveCategory,
     format,
     color: hefterCorrection?.color || color,
     lineature,
