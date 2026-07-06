@@ -1068,11 +1068,12 @@ export default async function CustomerOfferPage({ params }: Params) {
 const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
     await supabase
       .from("school_request_events")
-      .select("id, request_id, event_type, type, created_at")
+      .select("id, request_id, event_type, created_at")
       .eq("request_id", request.id)
-      .or(
-        "event_type.eq.customer_requested_team_takeover,event_type.eq.customer_selected_self_selection,type.eq.customer_requested_team_takeover,type.eq.customer_selected_self_selection"
-      )
+      .in("event_type", [
+        "customer_requested_team_takeover",
+        "customer_selected_self_selection",
+      ])
       .order("created_at", { ascending: false });
 
   if (customerDecisionEventsError) {
