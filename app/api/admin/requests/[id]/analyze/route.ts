@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7d-final-purchase-sanitizer";
+const ANALYZE_VERSION = "school-material-analyze-v7e-db-cover-split-sanitizer";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -2811,7 +2811,143 @@ const { id } = await context.params;
     })();
     const finalCleanedItems = splitFinalColorQuantityItems(finalCleanedItemsBeforeColorSplit);
 
-    const rows = finalCleanedItems.map((item) => ({
+
+    function normalizeFinalDbLineature(value: unknown) {
+      const lineature = normalizeLineature(value);
+      if (!lineature) return null;
+
+      return lineature === "8" || lineature === "8f" ? "8f" : lineature;
+    }
+
+    function isSplitExerciseBookDbItem(item: CleanedItem) {
+      return String(item.notes || "").includes(
+        "Heft-mit-Umschlag-Zeile deterministisch getrennt: Heft ist eigener Artikel."
+      );
+    }
+
+    function isSplitCoverDbItem(item: CleanedItem) {
+      return String(item.notes || "").includes(
+        "Heft-mit-Umschlag-Zeile deterministisch getrennt: Umschlag ist eigener Artikel."
+      );
+    }
+
+    function isCoverLikeDbItem(item: CleanedItem) {
+      const text = normalizeDedupeText([
+        item.normalizedName,
+        item.category,
+        item.productType,
+      ].filter(Boolean).join(" "));
+
+      return (
+        text.includes("umschlag") ||
+        text.includes("buchumschlag") ||
+        text.includes("heftumschlag") ||
+        text.includes("buchfolie")
+      );
+    }
+
+    function normalizeDbCoverItem(item: CleanedItem): CleanedItem {
+      const format = getEffectiveFormat(item.normalizedName, item.rawText, item.format);
+      const color = getEffectiveColor(item.normalizedName, item.rawText, item.color);
+
+      return {
+        ...item,
+        normalizedName: ["Umschlag", format, color].filter(Boolean).join(" ") || "Umschlag",
+        category: "Umschlag",
+        productType: "Umschlag",
+        format,
+        color,
+        lineature: null,
+        notes: [
+          item.notes,
+          "DB-Finalsanitizer: Umschlag ohne Lineatur gespeichert.",
+        ].filter(Boolean).join(" | "),
+      };
+    }
+
+    function normalizeDbExerciseBookItem(item: CleanedItem): CleanedItem {
+      const sourceText = [item.rawText, item.normalizedName].filter(Boolean).join(" ");
+      const format = getEffectiveFormat(item.normalizedName, item.rawText, item.format);
+      const lineature =
+        normalizeFinalDbLineature(item.lineature) ||
+        normalizeFinalDbLineature(item.normalizedName) ||
+        normalizeFinalDbLineature(item.rawText);
+
+      const baseName = getExerciseBookBaseName(sourceText);
+      const normalizedName = [
+        baseName === "Heft" && normalizeDedupeText(sourceText).includes("rechen") ? "Rechenheft" : baseName,
+        format,
+      ].filter(Boolean).join(" ");
+
+      return {
+        ...item,
+        normalizedName: normalizedName || "Heft",
+        category: "Heft",
+        productType: "Heft",
+        format,
+        color: null,
+        lineature,
+        notes: [
+          item.notes,
+          "DB-Finalsanitizer: Heft/Rechenheft aus Heft-Umschlag-Zeile gespeichert.",
+        ].filter(Boolean).join(" | "),
+      };
+    }
+
+    function expandAndSanitizeFinalDbItems(items: CleanedItem[]) {
+      const expanded = items.map((item) => {
+        if (isSplitExerciseBookDbItem(item)) {
+          return normalizeDbExerciseBookItem(item);
+        }
+
+        if (isSplitCoverDbItem(item)) {
+          return normalizeDbCoverItem(item);
+        }
+
+        if (isCoverLikeDbItem(item)) {
+          return normalizeDbCoverItem(item);
+        }
+
+        if (isFinalExerciseBookItem(item)) {
+          return {
+            ...item,
+            color: null,
+            lineature: normalizeFinalDbLineature(item.lineature),
+          };
+        }
+
+        return item;
+      });
+
+      const seen = new Set<string>();
+      const result: CleanedItem[] = [];
+
+      for (const item of expanded) {
+        const name = normalizeDedupeText(item.normalizedName);
+        const category = normalizeDedupeText(item.category);
+        const isCover = category.includes("umschlag") || name.includes("umschlag");
+
+        const key = [
+          isCover ? "umschlag" : name,
+          String(item.quantity || 1),
+          category,
+          normalizeDedupeText(item.format),
+          normalizeDedupeText(item.color),
+          isCover ? "" : normalizeDedupeText(item.lineature),
+        ].join("|");
+
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        result.push(item);
+      }
+
+      return result;
+    }
+
+    const finalDbItems = expandAndSanitizeFinalDbItems(finalCleanedItems);
+
+    const rows = finalDbItems.map((item) => ({
       request_id: id,
       raw_text: item.rawText,
       normalized_name: item.normalizedName,
@@ -2846,15 +2982,15 @@ const { id } = await context.params;
       request_id: id,
       event_type: "analysis_done",
       title: "Materialliste analysiert",
-      description: `${finalCleanedItems.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
+      description: `${rows.length} Materialpositionen wurden erkannt und gespeichert. Analyse-Version: ${ANALYZE_VERSION}`,
     });
 
     return NextResponse.json({
       ok: true,
       message: "Materialliste wurde analysiert.",
-      itemCount: finalCleanedItems.length,
+      itemCount: rows.length,
       analyzeVersion: ANALYZE_VERSION,
-      items: finalCleanedItems.map((item) => ({
+      items: finalDbItems.map((item) => ({
         rawText: item.rawText,
         normalizedName: item.normalizedName,
         quantity: item.quantity,
