@@ -52,7 +52,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v7-fragment-filter-detail-merge";
+const ANALYZE_VERSION = "school-material-analyze-v7b-final-fragment-filter";
 
 const materialSchema: Record<string, unknown> = {
   type: "object",
@@ -2396,12 +2396,219 @@ const { id } = await context.params;
       cleanedItemsBeforeFragmentMerge
     );
 
+
+    function hasFinalMaterialCore(value: unknown) {
+      const text = normalizeDedupeText(value);
+
+      if (!text) return false;
+
+      const coreTerms = [
+        "heft",
+        "umschlag",
+        "mappe",
+        "hefter",
+        "block",
+        "papier",
+        "karton",
+        "stift",
+        "bleistift",
+        "buntstift",
+        "filzstift",
+        "fineliner",
+        "folienstift",
+        "fueller",
+        "fuller",
+        "patrone",
+        "radier",
+        "spitzer",
+        "lineal",
+        "geodreieck",
+        "zirkel",
+        "schere",
+        "kleber",
+        "klebestift",
+        "farbkasten",
+        "tuschkasten",
+        "deckfarbe",
+        "deckfarben",
+        "schulmalfarbe",
+        "wasserfarbe",
+        "pinsel",
+        "wasserbecher",
+        "becher",
+        "malschuerze",
+        "maltshirt",
+        "mal t shirt",
+        "knete",
+        "tonpapier",
+        "tonzeichen",
+        "zeichenkarton",
+        "zeichenblock",
+        "sportbeutel",
+        "turnbeutel",
+        "schulbox",
+        "dose",
+        "kopfhoerer",
+        "kopfhorer",
+        "parabelschablone",
+        "kurvenschablone",
+        "steckwuerfel",
+        "zeugnismappe",
+        "laeppchen",
+        "lappchen",
+      ];
+
+      return coreTerms.some((term) => text.includes(normalizeDedupeText(term)));
+    }
+
+    function isFinalDetailOnlyFragment(item: CleanedItem) {
+      const name = normalizeDedupeText(item.normalizedName);
+      const raw = normalizeDedupeText(item.rawText);
+      const category = normalizeDedupeText(item.category);
+      const notes = normalizeDedupeText(item.notes);
+      const combined = [name, raw, category, notes].filter(Boolean).join(" ");
+
+      if (!combined) return true;
+
+      if (hasFinalMaterialCore(combined)) {
+        return false;
+      }
+
+      const exactDropTerms = new Set([
+        "dick",
+        "dicke",
+        "dicker",
+        "dickes",
+        "duenn",
+        "dunne",
+        "duenner",
+        "dunn",
+        "dunne",
+        "weich",
+        "weiche",
+        "weicher",
+        "hart",
+        "harte",
+        "weiss",
+        "weis",
+        "mit noppen",
+        "ohne noppen",
+        "dick und weiss",
+        "dick weiss",
+        "dicke weiss",
+        "dicke weisse",
+        "verschiedene farben",
+        "verschiedene motive",
+        "auf einzelblatt",
+        "einzelblatt gedruckt",
+        "auf einzelblatt gedruckt",
+        "fuer mathematikmaterialien",
+        "fur mathematikmaterialien",
+        "mathematikmaterialien",
+        "fuer draussen",
+        "fur draussen",
+        "mit namen",
+        "mit name",
+        "mit titel",
+        "mit logo",
+        "abwaschbar",
+        "non permanent",
+        "nicht permanent",
+      ]);
+
+      if (exactDropTerms.has(name) || exactDropTerms.has(raw)) {
+        return true;
+      }
+
+      const detailPhrases = [
+        "mit noppen",
+        "ohne noppen",
+        "dick und weiss",
+        "dick weiss",
+        "dicke weiss",
+        "auf einzelblatt",
+        "einzelblatt gedruckt",
+        "auf einzelblatt gedruckt",
+        "verschiedene farben",
+        "verschiedene motive",
+        "fuer mathematikmaterialien",
+        "fur mathematikmaterialien",
+        "mathematikmaterialien",
+        "fuer draussen",
+        "fur draussen",
+        "mit namen",
+        "mit name",
+        "mit titel",
+        "mit logo",
+        "abwaschbar",
+        "non permanent",
+        "nicht permanent",
+      ];
+
+      if (detailPhrases.some((phrase) => combined.includes(phrase))) {
+        return true;
+      }
+
+      const tokens = name.split(" ").filter(Boolean);
+
+      const allowedDetailTokens = new Set([
+        "dick",
+        "dicke",
+        "dicker",
+        "dickes",
+        "duenn",
+        "dunne",
+        "duenner",
+        "dunn",
+        "weich",
+        "weiche",
+        "weicher",
+        "hart",
+        "harte",
+        "weiss",
+        "weis",
+        "mit",
+        "ohne",
+        "noppen",
+        "auf",
+        "einzelblatt",
+        "gedruckt",
+        "verschiedene",
+        "verschieden",
+        "farben",
+        "motive",
+        "motiv",
+        "fuer",
+        "fur",
+        "mathematik",
+        "mathematikmaterialien",
+        "materialien",
+        "draussen",
+        "name",
+        "namen",
+        "titel",
+        "logo",
+        "abwaschbar",
+        "permanent",
+        "non",
+        "nicht",
+      ]);
+
+      return (
+        tokens.length > 0 &&
+        tokens.length <= 8 &&
+        tokens.every((token) => allowedDetailTokens.has(token) || /^\\d+$/.test(token))
+      );
+    }
+
     function shouldDropFinalCleanedItem(item: CleanedItem) {
       const name = normalizeDedupeText(item.normalizedName);
       const raw = normalizeDedupeText(item.rawText);
       const category = normalizeDedupeText(item.category);
 
       if (!name) return true;
+
+      if (isFinalDetailOnlyFragment(item)) return true;
 
       // Farbwörter sind keine eigenständigen Artikel.
       // Beispiel-Fehler: "schwarz" mit Farbe "rot" aus "3 Fineliner: grün, schwarz, rot".
