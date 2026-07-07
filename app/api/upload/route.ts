@@ -251,8 +251,8 @@ function buildOfferEmail(input: {
   const greeting = input.customerName ? `Hallo ${input.customerName},` : "Hallo,";
 
   const childLine = input.childName
-    ? `für ${input.childName}`
-    : "für Deine Schulmaterialliste";
+    ? `fÃƒÂ¼r ${input.childName}`
+    : "fÃƒÂ¼r Deine Schulmaterialliste";
 
   const schoolLine = input.schoolName
     ? `Schule: ${input.schoolName}`
@@ -265,18 +265,18 @@ function buildOfferEmail(input: {
   const text = [
     greeting,
     "",
-    `vielen Dank für Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
+    `vielen Dank fÃƒÂ¼r Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
     "",
     schoolLine,
     requestLine,
     "",
-    "Über den folgenden persönlichen Link kannst Du Deine Schulmaterialliste auswerten lassen, Produkte auswählen und Deinen Paketwunsch jederzeit wieder öffnen:",
+    "ÃƒÅ“ber den folgenden persÃƒÂ¶nlichen Link kannst Du Deine Schulmaterialliste auswerten lassen, Produkte auswÃƒÂ¤hlen und Deinen Paketwunsch jederzeit wieder ÃƒÂ¶ffnen:",
     "",
     input.offerUrl,
     "",
-    "Bitte bewahre diesen Link auf. Darüber kommst Du jederzeit wieder zu Deinem persönlichen Paketwunsch.",
+    "Bitte bewahre diesen Link auf. DarÃƒÂ¼ber kommst Du jederzeit wieder zu Deinem persÃƒÂ¶nlichen Paketwunsch.",
     "",
-    "Viele Grüße",
+    "Viele GrÃƒÂ¼ÃƒÅ¸e",
     "Dein Team von Handzettel-Schulen.de",
   ]
     .filter((line) => line !== null)
@@ -297,18 +297,18 @@ function buildOfferEmail(input: {
             </td>
             <td valign="middle" style="padding:0;">
               <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein persönlicher Link zu Deiner Schulmaterialliste</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste</div>
             </td>
           </tr>
         </table>
       </div>
 
-      <h2 style="color: #102A43; margin-bottom: 12px;">Dein persönlicher Link zu Deiner Schulmaterialliste</h2>
+      <h2 style="color: #102A43; margin-bottom: 12px;">Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste</h2>
 
       <p>${escapeHtml(greeting)}</p>
 
       <p>
-        vielen Dank für Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
+        vielen Dank fÃƒÂ¼r Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
         ${escapeHtml(childLine)}.
       </p>
 
@@ -324,9 +324,9 @@ function buildOfferEmail(input: {
       }
 
       <p>
-        Über den folgenden persönlichen Link kannst Du Deine Schulmaterialliste
-        auswerten lassen, Produkte auswählen und Deinen Paketwunsch jederzeit
-        wieder öffnen:
+        ÃƒÅ“ber den folgenden persÃƒÂ¶nlichen Link kannst Du Deine Schulmaterialliste
+        auswerten lassen, Produkte auswÃƒÂ¤hlen und Deinen Paketwunsch jederzeit
+        wieder ÃƒÂ¶ffnen:
       </p>
 
       <p style="margin: 24px 0;">
@@ -334,7 +334,7 @@ function buildOfferEmail(input: {
           href="${input.offerUrl}"
           style="background: #B5282D; color: #ffffff; text-decoration: none; padding: 14px 20px; border-radius: 14px; font-weight: bold; display: inline-block;"
         >
-          Persönlichen Paketwunsch öffnen
+          PersÃƒÂ¶nlichen Paketwunsch ÃƒÂ¶ffnen
         </a>
       </p>
 
@@ -344,19 +344,19 @@ function buildOfferEmail(input: {
       </p>
 
       <p>
-        Bitte bewahre diesen Link auf. Darüber kommst Du jederzeit wieder zu
-        Deinem persönlichen Paketwunsch.
+        Bitte bewahre diesen Link auf. DarÃƒÂ¼ber kommst Du jederzeit wieder zu
+        Deinem persÃƒÂ¶nlichen Paketwunsch.
       </p>
 
       <p>
-        Viele Grüße<br />
+        Viele GrÃƒÂ¼ÃƒÅ¸e<br />
         <strong>Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span></strong>
       </p>
     </div>
   `;
 
   return {
-    subject: "Dein persönlicher Link zu Deiner Schulmaterialliste",
+    subject: "Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste",
     text,
     html,
   };
@@ -400,11 +400,11 @@ function buildAdminUploadNotificationEmail(input: {
     "",
     `Datei: ${input.originalFilename}`,
     `Dateityp: ${input.fileType || "nicht angegeben"}`,
-    `Dateigröße: ${formatFileSize(input.fileSize)}`,
+    `DateigrÃƒÂ¶ÃƒÅ¸e: ${formatFileSize(input.fileSize)}`,
     "",
     input.message ? `Nachricht: ${input.message}` : "Nachricht: keine",
     "",
-    `Admin-Übersicht: ${adminUrl}`,
+    `Admin-ÃƒÅ“bersicht: ${adminUrl}`,
     `Admin-Detail: ${adminDetailUrl}`,
     `Kundenlink: ${input.offerUrl}`,
   ].join("\n");
@@ -448,7 +448,7 @@ function buildAdminUploadNotificationEmail(input: {
       <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #ffffff; margin-bottom: 16px;">
         <p><strong>Datei:</strong> ${escapeHtml(input.originalFilename)}</p>
         <p><strong>Dateityp:</strong> ${escapeHtml(input.fileType || "nicht angegeben")}</p>
-        <p><strong>Dateigröße:</strong> ${escapeHtml(formatFileSize(input.fileSize))}</p>
+        <p><strong>DateigrÃƒÂ¶ÃƒÅ¸e:</strong> ${escapeHtml(formatFileSize(input.fileSize))}</p>
       </div>
 
       <div style="padding: 16px; border: 1px solid #F1D1A8; border-radius: 16px; background: #FFF8EE; margin-bottom: 16px;">
@@ -461,19 +461,19 @@ function buildAdminUploadNotificationEmail(input: {
           href="${adminUrl}"
           style="display: inline-block; padding: 12px 18px; background: #102A43; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: bold;"
         >
-          Admin-Anfragen öffnen
+          Admin-Anfragen ÃƒÂ¶ffnen
         </a>
       </p>
 
       <p>
         <a href="${adminDetailUrl}" style="color: #A75B28; font-weight: bold;">
-          Admin-Detail öffnen
+          Admin-Detail ÃƒÂ¶ffnen
         </a>
       </p>
 
       <p>
         <a href="${input.offerUrl}" style="color: #12395F; font-weight: bold;">
-          Kundenlink öffnen
+          Kundenlink ÃƒÂ¶ffnen
         </a>
       </p>
     </div>
@@ -611,6 +611,40 @@ async function sendAdminUploadNotificationSafely(input: {
   }
 }
 
+const DISCOVERY_SOURCE_VALUES = new Set([
+  "instagram",
+  "facebook",
+  "tiktok",
+  "google",
+  "flyer_aushang",
+  "empfehlung",
+]);
+
+function cleanDiscoverySource(value: FormDataEntryValue | null) {
+  const raw = cleanString(value) || "";
+
+  return raw && DISCOVERY_SOURCE_VALUES.has(raw) ? raw : null;
+}
+
+function getDiscoverySourceLabel(value: string) {
+  switch (value) {
+    case "instagram":
+      return "Instagram";
+    case "facebook":
+      return "Facebook";
+    case "tiktok":
+      return "TikTok";
+    case "google":
+      return "Google";
+    case "flyer_aushang":
+      return "Flyer/Aushang";
+    case "empfehlung":
+      return "Empfehlung";
+    default:
+      return value;
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -696,6 +730,19 @@ export async function POST(request: Request) {
     const rawEmail = cleanString(formData.get("email"));
     const rawPhone = cleanString(formData.get("phone"));
     const message = cleanString(formData.get("message"));
+    const discoverySource = cleanDiscoverySource(
+      formData.get("discoverySource") || formData.get("discovery_source")
+    );
+
+    if (!discoverySource) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte w\u00e4hle aus, wie Du auf uns aufmerksam geworden bist.",
+        },
+        { status: 400 }
+      );
+    }
     const submittedLeadSource = cleanString(formData.get("source"));
     const cookieLeadSource =
       getCookieValueFromRequest(request, LEAD_SOURCE_COOKIE_NAME);
@@ -714,23 +761,50 @@ export async function POST(request: Request) {
           ? rawPhone
           : null;
 
-    const { data: createdRequest, error: requestError } = await supabaseServer
+    const requestInsertPayload = {
+      source: leadSource,
+      discovery_source: discoverySource,
+      status: "received",
+      customer_name: customerName,
+      child_name: childName,
+      class_name: className,
+      school_name: schoolName,
+      email,
+      phone,
+      message,
+      ai_status: "pending",
+      offer_status: "not_created",
+    };
+
+    let createdRequest: any = null;
+    let requestError: any = null;
+
+    const insertResult = await supabaseServer
       .from("school_requests")
-      .insert({
-        source: leadSource,
-        status: "received",
-        customer_name: customerName,
-        child_name: childName,
-        class_name: className,
-        school_name: schoolName,
-        email,
-        phone,
-        message,
-        ai_status: "pending",
-        offer_status: "not_created",
-      })
+      .insert(requestInsertPayload)
       .select("id, request_number, offer_token")
       .single();
+
+    createdRequest = insertResult.data;
+    requestError = insertResult.error;
+
+    if (
+      requestError &&
+      (String(requestError.message || "").includes("discovery_source") ||
+        String(requestError.code || "") === "PGRST204")
+    ) {
+      const fallbackPayload = { ...requestInsertPayload } as Record<string, unknown>;
+      delete fallbackPayload.discovery_source;
+
+      const fallbackInsertResult = await supabaseServer
+        .from("school_requests")
+        .insert(fallbackPayload)
+        .select("id, request_number, offer_token")
+        .single();
+
+      createdRequest = fallbackInsertResult.data;
+      requestError = fallbackInsertResult.error;
+    }
 
     if (requestError || !createdRequest) {
       console.error("school_requests insert error:", requestError);
@@ -848,17 +922,17 @@ export async function POST(request: Request) {
       email,
       phone,
       contact,
-      message:
+      message: [
+        message,
+        `Aufmerksam geworden: ${getDiscoverySourceLabel(discoverySource)}`,
         uploadedFiles.length > 1
-          ? [
-              message,
-              `Mehrkind-Upload: ${uploadedFiles
-                .map((file) => `${file.childLabel}: ${file.fileName}`)
-                .join(", ")}`,
-            ]
-              .filter(Boolean)
-              .join("\n\n")
-          : message,
+          ? `Mehrkind-Upload: ${uploadedFiles
+              .map((file) => `${file.childLabel}: ${file.fileName}`)
+              .join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       originalFilename: firstFile.name,
       fileType: firstFile.type,
       fileSize: firstFile.size,

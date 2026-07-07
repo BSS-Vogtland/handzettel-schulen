@@ -41,6 +41,15 @@ const ACCEPTED_FILE_TYPES = [
   "application/pdf",
 ];
 
+const DISCOVERY_SOURCE_OPTIONS = [
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "google", label: "Google" },
+  { value: "flyer_aushang", label: "Flyer/Aushang" },
+  { value: "empfehlung", label: "Empfehlung" },
+] as const;
+
 function createChildState(index: number): ChildUploadFormState {
   return {
     id: `child-${Date.now()}-${Math.random().toString(16).slice(2)}-${index}`,
@@ -96,6 +105,7 @@ export default function UploadForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
+  const [discoverySource, setDiscoverySource] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -232,6 +242,13 @@ export default function UploadForm() {
       return;
     }
 
+    if (!discoverySource) {
+      setErrorMessage(
+        "Bitte w\u00e4hle aus, wie Du auf uns aufmerksam geworden bist."
+      );
+      return;
+    }
+
     const cleanEmail = email.trim();
     const cleanPhone = phone.trim();
     const firstUploadedChild =
@@ -258,6 +275,8 @@ export default function UploadForm() {
 
     formData.append("message", message.trim());
     formData.append("source", getStoredLeadSource());
+    formData.append("discoverySource", discoverySource);
+    formData.append("discovery_source", discoverySource);
 
     formData.append(
       "children",
@@ -664,6 +683,51 @@ export default function UploadForm() {
             <Plus className="h-4 w-4" />
             Weiteres Kind hinzufuegen
           </button>
+        </section>
+
+        <section className="rounded-[26px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Kurze Pflichtangabe
+            </p>
+            <h3 className="mt-1 text-xl font-black text-[#102A43]">
+              Wie bist Du auf uns aufmerksam geworden?*
+            </h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              Bitte w\u00e4hle einen Kanal aus. So sehen wir, welche Wege wirklich funktionieren.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {DISCOVERY_SOURCE_OPTIONS.map((option) => {
+              const isSelected = discoverySource === option.value;
+
+              return (
+                <label
+                  key={option.value}
+                  className={`flex min-h-12 cursor-pointer items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black transition ${
+                    isSelected
+                      ? "border-[#B5282D] bg-[#B5282D] text-white shadow-sm"
+                      : "border-[#D8C8B8] bg-white text-[#102A43] hover:border-[#B5282D] hover:bg-[#FFF8F4]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="discoverySource"
+                    value={option.value}
+                    checked={isSelected}
+                    onChange={() => {
+                      setDiscoverySource(option.value);
+                      setErrorMessage(null);
+                    }}
+                    className="sr-only"
+                    required
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
         </section>
 
         {errorMessage ? (
