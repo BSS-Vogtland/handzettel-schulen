@@ -1,3 +1,4 @@
+import { normalizeProductCategory } from "@/lib/productCategories";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
@@ -831,7 +832,18 @@ export async function POST(request: NextRequest) {
     const requestedProductSku = String(formData.get("productSku") || "").trim();
     const ean = cleanString(formData.get("ean"));
     const productPrice = toNumber(formData.get("productPrice"), 0);
-    const category = String(formData.get("category") || "").trim();
+    const rawCategory = String(formData.get("category") || "").trim();
+    const category = normalizeProductCategory(rawCategory);
+
+    if (!category) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte wähle eine feste Produktkategorie aus.",
+        },
+        { status: 400 }
+      );
+    }
     const productType = String(formData.get("productType") || "").trim();
     const format = String(formData.get("format") || "").trim();
     const color = String(formData.get("color") || "").trim();

@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  PRODUCT_CATEGORY_OPTIONS,
+  isAllowedProductCategory,
+  normalizeProductCategory,
+} from "@/lib/productCategories";
+
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -473,7 +479,7 @@ export default function AdminQuickProductForm({
     setProductSku("");
     setEan("");
     setProductPrice(formatInitialPrice(initialCopyProduct.productPrice));
-    setCategory(cleanValue(initialCopyProduct.category));
+    setCategory(normalizeProductCategory(initialCopyProduct.category));
     setProductType(cleanValue(initialCopyProduct.productType));
     setFormat(cleanValue(initialCopyProduct.format));
     setColor(cleanValue(initialCopyProduct.color));
@@ -800,13 +806,19 @@ export default function AdminQuickProductForm({
             <label className="mb-2 block text-sm font-black text-[#102A43]">
               Kategorie
             </label>
-            <input
-              type="text"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              placeholder="z. B. Heft"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+            <select
+  value={category}
+  onChange={(event) => setCategory(event.target.value)}
+  required
+  className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+>
+  <option value="">Kategorie auswählen</option>
+  {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+    <option key={option.value} value={option.label}>
+      {option.label}
+    </option>
+  ))}
+</select>
           </div>
         </div>
 

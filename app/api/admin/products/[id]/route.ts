@@ -1,3 +1,4 @@
+import { normalizeProductCategory } from "@/lib/productCategories";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
@@ -827,7 +828,18 @@ export async function PATCH(request: NextRequest, context: Params) {
     const productName = cleanString(payload.productName);
     const requestedProductSku = cleanString(payload.productSku);
     const ean = cleanString(payload.ean);
-    const category = cleanString(payload.category);
+    const rawCategory = cleanString(payload.category);
+    const category = normalizeProductCategory(rawCategory);
+
+    if (!category) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Bitte wähle eine feste Produktkategorie aus.",
+        },
+        { status: 400 }
+      );
+    }
     const productType = cleanString(payload.productType);
     const format = cleanString(payload.format);
     const color = cleanString(payload.color);

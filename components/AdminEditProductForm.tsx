@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  PRODUCT_CATEGORY_OPTIONS,
+  normalizeProductCategory,
+} from "@/lib/productCategories";
+
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useEffect, useState } from "react";
 import {
@@ -347,7 +352,7 @@ export default function AdminEditProductForm({
       productSku: productSku || "",
       ean: ean || "",
       productPrice: formatPriceInput(productPrice),
-      category: category || "",
+      category: normalizeProductCategory(category),
       productType: productType || "",
       format: format || "",
       color: color || "",
@@ -913,11 +918,19 @@ export default function AdminEditProductForm({
               <span className="mb-1 block text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
                 Kategorie
               </span>
-              <input
-                value={formData.category}
-                onChange={(event) => updateField("category", event.target.value)}
-                className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-              />
+              <select
+  value={formData.category}
+  onChange={(event) => updateField("category", event.target.value)}
+  required
+  className="min-h-11 w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-3 text-sm font-bold outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+>
+  <option value="">Kategorie auswählen</option>
+  {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+    <option key={option.value} value={option.label}>
+      {option.label}
+    </option>
+  ))}
+</select>
             </label>
 
             <label className="block">

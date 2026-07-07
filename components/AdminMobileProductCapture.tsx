@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  PRODUCT_CATEGORY_OPTIONS,
+  isAllowedProductCategory,
+} from "@/lib/productCategories";
+
 import { useRouter } from "next/navigation";
 import {
   ChangeEvent,
@@ -55,11 +60,11 @@ function cleanValue(value: unknown) {
 function normalizeValue(value: unknown) {
   return cleanValue(value)
     .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/ÃƒÂ¤/g, "ae")
+    .replace(/ÃƒÂ¶/g, "oe")
+    .replace(/ÃƒÂ¼/g, "ue")
+    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/grÃƒÂ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -234,7 +239,7 @@ function generateRuleBasedAliases(input: AliasInput) {
       buildPart(bookSizeLabel, productName),
       buildPart(bookWidth, "x", bookHeight),
       buildPart(bookWidth, bookHeight),
-      buildPart("Buchmaß", bookSizeLabel),
+      buildPart("BuchmaÃƒÅ¸", bookSizeLabel),
       buildPart("Buchmass", bookSizeLabel)
     );
   }
@@ -248,10 +253,10 @@ function generateRuleBasedAliases(input: AliasInput) {
       buildPart("Umschlag", format, color),
       buildPart("Heftumschlag", format, color),
       buildPart("Buchumschlag", format, color),
-      buildPart("Buchhülle", format, color),
-      buildPart("Buch Hülle", format, color),
-      buildPart("Hefthülle", format, color),
-      buildPart("Heft Hülle", format, color),
+      buildPart("BuchhÃƒÂ¼lle", format, color),
+      buildPart("Buch HÃƒÂ¼lle", format, color),
+      buildPart("HefthÃƒÂ¼lle", format, color),
+      buildPart("Heft HÃƒÂ¼lle", format, color),
       buildPart("Schutzumschlag", format, color),
       buildPart(format, "Umschlag", color),
       buildPart(color, "Umschlag", format)
@@ -261,7 +266,7 @@ function generateRuleBasedAliases(input: AliasInput) {
       aliases.push(
         buildPart("Umschlag", bookSizeLabel, color),
         buildPart("Buchumschlag", bookSizeLabel, color),
-        buildPart("Buchhülle", bookSizeLabel, color),
+        buildPart("BuchhÃƒÂ¼lle", bookSizeLabel, color),
         buildPart("Schutzumschlag", bookSizeLabel, color),
         buildPart("Umschlag", bookWidth, "x", bookHeight, color),
         buildPart("Buchumschlag", bookWidth, "x", bookHeight, color)
@@ -332,7 +337,7 @@ function generateRuleBasedAliases(input: AliasInput) {
       buildPart("Hausaufgabenheft", format),
       buildPart("Hausaufgaben Heft", format),
       buildPart("Aufgabenheft", format),
-      buildPart("Schülerkalender", format)
+      buildPart("SchÃƒÂ¼lerkalender", format)
     );
   }
 
@@ -532,7 +537,7 @@ export default function AdminMobileProductCapture() {
     }
 
     if (!file.type.startsWith("image/")) {
-      setErrorMessage("Bitte wähle eine Bilddatei aus.");
+      setErrorMessage("Bitte wÃƒÂ¤hle eine Bilddatei aus.");
       event.target.value = "";
       return;
     }
@@ -540,7 +545,7 @@ export default function AdminMobileProductCapture() {
     const maxSize = 8 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      setErrorMessage("Das Produktbild darf maximal 8 MB groß sein.");
+      setErrorMessage("Das Produktbild darf maximal 8 MB groÃƒÅ¸ sein.");
       event.target.value = "";
       return;
     }
@@ -608,7 +613,7 @@ export default function AdminMobileProductCapture() {
 
     if ((width && !height) || (!width && height)) {
       setErrorMessage(
-        "Bitte gib bei Maßangaben entweder Breite und Höhe an oder lasse beide Felder leer."
+        "Bitte gib bei MaÃƒÅ¸angaben entweder Breite und HÃƒÂ¶he an oder lasse beide Felder leer."
       );
       return;
     }
@@ -649,7 +654,7 @@ export default function AdminMobileProductCapture() {
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produkt-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
+          "Die Produkt-Route hat keine JSON-Antwort geliefert. PrÃƒÂ¼fe bitte zusÃƒÂ¤tzlich das Terminal."
         );
       }
 
@@ -662,7 +667,7 @@ export default function AdminMobileProductCapture() {
       setFeedback(
         payload.message ||
           `Produkt gespeichert${
-            payload.aliasCount ? ` · ${payload.aliasCount} Suchbegriffe` : ""
+            payload.aliasCount ? ` Ã‚Â· ${payload.aliasCount} Suchbegriffe` : ""
           }.`
       );
 
@@ -696,8 +701,8 @@ export default function AdminMobileProductCapture() {
         </h2>
 
         <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-          Für schnelles Arbeiten am Handy: Foto aufnehmen, Produktname eintragen,
-          speichern, nächstes Produkt. Optional kannst Du zusätzliche Produktdetails fürs Matching erfassen.
+          FÃƒÂ¼r schnelles Arbeiten am Handy: Foto aufnehmen, Produktname eintragen,
+          speichern, nÃƒÂ¤chstes Produkt. Optional kannst Du zusÃƒÂ¤tzliche Produktdetails fÃƒÂ¼rs Matching erfassen.
         </p>
       </div>
 
@@ -740,7 +745,7 @@ export default function AdminMobileProductCapture() {
                 Foto aufnehmen
               </span>
               <span className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Kamera öffnen oder Bild aus Galerie wählen
+                Kamera ÃƒÂ¶ffnen oder Bild aus Galerie wÃƒÂ¤hlen
               </span>
 
               <input
@@ -756,7 +761,7 @@ export default function AdminMobileProductCapture() {
 
           {productImage ? (
             <p className="mt-2 text-xs font-semibold text-[#52616F]">
-              {productImage.name} · {formatFileSize(productImage.size)}
+              {productImage.name} Ã‚Â· {formatFileSize(productImage.size)}
             </p>
           ) : null}
 
@@ -871,13 +876,19 @@ export default function AdminMobileProductCapture() {
             <span className="mb-2 block text-sm font-black text-[#102A43]">
               Kategorie
             </span>
-            <input
-              type="text"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              placeholder="z. B. Heft"
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
-            />
+            <select
+  value={category}
+  onChange={(event) => setCategory(event.target.value)}
+  required
+  className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
+>
+  <option value="">Kategorie auswÃƒÂ¤hlen</option>
+  {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+    <option key={option.value} value={option.label}>
+      {option.label}
+    </option>
+  ))}
+</select>
           </label>
 
           <label className="block">
@@ -914,7 +925,7 @@ export default function AdminMobileProductCapture() {
               type="text"
               value={color}
               onChange={(event) => setColor(event.target.value)}
-              placeholder="rot / blau / grün"
+              placeholder="rot / blau / grÃƒÂ¼n"
               className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
             />
           </label>
@@ -940,13 +951,13 @@ export default function AdminMobileProductCapture() {
             </div>
 
             <h3 className="font-black text-[#102A43]">
-              Optionale Produktdetails fürs Matching
+              Optionale Produktdetails fÃƒÂ¼rs Matching
             </h3>
 
             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-              Erfasse hier Maße, Material, Packungsinhalt, Besonderheiten oder
-              zusätzliche Suchbegriffe. Diese Angaben werden beim Speichern in
-              Suchbegriffen und Matching-Keywords berücksichtigt.
+              Erfasse hier MaÃƒÅ¸e, Material, Packungsinhalt, Besonderheiten oder
+              zusÃƒÂ¤tzliche Suchbegriffe. Diese Angaben werden beim Speichern in
+              Suchbegriffen und Matching-Keywords berÃƒÂ¼cksichtigt.
             </p>
           </div>
 
@@ -967,7 +978,7 @@ export default function AdminMobileProductCapture() {
 
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#102A43]">
-                Höhe mm
+                HÃƒÂ¶he mm
               </span>
               <input
                 type="text"
@@ -988,7 +999,7 @@ export default function AdminMobileProductCapture() {
                 onChange={(event) => setBookSizeNote(event.target.value)}
                 rows={3}
                 placeholder={
-                  "z. B. Material: PVC\nPackung: 3 Stück\nGeeignet für: A5 Umschläge"
+                  "z. B. Material: PVC\nPackung: 3 StÃƒÂ¼ck\nGeeignet fÃƒÂ¼r: A5 UmschlÃƒÂ¤ge"
                 }
                 className="min-h-[92px] w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#12395F] focus:ring-4 focus:ring-[#12395F]/10"
               />
@@ -999,7 +1010,7 @@ export default function AdminMobileProductCapture() {
             <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#12395F]">
               {bookWidthMm && bookHeightMm ? (
                 <p>
-                  Erfasstes Maß: {bookWidthMm} x {bookHeightMm} mm
+                  Erfasstes MaÃƒÅ¸: {bookWidthMm} x {bookHeightMm} mm
                 </p>
               ) : null}
 
@@ -1024,7 +1035,7 @@ export default function AdminMobileProductCapture() {
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                 Werden automatisch aus den Produktdaten erzeugt. Optionale Produktdetails werden
-                ebenfalls berücksichtigt. Du kannst sie bei Bedarf überschreiben.
+                ebenfalls berÃƒÂ¼cksichtigt. Du kannst sie bei Bedarf ÃƒÂ¼berschreiben.
               </p>
             </div>
           </div>
@@ -1071,7 +1082,7 @@ export default function AdminMobileProductCapture() {
             {isSaving ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Speichert …
+                Speichert Ã¢â‚¬Â¦
               </>
             ) : (
               <>

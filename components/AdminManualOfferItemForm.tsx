@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  PRODUCT_CATEGORY_OPTIONS,
+  isAllowedProductCategory,
+  normalizeProductCategory,
+} from "@/lib/productCategories";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -340,7 +346,7 @@ const [unit, setUnit] = useState("");
 
       if (!productName.trim()) missingFields.push("Produktname");
       if (priceNumber <= 0) missingFields.push("Einzelpreis größer 0");
-      if (!productCategory.trim()) missingFields.push("Kategorie");
+      if (!isAllowedProductCategory(productCategory)) missingFields.push("Kategorie");
       if (!productType.trim()) missingFields.push("Produkttyp");
       if (!unit.trim()) missingFields.push("Einheit");
 
@@ -402,7 +408,7 @@ const [unit, setUnit] = useState("");
             saveAsProduct: createProductMode && !selectedProductId,
             rememberForFuture: false,
 
-            productCategory: productCategory.trim(),
+            productCategory: normalizeProductCategory(productCategory),
             productType: productType.trim(),
             productFormat: productFormat.trim(),
             productColor: productColor.trim(),
@@ -926,13 +932,19 @@ const [unit, setUnit] = useState("");
                   <label className="mb-2 block text-xs font-black text-[#102A43]">
                     Kategorie*
                   </label>
-                  <input
-                    type="text"
-                    value={productCategory}
-                    onChange={(event) => setProductCategory(event.target.value)}
-                    placeholder="z. B. Basteln"
-                    className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
-                  />
+                  <select
+  value={productCategory}
+  onChange={(event) => setProductCategory(event.target.value)}
+  required
+  className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
+>
+  <option value="">Kategorie auswählen</option>
+  {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+    <option key={option.value} value={option.label}>
+      {option.label}
+    </option>
+  ))}
+</select>
                 </div>
 
                 <div className="sm:col-span-1">
