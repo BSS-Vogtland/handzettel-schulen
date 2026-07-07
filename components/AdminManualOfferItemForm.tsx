@@ -97,7 +97,7 @@ export default function AdminManualOfferItemForm({
   childSelectLabel = "Kind zuordnen",
   defaultProductName,
   defaultQuantity,
-  buttonLabel = "Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nzen",
+  buttonLabel = "Manuell Produkt ergänzen",
 }: AdminManualOfferItemFormProps) {
   function goToPackageChecklist() {
     const url = new URL(window.location.href);
@@ -205,7 +205,7 @@ const [unit, setUnit] = useState("");
 
       if (showChildSelect && !cleanSelectedChildId) {
 
-        setErrorMessage("Bitte ein Kind auswÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlen.");
+        setErrorMessage("Bitte ein Kind auswählen.");
 
         return;
 
@@ -216,7 +216,7 @@ const [unit, setUnit] = useState("");
 
 
 
-        setErrorMessage("Bitte ein Kind auswÃƒÂ¤hlen.");
+        setErrorMessage("Bitte ein Kind auswählen.");
 
 
 
@@ -241,7 +241,7 @@ const [unit, setUnit] = useState("");
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Produktsuche hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tzlich das Terminal."
+          "Die Produktsuche hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
       }
 
@@ -320,32 +320,32 @@ const [unit, setUnit] = useState("");
     const quantityNumber = parseGermanNumber(quantity);
 
     if (!selectedProductId && !createProductMode) {
-      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾Neues Produkt erfassenÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“. ";
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf Ã¢â‚¬Å¾Neues Produkt erfassenÃ¢â‚¬Å“. ";
     }
 
     if (!productName.trim() && !selectedProductId) {
-      return "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hle ein Bestandsprodukt aus.";
+      return "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.";
     }
 
     if (quantityNumber <= 0) {
-      return "Bitte gib eine Menge grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸er als 0 ein.";
+      return "Bitte gib eine Menge größer als 0 ein.";
     }
 
     if (selectedProductId && priceNumber <= 0) {
-      return "Das gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
+      return "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.";
     }
 
     if (createProductMode && !selectedProductId) {
       const missingFields: string[] = [];
 
       if (!productName.trim()) missingFields.push("Produktname");
-      if (priceNumber <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸er 0");
+      if (priceNumber <= 0) missingFields.push("Einzelpreis größer 0");
       if (!productCategory.trim()) missingFields.push("Kategorie");
       if (!productType.trim()) missingFields.push("Produkttyp");
       if (!unit.trim()) missingFields.push("Einheit");
 
       if (missingFields.length > 0) {
-        return `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
+        return `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
           ", "
         )}.`;
       }
@@ -374,7 +374,7 @@ const [unit, setUnit] = useState("");
     try {
       if (showChildSelect && !selectedChildId.trim()) {
 
-        setErrorMessage("Bitte ein Kind auswÃƒÂ¤hlen.");
+        setErrorMessage("Bitte ein Kind auswählen.");
 
         return;
 
@@ -420,7 +420,7 @@ const [unit, setUnit] = useState("");
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Admin-Route hat keine JSON-Antwort geliefert. PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fe bitte zusÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tzlich das Terminal."
+          "Die Admin-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
       }
 
@@ -431,7 +431,7 @@ const [unit, setUnit] = useState("");
         );
       }
 
-      setFeedback(payload.message || "Manuelle Position wurde hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt.");
+      setFeedback(payload.message || "Manuelle Position wurde hinzugefügt.");
 
       const nextPendingAliasRemember =
         payload.productId && payload.aliasText
@@ -445,9 +445,9 @@ const [unit, setUnit] = useState("");
       if (nextPendingAliasRemember) {
         setPendingAliasRemember(nextPendingAliasRemember);
       } else {
-        // Wichtig fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r Sammelpositionen:
-        // Formular bleibt offen, damit direkt das nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤chste Produkt aus derselben
-        // Listenposition gesucht und ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernommen werden kann.
+        // Wichtig für Sammelpositionen:
+        // Formular bleibt offen, damit direkt das nächste Produkt aus derselben
+        // Listenposition gesucht und übernommen werden kann.
         setSelectedProductId(null);
         setSelectedProductLabel(null);
         setSelectedProductImageUrl(null);
@@ -487,7 +487,7 @@ const [unit, setUnit] = useState("");
     try {
       if (showChildSelect && !selectedChildId.trim()) {
 
-        setErrorMessage("Bitte ein Kind auswÃƒÂ¤hlen.");
+        setErrorMessage("Bitte ein Kind auswählen.");
 
         return;
 
@@ -518,7 +518,7 @@ const [unit, setUnit] = useState("");
       }
 
       setFeedback(
-        payload.message || "Zuordnung wurde fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tere Listen gespeichert."
+        payload.message || "Zuordnung wurde für spätere Listen gespeichert."
       );
       setPendingAliasRemember(null);
       goToPackageChecklist();
@@ -588,7 +588,7 @@ const [unit, setUnit] = useState("");
           type="button"
           onClick={() => setIsOpen(false)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBF7F0] text-[#B5282D] transition hover:bg-[#FFECEC]"
-          aria-label="Formular schlieÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸en"
+          aria-label="Formular schließen"
         >
           <X className="h-4 w-4" />
         </button>
@@ -609,7 +609,7 @@ const [unit, setUnit] = useState("");
             onChange={(event) => setSelectedChildId(event.target.value)}
             className="mt-2 min-h-12 w-full rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
           >
-            <option value="">Kind auswÃ¤hlen</option>
+            <option value="">Kind auswählen</option>
             {childOptions.map((child) => (
               <option key={child.id} value={child.id}>
                 {child.label}
@@ -618,7 +618,7 @@ const [unit, setUnit] = useState("");
           </select>
 
           <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
-            Diese Auswahl ist Pflicht fÃ¼r freie Paketpositionen ohne erkannte Listenposition.
+            Diese Auswahl ist Pflicht für freie Paketpositionen ohne erkannte Listenposition.
           </p>
         </div>
       ) : null}
@@ -645,7 +645,7 @@ const [unit, setUnit] = useState("");
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Suche ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦
+                Suche Ã¢â‚¬Â¦
               </>
             ) : (
               <>
@@ -676,7 +676,7 @@ const [unit, setUnit] = useState("");
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                    Bestandsprodukt gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlt
+                    Bestandsprodukt gewählt
                   </p>
                   <p className="mt-1 font-black text-[#102A43]">
                     {selectedProductLabel}
@@ -783,7 +783,7 @@ const [unit, setUnit] = useState("");
                   <p className="mt-1 text-sm font-bold leading-6 text-[#8A4A1F]">
                     Pflichtfelder: Produktname, Einzelpreis, Kategorie,
                     Produkttyp, Menge und Einheit. Die Artikelnummer wird
-                    automatisch erzeugt, wenn Du sie leer lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤sst.
+                    automatisch erzeugt, wenn Du sie leer lässt.
                   </p>
                 </div>
 
@@ -792,7 +792,7 @@ const [unit, setUnit] = useState("");
                   onClick={stopCreateProductMode}
                   className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-black text-[#B5282D]"
                 >
-                  ZurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ck zur Suche
+                  Zurück zur Suche
                 </button>
               </div>
             </div>
@@ -892,7 +892,7 @@ const [unit, setUnit] = useState("");
                 type="text"
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                placeholder="z. B. StÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ck"
+                placeholder="z. B. Stück"
                 className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
             </div>
@@ -918,7 +918,7 @@ const [unit, setUnit] = useState("");
           {isCreatingNewProduct ? (
             <div className="rounded-[22px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Produktdaten fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r Katalog & Matching
+                Produktdaten für Katalog & Matching
               </p>
 
               <div className="grid gap-4 sm:grid-cols-5">
@@ -969,7 +969,7 @@ const [unit, setUnit] = useState("");
                     type="text"
                     value={productColor}
                     onChange={(event) => setProductColor(event.target.value)}
-                    placeholder="z. B. weiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸"
+                    placeholder="z. B. weiß"
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-3 text-sm font-semibold text-[#102A43] outline-none"
                   />
                 </div>
@@ -1007,11 +1007,11 @@ const [unit, setUnit] = useState("");
           {pendingAliasRemember ? (
             <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Zuordnung fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤tere Listen merken?
+                Zuordnung für spätere Listen merken?
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Soll diese erkannte Listenposition kÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼nftig automatisch besser diesem Produkt zugeordnet werden?
+                Soll diese erkannte Listenposition künftig automatisch besser diesem Produkt zugeordnet werden?
               </p>
 
               <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#102A43]">
@@ -1039,7 +1039,7 @@ const [unit, setUnit] = useState("");
                   disabled={isRememberingAlias}
                   className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] transition hover:bg-[#FBF7F0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Nur diesmal ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernehmen
+                  Nur diesmal übernehmen
                 </button>
               </div>
             </div>
@@ -1053,20 +1053,20 @@ const [unit, setUnit] = useState("");
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Wird gespeichert ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦
+                Wird gespeichert Ã¢â‚¬Â¦
               </>
             ) : (
               <>
                 <PackagePlus className="h-4 w-4" />
-                Produkt in Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernehmen
+                Produkt in Paketwunsch übernehmen
               </>
             )}
           </button>
         </div>
       ) : (
         <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
-          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffnest Du die
-          Erfassung fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r ein neues Bestandsprodukt.
+          Suche zuerst ein Produkt. Erst wenn kein Treffer passt, öffnest Du die
+          Erfassung für ein neues Bestandsprodukt.
         </div>
       )}
     </form>

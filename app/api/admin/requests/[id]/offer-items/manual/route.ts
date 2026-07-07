@@ -62,7 +62,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -112,11 +112,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤/g, "ae")
-    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶/g, "oe")
-    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼/g, "ue")
-    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸/g, "ss")
-    .replace(/grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼n/g, "gruen")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -181,10 +181,10 @@ function getMissingNewProductFields(input: {
   const missingFields: string[] = [];
 
   if (!input.productName) missingFields.push("Produktname");
-  if (input.productPrice <= 0) missingFields.push("Einzelpreis grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸er 0");
+  if (input.productPrice <= 0) missingFields.push("Einzelpreis größer 0");
   if (!input.productCategory) missingFields.push("Kategorie");
   if (!input.productType) missingFields.push("Produkttyp");
-  if (input.quantity <= 0) missingFields.push("Menge grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸er 0");
+  if (input.quantity <= 0) missingFields.push("Menge größer 0");
   if (!input.unit) missingFields.push("Einheit");
 
   return missingFields;
@@ -354,7 +354,7 @@ async function createProductFlexible(
 
   throw new Error(
     `Produkt konnte nicht angelegt werden: ${
-      lastError instanceof Error ? lastError.message : "Tabellenstruktur prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼fen."
+      lastError instanceof Error ? lastError.message : "Tabellenstruktur prüfen."
     }`
   );
 }
@@ -407,7 +407,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bergeben.",
+          message: "Keine Anfrage-ID übergeben.",
         },
         400
       );
@@ -450,7 +450,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte suche zuerst ein Bestandsprodukt. Wenn der Artikel nicht vorhanden ist, ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ffne bewusst ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾Neues Produkt erfassenÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ.",
+            "Bitte suche zuerst ein Bestandsprodukt. Wenn der Artikel nicht vorhanden ist, öffne bewusst „Neues Produkt erfassen“.",
         },
         400
       );
@@ -461,7 +461,7 @@ export async function POST(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Bitte gib einen Produktnamen ein oder wÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hle ein Bestandsprodukt aus.",
+            "Bitte gib einen Produktnamen ein oder wähle ein Bestandsprodukt aus.",
         },
         400
       );
@@ -471,7 +471,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Die Menge muss grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸er als 0 sein.",
+          message: "Die Menge muss größer als 0 sein.",
         },
         400
       );
@@ -491,7 +491,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Neues Produkt nicht gespeichert: Bitte fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼lle folgende Pflichtfelder aus: ${missingFields.join(
+            message: `Neues Produkt nicht gespeichert: Bitte fülle folgende Pflichtfelder aus: ${missingFields.join(
               ", "
             )}.`,
           },
@@ -569,12 +569,12 @@ export async function POST(request: NextRequest, context: Params) {
 
     if (manualChildError) {
       throw new Error(
-        `Kind-Zuordnung konnte nicht geprÃƒÂ¼ft werden: ${manualChildError.message}`
+        `Kind-Zuordnung konnte nicht geprüft werden: ${manualChildError.message}`
       );
     }
 
     if (!manualChildData) {
-      throw new Error("Das ausgewÃƒÂ¤hlte Kind gehÃƒÂ¶rt nicht zu dieser Anfrage.");
+      throw new Error("Das ausgewählte Kind gehört nicht zu dieser Anfrage.");
     }
 
     manualChildId = explicitChildId;
@@ -610,7 +610,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Listenposition konnte nicht geprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ft werden: ${itemError.message}`,
+            message: `Listenposition konnte nicht geprüft werden: ${itemError.message}`,
           },
           500
         );
@@ -621,7 +621,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Die gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlte Listenposition gehÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¶rt nicht zu dieser Anfrage.",
+              "Die gewählte Listenposition gehört nicht zu dieser Anfrage.",
           },
           400
         );
@@ -663,7 +663,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: "Das gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlte Bestandsprodukt wurde nicht gefunden.",
+            message: "Das gewählte Bestandsprodukt wurde nicht gefunden.",
           },
           404
         );
@@ -681,7 +681,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Das gewÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤hlte Bestandsprodukt hat keinen gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+              "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
           },
           400
         );
@@ -742,7 +742,7 @@ export async function POST(request: NextRequest, context: Params) {
             {
               ok: false,
               message:
-                "Ein gleiches Bestandsprodukt wurde gefunden, hat aber keinen gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+                "Ein gleiches Bestandsprodukt wurde gefunden, hat aber keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
             },
             400
           );
@@ -798,7 +798,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Bestehende Paketposition konnte nicht geprÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ft werden: ${duplicateError.message}`,
+            message: `Bestehende Paketposition konnte nicht geprüft werden: ${duplicateError.message}`,
           },
           500
         );
@@ -809,7 +809,7 @@ export async function POST(request: NextRequest, context: Params) {
           {
             ok: false,
             message:
-              "Dieses Produkt wurde fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r diese Listenposition bereits in den Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernommen.",
+              "Dieses Produkt wurde für diese Listenposition bereits in den Paketwunsch übernommen.",
           },
           409
         );
@@ -834,10 +834,10 @@ export async function POST(request: NextRequest, context: Params) {
         notes:
           notes ||
           (productWasCreated
-            ? "Manuell durch Admin hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt und als Produkt gespeichert"
+            ? "Manuell durch Admin hinzugefügt und als Produkt gespeichert"
             : productWasExisting
-              ? "Manuell durch Admin aus Bestandsprodukt hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt"
-              : "Manuell durch Admin hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt"),
+              ? "Manuell durch Admin aus Bestandsprodukt hinzugefügt"
+              : "Manuell durch Admin hinzugefügt"),
       })
       .select("*")
       .single();
@@ -857,7 +857,7 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       id,
       "admin_manual_offer_item_added",
-      "Admin hat eine manuelle Paketposition hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt.",
+      "Admin hat eine manuelle Paketposition hinzugefügt.",
       {
         requestItemId,
         productId,
@@ -887,10 +887,10 @@ export async function POST(request: NextRequest, context: Params) {
       productWasExisting,
       aliasCount,
       message: productWasCreated
-        ? "Position wurde hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt und als neues Produkt gespeichert."
+        ? "Position wurde hinzugefügt und als neues Produkt gespeichert."
         : productWasExisting
-          ? "Bestandsprodukt wurde in den Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼bernommen."
-          : "Manuelle Position wurde dem Paketwunsch hinzugefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gt.",
+          ? "Bestandsprodukt wurde in den Paketwunsch übernommen."
+          : "Manuelle Position wurde dem Paketwunsch hinzugefügt.",
     });
   } catch (error) {
     console.error("Admin manual offer item error:", error);

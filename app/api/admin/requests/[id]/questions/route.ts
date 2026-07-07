@@ -27,7 +27,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -135,7 +135,7 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("SMTP-Konfiguration unvollstÃ¤ndig.");
+    throw new Error("SMTP-Konfiguration unvollständig.");
   }
 
   return nodemailer.createTransport({
@@ -189,7 +189,7 @@ function createQuestionMailHtml(params: {
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>Kurze RÃ¼ckfrage zu Deiner Materialliste</title>
+    <title>Kurze Rückfrage zu Deiner Materialliste</title>
   </head>
   <body style="margin:0;padding:0;background:#FBF7F0;font-family:Arial,Helvetica,sans-serif;color:#102A43;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FBF7F0;padding:28px 12px;">
@@ -210,7 +210,7 @@ function createQuestionMailHtml(params: {
                     </td>
                     <td valign="middle" style="padding:0;">
                       <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Kurze RÃ¼ckfrage zu Deiner Materialliste</div>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Kurze Rückfrage zu Deiner Materialliste</div>
                     </td>
                   </tr>
                 </table>
@@ -222,7 +222,7 @@ function createQuestionMailHtml(params: {
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">${greeting}</p>
 
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.55;">
-                  wir prÃ¼fen gerade Deine Materialliste und haben noch eine kurze RÃ¼ckfrage zu einer Position.
+                  wir prüfen gerade Deine Materialliste und haben noch eine kurze Rückfrage zu einer Position.
                 </p>
 
                 ${
@@ -264,7 +264,7 @@ function createQuestionMailHtml(params: {
 
                 <div style="border:1px solid #F1D1A8;background:#FFF8EE;border-radius:18px;padding:18px;margin:22px 0;">
                   <div style="font-size:13px;font-weight:800;color:#A75B28;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">
-                    RÃ¼ckfrage
+                    Rückfrage
                   </div>
 
                   <p style="margin:0 0 10px;font-size:15px;line-height:1.55;color:#102A43;">
@@ -277,14 +277,14 @@ function createQuestionMailHtml(params: {
                 </div>
 
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Bitte Ã¶ffne Deinen persÃ¶nlichen PrÃ¼flink und beantworte die RÃ¼ckfrage dort direkt auf der Seite.
+                  Bitte öffne Deinen persönlichen Prüflink und beantworte die Rückfrage dort direkt auf der Seite.
                 </p>
 
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0;">
                   <tr>
                     <td style="border-radius:16px;background:#B5282D;">
                       <a href="${offerUrl}" style="display:inline-block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;border-radius:16px;">
-                        RÃ¼ckfrage beantworten
+                        Rückfrage beantworten
                       </a>
                     </td>
                   </tr>
@@ -292,7 +292,7 @@ function createQuestionMailHtml(params: {
 
                 <div style="background:#F0FFF6;border:1px solid #BFE3CD;border-radius:18px;padding:16px;margin:24px 0;color:#2F7D50;">
                   <p style="margin:0;font-size:14px;line-height:1.55;font-weight:700;">
-                    Sobald Deine Antwort eingegangen ist, kÃ¶nnen wir Dein Schulpaket weiter vorbereiten.
+                    Sobald Deine Antwort eingegangen ist, können wir Dein Schulpaket weiter vorbereiten.
                   </p>
                 </div>
 
@@ -302,7 +302,7 @@ function createQuestionMailHtml(params: {
                 </p>
 
                 <p style="margin:26px 0 0;font-size:16px;line-height:1.55;">
-                  Viele GrÃ¼ÃŸe<br />
+                  Viele Grüße<br />
                   Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span>
                 </p>
               </td>
@@ -310,7 +310,7 @@ function createQuestionMailHtml(params: {
 
             <tr>
               <td style="padding:18px 30px;background:#FBF7F0;color:#5C6B73;font-size:12px;line-height:1.45;">
-                Diese E-Mail wurde gesendet, weil Du Ã¼ber Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
+                Diese E-Mail wurde gesendet, weil Du über Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
               </td>
             </tr>
           </table>
@@ -353,20 +353,20 @@ function createQuestionMailText(params: {
 
   return `${greeting}
 
-wir prÃ¼fen gerade Deine Materialliste und haben noch eine kurze RÃ¼ckfrage zu einer Position.
+wir prüfen gerade Deine Materialliste und haben noch eine kurze Rückfrage zu einer Position.
 
 ${schoolInfoLines.length > 0 ? `${schoolInfoLines.join("\n")}\n\n` : ""}Position: ${requestItemTitle}
 
-RÃ¼ckfrage:
+Rückfrage:
 ${questionText}
 
-Bitte Ã¶ffne Deinen persÃ¶nlichen PrÃ¼flink und beantworte die RÃ¼ckfrage dort direkt auf der Seite:
+Bitte öffne Deinen persönlichen Prüflink und beantworte die Rückfrage dort direkt auf der Seite:
 
 ${offerUrl}
 
-Sobald Deine Antwort eingegangen ist, kÃ¶nnen wir Dein Schulpaket weiter vorbereiten.
+Sobald Deine Antwort eingegangen ist, können wir Dein Schulpaket weiter vorbereiten.
 
-Viele GrÃ¼ÃŸe
+Viele Grüße
 Dein Team von Handzettel-Schulen.de`;
 }
 
@@ -381,7 +381,7 @@ async function createRequestEvent(
     {
       request_id: requestId,
       event_type: eventType,
-      title: "RÃ¼ckfrage",
+      title: "Rückfrage",
       description: message,
       metadata: metadata ?? {},
       created_at: new Date().toISOString(),
@@ -423,7 +423,7 @@ async function sendQuestionNotificationMail(params: {
     return {
       sent: false,
       reason:
-        "FÃ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden. Die RÃ¼ckfrage wurde gespeichert, aber keine Mail versendet.",
+        "Für diese Anfrage wurde keine Kunden-E-Mail gefunden. Die Rückfrage wurde gespeichert, aber keine Mail versendet.",
     };
   }
 
@@ -431,7 +431,7 @@ async function sendQuestionNotificationMail(params: {
     return {
       sent: false,
       reason:
-        "FÃ¼r diese Anfrage wurde kein Angebots-Token gefunden. Die RÃ¼ckfrage wurde gespeichert, aber kein PrÃ¼flink konnte versendet werden.",
+        "Für diese Anfrage wurde kein Angebots-Token gefunden. Die Rückfrage wurde gespeichert, aber kein Prüflink konnte versendet werden.",
     };
   }
 
@@ -452,7 +452,7 @@ async function sendQuestionNotificationMail(params: {
     process.env.SMTP_USER ||
     "Handzettel-Schulen.de";
 
-  const subject = "Kurze RÃ¼ckfrage zu Deiner Materialliste";
+  const subject = "Kurze Rückfrage zu Deiner Materialliste";
 
   const mailParams = {
     customerName,
@@ -498,7 +498,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Anfrage-ID Ã¼bergeben.",
+          message: "Keine Anfrage-ID übergeben.",
         },
         400
       );
@@ -508,7 +508,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib eine konkrete RÃ¼ckfrage ein.",
+          message: "Bitte gib eine konkrete Rückfrage ein.",
         },
         400
       );
@@ -554,7 +554,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: `Listenposition konnte nicht geprÃ¼ft werden: ${itemError.message}`,
+            message: `Listenposition konnte nicht geprüft werden: ${itemError.message}`,
           },
           500
         );
@@ -564,7 +564,7 @@ export async function POST(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: "Die gewÃ¤hlte Listenposition gehÃ¶rt nicht zu dieser Anfrage.",
+            message: "Die gewählte Listenposition gehört nicht zu dieser Anfrage.",
           },
           400
         );
@@ -597,7 +597,7 @@ export async function POST(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: `RÃ¼ckfrage konnte nicht gespeichert werden: ${insertError.message}`,
+          message: `Rückfrage konnte nicht gespeichert werden: ${insertError.message}`,
         },
         500
       );
@@ -607,7 +607,7 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       id,
       "request_item_question_created",
-      "Eine positionsbezogene RÃ¼ckfrage wurde erstellt.",
+      "Eine positionsbezogene Rückfrage wurde erstellt.",
       {
         questionId: question?.id,
         requestItemId,
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest, context: Params) {
         reason:
           mailError instanceof Error
             ? mailError.message
-            : "Die RÃ¼ckfrage-Mail konnte nicht versendet werden.",
+            : "Die Rückfrage-Mail konnte nicht versendet werden.",
       };
     }
 
@@ -638,7 +638,7 @@ export async function POST(request: NextRequest, context: Params) {
         supabase,
         id,
         "request_item_question_mail_sent",
-        `RÃ¼ckfrage-Mail wurde an ${mailResult.email} gesendet.`,
+        `Rückfrage-Mail wurde an ${mailResult.email} gesendet.`,
         {
           questionId: question?.id,
           requestItemId,
@@ -653,7 +653,7 @@ export async function POST(request: NextRequest, context: Params) {
         question,
         mail: mailResult,
         message:
-          "RÃ¼ckfrage wurde gespeichert und der Kunde wurde per E-Mail informiert.",
+          "Rückfrage wurde gespeichert und der Kunde wurde per E-Mail informiert.",
       });
     }
 
@@ -661,7 +661,7 @@ export async function POST(request: NextRequest, context: Params) {
       supabase,
       id,
       "request_item_question_mail_not_sent",
-      `RÃ¼ckfrage wurde gespeichert, aber es wurde keine Mail versendet: ${mailResult.reason}`,
+      `Rückfrage wurde gespeichert, aber es wurde keine Mail versendet: ${mailResult.reason}`,
       {
         questionId: question?.id,
         requestItemId,
@@ -674,7 +674,7 @@ export async function POST(request: NextRequest, context: Params) {
       ok: true,
       question,
       mail: mailResult,
-      message: `RÃ¼ckfrage wurde gespeichert. Hinweis: ${mailResult.reason}`,
+      message: `Rückfrage wurde gespeichert. Hinweis: ${mailResult.reason}`,
     });
   } catch (error) {
     console.error("Admin request question create error:", error);
@@ -685,7 +685,7 @@ export async function POST(request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "RÃ¼ckfrage konnte nicht gespeichert werden.",
+            : "Rückfrage konnte nicht gespeichert werden.",
       },
       500
     );
