@@ -46,7 +46,7 @@ const [isSaving, setIsSaving] = useState(false);
     const cleanRawText = rawText.trim();
 
     if (!cleanRawText) {
-      setErrorMessage("Bitte gib eine Bezeichnung für die neue Position ein.");
+      setErrorMessage("Bitte gib eine Bezeichnung fÃ¼r die neue Position ein.");
       return;
     }
 
@@ -56,7 +56,7 @@ const [isSaving, setIsSaving] = useState(false);
     try {
       if (showChildSelect && !selectedChildId.trim()) {
 
-        setErrorMessage("Bitte ein Kind auswählen.");
+        setErrorMessage("Bitte ein Kind auswÃ¤hlen.");
 
         return;
 
@@ -72,7 +72,8 @@ const [isSaving, setIsSaving] = useState(false);
           },
           body: JSON.stringify({
             
-        childId: childOptions.length > 0 ? selectedChildId.trim() || defaultChildId || null : null,rawText: cleanRawText,
+        childId: childOptions.length > 0 ? selectedChildId.trim() || defaultChildId || null : null,
+            rawText: cleanRawText,
             normalizedName: cleanRawText,
             quantity,
             category,
@@ -118,7 +119,7 @@ const [isSaving, setIsSaving] = useState(false);
         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
       >
         <PlusCircle className="h-4 w-4" />
-        Neue Listenposition hinzufügen
+        Neue Listenposition hinzufÃ¼gen
       </button>
     );
   }
@@ -131,7 +132,7 @@ const [isSaving, setIsSaving] = useState(false);
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-            Manuell ergänzen
+            Manuell ergÃ¤nzen
           </p>
           <h3 className="mt-1 text-lg font-black text-[#102A43]">
             Neue Listenposition anlegen
@@ -139,7 +140,7 @@ const [isSaving, setIsSaving] = useState(false);
           <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
             Nutze das, wenn die KI/OCR eine Position nicht erkannt hat. Danach
             erscheint die Position in der Liste und Du kannst darunter Produkte
-            hinzufügen.
+            hinzufÃ¼gen.
           </p>
         </div>
 
@@ -159,7 +160,7 @@ const [isSaving, setIsSaving] = useState(false);
               htmlFor="manual-request-item-child-id"
               className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]"
             >
-              Kind für neue Listenposition
+              Kind fÃ¼r neue Listenposition
             </label>
 
             <select
@@ -168,7 +169,7 @@ const [isSaving, setIsSaving] = useState(false);
               onChange={(event) => setSelectedChildId(event.target.value)}
               className="mt-2 min-h-12 w-full rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
             >
-              <option value="">Kind auswählen</option>
+              <option value="">Kind auswÃ¤hlen</option>
               {childOptions.map((child) => (
                 <option key={child.id} value={child.id}>
                   {child.label}
@@ -184,7 +185,7 @@ const [isSaving, setIsSaving] = useState(false);
           <input
             value={rawText}
             onChange={(event) => setRawText(event.target.value)}
-            placeholder="z. B. Zeichenblock A3 weiß, 20 Blatt"
+            placeholder="z. B. Zeichenblock A3 weiÃŸ, 20 Blatt"
             className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
           />
         </label>
@@ -232,7 +233,7 @@ const [isSaving, setIsSaving] = useState(false);
           <input
             value={color}
             onChange={(event) => setColor(event.target.value)}
-            placeholder="z. B. blau, rot, weiß"
+            placeholder="z. B. blau, rot, weiÃŸ"
             className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#12395F]"
           />
         </label>
