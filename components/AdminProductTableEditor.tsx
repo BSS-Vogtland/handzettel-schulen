@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  PRODUCT_CATEGORY_OPTIONS,
-  isAllowedProductCategory,
-  normalizeProductCategory,
-} from "@/lib/productCategories";
+
+export type AdminProductTableCategoryOption = {
+  id?: string;
+  value: string;
+  label: string;
+  keywords: string[];
+};
 
 export type AdminProductTableRow = {
   id: string;
@@ -39,12 +41,49 @@ type SaveState = {
 
 type AdminProductTableEditorProps = {
   initialRows: AdminProductTableRow[];
+  categoryOptions: AdminProductTableCategoryOption[];
 };
 
 type EditableField = keyof Omit<
   AdminProductTableRow,
   "id" | "createdAt" | "updatedAt"
 >;
+
+function normalizeCategoryKey(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/&/g, " und ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeCategoryWithOptions(
+  value: unknown,
+  options: AdminProductTableCategoryOption[]
+) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const exactLabel = options.find((option) => option.label === raw);
+  if (exactLabel) return exactLabel.label;
+
+  const normalized = normalizeCategoryKey(raw);
+
+  const byValue = options.find((option) => option.value === normalized);
+  if (byValue) return byValue.label;
+
+  const byLabelKey = options.find(
+    (option) => normalizeCategoryKey(option.label) === normalized
+  );
+  if (byLabelKey) return byLabelKey.label;
+
+  return "";
+}
 
 function formatDate(value: string | null) {
   if (!value) return "-";
@@ -60,14 +99,17 @@ function formatDate(value: string | null) {
   }
 }
 
-function normalizeRow(row: AdminProductTableRow) {
+function normalizeRow(
+  row: AdminProductTableRow,
+  categoryOptions: AdminProductTableCategoryOption[]
+) {
   return {
     ...row,
     productName: row.productName.trim(),
     productSku: row.productSku.trim(),
     ean: row.ean.trim(),
     productPrice: row.productPrice.trim(),
-    category: normalizeProductCategory(row.category),
+    category: normalizeCategoryWithOptions(row.category, categoryOptions),
     productType: row.productType.trim(),
     format: row.format.trim(),
     color: row.color.trim(),
@@ -83,8 +125,11 @@ function normalizeRow(row: AdminProductTableRow) {
   };
 }
 
-function rowFingerprint(row: AdminProductTableRow) {
-  return JSON.stringify(normalizeRow(row));
+function rowFingerprint(
+  row: AdminProductTableRow,
+  categoryOptions: AdminProductTableCategoryOption[]
+) {
+  return JSON.stringify(normalizeRow(row, categoryOptions));
 }
 
 async function readJson(response: Response) {
@@ -105,8 +150,8 @@ const textareaClass =
 
 export default function AdminProductTableEditor({
   initialRows,
+  categoryOptions,
 }: AdminProductTableEditorProps) {
-
   const [rows, setRows] = useState(initialRows);
   const [originalRows, setOriginalRows] = useState(initialRows);
   const [query, setQuery] = useState("");
@@ -121,7 +166,10 @@ export default function AdminProductTableEditor({
     const original = originalById.get(row.id);
     if (!original) return true;
 
-    return rowFingerprint(row) !== rowFingerprint(original);
+    return (
+      rowFingerprint(row, categoryOptions) !==
+      rowFingerprint(original, categoryOptions)
+    );
   }
 
   const changedCount = rows.filter(isDirty).length;
@@ -154,7 +202,7 @@ export default function AdminProductTableEditor({
 
       return searchText.includes(normalizedQuery);
     });
-  }, [rows, query, onlyChanged, originalById]);
+  }, [rows, query, onlyChanged, originalById, categoryOptions]);
 
   function updateRow(id: string, field: EditableField, value: string | boolean) {
     setRows((current) =>
@@ -188,7 +236,7 @@ export default function AdminProductTableEditor({
   }
 
   async function saveRow(row: AdminProductTableRow) {
-    const normalized = normalizeRow(row);
+    const normalized = normalizeRow(row, categoryOptions);
 
     if (!normalized.productName) {
       setSaveStates((current) => ({
@@ -201,7 +249,7 @@ export default function AdminProductTableEditor({
       return;
     }
 
-    if (!isAllowedProductCategory(normalized.category)) {
+    if (!normalized.category) {
       setSaveStates((current) => ({
         ...current,
         [row.id]: {
@@ -258,7 +306,6 @@ export default function AdminProductTableEditor({
 
       const savedRow: AdminProductTableRow = {
         ...normalized,
-        category: normalizeProductCategory(normalized.category),
         updatedAt: new Date().toISOString(),
       };
 
@@ -306,7 +353,8 @@ export default function AdminProductTableEditor({
             {changedCount === 1 ? "" : "n"} geaendert.
           </p>
           <p className="mt-1 text-xs font-bold text-[#A75B28]">
-            Hinweis: Diese Suche filtert nur die aktuell geladene Seite. Fuer die gesamte Datenbank nutze die Suche oberhalb der Tabelle.
+            Hinweis: Diese Suche filtert nur die aktuell geladene Seite. Fuer die
+            gesamte Datenbank nutze die Suche oberhalb der Tabelle.
           </p>
         </div>
 
@@ -432,7 +480,11 @@ export default function AdminProductTableEditor({
                     <input
                       value={row.ean}
                       onChange={(event) =>
-                        updateRow(row.id, "ean", event.target.value.replace(/[^\d]/g, ""))
+                        updateRow(
+                          row.id,
+                          "ean",
+                          event.target.value.replace(/[^\d]/g, "")
+                        )
                       }
                       className={inputClass}
                     />
@@ -458,7 +510,7 @@ export default function AdminProductTableEditor({
                       className={inputClass}
                     >
                       <option value="">Kategorie auswaehlen</option>
-                      {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                      {categoryOptions.map((option) => (
                         <option key={option.value} value={option.label}>
                           {option.label}
                         </option>
@@ -510,7 +562,11 @@ export default function AdminProductTableEditor({
                     <input
                       value={row.bookWidthMm}
                       onChange={(event) =>
-                        updateRow(row.id, "bookWidthMm", event.target.value.replace(/[^\d]/g, ""))
+                        updateRow(
+                          row.id,
+                          "bookWidthMm",
+                          event.target.value.replace(/[^\d]/g, "")
+                        )
                       }
                       inputMode="numeric"
                       className={inputClass}
@@ -521,7 +577,11 @@ export default function AdminProductTableEditor({
                     <input
                       value={row.bookHeightMm}
                       onChange={(event) =>
-                        updateRow(row.id, "bookHeightMm", event.target.value.replace(/[^\d]/g, ""))
+                        updateRow(
+                          row.id,
+                          "bookHeightMm",
+                          event.target.value.replace(/[^\d]/g, "")
+                        )
                       }
                       inputMode="numeric"
                       className={inputClass}

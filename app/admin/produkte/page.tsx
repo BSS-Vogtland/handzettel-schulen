@@ -538,7 +538,7 @@ export default async function AdminProductsPage({
                 Matching und Kundenseite aus.
               </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.35fr]">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Link
                   href="/admin/produkte/mobile"
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
@@ -552,6 +552,13 @@ export default async function AdminProductsPage({
                 >
                   <ShoppingBasket className="h-4 w-4" />
                   Tabellenpflege öffnen
+                </Link>
+                <Link
+                  href="/admin/produkte/kategorien"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-4 py-3 text-sm font-black text-[#102A43] shadow-sm transition hover:border-[#B5282D]"
+                >
+                  <Filter className="h-4 w-4" />
+                  Kategorien verwalten
                 </Link>
 
                 <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">

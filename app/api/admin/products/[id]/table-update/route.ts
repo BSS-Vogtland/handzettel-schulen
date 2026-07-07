@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeProductCategory } from "@/lib/productCategories";
+import {
+  loadProductCategoryOptions,
+  normalizeProductCategoryWithOptions,
+} from "@/lib/productCategoryDatabase";
 import { buildProductKeywordData } from "../../../../../lib/productKeywords";
 
 export const runtime = "nodejs";
@@ -96,12 +99,17 @@ export async function POST(request: NextRequest, context: Params) {
 
     const formData = await request.formData();
 
+    const supabase = getSupabaseAdmin();
+    const categoryOptions = await loadProductCategoryOptions(supabase, {
+      activeOnly: true,
+    });
+
     const productName = cleanString(formData.get("productName"));
     const productSku = cleanString(formData.get("productSku"));
     const ean = cleanString(formData.get("ean"));
     const productPrice = toNumber(formData.get("productPrice"), 0);
     const rawCategory = cleanString(formData.get("category"));
-    const category = normalizeProductCategory(rawCategory);
+    const category = normalizeProductCategoryWithOptions(rawCategory, categoryOptions);
     const productType = cleanString(formData.get("productType"));
     const format = cleanString(formData.get("format"));
     const color = cleanString(formData.get("color"));
@@ -135,8 +143,6 @@ export async function POST(request: NextRequest, context: Params) {
         { status: 400 }
       );
     }
-
-    const supabase = getSupabaseAdmin();
 
     const { data: product, error: productError } = await supabase
       .from("school_products")

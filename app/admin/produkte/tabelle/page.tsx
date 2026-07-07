@@ -3,7 +3,10 @@ import Link from "next/link";
 import AdminProductTableEditor, {
   type AdminProductTableRow,
 } from "@/components/AdminProductTableEditor";
-import { normalizeProductCategory } from "@/lib/productCategories";
+import {
+  loadProductCategoryOptions,
+  normalizeProductCategoryWithOptions,
+} from "@/lib/productCategoryDatabase";
 
 export const dynamic = "force-dynamic";
 
@@ -239,6 +242,7 @@ export default async function AdminProductTablePage({
   const rangeTo = offset + pageSize - 1;
 
   const supabase = getSupabaseAdmin();
+  const categoryOptions = await loadProductCategoryOptions(supabase, { activeOnly: true });
 
   let productsQuery = supabase
     .from("school_products")
@@ -305,7 +309,7 @@ export default async function AdminProductTablePage({
       productSku: getProductSku(product),
       ean: cleanString(product.ean),
       productPrice: formatPriceInput(getProductPrice(product)),
-      category: normalizeProductCategory(product.category),
+      category: normalizeProductCategoryWithOptions(product.category, categoryOptions),
       productType: cleanString(product.product_type),
       format: cleanString(product.format),
       color: cleanString(product.color),
@@ -455,7 +459,10 @@ export default async function AdminProductTablePage({
           </div>
         </section>
 
-        <AdminProductTableEditor initialRows={tableRows} />
+        <AdminProductTableEditor
+          initialRows={tableRows}
+          categoryOptions={categoryOptions}
+        />
       </div>
     </main>
   );
