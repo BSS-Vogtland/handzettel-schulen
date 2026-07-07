@@ -320,7 +320,7 @@ const [unit, setUnit] = useState("");
     const quantityNumber = parseGermanNumber(quantity);
 
     if (!selectedProductId && !createProductMode) {
-      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf Ã¢â‚¬Å¾Neues Produkt erfassenÃ¢â‚¬Å“. ";
+      return "Bitte suche zuerst ein Bestandsprodukt. Wenn es nicht vorhanden ist, klicke bewusst auf „Neues Produkt erfassen“. ";
     }
 
     if (!productName.trim() && !selectedProductId) {
@@ -645,7 +645,7 @@ const [unit, setUnit] = useState("");
             {isSearching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Suche Ã¢â‚¬Â¦
+                Suche …
               </>
             ) : (
               <>
@@ -1053,7 +1053,7 @@ const [unit, setUnit] = useState("");
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Wird gespeichert Ã¢â‚¬Â¦
+                Wird gespeichert …
               </>
             ) : (
               <>
