@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   PRODUCT_CATEGORY_OPTIONS,
   isAllowedProductCategory,
@@ -107,7 +106,6 @@ const textareaClass =
 export default function AdminProductTableEditor({
   initialRows,
 }: AdminProductTableEditorProps) {
-  const router = useRouter();
 
   const [rows, setRows] = useState(initialRows);
   const [originalRows, setOriginalRows] = useState(initialRows);
@@ -279,8 +277,6 @@ export default function AdminProductTableEditor({
           message: "Gespeichert.",
         },
       }));
-
-      router.refresh();
     } catch (error) {
       setSaveStates((current) => ({
         ...current,
@@ -309,13 +305,16 @@ export default function AdminProductTableEditor({
             {rows.length} Produkte geladen. {changedCount} Zeile
             {changedCount === 1 ? "" : "n"} geaendert.
           </p>
+          <p className="mt-1 text-xs font-bold text-[#A75B28]">
+            Hinweis: Diese Suche filtert nur die aktuell geladene Seite. Fuer die gesamte Datenbank nutze die Suche oberhalb der Tabelle.
+          </p>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[1fr_auto] lg:min-w-[520px]">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Suche nach Name, SKU, EAN, Kategorie, Typ ..."
+            placeholder="Diese geladene Seite filtern: Name, SKU, EAN, Kategorie, Typ ..."
             className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-bold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
           />
 
@@ -383,6 +382,8 @@ export default function AdminProductTableEditor({
                       {row.imageUrl ? (
                         <img
                           src={row.imageUrl}
+                          loading="lazy"
+                          decoding="async"
                           alt={row.productName || "Produkt"}
                           className="h-full w-full object-contain p-1"
                         />
