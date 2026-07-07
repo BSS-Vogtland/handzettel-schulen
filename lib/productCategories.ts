@@ -1,4 +1,4 @@
-export type ProductCategoryOption = {
+﻿export type ProductCategoryOption = {
   value: string;
   label: string;
   keywords: string[];
@@ -6,69 +6,99 @@ export type ProductCategoryOption = {
 
 export const PRODUCT_CATEGORY_OPTIONS = [
   {
-    value: "hefte_bloecke",
-    label: "Hefte & BlÃƒÂ¶cke",
-    keywords: ["heft", "hefte", "schulheft", "block", "collegeblock", "notizblock"],
+    value: "abheften_ordnen",
+    label: "Abheften & Ordnen",
+    keywords: ["Abheften", "Ordnen", "Schnellhefter", "Ringhefter", "Ringbuch", "Ordner", "Mappe", "Mappen"],
   },
   {
-    value: "papier_zeichenpapier",
-    label: "Papier & Zeichenpapier",
-    keywords: ["papier", "zeichenpapier", "zeichenblock", "tonpapier", "kopierpapier"],
+    value: "bloecke",
+    label: "Blöcke",
+    keywords: ["Block", "Blöcke", "Schreibblock", "Schreibblöcke", "Collegeblock", "Löschblattblock"],
   },
   {
-    value: "umschlaege",
-    label: "UmschlÃƒÂ¤ge",
-    keywords: ["umschlag", "umschlÃƒÂ¤ge", "heftumschlag", "buchumschlag"],
+    value: "buecher_arbeitshefte",
+    label: "Bücher & Arbeitshefte",
+    keywords: ["Buch", "Bücher", "Arbeitsheft", "Arbeitshefte", "Arbeitsbuch", "Lernen"],
   },
   {
-    value: "schnellhefter_mappen",
-    label: "Schnellhefter & Mappen",
-    keywords: ["schnellhefter", "mappe", "mappen", "ordner", "heftring"],
+    value: "etiketten_beschriftung",
+    label: "Etiketten & Beschriftung",
+    keywords: ["Etiketten", "Beschriftung", "Marker", "Edding"],
   },
   {
-    value: "stifte_schreiben",
-    label: "Stifte & Schreiben",
-    keywords: ["stift", "stifte", "fÃƒÂ¼ller", "kugelschreiber", "bleistift", "fineliner"],
+    value: "federmappen_zubehoer",
+    label: "Federmappen & Zubehör",
+    keywords: ["Federmäppchen", "Federmappe", "Federtasche", "Etui", "Radiergummi", "Spitzer", "Tinte", "Tintenkiller", "Mine"],
   },
   {
-    value: "malen_basteln",
-    label: "Malen & Basteln",
-    keywords: ["malen", "basteln", "pinsel", "farbe", "wasserfarbe", "wachsmalstift"],
+    value: "hefte",
+    label: "Hefte",
+    keywords: ["Heft", "Hefte", "Schulheft", "Schulhefte", "Schreibheft", "Schreiblernheft", "Notenheft", "Mitteilungsheft", "Löschblattheft"],
+  },
+  {
+    value: "hygiene",
+    label: "Hygiene",
+    keywords: ["Hygiene", "Badehandtuch", "Handtuch", "Badekappe"],
   },
   {
     value: "kleben_schneiden",
     label: "Kleben & Schneiden",
-    keywords: ["kleber", "klebestift", "schere", "schneiden", "tesa", "kleben"],
+    keywords: ["Klebestift", "Kleber", "Pritt", "Schere", "Bastelschere", "Klebeband"],
+  },
+  {
+    value: "kunst_basteln",
+    label: "Kunst & Basteln",
+    keywords: ["Kunst", "Basteln", "Knete", "Buntpapier", "Tonzeichenkarton", "Mischpalette", "Malunterlage", "Zeichenbox", "Kunstbox"],
+  },
+  {
+    value: "malen_farben",
+    label: "Malen & Farben",
+    keywords: ["Malen", "Farben", "Schulmalfarben", "Deckfarbenkasten", "Deckweiß", "Näpfchenfarben", "Tubenfarben", "Buntstifte", "Filzstifte", "Wachsmalstifte"],
   },
   {
     value: "mathematik_geometrie",
     label: "Mathematik & Geometrie",
-    keywords: ["zirkel", "lineal", "geodreieck", "winkelmesser", "taschenrechner"],
+    keywords: ["Mathematik", "Geometrie", "Lineal", "Limeal", "Geodreieck", "Dreieck", "Zirkel", "Taschenrechner", "Kurvenschablone", "Parabelschablone"],
   },
   {
-    value: "buecher_arbeitshefte",
-    label: "BÃƒÂ¼cher & Arbeitshefte",
-    keywords: ["buch", "bÃƒÂ¼cher", "arbeitsheft", "arbeitsbuch", "lernheft"],
+    value: "papier_zeichenpapier",
+    label: "Papier & Zeichenpapier",
+    keywords: ["Papier", "Zeichenpapier", "Zeichenblock", "Zeichenblöcke", "Tonpapier", "Millimeterpapier", "Buntpapier"],
   },
   {
-    value: "ordnung_organisation",
-    label: "Ordnung & Organisation",
-    keywords: ["hausaufgabenheft", "kalender", "register", "trennblatt", "etiketten"],
+    value: "pinsel",
+    label: "Pinsel",
+    keywords: ["Pinsel", "Flachpinsel", "Rundpinsel", "Borstenpinsel", "Schulpinsel", "Spitzpinsel", "Pinselsortiment"],
   },
   {
-    value: "federmappe_zubehoer",
-    label: "Federmappe & ZubehÃƒÂ¶r",
-    keywords: ["federmappe", "federtasche", "radiergummi", "spitzer", "linealset"],
+    value: "ranzen_taschen",
+    label: "Ranzen & Taschen",
+    keywords: ["Schulranzen", "Schulrucksack", "Schulranzenset", "Ranzenzubehör", "Sporttasche", "Turnbeutel"],
   },
   {
-    value: "sport_textil",
-    label: "Sport & Textil",
-    keywords: ["sport", "turnbeutel", "sportsachen", "textil"],
+    value: "schreiben_stifte",
+    label: "Schreiben & Stifte",
+    keywords: ["Schreiben", "Stifte", "Stift", "Bleistift", "Dreikantbleistift", "Buntstift", "Füller", "Füllfederhalter", "Schreibfüller", "Fineliner", "Folienstift", "Kugelschreiber", "Ghost Pen"],
   },
   {
-    value: "essen_trinken",
-    label: "Essen & Trinken",
-    keywords: ["brotdose", "trinkflasche", "trinkbecher", "becher", "flasche"],
+    value: "sport",
+    label: "Sport",
+    keywords: ["Sport", "Sportbeutel", "Sporttasche", "Turnbeutel"],
+  },
+  {
+    value: "technik_kopfhoerer",
+    label: "Technik & Kopfhörer",
+    keywords: ["Technik", "Kopfhörer", "Kopfhoerer", "Stereo headset", "Headset"],
+  },
+  {
+    value: "umschlaege",
+    label: "Umschläge",
+    keywords: ["Umschlag", "Umschläge", "Buchumschlag", "Heftumschlag", "Hausaufgaben Heft Umschlag", "Buchfolie", "Hülle"],
+  },
+  {
+    value: "verpflegung",
+    label: "Verpflegung",
+    keywords: ["Becher", "Becher mit Deckel", "Trinkbecher", "Trinkflasche", "Brotdose"],
   },
 ] as const;
 
@@ -80,84 +110,94 @@ function normalizeCategoryKey(value: unknown) {
   return String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/ÃƒÂ¤/g, "ae")
-    .replace(/ÃƒÂ¶/g, "oe")
-    .replace(/ÃƒÂ¼/g, "ue")
-    .replace(/ÃƒÅ¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/&/g, " und ")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
 
 const PRODUCT_CATEGORY_LEGACY_ALIASES: Record<string, string> = {
-  heft: "Hefte & BlÃƒÂ¶cke",
-  hefte: "Hefte & BlÃƒÂ¶cke",
-  schulheft: "Hefte & BlÃƒÂ¶cke",
-  block: "Hefte & BlÃƒÂ¶cke",
-  bloecke: "Hefte & BlÃƒÂ¶cke",
-  collegeblock: "Hefte & BlÃƒÂ¶cke",
+  "umschlag": "Umschläge",
+  "umschlaege": "Umschläge",
+  "buchumschlag": "Umschläge",
+  "heftumschlag": "Umschläge",
 
-  papier: "Papier & Zeichenpapier",
-  zeichenpapier: "Papier & Zeichenpapier",
-  zeichenblock: "Papier & Zeichenpapier",
-  tonpapier: "Papier & Zeichenpapier",
+  "heft": "Hefte",
+  "hefte": "Hefte",
+  "schulheft": "Hefte",
+  "schulhefte": "Hefte",
+  "schreibheft": "Hefte",
+  "notenheft": "Hefte",
 
-  umschlag: "UmschlÃƒÂ¤ge",
-  umschlaege: "UmschlÃƒÂ¤ge",
-  heftumschlag: "UmschlÃƒÂ¤ge",
-  buchumschlag: "UmschlÃƒÂ¤ge",
+  "block": "Blöcke",
+  "bloecke": "Blöcke",
+  "schreibblock": "Blöcke",
+  "schreibbloecke": "Blöcke",
 
-  schnellhefter: "Schnellhefter & Mappen",
-  mappe: "Schnellhefter & Mappen",
-  mappen: "Schnellhefter & Mappen",
-  ordner: "Schnellhefter & Mappen",
+  "ringbuch": "Abheften & Ordnen",
+  "ringhefter": "Abheften & Ordnen",
+  "schnellhefter": "Abheften & Ordnen",
+  "mappe": "Abheften & Ordnen",
+  "mappen": "Abheften & Ordnen",
+  "ordner": "Abheften & Ordnen",
 
-  stift: "Stifte & Schreiben",
-  stifte: "Stifte & Schreiben",
-  fueller: "Stifte & Schreiben",
-  fuellhalter: "Stifte & Schreiben",
-  kugelschreiber: "Stifte & Schreiben",
-  bleistift: "Stifte & Schreiben",
-  fineliner: "Stifte & Schreiben",
+  "flachpinsel": "Pinsel",
+  "rundpinsel": "Pinsel",
+  "borstenpinsel": "Pinsel",
+  "schulpinsel": "Pinsel",
+  "pinsel": "Pinsel",
 
-  malen: "Malen & Basteln",
-  basteln: "Malen & Basteln",
-  pinsel: "Malen & Basteln",
-  farbe: "Malen & Basteln",
-  wasserfarbe: "Malen & Basteln",
+  "malen": "Malen & Farben",
+  "farben": "Malen & Farben",
+  "schulmalfarben": "Malen & Farben",
 
-  kleber: "Kleben & Schneiden",
-  klebestift: "Kleben & Schneiden",
-  schere: "Kleben & Schneiden",
+  "basteln": "Kunst & Basteln",
+  "kunst": "Kunst & Basteln",
 
-  mathe: "Mathematik & Geometrie",
-  mathematik: "Mathematik & Geometrie",
-  geometrie: "Mathematik & Geometrie",
-  zirkel: "Mathematik & Geometrie",
-  lineal: "Mathematik & Geometrie",
-  geodreieck: "Mathematik & Geometrie",
+  "klebestift": "Kleben & Schneiden",
+  "schere": "Kleben & Schneiden",
 
-  buch: "BÃƒÂ¼cher & Arbeitshefte",
-  buecher: "BÃƒÂ¼cher & Arbeitshefte",
-  arbeitsheft: "BÃƒÂ¼cher & Arbeitshefte",
-  arbeitsbuch: "BÃƒÂ¼cher & Arbeitshefte",
+  "stifte": "Schreiben & Stifte",
+  "schreiben": "Schreiben & Stifte",
+  "bleistift": "Schreiben & Stifte",
+  "buntstift": "Schreiben & Stifte",
+  "buntstifte": "Schreiben & Stifte",
+  "fueller": "Schreiben & Stifte",
+  "fuellfederhalter": "Schreiben & Stifte",
+  "schreibfueller": "Schreiben & Stifte",
+  "fineliner": "Schreiben & Stifte",
 
-  hausaufgabenheft: "Ordnung & Organisation",
-  kalender: "Ordnung & Organisation",
-  register: "Ordnung & Organisation",
+  "mathematik": "Mathematik & Geometrie",
+  "geometrie": "Mathematik & Geometrie",
+  "zirkel": "Mathematik & Geometrie",
+  "taschenrechner": "Mathematik & Geometrie",
+  "dreieck": "Mathematik & Geometrie",
 
-  federmappe: "Federmappe & ZubehÃƒÂ¶r",
-  federtasche: "Federmappe & ZubehÃƒÂ¶r",
-  radiergummi: "Federmappe & ZubehÃƒÂ¶r",
-  spitzer: "Federmappe & ZubehÃƒÂ¶r",
+  "papier": "Papier & Zeichenpapier",
+  "zeichnen": "Papier & Zeichenpapier",
+  "zeichenbloecke": "Papier & Zeichenpapier",
 
-  sport: "Sport & Textil",
-  turnbeutel: "Sport & Textil",
+  "federmappe": "Federmappen & Zubehör",
+  "federtasche": "Federmappen & Zubehör",
+  "federmäppchen": "Federmappen & Zubehör",
+  "radiergummi": "Federmappen & Zubehör",
+  "spitzer": "Federmappen & Zubehör",
 
-  brotdose: "Essen & Trinken",
-  trinkflasche: "Essen & Trinken",
-  trinkbecher: "Essen & Trinken",
-  becher: "Essen & Trinken",
+  "sport": "Sport",
+  "sporttasche": "Sport",
+  "schulranzen": "Ranzen & Taschen",
+  "schulrucksack": "Ranzen & Taschen",
+  "ranzenzubehoer": "Ranzen & Taschen",
+
+  "kopfhoerer": "Technik & Kopfhörer",
+  "kopfhörer": "Technik & Kopfhörer",
+  "stereo_headset": "Technik & Kopfhörer",
+
+  "becher_mit_deckel": "Verpflegung",
+  "becher": "Verpflegung",
 };
 
 export function normalizeProductCategory(value: unknown) {
