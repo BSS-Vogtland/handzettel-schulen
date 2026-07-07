@@ -835,8 +835,8 @@ function AdminRequestChildrenOverview({
     ) {
       groups.push({
         id: "unassigned",
-        label: "Noch nicht zugeordnet",
-        meta: ["Muss noch einem Kind zugeordnet werden"],
+        label: "Allgemein / keinem Kind zugeordnet",
+        meta: ["Allgemeine Einträge oder noch nicht eindeutig zugeordnet."],
         files: unassignedFiles,
         items: unassignedItems,
         offerItems: unassignedOfferItems,
@@ -1024,6 +1024,34 @@ function AdminRequestChildrenOverview({
                     Keine offenen Listenpositionen.
                   </p>
                 )}
+
+                {group.questions.length > 0 ? (
+
+
+                  <div className="mt-4 border-t border-[#F1D1A8] pt-3">
+
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#A75B28]">
+
+
+                      {group.id === "unassigned"
+
+
+                        ? "Allgemeine / nicht zugeordnete Rückfragen"
+
+
+                        : "Rückfragen an Kunden"}
+
+
+                    </p>
+
+
+                  </div>
+
+
+                ) : null}
+
+
 
                 {group.questions.length > 0 ? (
                   <div>
