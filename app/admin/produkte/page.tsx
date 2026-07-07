@@ -518,6 +518,13 @@ export default async function AdminProductsPage({
             <Smartphone className="h-4 w-4" />
             Mobile Produkterfassung
           </Link>
+          <Link
+            href="/admin/produkte/tabelle"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+          >
+            <ShoppingBasket className="h-4 w-4" />
+            Produktdaten-Tabelle
+          </Link>
         </div>
 
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
@@ -538,13 +545,20 @@ export default async function AdminProductsPage({
                 Matching und Kundenseite aus.
               </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.35fr]">
                 <Link
                   href="/admin/produkte/mobile"
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <Camera className="h-4 w-4" />
                   Schnell per Handy erfassen
+                </Link>
+                <Link
+                  href="/admin/produkte/tabelle"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                >
+                  <ShoppingBasket className="h-4 w-4" />
+                  Tabellenpflege öffnen
                 </Link>
 
                 <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
