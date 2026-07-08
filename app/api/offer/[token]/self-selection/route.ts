@@ -134,6 +134,7 @@ export async function POST(_request: Request, { params }: Params) {
       .update({
         offer_access_mail_due_at: self_selection_offer_access_mail_due_at,
         offer_access_mail_sent_at: null,
+        offer_access_mail_trigger: "self_selection",
       })
       .eq("id", requestRow.id);
 

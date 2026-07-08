@@ -145,6 +145,7 @@ export async function POST(request: Request, { params }: Params) {
       .from("school_requests")
       .update({
         offer_access_mail_due_at: null,
+        offer_access_mail_trigger: null,
       })
       .eq("id", requestRow.id)
       .is("offer_access_mail_sent_at", null);

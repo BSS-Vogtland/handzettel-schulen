@@ -180,7 +180,8 @@ export async function scheduleOfferAccessMail(params: {
       updated_at: new Date().toISOString(),
     })
     .eq("id", params.requestId)
-    .is("offer_access_mail_sent_at", null);
+    .is("offer_access_mail_sent_at", null)
+      .eq("offer_access_mail_trigger", "self_selection");
 
   if (error) {
     throw new Error(`Link-Mail konnte nicht geplant werden: ${error.message}`);

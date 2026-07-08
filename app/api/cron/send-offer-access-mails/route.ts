@@ -52,9 +52,10 @@ export async function GET(request: Request) {
 
   const { data: dueRequests, error } = await supabase
     .from("school_requests")
-    .select("id, offer_access_mail_due_at")
+    .select("id, offer_access_mail_due_at, offer_access_mail_trigger")
     .not("offer_access_mail_due_at", "is", null)
     .is("offer_access_mail_sent_at", null)
+    .eq("offer_access_mail_trigger", "self_selection")
     .lte("offer_access_mail_due_at", now)
     .order("offer_access_mail_due_at", { ascending: true })
     .limit(25);
