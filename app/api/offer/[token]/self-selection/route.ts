@@ -1,3 +1,4 @@
+﻿import { sendOfferAccessMailForRequest } from "@/lib/offerAccessMail";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,7 +14,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -34,7 +35,7 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Kein Paketwunsch-Token übergeben.",
+          message: "Kein Paketwunsch-Token Ã¼bergeben.",
         },
         { status: 400 }
       );
@@ -75,7 +76,7 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Der Paketwunsch wurde bereits bestätigt.",
+          message: "Der Paketwunsch wurde bereits bestÃ¤tigt.",
         },
         { status: 409 }
       );
@@ -115,9 +116,9 @@ export async function POST(_request: Request, { params }: Params) {
       .insert({
         request_id: requestRow.id,
         event_type: "customer_selected_self_selection",
-        title: "Kunde wählt Selbst-Auswahl",
+        title: "Kunde wÃ¤hlt Selbst-Auswahl",
         description:
-          "Der Kunde möchte die offenen Positionen wieder selbst auswählen und bearbeiten.",
+          "Der Kunde mÃ¶chte die offenen Positionen wieder selbst auswÃ¤hlen und bearbeiten.",
         created_at: now,
       });
 
@@ -125,9 +126,7 @@ export async function POST(_request: Request, { params }: Params) {
       console.error("Self-selection event could not be written:", eventError);
     }
 
-    const self_selection_offer_access_mail_due_at = new Date(
-      Date.now() + 2 * 60 * 1000
-    ).toISOString();
+    const self_selection_offer_access_mail_due_at = new Date().toISOString();
 
     const { error: selfSelectionOfferAccessMailError } = await supabase
       .from("school_requests")
@@ -150,9 +149,32 @@ export async function POST(_request: Request, { params }: Params) {
       );
     }
 
+    const offerAccessMailResult = await sendOfferAccessMailForRequest({
+      supabase,
+      requestId: requestRow.id,
+      allowBeforeDue: true,
+    });
+
+    if (
+      !offerAccessMailResult.ok ||
+      !["sent", "already_sent"].includes(offerAccessMailResult.status)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            offerAccessMailResult.message ||
+            "Selbst-Auswahl wurde gespeichert, aber die Link-Mail konnte nicht gesendet werden.",
+          offerAccessMail: offerAccessMailResult,
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       ok: true,
-      message: "Selbst-Auswahl wurde gespeichert.",
+      message: "Selbst-Auswahl wurde gespeichert. Die Link-Mail wurde gesendet.",
+      offerAccessMail: offerAccessMailResult,
     });
   } catch (error) {
     const message =
@@ -169,3 +191,5 @@ export async function POST(_request: Request, { params }: Params) {
     );
   }
 }
+
+

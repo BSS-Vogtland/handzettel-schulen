@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
@@ -102,7 +102,7 @@ export default function CustomerOpenPositionDecisionPanel({
 
       rememberChoice("self");
       setFeedback(
-        "Du kannst die offenen Artikel selbst auswählen. Die Erinnerungs-Mail wird in etwa 2 Minuten gesendet."
+        "Du kannst die offenen Artikel selbst auswÃ¤hlen. Die Erinnerungs-Mail wird in etwa 2 Minuten gesendet."
       );
 
       window.setTimeout(() => {
@@ -146,21 +146,21 @@ export default function CustomerOpenPositionDecisionPanel({
         throw new Error(
           result.error ||
             result.message ||
-            "Die Team-Übernahme konnte nicht gespeichert werden."
+            "Die Team-Ãœbernahme konnte nicht gespeichert werden."
         );
       }
 
       rememberChoice("team");
 
       if (!options.silent) {
-        setFeedback("Handzettel-Schulen.de übernimmt die offenen Positionen.");
+        setFeedback("Handzettel-Schulen.de Ã¼bernimmt die offenen Positionen.");
       }
     } catch (error) {
       if (!options.silent) {
         setFeedback(
           error instanceof Error
             ? error.message
-            : "Die Team-Übernahme konnte nicht gespeichert werden."
+            : "Die Team-Ãœbernahme konnte nicht gespeichert werden."
         );
       }
     } finally {
@@ -176,12 +176,22 @@ export default function CustomerOpenPositionDecisionPanel({
       return;
     }
 
+    try {
+      const mode = new URLSearchParams(window.location.search).get("mode");
+      if (mode === "self") {
+        rememberChoice("self");
+        return;
+      }
+    } catch {
+      // URL-Auswertung ist nur Komfort, nicht kritisch.
+    }
+
     if (didAutoPersistTeam.current) return;
 
     didAutoPersistTeam.current = true;
     rememberChoice("team");
-    void chooseTeam({ silent: true });
-    // Bewusst nur beim ersten Laden.
+    // Kein stiller service-takeover-Call mehr:
+    // Ein fehlendes initialChoice darf eine aktive Selbst-Auswahl und deren Mail-Trigger nicht überschreiben.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChoice]);
 
@@ -198,7 +208,7 @@ export default function CustomerOpenPositionDecisionPanel({
         >
           {isSaving === "team"
             ? "Wird gespeichert ..."
-            : "Handzettel-Schulen.de soll doch übernehmen"}
+            : "Handzettel-Schulen.de soll doch Ã¼bernehmen"}
         </button>
 
         {feedback ? (
@@ -218,11 +228,11 @@ export default function CustomerOpenPositionDecisionPanel({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-            Handzettel-Schulen.de übernimmt
+            Handzettel-Schulen.de Ã¼bernimmt
           </p>
 
           <h2 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
-            Die meisten Produkte wurden automatisch erkannt. Den Rest prüft Handzettel-Schulen.de persönlich für Dich.
+            Die meisten Produkte wurden automatisch erkannt. Den Rest prÃ¼ft Handzettel-Schulen.de persÃ¶nlich fÃ¼r Dich.
           </h2>
         </div>
 
@@ -239,7 +249,7 @@ export default function CustomerOpenPositionDecisionPanel({
       <div className="mt-6 rounded-2xl border border-[#9BD5B0] bg-white px-4 py-4">
         <p className="text-sm font-bold leading-relaxed text-[#35546B]">
           Du musst jetzt nichts weiter tun. Sobald Dein fertiger Paketwunsch bereit ist,
-          bekommst Du eine Nachricht und kannst die Bestellung abschließen.
+          bekommst Du eine Nachricht und kannst die Bestellung abschlieÃŸen.
         </p>
       </div>
 
@@ -256,7 +266,7 @@ export default function CustomerOpenPositionDecisionPanel({
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[#B9E5C8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold text-[#52616F]">
-          Du möchtest die offenen Positionen lieber selbst bearbeiten?
+          Du mÃ¶chtest die offenen Positionen lieber selbst bearbeiten?
         </p>
 
         <button
@@ -265,7 +275,7 @@ export default function CustomerOpenPositionDecisionPanel({
           disabled={isSaving !== null}
           className="self-start rounded-full border border-[#C8D8E8] bg-white px-3 py-1.5 text-xs font-black text-[#12395F] transition hover:border-[#A75B28] hover:text-[#A75B28] disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
         >
-          {isSaving === "self" ? "Wird gespeichert ..." : "Artikel selbst auswählen"}
+          {isSaving === "self" ? "Wird gespeichert ..." : "Artikel selbst auswÃ¤hlen"}
         </button>
       </div>
 
@@ -275,3 +285,4 @@ export default function CustomerOpenPositionDecisionPanel({
     </section>
   );
 }
+
