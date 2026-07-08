@@ -15,6 +15,59 @@ type ApiResponse = {
   message?: string;
   error?: string;
 };
+function findPackageChecklistElement(): HTMLElement | null {
+  const direct =
+    document.getElementById("paketwunsch-checkliste") ||
+    document.querySelector<HTMLElement>("[data-package-checklist]") ||
+    document.querySelector<HTMLElement>("[data-admin-package-checklist]");
+
+  if (direct instanceof HTMLElement) {
+    return direct;
+  }
+
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>("section, article, div, h1, h2, h3")
+  );
+
+  const heading = candidates.find((element) =>
+    (element.textContent || "").toLowerCase().includes("paketwunsch-checkliste")
+  );
+
+  if (!heading) {
+    return null;
+  }
+
+  return (
+    heading.closest<HTMLElement>("section, article, div") ||
+    heading
+  );
+}
+
+function scrollToPackageChecklistWithRetry() {
+  let attempt = 0;
+  const maxAttempts = 16;
+
+  function run() {
+    attempt += 1;
+
+    const target = findPackageChecklistElement();
+
+    if (target) {
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
+
+    if (attempt < maxAttempts) {
+      window.setTimeout(run, 250);
+    }
+  }
+
+  window.setTimeout(run, 250);
+}
+
 
 async function readApiResponse(response: Response): Promise<ApiResponse> {
   const text = await response.text();
@@ -36,7 +89,7 @@ export default function AdminAcceptMatchButton({
   requestId,
   matchId,
   disabled = false,
-  label = "In Paket übernehmen",
+  label = "In Paket Ã¼bernehmen",
 }: AdminAcceptMatchButtonProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,17 +120,17 @@ export default function AdminAcceptMatchButton({
 
       if (!response.ok || result.ok === false) {
         throw new Error(
-          result.error || result.message || "Der Vorschlag konnte nicht übernommen werden."
+          result.error || result.message || "Der Vorschlag konnte nicht Ã¼bernommen werden."
         );
       }
 
-      setFeedback(result.message || "Vorschlag wurde in den Paketwunsch übernommen.");
+      setFeedback(result.message || "Vorschlag wurde in den Paketwunsch Ã¼bernommen.");
       router.refresh();
     } catch (error) {
       setFeedback(
         error instanceof Error
           ? error.message
-          : "Der Vorschlag konnte nicht übernommen werden."
+          : "Der Vorschlag konnte nicht Ã¼bernommen werden."
       );
     } finally {
       setIsSubmitting(false);
@@ -92,7 +145,7 @@ export default function AdminAcceptMatchButton({
         disabled={disabled || isSubmitting}
         className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Wird übernommen ..." : label}
+        {isSubmitting ? "Wird Ã¼bernommen ..." : label}
       </button>
 
       {feedback ? (
