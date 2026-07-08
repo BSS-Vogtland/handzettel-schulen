@@ -2100,57 +2100,7 @@ const customerOpenPositionScreenMode =
         <CustomerOfferPresenceHeartbeat token={token} context="offer_page" />
 
         <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-          <section className="rounded-[34px] border-2 border-[#B5282D] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#B5282D]">
-                  Paketwunsch
-                </p>
-
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                  Ein Teil ist fertig. FÃƒÂ¼r die offenen Positionen wÃƒÂ¤hlst Du jetzt den nÃƒÂ¤chsten Schritt.
-                </h1>
-
-                <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                  Erkannte Artikel liegen bereits im Paket. FÃƒÂ¼r offene Positionen entscheidest Du zuerst:
-                  selbst auswÃƒÂ¤hlen oder von Handzettel-Schulen.de ÃƒÂ¼bernehmen lassen.
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-[#FFF1F1] px-4 py-3 text-sm font-black text-[#B5282D]">
-                Entscheidung erforderlich
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-5 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                  Erkannte Positionen
-                </p>
-                <p className="mt-2 text-4xl font-black text-[#102A43]">
-                  {items.length}
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 text-[#2F7D50] shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.16em]">
-                  Schon im Paket
-                </p>
-                <p className="mt-2 text-4xl font-black">
-                  {autoPreselectedOfferItems.length}
-                </p>
-              </div>
-
-              <div className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-[#A75B28] shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.16em]">
-                  Auswahl offen
-                </p>
-                <p className="mt-2 text-4xl font-black">
-                  {openDecisionItemCount}
-                </p>
-              </div>
-            </div>
-          </section>
+          
 
           <CustomerOpenPositionDecisionPanel
             token={token}
