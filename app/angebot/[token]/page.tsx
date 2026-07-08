@@ -25,7 +25,14 @@ import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButto
 import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
 import CustomerOfferItemNoteForm from "@/components/CustomerOfferItemNoteForm";
 import CustomerOfferRecommendations from "@/components/CustomerOfferRecommendations";
+import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 import LegalFooter from "@/components/LegalFooter";
+import {
+  buildCustomerWhatsappOptInText,
+  createWhatsappLink,
+  getSiteUrl,
+  getWhatsappBusinessPhone,
+} from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +60,10 @@ type SchoolRequest = {
   archived_at?: string | null;
   archive_reason?: string | null;
   created_at: string | null;
+  whatsapp_updates_enabled?: boolean | null;
+  whatsapp_updates_requested_at?: string | null;
+  whatsapp_updates_opted_out_at?: string | null;
+  whatsapp_updates_last_admin_opened_at?: string | null;
 };
 
 type RequestChild = {
@@ -2075,6 +2086,17 @@ const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
   const isConfirmed =
     request.status === "confirmed" || request.offer_status === "confirmed";
 
+  const whatsappUpdatesEnabled = request.whatsapp_updates_enabled !== false;
+  const customerOfferUrlForWhatsapp = getSiteUrl() + "/angebot/" + token;
+  const customerWhatsappOptInUrl = createWhatsappLink(
+    getWhatsappBusinessPhone(),
+    buildCustomerWhatsappOptInText({
+      requestNumber: request.request_number,
+      customerName: request.customer_name,
+      offerUrl: customerOfferUrlForWhatsapp,
+    })
+  );
+
   const hasNoRecognizedItems = items.length === 0;
 
   const isManualReviewState =
@@ -2586,6 +2608,15 @@ const isFreshBeforeAnalysis =
                       ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor. Du kannst passende Artikel später direkt nachkaufen."
                       : "Wir haben Deine Materialliste erfasst und passende Produkte vorbereitet. Sichere Treffer liegen bereits im Paket. Du kannst einzelne Artikel entfernen, offene Positionen ergänzen oder unklare Artikel von uns prüfen lassen."}
                   </p>
+
+              <div className="mt-5">
+                <CustomerWhatsappUpdatesPanel
+                  token={token}
+                  requestNumber={request.request_number}
+                  initialEnabled={whatsappUpdatesEnabled}
+                  businessWhatsappUrl={customerWhatsappOptInUrl}
+                />
+              </div>
                 </div>
               </div>
 

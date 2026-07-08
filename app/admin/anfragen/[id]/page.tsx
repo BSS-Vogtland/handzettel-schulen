@@ -27,6 +27,7 @@ import AdminEditOfferItemForm from "@/components/AdminEditOfferItemForm";
 import AdminOfferItemSpecialInstructionsForm from "@/components/AdminOfferItemSpecialInstructionsForm";
 import CopyOfferLinkButton from "@/components/CopyOfferLinkButton";
 import AdminSendOfferUpdateMailButton from "@/components/AdminSendOfferUpdateMailButton";
+import AdminWhatsappUpdateButton from "@/components/AdminWhatsappUpdateButton";
 import AdminOfferWorkflowStatus from "@/components/AdminOfferWorkflowStatus";
 import AdminFulfillmentPanel from "@/components/AdminFulfillmentPanel";
 import AdminInvoicePaymentPanel from "@/components/AdminInvoicePaymentPanel";
@@ -65,6 +66,10 @@ type SchoolRequest = {
   phone: string | null;
   message: string | null;
   offer_token: string | null;
+  whatsapp_updates_enabled?: boolean | null;
+  whatsapp_updates_requested_at?: string | null;
+  whatsapp_updates_opted_out_at?: string | null;
+  whatsapp_updates_last_admin_opened_at?: string | null;
   ai_status: string | null;
   offer_status: string | null;
 
@@ -1385,6 +1390,14 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
 
                 <div className="sm:min-w-[250px]">
                   <CopyOfferLinkButton url={customerOfferUrl} variant="primary" />
+                </div>
+
+                <div className="sm:min-w-[250px]">
+                  <AdminWhatsappUpdateButton
+                    requestId={request.id}
+                    phone={request.phone}
+                    enabled={request.whatsapp_updates_enabled !== false}
+                  />
                 </div>
               </div>
             ) : null}
