@@ -35,6 +35,7 @@ import AdminRematchRequestButton from "@/components/AdminRematchRequestButton";
 import AdminReanalyzeRequestButton from "@/components/AdminReanalyzeRequestButton";
 import AdminStrongReanalyzeRequestButton from "@/components/AdminStrongReanalyzeRequestButton";
 import AdminAdoptSafeMatchesButton from "@/components/AdminAdoptSafeMatchesButton";
+import AdminAcceptMatchButton from "@/components/AdminAcceptMatchButton";
 import AdminOfferRecommendationsPanel from "@/components/AdminOfferRecommendationsPanel";
 import AdminRequestItemQuestionForm from "@/components/AdminRequestItemQuestionForm";
 import AdminResolveQuestionButton from "@/components/AdminResolveQuestionButton";
@@ -373,7 +374,8 @@ function getRequestItemTitle(item: RequestItem) {
 function getMatchScoreLabel(score: unknown) {
   const value = toNumber(score, 0);
 
-  if (value >= 80) return "Sehr passend";
+  if (value >= 85) return "Sehr passend";
+  if (value >= 80) return "Fast passend";
   if (value >= 70) return "Passend";
   if (value >= 55) return "Möglich";
   return "Prüfen";
@@ -2252,7 +2254,20 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
 
                                     <p className="text-lg font-black text-[#102A43]">
                                       {formatMoney(match.product_price)}
-                                    </p>
+
+                                      {isSelected ? (
+                                        <p className="mt-3 rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+                                          Bereits im Paket
+                                        </p>
+                                      ) : match.product_id ? (
+                                        <div className="mt-3">
+                                          <AdminAcceptMatchButton
+                                            requestId={request.id}
+                                            matchId={match.id}
+                                            label="In Paket übernehmen"
+                                          />
+                                        </div>
+                                      ) : null}                                    </p>
                                   </div>
                                 </div>
                               );
