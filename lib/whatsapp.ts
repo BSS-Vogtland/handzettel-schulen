@@ -1,91 +1,111 @@
-export const DEFAULT_WHATSAPP_BUSINESS_PHONE = "491733157671";
+﻿const DEFAULT_WHATSAPP_BUSINESS_PHONE = "491733157671";
+const DEFAULT_SITE_URL = "https://www.handzettel-schulen.de";
 
-export function normalizeWhatsappPhone(value: unknown, defaultCountryCode = "49") {
-  let digits = String(value || "").replace(/[^\d]/g, "");
+type CustomerWhatsappOptInInput = {
+  requestNumber?: string | null;
+  customerName?: string | null;
+  offerUrl: string;
+};
 
-  if (!digits) return "";
+type AdminWhatsappUpdateInput = {
+  requestNumber?: string | null;
+  customerName?: string | null;
+  offerUrl: string;
+};
 
-  if (digits.startsWith("00")) {
-    digits = digits.slice(2);
+function cleanText(value: unknown) {
+  return String(value || "").trim();
+}
+
+export function normalizeWhatsappPhone(
+  value: string | null | undefined,
+  defaultCountryCode = "49"
+) {
+  const rawValue = cleanText(value);
+
+  if (!rawValue) {
+    return "";
   }
 
-  if (digits.startsWith("0")) {
-    return defaultCountryCode + digits.slice(1);
+  let normalized = rawValue
+    .replace(/^00/, "+")
+    .replace(/[^\d+]/g, "");
+
+  if (normalized.startsWith("+")) {
+    normalized = normalized.slice(1);
   }
 
-  if (digits.startsWith(defaultCountryCode)) {
-    return digits;
+  if (normalized.startsWith("0")) {
+    normalized = defaultCountryCode + normalized.slice(1);
   }
 
-  if (defaultCountryCode === "49" && digits.startsWith("1")) {
-    return defaultCountryCode + digits;
-  }
-
-  return digits;
+  return normalized.replace(/\D/g, "");
 }
 
 export function getWhatsappBusinessPhone() {
-  return normalizeWhatsappPhone(
-    process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_PHONE ||
-      process.env.WHATSAPP_BUSINESS_PHONE ||
-      DEFAULT_WHATSAPP_BUSINESS_PHONE
+  return (
+    normalizeWhatsappPhone(
+      process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_PHONE ||
+        process.env.WHATSAPP_BUSINESS_PHONE ||
+        DEFAULT_WHATSAPP_BUSINESS_PHONE
+    ) || DEFAULT_WHATSAPP_BUSINESS_PHONE
   );
 }
 
 export function getSiteUrl() {
-  return (
+  return cleanText(
     process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    "https://www.handzettel-schulen.de"
-  ).replace(/\/+$/, "");
+      process.env.SITE_URL ||
+      DEFAULT_SITE_URL
+  ).replace(/\/+$/g, "");
 }
 
-export function createWhatsappLink(phone: unknown, text: string) {
+export function createWhatsappLink(phone: string, text: string) {
   const normalizedPhone = normalizeWhatsappPhone(phone);
 
-  if (!normalizedPhone) return "";
+  if (!normalizedPhone) {
+    return "";
+  }
 
-  return "https://wa.me/" + normalizedPhone + "?text=" + encodeURIComponent(text);
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(text)}`;
 }
 
-export function buildCustomerWhatsappOptInText(input: {
-  requestNumber?: string | null;
-  customerName?: string | null;
-  offerUrl?: string | null;
-}) {
-  return [
+export function buildCustomerWhatsappOptInText(input: CustomerWhatsappOptInInput) {
+  const requestNumber = cleanText(input.requestNumber);
+  const customerName = cleanText(input.customerName);
+
+  const lines = [
     "Hallo Handzettel-Schulen.de,",
     "",
-    "ich möchte WhatsApp-Updates zu meinem Paketwunsch erhalten.",
-    input.requestNumber ? "Anfrage: " + input.requestNumber : null,
-    input.customerName ? "Name: " + input.customerName : null,
-    input.offerUrl ? "Link: " + input.offerUrl : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "ich möchte Updates zu meinem Paketwunsch per WhatsApp erhalten.",
+    requestNumber ? `Anfrage: ${requestNumber}` : null,
+    customerName ? `Name: ${customerName}` : null,
+    "",
+    input.offerUrl,
+  ].filter((line): line is string => line !== null);
+
+  return lines.join("\n");
 }
 
-export function buildAdminWhatsappUpdateText(input: {
-  customerName?: string | null;
-  requestNumber?: string | null;
-  offerUrl?: string | null;
-}) {
-  const salutation = input.customerName
-    ? "Hallo " + input.customerName + ","
-    : "Hallo,";
+export function buildAdminWhatsappUpdateText(input: AdminWhatsappUpdateInput) {
+  const customerName = cleanText(input.customerName);
+  const requestNumber = cleanText(input.requestNumber);
+  const greetingName = customerName || "zusammen";
 
-  return [
-    salutation,
+  const lines = [
+    `Hallo ${greetingName},`,
     "",
     "Dein Paketwunsch wurde aktualisiert.",
-    "Du kannst ihn hier prüfen:",
-    input.offerUrl || null,
     "",
-    input.requestNumber ? "Anfrage: " + input.requestNumber : null,
+    "Du kannst ihn hier prüfen und die Bestellung abschließen:",
+    "",
+    input.offerUrl,
+    "",
+    requestNumber ? `Anfrage: ${requestNumber}` : null,
     "",
     "Viele Grüße",
     "Handzettel-Schulen.de",
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
+  ].filter((line): line is string => line !== null);
+
+  return lines.join("\n");
 }

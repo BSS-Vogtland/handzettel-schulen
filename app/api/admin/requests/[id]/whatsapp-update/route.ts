@@ -57,9 +57,9 @@ async function logWhatsappOpen(input: {
   await input.supabase.from("school_request_events").insert({
     request_id: input.requestId,
     event_type: "admin_opened_whatsapp_update",
-    title: "WhatsApp-Update geöffnet",
+    title: "WhatsApp-Update geÃ¶ffnet",
     description:
-      "Der Admin hat einen vorbereiteten WhatsApp-Update-Link geöffnet. Der Versand erfolgt manuell in WhatsApp.",
+      "Der Admin hat einen vorbereiteten WhatsApp-Update-Link geÃ¶ffnet. Der Versand erfolgt manuell in WhatsApp.",
     source: "admin",
     metadata: {
       whatsappUrl: input.whatsappUrl,
@@ -75,7 +75,7 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Keine Anfrage-ID übergeben.",
+          message: "Keine Anfrage-ID Ã¼bergeben.",
         },
         { status: 400 }
       );
@@ -105,7 +105,7 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Der Kunde hat WhatsApp-Updates abgewählt.",
+          message: "Der Kunde hat WhatsApp-Updates abgewÃ¤hlt.",
         },
         { status: 409 }
       );
@@ -117,15 +117,22 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Für diese Anfrage ist keine WhatsApp-fähige Telefonnummer hinterlegt.",
+          message: "FÃ¼r diese Anfrage ist keine WhatsApp-fÃ¤hige Telefonnummer hinterlegt.",
         },
         { status: 400 }
       );
     }
 
-    const offerUrl = schoolRequest.offer_token
-      ? getSiteUrl() + "/angebot/" + schoolRequest.offer_token
-      : null;
+    const offerToken = cleanString(schoolRequest.offer_token);
+
+    if (!offerToken) {
+      return NextResponse.json(
+        { ok: false, error: "Für diese Anfrage ist kein Angebotslink vorhanden." },
+        { status: 400 }
+      );
+    }
+
+    const offerUrl = `${getSiteUrl()}/angebot/${offerToken}`;
 
     const text = buildAdminWhatsappUpdateText({
       customerName: cleanString(schoolRequest.customer_name),
@@ -140,7 +147,7 @@ export async function GET(_request: NextRequest, context: Params) {
       requestId: schoolRequest.id,
       whatsappUrl,
     }).catch((error) => {
-      console.warn("WhatsApp-Update-Öffnung konnte nicht protokolliert werden:", error);
+      console.warn("WhatsApp-Update-Ã–ffnung konnte nicht protokolliert werden:", error);
     });
 
     return NextResponse.redirect(whatsappUrl);
@@ -151,7 +158,7 @@ export async function GET(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "WhatsApp-Update konnte nicht geöffnet werden.",
+            : "WhatsApp-Update konnte nicht geÃ¶ffnet werden.",
       },
       { status: 500 }
     );
