@@ -680,6 +680,14 @@ export async function POST(_request: Request, context: RouteContext) {
       })
       .eq("id", requestId);
 
+    await supabase
+      .from("school_requests")
+      .update({
+        customer_offer_finalized_at: new Date().toISOString(),
+        customer_offer_finalized_by: "offer_update_mail",
+      })
+      .eq("id", requestId);
+
     return NextResponse.json({
       ok: true,
       message: "Paketwunsch-Mail wurde erfolgreich gesendet.",
