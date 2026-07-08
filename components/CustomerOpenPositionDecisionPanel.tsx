@@ -99,15 +99,13 @@ export default function CustomerOpenPositionDecisionPanel({
             "Die Selbstauswahl konnte nicht gespeichert werden."
         );
       }
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("mode", "self");
+      nextUrl.searchParams.set("refresh", Date.now().toString());
+      nextUrl.hash = "offene-positionen";
 
-      rememberChoice("self");
-      setFeedback(
-        "Du kannst die offenen Artikel selbst auswÃ¤hlen. Die Erinnerungs-Mail wird in etwa 2 Minuten gesendet."
-      );
-
-      window.setTimeout(() => {
-        window.location.href = window.location.pathname + "?mode=self#offene-positionen";
-      }, 350);
+      window.location.replace(nextUrl.toString());
+      return;
     } catch (error) {
       setFeedback(
         error instanceof Error
@@ -199,27 +197,43 @@ export default function CustomerOpenPositionDecisionPanel({
 
   if (choice === "self") {
     return (
-      <div className="flex justify-end" data-self-selection-team-return>
-        <button
-          type="button"
-          onClick={() => chooseTeam()}
-          disabled={isSaving !== null}
-          className="rounded-full bg-[#2F7D50] px-6 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#256942] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSaving === "team"
-            ? "Wird gespeichert ..."
-            : "Handzettel-Schulen.de soll doch Ã¼bernehmen"}
-        </button>
+      <section
+        className="mx-auto w-full max-w-6xl rounded-[30px] border border-[#2F7D50] bg-[#EAF8EF] p-5 shadow-sm sm:p-6"
+        data-self-selection-team-return
+      >
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
+              Selbst-Auswahl aktiv
+            </p>
+            <h2 className="mt-1 text-xl font-black leading-tight text-[#08233D] sm:text-2xl">
+              Du wählst die offenen Artikel selbst aus.
+            </h2>
+            <p className="mt-2 text-sm font-semibold leading-relaxed text-[#52616F]">
+              Wenn Du möchtest, kann Handzettel-Schulen.de die offenen Positionen doch wieder persönlich für Dich übernehmen.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => chooseTeam()}
+            disabled={isSaving !== null}
+            className="w-full rounded-[26px] bg-[#2F7D50] px-8 py-5 text-center text-base font-black text-white shadow-lg transition hover:bg-[#256942] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg lg:min-w-[430px] lg:w-auto"
+          >
+            {isSaving === "team"
+              ? "Wird gespeichert ..."
+              : "Handzettel-Schulen.de soll doch übernehmen"}
+          </button>
+        </div>
 
         {feedback ? (
-          <p className="ml-4 self-center text-sm font-bold text-[#52616F]">
+          <p className="mt-4 rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold text-[#52616F]">
             {feedback}
           </p>
         ) : null}
-      </div>
+      </section>
     );
   }
-
   return (
     <section
       className="rounded-[32px] border border-[#2F7D50] bg-[#F0FFF6] p-5 shadow-sm sm:p-7"
@@ -285,4 +299,5 @@ export default function CustomerOpenPositionDecisionPanel({
     </section>
   );
 }
+
 
