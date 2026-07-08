@@ -297,7 +297,7 @@ function createMailHtml(params: {
                 </p>
 
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen. Wenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und gehst weiter in den Checkout.
+                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe.\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab
                 </p>
 
                 ${
@@ -455,7 +455,7 @@ function createMailText(params: {
 
 Dein Paketwunsch ist fertig.
 
-Bitte prüfe die vorgeschlagenen Produkte in Ruhe. Du kannst Produkte entfernen, offene Positionen ergänzen oder unklare Artikel persönlich prüfen lassen. Wenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und gehst weiter in den Checkout.
+Bitte prüfe die vorgeschlagenen Produkte in Ruhe.\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab
 
 ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     childName ? `Kind: ${childName}\n` : ""
