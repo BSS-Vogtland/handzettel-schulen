@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 
 type Choice = "self" | "team" | null;
 
@@ -27,9 +28,7 @@ function getStorageKey(token: string) {
 async function readApiResponse(response: Response): Promise<ApiResponse> {
   const text = await response.text();
 
-  if (!text) {
-    return {};
-  }
+  if (!text) return {};
 
   try {
     return JSON.parse(text) as ApiResponse;
@@ -42,6 +41,9 @@ export default function CustomerOpenPositionDecisionPanel({
   token,
   openChoiceCount,
   manualReviewCount,
+  requestNumber = null,
+  initialWhatsappUpdatesEnabled = true,
+  businessWhatsappUrl = "",
   initialChoice = null,
 }: CustomerOpenPositionDecisionPanelProps) {
   const totalOpenCount = openChoiceCount + manualReviewCount;
@@ -170,9 +172,7 @@ export default function CustomerOpenPositionDecisionPanel({
       return;
     }
 
-    if (didAutoPersistTeam.current) {
-      return;
-    }
+    if (didAutoPersistTeam.current) return;
 
     didAutoPersistTeam.current = true;
     rememberChoice("team");
@@ -181,9 +181,7 @@ export default function CustomerOpenPositionDecisionPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChoice]);
 
-  if (totalOpenCount <= 0) {
-    return null;
-  }
+  if (totalOpenCount <= 0) return null;
 
   if (choice === "self") {
     return (
@@ -245,14 +243,9 @@ export default function CustomerOpenPositionDecisionPanel({
             Handzettel-Schulen.de übernimmt
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-[#102A43] sm:text-3xl">
-            Handzettel-Schulen.de prüft den Rest persönlich für Dich.
+          <h2 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
+            Die meisten Produkte wurden automatisch erkannt. Den Rest prüft Handzettel-Schulen.de persönlich für Dich.
           </h2>
-
-          <p className="mt-3 max-w-2xl text-base font-semibold leading-relaxed text-[#35546B]">
-            Die meisten Produkte wurden automatisch erkannt. Den Rest prüft
-            Handzettel-Schulen.de persönlich für Dich.
-          </p>
         </div>
 
         <div className="rounded-2xl border border-[#9BD5B0] bg-white px-5 py-4 text-center">
@@ -271,6 +264,17 @@ export default function CustomerOpenPositionDecisionPanel({
           bekommst Du eine Nachricht und kannst die Bestellung abschließen.
         </p>
       </div>
+
+      {businessWhatsappUrl ? (
+        <div className="mt-5" data-whatsapp-updates-team-takeover>
+          <CustomerWhatsappUpdatesPanel
+            token={token}
+            requestNumber={requestNumber}
+            initialEnabled={initialWhatsappUpdatesEnabled}
+            businessWhatsappUrl={businessWhatsappUrl}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[#B9E5C8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold text-[#52616F]">

@@ -172,7 +172,10 @@ export async function scheduleOfferAccessMail(params: {
   const { error } = await params.supabase
     .from("school_requests")
     .update({
-      offer_access_mail_due_at: dueAt,
+      // self_selection_only_offer_access_mail_guard:
+        // Die 2-Minuten-Mail darf nicht mehr automatisch nach dem Auslesen geplant werden.
+        // Sie wird nur noch in /api/offer/[token]/self-selection direkt gesetzt.
+        offer_access_mail_due_at: null,
       offer_access_mail_status: "scheduled",
       updated_at: new Date().toISOString(),
     })
