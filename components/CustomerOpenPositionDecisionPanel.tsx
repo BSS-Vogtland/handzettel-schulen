@@ -104,6 +104,10 @@ export default function CustomerOpenPositionDecisionPanel({
       setFeedback(
         "Du kannst die offenen Artikel selbst auswählen. Die Erinnerungs-Mail wird in etwa 2 Minuten gesendet."
       );
+
+      window.setTimeout(() => {
+        window.location.href = window.location.pathname + "?mode=self#offene-positionen";
+      }, 350);
     } catch (error) {
       setFeedback(
         error instanceof Error
