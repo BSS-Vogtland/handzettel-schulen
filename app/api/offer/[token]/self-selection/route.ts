@@ -125,6 +125,30 @@ export async function POST(_request: Request, { params }: Params) {
       console.error("Self-selection event could not be written:", eventError);
     }
 
+    const self_selection_offer_access_mail_due_at = new Date(
+      Date.now() + 2 * 60 * 1000
+    ).toISOString();
+
+    const { error: selfSelectionOfferAccessMailError } = await supabase
+      .from("school_requests")
+      .update({
+        offer_access_mail_due_at: self_selection_offer_access_mail_due_at,
+        offer_access_mail_sent_at: null,
+      })
+      .eq("id", requestRow.id);
+
+    if (selfSelectionOfferAccessMailError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Die Erinnerungs-Mail konnte nicht geplant werden: " +
+            selfSelectionOfferAccessMailError.message,
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Selbst-Auswahl wurde gespeichert.",

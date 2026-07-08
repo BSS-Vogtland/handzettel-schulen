@@ -141,6 +141,21 @@ export async function POST(request: Request, { params }: Params) {
       console.error("Team takeover event could not be written:", eventError);
     }
 
+    const { error: clearTeamTakeoverOfferAccessMailError } = await supabase
+      .from("school_requests")
+      .update({
+        offer_access_mail_due_at: null,
+      })
+      .eq("id", requestRow.id)
+      .is("offer_access_mail_sent_at", null);
+
+    if (clearTeamTakeoverOfferAccessMailError) {
+      console.error(
+        "Team-Übernahme: geplante Access-Mail konnte nicht gelöscht werden",
+        clearTeamTakeoverOfferAccessMailError
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Handzettel-Schulen.de übernimmt die offenen Positionen.",
