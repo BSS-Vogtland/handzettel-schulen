@@ -150,6 +150,14 @@ export async function GET(_request: NextRequest, context: Params) {
       console.warn("WhatsApp-Update-Ã–ffnung konnte nicht protokolliert werden:", error);
     });
 
+    await supabase
+      .from("school_requests")
+      .update({
+        customer_offer_finalized_at: new Date().toISOString(),
+        customer_offer_finalized_by: "whatsapp_admin_update",
+      })
+      .eq("id", schoolRequest.id);
+
     return NextResponse.redirect(whatsappUrl);
   } catch (error) {
     return NextResponse.json(

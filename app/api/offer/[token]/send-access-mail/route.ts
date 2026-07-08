@@ -45,7 +45,7 @@ export async function POST(_request: Request, context: RouteContext) {
     const offerToken = cleanToken(token);
 
     if (!offerToken) {
-      return NextResponse.json(
+return NextResponse.json(
         {
           ok: false,
           status: "not_found",
