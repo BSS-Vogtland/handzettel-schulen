@@ -10,6 +10,7 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
+import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 
 type Choice = "self" | "team" | null;
 
@@ -17,6 +18,9 @@ type CustomerOpenPositionDecisionPanelProps = {
   token: string;
   openChoiceCount: number;
   manualReviewCount: number;
+  requestNumber?: string | null;
+  initialWhatsappUpdatesEnabled?: boolean;
+  businessWhatsappUrl?: string;
   initialChoice?: Choice;
 };
 
@@ -48,6 +52,9 @@ export default function CustomerOpenPositionDecisionPanel({
   token,
   openChoiceCount,
   manualReviewCount,
+  requestNumber = null,
+  initialWhatsappUpdatesEnabled = true,
+  businessWhatsappUrl = "",
   initialChoice = null,
 }: CustomerOpenPositionDecisionPanelProps) {
   const router = useRouter();
@@ -163,7 +170,7 @@ export default function CustomerOpenPositionDecisionPanel({
         throw new Error(
           result.message ||
             result.error ||
-            "Die Team-Übernahme konnte nicht gespeichert werden."
+            "Die Team-Ãœbernahme konnte nicht gespeichert werden."
         );
       }
 
@@ -175,7 +182,7 @@ export default function CustomerOpenPositionDecisionPanel({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Die Team-Übernahme konnte nicht gespeichert werden."
+          : "Die Team-Ãœbernahme konnte nicht gespeichert werden."
       );
     } finally {
       setIsSaving(null);
@@ -193,17 +200,17 @@ export default function CustomerOpenPositionDecisionPanel({
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-                Übernahme bestätigt
+                Ãœbernahme bestÃ¤tigt
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Handzettel-Schulen.de übernimmt die offenen Positionen.
+                Handzettel-Schulen.de Ã¼bernimmt die offenen Positionen.
               </h2>
 
               <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Du musst jetzt keine weiteren Artikel auswählen. Wir prüfen die
-                offenen Positionen persönlich und bereiten den fertigen
-                Paketwunsch für Dich vor.
+                Du musst jetzt keine weiteren Artikel auswÃ¤hlen. Wir prÃ¼fen die
+                offenen Positionen persÃ¶nlich und bereiten den fertigen
+                Paketwunsch fÃ¼r Dich vor.
               </p>
 
               {message ? (
@@ -223,7 +230,7 @@ export default function CustomerOpenPositionDecisionPanel({
             {isSaving === "self" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            Doch selbst auswählen
+            Doch selbst auswÃ¤hlen
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -234,7 +241,7 @@ export default function CustomerOpenPositionDecisionPanel({
               <ShieldCheck className="h-5 w-5" />
             </div>
             <p className="text-sm font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              1. Prüfung
+              1. PrÃ¼fung
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
               Wir schauen uns die offenen Positionen an und bearbeiten sie
@@ -265,10 +272,10 @@ export default function CustomerOpenPositionDecisionPanel({
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <p className="text-sm font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              3. Prüfung durch Dich
+              3. PrÃ¼fung durch Dich
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-              Danach prüfst Du das fertige Paket und schließt die Bestellung ab.
+              Danach prÃ¼fst Du das fertige Paket und schlieÃŸt die Bestellung ab.
             </p>
           </div>
         </div>
@@ -281,11 +288,22 @@ export default function CustomerOpenPositionDecisionPanel({
             Du musst jetzt nichts weiter tun.
           </h3>
           <p className="mt-3 text-base font-semibold leading-7 text-[#102A43]">
-            Du kannst diese Seite jetzt einfach schließen. Ab hier übernimmt
+            Du kannst diese Seite jetzt einfach schlieÃŸen. Ab hier Ã¼bernimmt
             Handzettel-Schulen.de. Sobald Dein Paketwunsch fertig ist, bekommst
-            Du eine E-Mail und kannst danach die Bestellung abschließen.
+            Du eine E-Mail und kannst danach die Bestellung abschlieÃŸen.
           </p>
         </div>
+
+          {businessWhatsappUrl ? (
+            <div className="mt-5" data-whatsapp-updates-team-takeover>
+              <CustomerWhatsappUpdatesPanel
+                token={token}
+                requestNumber={requestNumber}
+                initialEnabled={initialWhatsappUpdatesEnabled}
+                businessWhatsappUrl={businessWhatsappUrl}
+              />
+            </div>
+          ) : null}
       </section>
     );
   }
@@ -299,12 +317,12 @@ export default function CustomerOpenPositionDecisionPanel({
               Selbst-Auswahl aktiv
             </p>
             <h2 className="mt-1 text-xl font-black text-[#102A43]">
-              Du wählst die offenen Positionen selbst aus.
+              Du wÃ¤hlst die offenen Positionen selbst aus.
             </h2>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
               Du kannst die offenen Artikel unten bearbeiten. Wenn Du nicht
               weiterkommst, kannst Du die offenen Positionen jederzeit an
-              Handzettel-Schulen.de übergeben.
+              Handzettel-Schulen.de Ã¼bergeben.
             </p>
           </div>
 
@@ -317,7 +335,7 @@ export default function CustomerOpenPositionDecisionPanel({
             {isSaving === "team" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            Handzettel-Schulen.de übernehmen lassen
+            Handzettel-Schulen.de Ã¼bernehmen lassen
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -337,12 +355,12 @@ export default function CustomerOpenPositionDecisionPanel({
             Offene Positionen
           </p>
           <h2 className="mt-2 text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-            Wähle den nächsten Schritt.
+            WÃ¤hle den nÃ¤chsten Schritt.
           </h2>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             {totalOpenCount} Position{totalOpenCount === 1 ? "" : "en"} brauchen
             noch eine Entscheidung. Du kannst selbst weitermachen oder die
-            offenen Positionen an Handzettel-Schulen.de übergeben.
+            offenen Positionen an Handzettel-Schulen.de Ã¼bergeben.
           </p>
         </div>
 
@@ -364,10 +382,10 @@ export default function CustomerOpenPositionDecisionPanel({
 
           <span>
             <span className="block text-2xl font-black text-[#102A43]">
-              Ich wähle die Artikel selbst aus
+              Ich wÃ¤hle die Artikel selbst aus
             </span>
             <span className="mt-3 block text-sm font-semibold leading-6 text-[#52616F]">
-              Zur Positionsliste springen, Vorschläge auswählen oder selbst nach
+              Zur Positionsliste springen, VorschlÃ¤ge auswÃ¤hlen oder selbst nach
               Artikeln suchen.
             </span>
           </span>
@@ -376,7 +394,7 @@ export default function CustomerOpenPositionDecisionPanel({
             {isSaving === "self" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            Jetzt selbst auswählen
+            Jetzt selbst auswÃ¤hlen
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </span>
         </button>
@@ -399,10 +417,10 @@ export default function CustomerOpenPositionDecisionPanel({
 
           <span>
             <span className="block text-2xl font-black text-[#102A43]">
-              Handzettel-Schulen.de soll übernehmen.
+              Handzettel-Schulen.de soll Ã¼bernehmen.
             </span>
             <span className="mt-3 block text-sm font-semibold leading-6 text-[#52616F]">
-              Wir prüfen die offenen Positionen und melden uns, sobald Dein
+              Wir prÃ¼fen die offenen Positionen und melden uns, sobald Dein
               Paketwunsch fertig ist.
             </span>
           </span>
@@ -411,7 +429,7 @@ export default function CustomerOpenPositionDecisionPanel({
             {isSaving === "team" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            Handzettel-Schulen.de übernehmen lassen
+            Handzettel-Schulen.de Ã¼bernehmen lassen
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </span>
         </button>
