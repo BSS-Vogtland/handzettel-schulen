@@ -558,7 +558,7 @@ export default function CustomerPreparePackageButton({
                     Nächster Schritt
                   </p>
                   <p className="mt-1 text-sm font-bold leading-5 text-[#12395F]">
-                    Du erhältst Deinen Paketwunsch per E-Mail.
+                    Du bekommst eine Nachricht per WhatsApp, sobald Dein Paketwunsch fertig ist.
                   </p>
                 </div>
               </>

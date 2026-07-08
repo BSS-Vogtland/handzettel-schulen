@@ -253,10 +253,10 @@ export default function CustomerOpenPositionDecisionPanel({
               />
             </div>
             <p className="text-sm font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-              2. E-Mail
+              2. WhatsApp-Info
             </p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-              Du bekommst eine Nachricht, sobald Dein Paketwunsch fertig ist.
+              Du bekommst eine WhatsApp-Nachricht, sobald Dein Paketwunsch fertig ist.
             </p>
           </div>
 

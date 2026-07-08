@@ -2405,7 +2405,7 @@ const isFreshBeforeAnalysis =
                       Nächster Schritt
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#12395F]">
-                      Du erhältst Deinen Paketwunsch per E-Mail.
+                      Du bekommst eine Nachricht per WhatsApp, sobald Dein Paketwunsch fertig ist.
                     </p>
                   </div>
                 </div>
@@ -2546,6 +2546,17 @@ const isFreshBeforeAnalysis =
             openChoiceCount={openChoiceItems.length}
             manualReviewCount={openDecisionItemCount}
           />
+        ) : null}
+
+        {!isConfirmed && hasOpenCustomerBlockingItems ? (
+          <div className="mt-5" data-whatsapp-updates-after-open-position-decision>
+            <CustomerWhatsappUpdatesPanel
+              token={token}
+              requestNumber={request.request_number}
+              initialEnabled={whatsappUpdatesEnabled}
+              businessWhatsappUrl={customerWhatsappOptInUrl}
+            />
+          </div>
         ) : null}
 
         <CustomerChildPackageOverview
