@@ -48,7 +48,7 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("SMTP-Konfiguration fehlt. PrÃ¼fe SMTP_HOST, SMTP_PORT, SMTP_USER und SMTP_PASS.");
+    throw new Error("SMTP-Konfiguration fehlt. PrÃƒÂ¼fe SMTP_HOST, SMTP_PORT, SMTP_USER und SMTP_PASS.");
   }
 
   return nodemailer.createTransport({
@@ -100,15 +100,15 @@ function createText(params: {
   return `${greeting}
 
 Du hast Deine Schulmaterialliste bei Handzettel-Schulen.de auslesen lassen.${requestLine}
-Ãœber diesen Link kommst Du jederzeit zurÃ¼ck zu Deinem Paketwunsch:
+ÃƒÅ“ber diesen Link kommst Du jederzeit zurÃƒÂ¼ck zu Deinem Paketwunsch:
 
 ${params.offerUrl}
 
-Dort kannst Du Deine Liste prÃ¼fen, offene Positionen bearbeiten oder spÃ¤ter Deine Bestellung abschlieÃŸen.
+Dort kannst Du Deine Liste prÃƒÂ¼fen, offene Positionen bearbeiten oder spÃƒÂ¤ter Deine Bestellung abschlieÃƒÅ¸en.
 
 Wichtig: Diese Mail ist noch keine Rechnung und keine Bestellung.
 
-Viele GrÃ¼ÃŸe
+Viele GrÃƒÂ¼ÃƒÅ¸e
 Handzettel-Schulen.de`;
 }
 
@@ -138,13 +138,13 @@ function createHtml(params: {
         ${requestLine}
 
         <p style="margin:0 0 20px 0;line-height:1.6;color:#52616F;">
-          Ãœber den folgenden Button kommst Du jederzeit zurÃ¼ck zu Deinem Paketwunsch.
-          Dort kannst Du Deine Liste prÃ¼fen, offene Positionen bearbeiten oder spÃ¤ter Deine Bestellung abschlieÃŸen.
+          ÃƒÅ“ber den folgenden Button kommst Du jederzeit zurÃƒÂ¼ck zu Deinem Paketwunsch.
+          Dort kannst Du Deine Liste prÃƒÂ¼fen, offene Positionen bearbeiten oder spÃƒÂ¤ter Deine Bestellung abschlieÃƒÅ¸en.
         </p>
 
         <p style="margin:24px 0;text-align:center;">
           <a href="${params.offerUrl}" style="display:inline-block;background:#C6282D;color:#ffffff;text-decoration:none;border-radius:18px;padding:16px 22px;font-weight:800;">
-            ZurÃ¼ck zu meinem Paketwunsch
+            ZurÃƒÂ¼ck zu meinem Paketwunsch
           </a>
         </p>
 
@@ -153,7 +153,7 @@ function createHtml(params: {
         </p>
 
         <p style="margin:24px 0 0 0;line-height:1.6;color:#52616F;">
-          Viele GrÃ¼ÃŸe<br />
+          Viele GrÃƒÂ¼ÃƒÅ¸e<br />
           Handzettel-Schulen.de
         </p>
       </div>
@@ -236,7 +236,7 @@ export async function sendOfferAccessMailForRequest(params: {
 
   if (accessMailTrigger !== "self_selection") {
     // access_mail_blocked_without_self_selection_trigger:
-    // Diese Link-Mail darf nur nach aktivem Klick auf â€žArtikel selbst auswÃ¤hlenâ€œ rausgehen.
+    // Diese Link-Mail darf nur nach aktivem Klick auf Ã¢â‚¬Å¾Artikel selbst auswÃƒÂ¤hlenÃ¢â‚¬Å“ rausgehen.
     // Direkte Aufrufe und alte automatische Auslesen-Trigger werden hier hart blockiert.
     await params.supabase
       .from("school_requests")
@@ -262,7 +262,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: true,
         status: "not_due",
-        message: "Link-Mail ist noch nicht fÃ¤llig.",
+        message: "Link-Mail ist noch nicht fÃƒÂ¤llig.",
         requestId: params.requestId,
       };
     }
@@ -281,7 +281,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: false,
         status: "missing_email",
-        message: "FÃ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden.",
+        message: "FÃƒÂ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden.",
         requestId: params.requestId,
       };
     }
@@ -292,7 +292,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: false,
         status: "error",
-        message: "FÃ¼r diese Anfrage wurde kein Angebotslink gefunden.",
+        message: "FÃƒÂ¼r diese Anfrage wurde kein Angebotslink gefunden.",
         requestId: params.requestId,
       };
     }
