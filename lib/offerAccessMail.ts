@@ -1,4 +1,4 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
 type SupabaseLike = {
   from: (table: string) => any;
@@ -48,7 +48,7 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("SMTP-Konfiguration fehlt. Prüfe SMTP_HOST, SMTP_PORT, SMTP_USER und SMTP_PASS.");
+    throw new Error("SMTP-Konfiguration fehlt. PrÃ¼fe SMTP_HOST, SMTP_PORT, SMTP_USER und SMTP_PASS.");
   }
 
   return nodemailer.createTransport({
@@ -100,15 +100,15 @@ function createText(params: {
   return `${greeting}
 
 Du hast Deine Schulmaterialliste bei Handzettel-Schulen.de auslesen lassen.${requestLine}
-Über diesen Link kommst Du jederzeit zurück zu Deinem Paketwunsch:
+Ãœber diesen Link kommst Du jederzeit zurÃ¼ck zu Deinem Paketwunsch:
 
 ${params.offerUrl}
 
-Dort kannst Du Deine Liste prüfen, offene Positionen bearbeiten oder später Deine Bestellung abschließen.
+Dort kannst Du Deine Liste prÃ¼fen, offene Positionen bearbeiten oder spÃ¤ter Deine Bestellung abschlieÃŸen.
 
 Wichtig: Diese Mail ist noch keine Rechnung und keine Bestellung.
 
-Viele Grüße
+Viele GrÃ¼ÃŸe
 Handzettel-Schulen.de`;
 }
 
@@ -138,13 +138,13 @@ function createHtml(params: {
         ${requestLine}
 
         <p style="margin:0 0 20px 0;line-height:1.6;color:#52616F;">
-          Über den folgenden Button kommst Du jederzeit zurück zu Deinem Paketwunsch.
-          Dort kannst Du Deine Liste prüfen, offene Positionen bearbeiten oder später Deine Bestellung abschließen.
+          Ãœber den folgenden Button kommst Du jederzeit zurÃ¼ck zu Deinem Paketwunsch.
+          Dort kannst Du Deine Liste prÃ¼fen, offene Positionen bearbeiten oder spÃ¤ter Deine Bestellung abschlieÃŸen.
         </p>
 
         <p style="margin:24px 0;text-align:center;">
           <a href="${params.offerUrl}" style="display:inline-block;background:#C6282D;color:#ffffff;text-decoration:none;border-radius:18px;padding:16px 22px;font-weight:800;">
-            Zurück zu meinem Paketwunsch
+            ZurÃ¼ck zu meinem Paketwunsch
           </a>
         </p>
 
@@ -153,7 +153,7 @@ function createHtml(params: {
         </p>
 
         <p style="margin:24px 0 0 0;line-height:1.6;color:#52616F;">
-          Viele Grüße<br />
+          Viele GrÃ¼ÃŸe<br />
           Handzettel-Schulen.de
         </p>
       </div>
@@ -229,7 +229,32 @@ export async function sendOfferAccessMailForRequest(params: {
       };
     }
 
-    const dueAt = request.offer_access_mail_due_at
+    const accessMailTrigger = String(
+    (request as { offer_access_mail_trigger?: string | null })
+      .offer_access_mail_trigger || ""
+  ).trim();
+
+  if (accessMailTrigger !== "self_selection") {
+    // access_mail_blocked_without_self_selection_trigger:
+    // Diese Link-Mail darf nur nach aktivem Klick auf â€žArtikel selbst auswÃ¤hlenâ€œ rausgehen.
+    // Direkte Aufrufe und alte automatische Auslesen-Trigger werden hier hart blockiert.
+    await params.supabase
+      .from("school_requests")
+      .update({
+        offer_access_mail_due_at: null,
+      })
+      .eq("id", request.id)
+      .is("offer_access_mail_sent_at", null);
+
+    return {
+      ok: true,
+      status: "not_due",
+      message:
+        "Access-Mail wurde nicht gesendet, weil der Self-Selection-Trigger fehlt.",
+    };
+  }
+
+  const dueAt = request.offer_access_mail_due_at
       ? new Date(request.offer_access_mail_due_at).getTime()
       : 0;
 
@@ -237,7 +262,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: true,
         status: "not_due",
-        message: "Link-Mail ist noch nicht fällig.",
+        message: "Link-Mail ist noch nicht fÃ¤llig.",
         requestId: params.requestId,
       };
     }
@@ -256,7 +281,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: false,
         status: "missing_email",
-        message: "Für diese Anfrage wurde keine Kunden-E-Mail gefunden.",
+        message: "FÃ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden.",
         requestId: params.requestId,
       };
     }
@@ -267,7 +292,7 @@ export async function sendOfferAccessMailForRequest(params: {
       return {
         ok: false,
         status: "error",
-        message: "Für diese Anfrage wurde kein Angebotslink gefunden.",
+        message: "FÃ¼r diese Anfrage wurde kein Angebotslink gefunden.",
         requestId: params.requestId,
       };
     }
