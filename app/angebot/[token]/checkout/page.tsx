@@ -290,12 +290,12 @@ export default function HandzettelCheckoutPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-bold text-[#172033]">
-                  E-Mail *
+                  email *
                 </label>
                 <input
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  type="email"
+                  type="E-Mail"
                   className="w-full rounded-2xl border border-[#d8cdbb] bg-[#fffaf2] px-4 py-4 text-base font-medium text-[#172033] outline-none transition focus:border-[#9b2f23] focus:bg-white focus:ring-4 focus:ring-[#9b2f23]/10"
                   placeholder="name@beispiel.de"
                 />
