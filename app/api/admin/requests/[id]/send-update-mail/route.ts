@@ -337,38 +337,7 @@ function createMailHtml(params: {
                     : ""
                 }
 
-                <div style="border:1px solid #E8DED2;border-radius:18px;padding:16px;margin:22px 0;">
-                  <div style="font-size:13px;font-weight:800;color:#A75B28;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">
-                    Kurzübersicht
-                  </div>
-
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                    <thead>
-                      <tr>
-                        <th align="left" style="font-size:12px;color:#52616F;padding-bottom:8px;">Artikel</th>
-                        <th align="center" style="font-size:12px;color:#52616F;padding-bottom:8px;">Menge</th>
-                        <th align="right" style="font-size:12px;color:#52616F;padding-bottom:8px;">Summe</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${createOfferItemsHtml(offerItems)}
-                    </tbody>
-                  </table>
-
-                  ${
-                    offerItems.length > 8
-                      ? `<p style="margin:12px 0 0;font-size:13px;color:#52616F;">+ ${
-                          offerItems.length - 8
-                        } weitere Positionen im Paketwunsch.</p>`
-                      : ""
-                  }
-
-                  <div style="margin-top:16px;background:#102A43;border-radius:16px;padding:16px;color:#ffffff;">
-                    <span style="font-size:14px;color:#F7EFE6;">Aktueller Paketwert</span>
-                    <strong style="float:right;font-size:20px;">${formatMoney(total)}</strong>
-                    <div style="clear:both;"></div>
-                  </div>
-                </div>
+                
 
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0;">
                   <tr>
