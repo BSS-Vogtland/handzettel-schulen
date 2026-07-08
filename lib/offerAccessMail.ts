@@ -229,15 +229,29 @@ export async function sendOfferAccessMailForRequest(params: {
       };
     }
 
-    const accessMailTrigger = String(
+    let accessMailTrigger = String(
     (request as { offer_access_mail_trigger?: string | null })
       .offer_access_mail_trigger || ""
   ).trim();
 
+  if (!accessMailTrigger) {
+    const { data: triggerRow, error: triggerLookupError } = await params.supabase
+      .from("school_requests")
+      .select("offer_access_mail_trigger")
+      .eq("id", request.id)
+      .maybeSingle();
+
+    if (!triggerLookupError) {
+      accessMailTrigger = String(
+        (triggerRow as { offer_access_mail_trigger?: string | null } | null)
+          ?.offer_access_mail_trigger || ""
+      ).trim();
+    }
+  }
+
   if (accessMailTrigger !== "self_selection") {
     // access_mail_blocked_without_self_selection_trigger:
-    // Diese Link-Mail darf nur nach aktivem Klick auf Ã¢â‚¬Å¾Artikel selbst auswÃƒÂ¤hlenÃ¢â‚¬Å“ rausgehen.
-    // Direkte Aufrufe und alte automatische Auslesen-Trigger werden hier hart blockiert.
+    // Diese Link-Mail darf nur nach aktivem Klick auf „Artikel selbst auswählen“ rausgehen.
     await params.supabase
       .from("school_requests")
       .update({

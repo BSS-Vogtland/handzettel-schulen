@@ -189,50 +189,24 @@ export default function CustomerOpenPositionDecisionPanel({
 
   if (choice === "self") {
     return (
-      <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-              Selbstauswahl
-            </p>
+      <div className="flex justify-end" data-self-selection-team-return>
+        <button
+          type="button"
+          onClick={() => chooseTeam()}
+          disabled={isSaving !== null}
+          className="rounded-full bg-[#2F7D50] px-6 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#256942] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving === "team"
+            ? "Wird gespeichert ..."
+            : "Handzettel-Schulen.de soll doch übernehmen"}
+        </button>
 
-            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
-              Du wählst die offenen Artikel selbst aus.
-            </h2>
-
-            <p className="mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-[#52616F]">
-              Du kannst die offenen Positionen selbst prüfen und passende Artikel auswählen.
-              Die Erinnerungs-Mail wird erst nach dieser Entscheidung gesendet.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-center">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Offen
-            </p>
-            <p className="mt-1 text-2xl font-black text-[#102A43]">
-              {openLabel}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={() => chooseTeam()}
-            disabled={isSaving !== null}
-            className="rounded-full border border-[#2F7D50] px-4 py-2 text-sm font-black text-[#2F7D50] transition hover:bg-[#F0FFF6] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSaving === "team"
-              ? "Wird gespeichert ..."
-              : "Handzettel-Schulen.de übernehmen lassen"}
-          </button>
-
-          {feedback ? (
-            <p className="text-sm font-bold text-[#52616F]">{feedback}</p>
-          ) : null}
-        </div>
-      </section>
+        {feedback ? (
+          <p className="ml-4 self-center text-sm font-bold text-[#52616F]">
+            {feedback}
+          </p>
+        ) : null}
+      </div>
     );
   }
 
