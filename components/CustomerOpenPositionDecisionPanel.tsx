@@ -152,7 +152,7 @@ export default function CustomerOpenPositionDecisionPanel({
       rememberChoice("team");
 
       if (!options.silent) {
-        setFeedback("Handzettel-Schulen.de übernimmt die offenen Positionen.");
+        setFeedback("");
       }
     } catch (error) {
       if (!options.silent) {
@@ -275,7 +275,7 @@ export default function CustomerOpenPositionDecisionPanel({
       <div className="mt-6 rounded-[26px] border border-[#9BD5B0] bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2F7D50] text-2xl font-black text-white">
-            âœ“
+            ✓
           </div>
 
           <div>

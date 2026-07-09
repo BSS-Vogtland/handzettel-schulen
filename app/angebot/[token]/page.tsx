@@ -261,7 +261,7 @@ function normalizeText(value: unknown) {
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
-    .replace(/ÃƒÆ’Ã†’Ãƒ…¸/g, "ss")
+    .replace(/ß/g, "ss")
     .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
@@ -446,7 +446,7 @@ function getCustomerSearchDefaultQuery(item: RequestItem) {
 function isFormatCompatible(item: RequestItem, match: RequestMatch) {
   const itemFormat = normalizeText(item.format);
   const productText = normalizeText(
-    `${match.product_name || ""} ${match.product_sku || ""} ${
+    `${cleanText(match.product_name) || ""} ${match.product_sku || ""} ${
       match.match_reason || ""
     }`
   );
@@ -463,7 +463,7 @@ function isLineatureCompatible(item: RequestItem, match: RequestMatch) {
   const itemLineature = getDisplayLineature(item);
 
   const productText = normalizeText(
-    `${match.product_name || ""} ${match.product_sku || ""} ${
+    `${cleanText(match.product_name) || ""} ${match.product_sku || ""} ${
       match.match_reason || ""
     }`
   );
@@ -532,7 +532,7 @@ function isProductTypeCompatible(item: RequestItem, match: RequestMatch) {
   );
 
   const productText = normalizeText(
-    `${match.product_name || ""} ${match.product_sku || ""} ${
+    `${cleanText(match.product_name) || ""} ${match.product_sku || ""} ${
       match.match_reason || ""
     }`
   );
@@ -785,6 +785,24 @@ function getItemFacts(item: RequestItem | null | undefined) {
   return facts;
 }
 
+function getCleanCustomerOfferItemNote(item: { notes?: string | null }) {
+  const note = cleanText(item.notes, "");
+
+  if (!note) return "";
+
+  if (
+    /automatisch/i.test(note) &&
+    (/produkttreffer/i.test(note) || /vorausgew/i.test(note) || /erreicht/i.test(note))
+  ) {
+    const scoreMatch = note.match(/(\d{1,3})\s*%/);
+    const score = scoreMatch ? scoreMatch[1] : "99";
+
+    return `Automatisch vorausgewählt, da der Produkttreffer ${score} % Übereinstimmung erreicht hat.`;
+  }
+
+  return note;
+}
+
 function getOfferItemScoreLabel(
   item: OfferItem,
   matchById: Map<string, RequestMatch>
@@ -799,10 +817,10 @@ function getOfferItemScoreLabel(
   if (score <= 0) return null;
 
   if (item.source === "auto_preselected" || score >= AUTO_PRESELECT_MIN_SCORE) {
-    return `Vorausgewählt ÃƒÆ’Ã¢€Å¡Ãƒâ€š· ${score} %`;
+    return `Vorausgewählt · ${score} %`;
   }
 
-  return `${getMatchScoreLabel(score)} ÃƒÆ’Ã¢€Å¡Ãƒâ€š· ${score} %`;
+  return `${getMatchScoreLabel(score)} · ${score} %`;
 }
 
 function isAutoPreselectedOfferItem(
@@ -1018,12 +1036,39 @@ function getCustomerChildLabel(child: RequestChild, index: number) {
   );
 }
 
+function getCleanCustomerChildMetaParts(child: RequestChild) {
+  const rawClassName = cleanCustomerChildText(child.class_name) || "";
+  const rawSchoolName = cleanCustomerChildText(child.school_name) || "";
+
+  const classMatch = rawClassName.match(/(?:klasse\s*)?(\d{1,2}[a-z]?)/i);
+  const schoolMatch = (rawClassName + " " + rawSchoolName).match(
+    /\b(gs|grundschule|oberschule|gymnasium)\b/i
+  );
+
+  const classValue = classMatch
+    ? classMatch[1].toUpperCase()
+    : rawClassName && !/[ÃÂâ�]/.test(rawClassName)
+      ? rawClassName
+      : "";
+
+  const schoolValue = rawSchoolName && !/[ÃÂâ�]/.test(rawSchoolName)
+    ? rawSchoolName
+    : schoolMatch
+      ? schoolMatch[1]
+      : "";
+
+  return {
+    classValue,
+    schoolValue,
+  };
+}
+
 function getCustomerChildMeta(child: RequestChild) {
+  const { classValue, schoolValue } = getCleanCustomerChildMetaParts(child);
+
   return [
-    cleanCustomerChildText(child.class_name)
-      ? "Klasse " + cleanCustomerChildText(child.class_name)
-      : null,
-    cleanCustomerChildText(child.school_name),
+    classValue ? "Klasse " + classValue : null,
+    schoolValue,
   ].filter(Boolean) as string[];
 }
 
@@ -1102,7 +1147,7 @@ function CustomerChildPackageOverview({
 
               {meta.length > 0 ? (
                 <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                  {meta.join(" ÃƒÆ’Ã¢€Å¡Ãƒâ€š· ")}
+                  {meta.join(" · ")}
                 </p>
               ) : null}
             </li>
@@ -1468,9 +1513,9 @@ function CustomerChildDetailedPackageSections({
                                   ))}
                                 </div>
 
-                                {item.notes ? (
+                                {getCleanCustomerOfferItemNote(item) ? (
                                   <p className="mt-2 rounded-2xl bg-[#FBF7F0] px-3 py-2 text-sm font-semibold text-[#52616F]">
-                                    Hinweis: {item.notes}
+                                    Hinweis: {getCleanCustomerOfferItemNote(item)}
                                   </p>
                                 ) : null}
 
@@ -1578,7 +1623,7 @@ function CustomerChildDetailedPackageSections({
                           {item.raw_text &&
                           item.raw_text !== item.normalized_name ? (
                             <p className="mb-3 text-xs font-semibold leading-5 text-[#52616F]">
-                              Original: {item.raw_text}
+                              Original: {cleanK4e2Text(item.raw_text)}
                             </p>
                           ) : null}
 
@@ -1636,7 +1681,7 @@ function CustomerChildDetailedPackageSections({
                                           </div>
 
                                           <h5 className="font-black text-[#102A43]">
-                                            {match.product_name ||
+                                            {cleanText(match.product_name) ||
                                               "Produktvorschlag"}
                                           </h5>
 
@@ -1648,7 +1693,7 @@ function CustomerChildDetailedPackageSections({
 
                                           {match.match_reason ? (
                                             <p className="mt-2 max-w-2xl text-xs leading-5 text-[#52616F]">
-                                              {match.match_reason}
+                                              {cleanText(match.match_reason)}
                                             </p>
                                           ) : null}
                                         </div>
@@ -1674,9 +1719,7 @@ function CustomerChildDetailedPackageSections({
                             </div>
                           ) : (
                             <p className="rounded-2xl border border-dashed border-[#F1D1A8] bg-[#FFF8EE] p-3 text-sm font-semibold text-[#A75B28]">
-                              Für diese Position gibt es noch keinen sicheren
-                              Produktvorschlag. Du kannst unten selbst suchen
-                              oder die Position vom Team prüfen lassen.
+                              Für diese Position gibt es noch keinen sicheren Produktvorschlag. Du kannst unten selbst suchen oder die Position vom Team prüfen lassen.
                             </p>
                           )}
 
@@ -2276,7 +2319,7 @@ const customerOpenPositionScreenMode =
                             ) : null}
 
                             <p className="mt-2 text-sm font-semibold text-[#52616F]">
-                              {quantity} ÃƒÆ’Ã†’Ãƒ¢€” {formatMoney(unitPrice)}
+                              {quantity} × {formatMoney(unitPrice)}
                             </p>
                           </div>
 
@@ -2766,7 +2809,7 @@ const isFreshBeforeAnalysis =
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {request.school_name || "Schule nicht angegeben"}
-              {request.class_name ? ` ÃƒÆ’Ã¢€Å¡Ãƒâ€š· Klasse ${request.class_name}` : ""}
+              {request.class_name ? ` · Klasse ${request.class_name}` : ""}
             </p>
           </div>
 
@@ -3038,9 +3081,9 @@ const isFreshBeforeAnalysis =
                                   ))}
                                 </div>
 
-                                {item.notes ? (
+                                {getCleanCustomerOfferItemNote(item) ? (
                                   <p className="mt-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-[#52616F]">
-                                    Hinweis: {item.notes}
+                                    Hinweis: {getCleanCustomerOfferItemNote(item)}
                                   </p>
                                 ) : null}
 
@@ -3208,7 +3251,7 @@ const isFreshBeforeAnalysis =
                                             {getMatchScoreLabel(
                                               match.match_score
                                             )}{" "}
-                                            ÃƒÆ’Ã¢€Å¡Ãƒâ€š· {toNumber(match.match_score, 0)} %
+                                            · {toNumber(match.match_score, 0)} %
                                           </span>
 
                                           {matchIndex === 0 ? (
@@ -3223,7 +3266,7 @@ const isFreshBeforeAnalysis =
                                         </div>
 
                                         <h4 className="font-black text-[#102A43]">
-                                          {match.product_name ||
+                                          {cleanText(match.product_name) ||
                                             "Produktvorschlag"}
                                         </h4>
 
@@ -3235,7 +3278,7 @@ const isFreshBeforeAnalysis =
 
                                         {match.match_reason ? (
                                           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#52616F]">
-                                            {match.match_reason}
+                                            {cleanText(match.match_reason)}
                                           </p>
                                         ) : null}
                                       </div>

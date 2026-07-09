@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 
+import { cleanOutgoingMailSubject, cleanOutgoingMailText } from "@/lib/mailEncoding";
 type MailAttachment = {
   filename: string;
   content: Buffer | string;
