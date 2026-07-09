@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
@@ -145,21 +145,21 @@ export default function CustomerOpenPositionDecisionPanel({
         throw new Error(
           result.error ||
             result.message ||
-            "Die Team-ÃƒÅ“bernahme konnte nicht gespeichert werden."
+            "Die Team-Ãœbernahme konnte nicht gespeichert werden."
         );
       }
 
       rememberChoice("team");
 
       if (!options.silent) {
-        setFeedback("Handzettel-Schulen.de ÃƒÂ¼bernimmt die offenen Positionen.");
+        setFeedback("Handzettel-Schulen.de Ã¼bernimmt die offenen Positionen.");
       }
     } catch (error) {
       if (!options.silent) {
         setFeedback(
           error instanceof Error
             ? error.message
-            : "Die Team-ÃƒÅ“bernahme konnte nicht gespeichert werden."
+            : "Die Team-Ãœbernahme konnte nicht gespeichert werden."
         );
       }
     } finally {
@@ -190,7 +190,7 @@ export default function CustomerOpenPositionDecisionPanel({
     didAutoPersistTeam.current = true;
     rememberChoice("team");
     // Kein stiller service-takeover-Call mehr:
-    // Ein fehlendes initialChoice darf eine aktive Selbst-Auswahl und deren Mail-Trigger nicht ÃƒÂ¼berschreiben.
+    // Ein fehlendes initialChoice darf eine aktive Selbst-Auswahl und deren Mail-Trigger nicht Ã¼berschreiben.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChoice]);
 
@@ -210,11 +210,11 @@ export default function CustomerOpenPositionDecisionPanel({
         >
           {isSaving === "team"
             ? "Wird gespeichert ..."
-            : "Handzettel-Schulen.de soll doch ÃƒÂ¼bernehmen"}
+            : "Handzettel-Schulen.de soll doch Ã¼bernehmen"}
         </button>
 
         <p className="max-w-2xl text-center text-sm font-semibold leading-6 text-[#52616F]">
-          Du kannst die offenen Positionen unten selbst auswÃƒÂ¤hlen. Wenn wir die offenen Positionen doch ÃƒÂ¼bernehmen sollen, klickst Du hier.
+          Du kannst die offenen Positionen unten selbst auswÃ¤hlen. Wenn wir die offenen Positionen doch Ã¼bernehmen sollen, klickst Du hier.
         </p>
 
         {feedback ? (
@@ -239,14 +239,26 @@ export default function CustomerOpenPositionDecisionPanel({
         }}
       />
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            "[data-team-ready-message] { font-size: clamp(24px, 2.4vw, 34px) !important; line-height: 1.16 !important; font-weight: 900 !important; color: #102A43 !important; } " +
+            "[data-team-whatsapp-component-wrap] { transform: scale(0.70) !important; transform-origin: top left !important; width: 142.9% !important; margin-top: 12px !important; margin-bottom: 16px !important; opacity: .80 !important; } " +
+            "[data-team-whatsapp-component-wrap] * { font-size: 10px !important; line-height: 1.16 !important; } " +
+            "[data-team-whatsapp-component-wrap] h1, [data-team-whatsapp-component-wrap] h2, [data-team-whatsapp-component-wrap] h3, [data-team-whatsapp-component-wrap] strong { font-size: 11px !important; line-height: 1.15 !important; } " +
+            "[data-team-whatsapp-component-wrap] p { margin-top: 2px !important; margin-bottom: 2px !important; } " +
+            "[data-team-whatsapp-component-wrap] button, [data-team-whatsapp-component-wrap] a { padding: 5px 9px !important; min-height: 0 !important; font-size: 10px !important; border-radius: 10px !important; } " +
+            "[data-team-whatsapp-component-wrap] input { width: 13px !important; height: 13px !important; }",
+        }}
+      />
+
+<div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-            Handzettel-Schulen.de ÃƒÂ¼bernimmt
-          </p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">Handzettel-Schulen.de Ã¼bernimmt</p>
 
           <h2 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
-            Die meisten Produkte wurden automatisch erkannt. Den Rest prÃƒÂ¼ft Handzettel-Schulen.de persÃƒÂ¶nlich fÃƒÂ¼r Dich.
+            Die meisten Produkte wurden bereits automatisch erkannt. Den Rest prÃ¼ft Handzettel-Schulen.de persÃ¶nlich fÃ¼r Dich.
           </h2>
         </div>
 
@@ -260,27 +272,54 @@ export default function CustomerOpenPositionDecisionPanel({
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-[#9BD5B0] bg-white px-4 py-4">
-        <p className="text-sm font-bold leading-relaxed text-[#35546B]">
-          Du musst jetzt nichts weiter tun. Sobald Dein fertiger Paketwunsch bereit ist,
-          bekommst Du eine Nachricht und kannst die Bestellung abschlieÃƒÅ¸en.
-        </p>
+      <div className="mt-6 rounded-[26px] border border-[#9BD5B0] bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2F7D50] text-2xl font-black text-white">
+            âœ“
+          </div>
+
+          <div>
+            <p className="text-xl font-black leading-tight text-[#102A43] sm:text-2xl">
+              Du musst jetzt nichts weiter tun.
+            </p>
+            <p className="mt-2 text-lg font-black leading-tight text-[#2F7D50] sm:text-xl">
+              Du kannst die Seite jetzt einfach schlieÃŸen.
+            </p>
+            <p
+              data-team-ready-message
+              style={{
+                fontSize: "clamp(24px, 2.4vw, 34px)",
+                lineHeight: "1.04",
+                fontWeight: 950,
+                color: "#102A43",
+                marginTop: "18px",
+                maxWidth: "1050px",
+              }}
+            >
+              Sobald Dein fertiger Paketwunsch bereit ist, bekommst Du eine Nachricht und kannst die Bestellung abschlieÃŸen.
+            </p>
+          </div>
+        </div>
       </div>
 
       {businessWhatsappUrl ? (
         <div className="mt-5" data-whatsapp-updates-team-takeover>
-          <CustomerWhatsappUpdatesPanel
+          <div data-team-whatsapp-component-wrap>
+
+            <CustomerWhatsappUpdatesPanel
             token={token}
             requestNumber={requestNumber}
             initialEnabled={initialWhatsappUpdatesEnabled}
             businessWhatsappUrl={businessWhatsappUrl}
           />
+
+          </div>
         </div>
       ) : null}
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[#B9E5C8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold text-[#52616F]">
-          Du mÃƒÂ¶chtest die offenen Positionen lieber selbst bearbeiten?
+          Du mÃ¶chtest die offenen Positionen lieber selbst bearbeiten?
         </p>
 
         <a
@@ -300,7 +339,7 @@ export default function CustomerOpenPositionDecisionPanel({
           aria-disabled={isSaving !== null}
           className="self-start rounded-full border border-[#C8D8E8] bg-white px-3 py-1.5 text-xs font-black text-[#12395F] transition hover:border-[#A75B28] hover:text-[#A75B28] aria-disabled:pointer-events-none aria-disabled:opacity-60 sm:self-auto"
         >
-          {isSaving === "self" ? "Wird geÃƒÂ¶ffnet ..." : "Artikel selbst auswÃƒÂ¤hlen"}
+          {isSaving === "self" ? "Wird geÃ¶ffnet ..." : "Artikel selbst auswÃ¤hlen"}
         </a>
       </div>
 
