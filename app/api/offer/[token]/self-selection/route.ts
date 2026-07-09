@@ -14,7 +14,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -35,7 +35,7 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Kein Paketwunsch-Token Ã¼bergeben.",
+          message: "Kein Paketwunsch-Token übergeben.",
         },
         { status: 400 }
       );
@@ -76,7 +76,7 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Der Paketwunsch wurde bereits bestÃ¤tigt.",
+          message: "Der Paketwunsch wurde bereits bestätigt.",
         },
         { status: 409 }
       );
@@ -116,9 +116,9 @@ export async function POST(_request: Request, { params }: Params) {
       .insert({
         request_id: requestRow.id,
         event_type: "customer_selected_self_selection",
-        title: "Kunde wÃ¤hlt Selbst-Auswahl",
+        title: "Kunde wählt Selbst-Auswahl",
         description:
-          "Der Kunde mÃ¶chte die offenen Positionen wieder selbst auswÃ¤hlen und bearbeiten.",
+          "Der Kunde möchte die offenen Positionen wieder selbst auswählen und bearbeiten.",
         created_at: now,
       });
 
@@ -191,5 +191,3 @@ export async function POST(_request: Request, { params }: Params) {
     );
   }
 }
-
-

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
@@ -100,7 +100,7 @@ export default function CustomerOpenPositionDecisionPanel({
         );
       }
       const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.set("mode", "self");
+      nextUrl.searchParams.set("mode", "team");
       nextUrl.searchParams.set("refresh", Date.now().toString());
       nextUrl.hash = "offene-positionen";
 
@@ -144,21 +144,21 @@ export default function CustomerOpenPositionDecisionPanel({
         throw new Error(
           result.error ||
             result.message ||
-            "Die Team-Ãœbernahme konnte nicht gespeichert werden."
+            "Die Team-Übernahme konnte nicht gespeichert werden."
         );
       }
 
       rememberChoice("team");
 
       if (!options.silent) {
-        setFeedback("Handzettel-Schulen.de Ã¼bernimmt die offenen Positionen.");
+        setFeedback("Handzettel-Schulen.de übernimmt die offenen Positionen.");
       }
     } catch (error) {
       if (!options.silent) {
         setFeedback(
           error instanceof Error
             ? error.message
-            : "Die Team-Ãœbernahme konnte nicht gespeichert werden."
+            : "Die Team-Übernahme konnte nicht gespeichert werden."
         );
       }
     } finally {
@@ -198,42 +198,34 @@ export default function CustomerOpenPositionDecisionPanel({
   if (choice === "self") {
     return (
       <section
-        className="mx-auto w-full max-w-6xl rounded-[30px] border border-[#2F7D50] bg-[#EAF8EF] p-5 shadow-sm sm:p-6"
+        className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-3 rounded-[30px] border border-[#2F7D50] bg-[#EAF8EF] p-5 shadow-sm sm:p-6"
         data-self-selection-team-return
       >
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-              Selbst-Auswahl aktiv
-            </p>
-            <h2 className="mt-1 text-xl font-black leading-tight text-[#08233D] sm:text-2xl">
-              Du wählst die offenen Artikel selbst aus.
-            </h2>
-            <p className="mt-2 text-sm font-semibold leading-relaxed text-[#52616F]">
-              Wenn Du möchtest, kann Handzettel-Schulen.de die offenen Positionen doch wieder persönlich für Dich übernehmen.
-            </p>
-          </div>
+        <button
+          type="button"
+          onClick={() => chooseTeam()}
+          disabled={isSaving !== null}
+          className="w-full rounded-[26px] bg-[#2F7D50] px-8 py-5 text-center text-base font-black text-white shadow-lg transition hover:bg-[#256942] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg lg:min-w-[430px] lg:w-auto"
+        >
+          {isSaving === "team"
+            ? "Wird gespeichert ..."
+            : "Handzettel-Schulen.de soll doch übernehmen"}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => chooseTeam()}
-            disabled={isSaving !== null}
-            className="w-full rounded-[26px] bg-[#2F7D50] px-8 py-5 text-center text-base font-black text-white shadow-lg transition hover:bg-[#256942] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg lg:min-w-[430px] lg:w-auto"
-          >
-            {isSaving === "team"
-              ? "Wird gespeichert ..."
-              : "Handzettel-Schulen.de soll doch übernehmen"}
-          </button>
-        </div>
+        <p className="max-w-2xl text-center text-sm font-semibold leading-6 text-[#52616F]">
+          Du kannst die offenen Positionen unten selbst auswählen. Wenn wir die offenen Positionen doch übernehmen sollen, klickst Du hier.
+        </p>
 
         {feedback ? (
-          <p className="mt-4 rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold text-[#52616F]">
+          <p className="rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold text-[#52616F]">
             {feedback}
           </p>
         ) : null}
       </section>
     );
   }
+
+
   return (
     <section
       className="rounded-[32px] border border-[#2F7D50] bg-[#F0FFF6] p-5 shadow-sm sm:p-7"
@@ -242,11 +234,11 @@ export default function CustomerOpenPositionDecisionPanel({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">
-            Handzettel-Schulen.de Ã¼bernimmt
+            Handzettel-Schulen.de übernimmt
           </p>
 
           <h2 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
-            Die meisten Produkte wurden automatisch erkannt. Den Rest prÃ¼ft Handzettel-Schulen.de persÃ¶nlich fÃ¼r Dich.
+            Die meisten Produkte wurden automatisch erkannt. Den Rest prüft Handzettel-Schulen.de persönlich für Dich.
           </h2>
         </div>
 
@@ -263,7 +255,7 @@ export default function CustomerOpenPositionDecisionPanel({
       <div className="mt-6 rounded-2xl border border-[#9BD5B0] bg-white px-4 py-4">
         <p className="text-sm font-bold leading-relaxed text-[#35546B]">
           Du musst jetzt nichts weiter tun. Sobald Dein fertiger Paketwunsch bereit ist,
-          bekommst Du eine Nachricht und kannst die Bestellung abschlieÃŸen.
+          bekommst Du eine Nachricht und kannst die Bestellung abschließen.
         </p>
       </div>
 
@@ -280,7 +272,7 @@ export default function CustomerOpenPositionDecisionPanel({
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[#B9E5C8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold text-[#52616F]">
-          Du mÃ¶chtest die offenen Positionen lieber selbst bearbeiten?
+          Du möchtest die offenen Positionen lieber selbst bearbeiten?
         </p>
 
         <button
@@ -289,7 +281,7 @@ export default function CustomerOpenPositionDecisionPanel({
           disabled={isSaving !== null}
           className="self-start rounded-full border border-[#C8D8E8] bg-white px-3 py-1.5 text-xs font-black text-[#12395F] transition hover:border-[#A75B28] hover:text-[#A75B28] disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
         >
-          {isSaving === "self" ? "Wird gespeichert ..." : "Artikel selbst auswÃ¤hlen"}
+          {isSaving === "self" ? "Wird gespeichert ..." : "Artikel selbst auswählen"}
         </button>
       </div>
 
@@ -299,5 +291,3 @@ export default function CustomerOpenPositionDecisionPanel({
     </section>
   );
 }
-
-
