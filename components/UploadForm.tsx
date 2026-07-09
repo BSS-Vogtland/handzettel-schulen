@@ -50,12 +50,17 @@ const DISCOVERY_SOURCE_OPTIONS = [
   { value: "empfehlung", label: "Empfehlung" },
 ] as const;
 
-function createChildState(index: number): ChildUploadFormState {
+function createChildState(
+  index: number,
+  options?: { stableInitialId?: boolean }
+): ChildUploadFormState {
   return {
-    id: `child-${Date.now()}-${Math.random().toString(16).slice(2)}-${index}`,
+    id: options?.stableInitialId
+      ? `child-initial-${index}`
+      : `child-${Date.now()}-${Math.random().toString(16).slice(2)}-${index}`,
     childName: "",
-    schoolName: "",
     className: "",
+    schoolName: "",
     file: null,
   };
 }
@@ -100,7 +105,7 @@ export default function UploadForm() {
 
   const [customerName, setCustomerName] = useState("");
   const [children, setChildren] = useState<ChildUploadFormState[]>([
-    createChildState(1),
+    createChildState(1, { stableInitialId: true }),
   ]);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -467,7 +472,7 @@ export default function UploadForm() {
                 id="phone-help"
                 className="mt-1 text-xs font-semibold text-[#8A5A2B]"
               >
-                Wichtig für Rückfragen zur Liste und Updates zu Deinem Paketstatus.
+                Wichtig fÃƒÂ¼r RÃƒÂ¼ckfragen zur Liste und Updates zu Deinem Paketstatus.
               </p>
             </div>
 
