@@ -2128,6 +2128,7 @@ const customerOpenPositionScreenMode =
     customerOpenPositionDecision !== "self";
 
   if (
+    !customerSelfModeFromUrl &&
     !isConfirmed &&
     hasOpenCustomerBlockingItems &&
     (customerTeamModeFromUrl || customerOpenPositionDecision === "team")
