@@ -2127,7 +2127,11 @@ const customerOpenPositionScreenMode =
     hasOpenCustomerBlockingItems &&
     customerOpenPositionDecision !== "self";
 
-  if (shouldGateCustomerOpenPositionDecision) {
+  if (
+    !isConfirmed &&
+    hasOpenCustomerBlockingItems &&
+    (customerTeamModeFromUrl || customerOpenPositionDecision === "team")
+  ) {
     return (
       <main
         className="min-h-screen bg-[#FBF7F0] px-4 py-8 text-[#102A43] sm:px-6 lg:px-8"
