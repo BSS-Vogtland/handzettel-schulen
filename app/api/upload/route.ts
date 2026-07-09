@@ -251,8 +251,8 @@ function buildOfferEmail(input: {
   const greeting = input.customerName ? `Hallo ${input.customerName},` : "Hallo,";
 
   const childLine = input.childName
-    ? `fÃƒÂ¼r ${input.childName}`
-    : "fÃƒÂ¼r Deine Schulmaterialliste";
+    ? `fÃƒÆ’Ã‚Â¼r ${input.childName}`
+    : "fÃƒÆ’Ã‚Â¼r Deine Schulmaterialliste";
 
   const schoolLine = input.schoolName
     ? `Schule: ${input.schoolName}`
@@ -265,18 +265,18 @@ function buildOfferEmail(input: {
   const text = [
     greeting,
     "",
-    `vielen Dank fÃƒÂ¼r Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
+    `vielen Dank fÃƒÆ’Ã‚Â¼r Deine Anfrage bei Handzettel-Schulen.de ${childLine}.`,
     "",
     schoolLine,
     requestLine,
     "",
-    "ÃƒÅ“ber den folgenden persÃƒÂ¶nlichen Link kannst Du Deine Schulmaterialliste auswerten lassen, Produkte auswÃƒÂ¤hlen und Deinen Paketwunsch jederzeit wieder ÃƒÂ¶ffnen:",
+    "ÃƒÆ’Ã…â€œber den folgenden persÃƒÆ’Ã‚Â¶nlichen Link kannst Du Deine Schulmaterialliste auswerten lassen, Produkte auswÃƒÆ’Ã‚Â¤hlen und Deinen Paketwunsch jederzeit wieder ÃƒÆ’Ã‚Â¶ffnen:",
     "",
     input.offerUrl,
     "",
-    "Bitte bewahre diesen Link auf. DarÃƒÂ¼ber kommst Du jederzeit wieder zu Deinem persÃƒÂ¶nlichen Paketwunsch.",
+    "Bitte bewahre diesen Link auf. DarÃƒÆ’Ã‚Â¼ber kommst Du jederzeit wieder zu Deinem persÃƒÆ’Ã‚Â¶nlichen Paketwunsch.",
     "",
-    "Viele GrÃƒÂ¼ÃƒÅ¸e",
+    "Viele GrÃƒÆ’Ã‚Â¼ÃƒÆ’Ã…Â¸e",
     "Dein Team von Handzettel-Schulen.de",
   ]
     .filter((line) => line !== null)
@@ -297,18 +297,18 @@ function buildOfferEmail(input: {
             </td>
             <td valign="middle" style="padding:0;">
               <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste</div>
+              <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Dein persÃƒÆ’Ã‚Â¶nlicher Link zu Deiner Schulmaterialliste</div>
             </td>
           </tr>
         </table>
       </div>
 
-      <h2 style="color: #102A43; margin-bottom: 12px;">Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste</h2>
+      <h2 style="color: #102A43; margin-bottom: 12px;">Dein persÃƒÆ’Ã‚Â¶nlicher Link zu Deiner Schulmaterialliste</h2>
 
       <p>${escapeHtml(greeting)}</p>
 
       <p>
-        vielen Dank fÃƒÂ¼r Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
+        vielen Dank fÃƒÆ’Ã‚Â¼r Deine Anfrage bei <strong>Handzettel-Schulen.de</strong>
         ${escapeHtml(childLine)}.
       </p>
 
@@ -324,9 +324,9 @@ function buildOfferEmail(input: {
       }
 
       <p>
-        ÃƒÅ“ber den folgenden persÃƒÂ¶nlichen Link kannst Du Deine Schulmaterialliste
-        auswerten lassen, Produkte auswÃƒÂ¤hlen und Deinen Paketwunsch jederzeit
-        wieder ÃƒÂ¶ffnen:
+        ÃƒÆ’Ã…â€œber den folgenden persÃƒÆ’Ã‚Â¶nlichen Link kannst Du Deine Schulmaterialliste
+        auswerten lassen, Produkte auswÃƒÆ’Ã‚Â¤hlen und Deinen Paketwunsch jederzeit
+        wieder ÃƒÆ’Ã‚Â¶ffnen:
       </p>
 
       <p style="margin: 24px 0;">
@@ -334,7 +334,7 @@ function buildOfferEmail(input: {
           href="${input.offerUrl}"
           style="background: #B5282D; color: #ffffff; text-decoration: none; padding: 14px 20px; border-radius: 14px; font-weight: bold; display: inline-block;"
         >
-          PersÃƒÂ¶nlichen Paketwunsch ÃƒÂ¶ffnen
+          PersÃƒÆ’Ã‚Â¶nlichen Paketwunsch ÃƒÆ’Ã‚Â¶ffnen
         </a>
       </p>
 
@@ -344,19 +344,19 @@ function buildOfferEmail(input: {
       </p>
 
       <p>
-        Bitte bewahre diesen Link auf. DarÃƒÂ¼ber kommst Du jederzeit wieder zu
-        Deinem persÃƒÂ¶nlichen Paketwunsch.
+        Bitte bewahre diesen Link auf. DarÃƒÆ’Ã‚Â¼ber kommst Du jederzeit wieder zu
+        Deinem persÃƒÆ’Ã‚Â¶nlichen Paketwunsch.
       </p>
 
       <p>
-        Viele GrÃƒÂ¼ÃƒÅ¸e<br />
+        Viele GrÃƒÆ’Ã‚Â¼ÃƒÆ’Ã…Â¸e<br />
         <strong>Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span></strong>
       </p>
     </div>
   `;
 
   return {
-    subject: "Dein persÃƒÂ¶nlicher Link zu Deiner Schulmaterialliste",
+    subject: "Dein persÃƒÆ’Ã‚Â¶nlicher Link zu Deiner Schulmaterialliste",
     text,
     html,
   };
@@ -400,11 +400,11 @@ function buildAdminUploadNotificationEmail(input: {
     "",
     `Datei: ${input.originalFilename}`,
     `Dateityp: ${input.fileType || "nicht angegeben"}`,
-    `DateigrÃƒÂ¶ÃƒÅ¸e: ${formatFileSize(input.fileSize)}`,
+    `DateigrÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸e: ${formatFileSize(input.fileSize)}`,
     "",
     input.message ? `Nachricht: ${input.message}` : "Nachricht: keine",
     "",
-    `Admin-ÃƒÅ“bersicht: ${adminUrl}`,
+    `Admin-ÃƒÆ’Ã…â€œbersicht: ${adminUrl}`,
     `Admin-Detail: ${adminDetailUrl}`,
     `Kundenlink: ${input.offerUrl}`,
   ].join("\n");
@@ -448,7 +448,7 @@ function buildAdminUploadNotificationEmail(input: {
       <div style="padding: 16px; border: 1px solid #E8DED2; border-radius: 16px; background: #ffffff; margin-bottom: 16px;">
         <p><strong>Datei:</strong> ${escapeHtml(input.originalFilename)}</p>
         <p><strong>Dateityp:</strong> ${escapeHtml(input.fileType || "nicht angegeben")}</p>
-        <p><strong>DateigrÃƒÂ¶ÃƒÅ¸e:</strong> ${escapeHtml(formatFileSize(input.fileSize))}</p>
+        <p><strong>DateigrÃƒÆ’Ã‚Â¶ÃƒÆ’Ã…Â¸e:</strong> ${escapeHtml(formatFileSize(input.fileSize))}</p>
       </div>
 
       <div style="padding: 16px; border: 1px solid #F1D1A8; border-radius: 16px; background: #FFF8EE; margin-bottom: 16px;">
@@ -461,19 +461,19 @@ function buildAdminUploadNotificationEmail(input: {
           href="${adminUrl}"
           style="display: inline-block; padding: 12px 18px; background: #102A43; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: bold;"
         >
-          Admin-Anfragen ÃƒÂ¶ffnen
+          Admin-Anfragen ÃƒÆ’Ã‚Â¶ffnen
         </a>
       </p>
 
       <p>
         <a href="${adminDetailUrl}" style="color: #A75B28; font-weight: bold;">
-          Admin-Detail ÃƒÂ¶ffnen
+          Admin-Detail ÃƒÆ’Ã‚Â¶ffnen
         </a>
       </p>
 
       <p>
         <a href="${input.offerUrl}" style="color: #12395F; font-weight: bold;">
-          Kundenlink ÃƒÂ¶ffnen
+          Kundenlink ÃƒÆ’Ã‚Â¶ffnen
         </a>
       </p>
     </div>
@@ -760,6 +760,16 @@ export async function POST(request: Request) {
         : rawPhone && !looksLikeEmail(rawPhone)
           ? rawPhone
           : null;
+    if (!phone) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Bitte gib eine Telefonnummer an. Wir benötigen sie für Rückfragen zur Liste und Updates zu Deinem Paketstatus.",
+        },
+        { status: 400 }
+      );
+    }
 
     const requestInsertPayload = {
       source: leadSource,

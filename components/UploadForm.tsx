@@ -448,8 +448,7 @@ export default function UploadForm() {
                 htmlFor="phone"
                 className="mb-2 block text-sm font-black text-[#102A43]"
               >
-                Telefonnummer
-                <span className="font-semibold text-[#52616F]"> optional</span>
+                Telefonnummer*
               </label>
               <input
                 id="phone"
@@ -459,9 +458,17 @@ export default function UploadForm() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
-                placeholder="Optional fuer Rueckfragen"
+                placeholder="z. B. +49 162 1234567"
+                required
+                aria-describedby="phone-help"
                 className="min-h-14 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
+              <p
+                id="phone-help"
+                className="mt-1 text-xs font-semibold text-[#8A5A2B]"
+              >
+                Wichtig für Rückfragen zur Liste und Updates zu Deinem Paketstatus.
+              </p>
             </div>
 
             <div>

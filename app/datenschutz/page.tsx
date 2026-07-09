@@ -57,7 +57,7 @@ export default async function DatenschutzPage() {
           className="inline-flex w-fit items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
         >
           <ArrowLeft className="h-4 w-4" />
-          Zurück zur Startseite
+          ZurÃ¼ck zur Startseite
         </Link>
 
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
@@ -72,11 +72,11 @@ export default async function DatenschutzPage() {
               </p>
 
               <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-                Datenschutzerklärung
+                DatenschutzerklÃ¤rung
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
-                Hier informieren wir Dich darüber, welche personenbezogenen Daten
+                Hier informieren wir Dich darÃ¼ber, welche personenbezogenen Daten
                 bei der Nutzung von {settings.brand_name} verarbeitet werden.
               </p>
             </div>
@@ -84,7 +84,7 @@ export default async function DatenschutzPage() {
         </header>
 
         <Section title="1. Verantwortlicher">
-          <p>Verantwortlich für die Datenverarbeitung auf dieser Website ist:</p>
+          <p>Verantwortlich fÃ¼r die Datenverarbeitung auf dieser Website ist:</p>
 
           <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#102A43]">
             <p className="font-black">{displayName}</p>
@@ -105,7 +105,7 @@ export default async function DatenschutzPage() {
 
           {privacyEmail ? (
             <p>
-              Für Datenschutzanfragen erreichst Du uns unter:{" "}
+              FÃ¼r Datenschutzanfragen erreichst Du uns unter:{" "}
               <a
                 href={`mailto:${privacyEmail}`}
                 className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
@@ -118,17 +118,17 @@ export default async function DatenschutzPage() {
 
         <Section title="2. Welche Daten wir verarbeiten">
           <p>
-            Wenn Du über {settings.brand_name} eine Schulmaterialliste hochlädst
-            oder eine Anfrage absendest, können insbesondere folgende Daten
+            Wenn Du Ã¼ber {settings.brand_name} eine Schulmaterialliste hochlÃ¤dst
+            oder eine Anfrage absendest, kÃ¶nnen insbesondere folgende Daten
             verarbeitet werden:
           </p>
 
           <BulletList
             items={[
-              "Name und Kontaktdaten, insbesondere E-Mail-Adresse und optional Telefonnummer",
+              "Name und Kontaktdaten, insbesondere E-Mail-Adresse und Telefonnummer",
               "Angaben zum Kind, zur Schule und zur Klasse, soweit Du sie freiwillig eingibst",
               "hochgeladene Schulmateriallisten als Foto, Screenshot oder PDF",
-              "erkannte Listenpositionen, Produktvorschläge und ausgewählte Paketpositionen",
+              "erkannte Listenpositionen, ProduktvorschlÃ¤ge und ausgewÃ¤hlte Paketpositionen",
               "technische Daten wie Zeitpunkt der Anfrage, Status der Bearbeitung und Systemereignisse",
             ]}
           />
@@ -141,9 +141,9 @@ export default async function DatenschutzPage() {
             items={[
               "Deine hochgeladene Schulmaterialliste auszuwerten",
               "passende Schulmaterial-Produkte vorzubereiten oder vorzuschlagen",
-              "Deinen persönlichen Schulmaterial-Paketwunsch zu erstellen",
-              "Rückfragen zu Deiner Anfrage zu ermöglichen",
-              "Dir Angebotslinks, Aktualisierungen oder Bestätigungen per E-Mail zu senden",
+              "Deinen persÃ¶nlichen Schulmaterial-Paketwunsch zu erstellen",
+              "RÃ¼ckfragen zu Deiner Anfrage zu ermÃ¶glichen",
+              "Dir Angebotslinks, Aktualisierungen oder BestÃ¤tigungen per E-Mail zu senden",
               "die Anfrage intern im Adminbereich nachvollziehbar zu bearbeiten",
             ]}
           />
@@ -152,27 +152,27 @@ export default async function DatenschutzPage() {
         <Section title="4. Rechtsgrundlagen">
           <p>
             Die Verarbeitung erfolgt je nach Situation auf Grundlage vorvertraglicher
-            Maßnahmen bzw. Vertragsabwicklung, berechtigter Interessen an einer
+            MaÃŸnahmen bzw. Vertragsabwicklung, berechtigter Interessen an einer
             effizienten Bearbeitung Deiner Anfrage sowie Deiner freiwilligen
             Eingaben und Uploads.
           </p>
 
           <p>
-            Soweit Du uns freiwillig zusätzliche Angaben machst, nutzen wir diese
+            Soweit Du uns freiwillig zusÃ¤tzliche Angaben machst, nutzen wir diese
             nur zur Bearbeitung Deiner Schulmaterial-Anfrage.
           </p>
         </Section>
 
         <Section title="5. Uploads und Schulmateriallisten">
           <p>
-            Hochgeladene Dateien können personenbezogene Informationen enthalten,
+            Hochgeladene Dateien kÃ¶nnen personenbezogene Informationen enthalten,
             etwa Namen, Schule, Klasse oder handschriftliche Notizen. Bitte lade
             nur Dateien hoch, die zur Bearbeitung Deiner Anfrage erforderlich sind.
           </p>
 
           <p>
             Die Dateien werden genutzt, um daraus erkennbare Materialpositionen
-            und passende Produktvorschläge abzuleiten. Eine darüber hinausgehende
+            und passende ProduktvorschlÃ¤ge abzuleiten. Eine darÃ¼ber hinausgehende
             Nutzung zu Werbezwecken erfolgt nicht.
           </p>
         </Section>
@@ -214,36 +214,36 @@ export default async function DatenschutzPage() {
 
           <p>
             Diese Dienstleister werden eingesetzt, um die Website bereitzustellen,
-            Dateien zu speichern, Anfragen zu bearbeiten, KI-gestützte
+            Dateien zu speichern, Anfragen zu bearbeiten, KI-gestÃ¼tzte
             Auswertungen vorzunehmen und E-Mails zu versenden.
           </p>
         </Section>
 
-        <Section title="7. KI-gestützte Auswertung">
+        <Section title="7. KI-gestÃ¼tzte Auswertung">
           <p>
-            Für die automatische Analyse der hochgeladenen Schulmateriallisten
+            FÃ¼r die automatische Analyse der hochgeladenen Schulmateriallisten
             kann ein KI-Dienst eingesetzt werden. Dabei werden die Inhalte der
             hochgeladenen Liste verarbeitet, um Materialpositionen wie Hefte,
-            Umschläge, Stifte oder ähnliche Schulartikel zu erkennen.
+            UmschlÃ¤ge, Stifte oder Ã¤hnliche Schulartikel zu erkennen.
           </p>
 
           <p>
-            Die KI-Auswertung dient ausschließlich der Vorbereitung Deines
+            Die KI-Auswertung dient ausschlieÃŸlich der Vorbereitung Deines
             Paketwunsches. Unsichere oder nicht eindeutig erkannte Positionen
-            werden durch unser Team manuell geprüft.
+            werden durch unser Team manuell geprÃ¼ft.
           </p>
         </Section>
 
         <Section title="8. Speicherdauer">
           <p>
             Wir speichern personenbezogene Daten und hochgeladene Dateien nur so
-            lange, wie sie für die Bearbeitung Deiner Anfrage, gesetzliche
+            lange, wie sie fÃ¼r die Bearbeitung Deiner Anfrage, gesetzliche
             Pflichten oder interne Nachvollziehbarkeit erforderlich sind.
           </p>
 
           <p>
-            Test- oder nicht mehr benötigte Daten können im Adminbereich gelöscht
-            werden. Eine automatische Löschfrist kann später technisch ergänzt
+            Test- oder nicht mehr benÃ¶tigte Daten kÃ¶nnen im Adminbereich gelÃ¶scht
+            werden. Eine automatische LÃ¶schfrist kann spÃ¤ter technisch ergÃ¤nzt
             werden.
           </p>
         </Section>
@@ -254,7 +254,7 @@ export default async function DatenschutzPage() {
             Marketing-Cookies und kein Google Analytics. Die Google Search
             Console kann zur technischen Verifizierung und Auffindbarkeit der
             Website genutzt werden, setzt aber auf dieser Website keine
-            Marketing-Cookies für Besucher.
+            Marketing-Cookies fÃ¼r Besucher.
           </p>
         </Section>
 
@@ -263,19 +263,19 @@ export default async function DatenschutzPage() {
 
           <BulletList
             items={[
-              "Auskunft über die zu Deiner Person gespeicherten Daten",
+              "Auskunft Ã¼ber die zu Deiner Person gespeicherten Daten",
               "Berichtigung unrichtiger Daten",
-              "Löschung von Daten, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen",
-              "Einschränkung der Verarbeitung",
+              "LÃ¶schung von Daten, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen",
+              "EinschrÃ¤nkung der Verarbeitung",
               "Widerspruch gegen bestimmte Verarbeitungen",
-              "Datenübertragbarkeit, soweit anwendbar",
-              "Beschwerde bei einer zuständigen Datenschutzaufsichtsbehörde",
+              "DatenÃ¼bertragbarkeit, soweit anwendbar",
+              "Beschwerde bei einer zustÃ¤ndigen DatenschutzaufsichtsbehÃ¶rde",
             ]}
           />
 
           {privacyEmail ? (
             <p>
-              Zur Ausübung Deiner Rechte kannst Du uns unter{" "}
+              Zur AusÃ¼bung Deiner Rechte kannst Du uns unter{" "}
               <a
                 href={`mailto:${privacyEmail}`}
                 className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
@@ -287,19 +287,19 @@ export default async function DatenschutzPage() {
           ) : null}
         </Section>
 
-        <Section title="11. Änderungen dieser Datenschutzerklärung">
+        <Section title="11. Ã„nderungen dieser DatenschutzerklÃ¤rung">
           <p>
-            Wir können diese Datenschutzerklärung anpassen, wenn sich die
-            Website, eingesetzte Dienste oder rechtliche Anforderungen ändern.
-            Es gilt die jeweils auf dieser Seite veröffentlichte Fassung.
+            Wir kÃ¶nnen diese DatenschutzerklÃ¤rung anpassen, wenn sich die
+            Website, eingesetzte Dienste oder rechtliche Anforderungen Ã¤ndern.
+            Es gilt die jeweils auf dieser Seite verÃ¶ffentlichte Fassung.
           </p>
         </Section>
 
         <section className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-sm font-semibold leading-6 text-[#A75B28]">
           <p>
-            Hinweis: Diese Datenschutzerklärung ist eine technische und
+            Hinweis: Diese DatenschutzerklÃ¤rung ist eine technische und
             inhaltliche Vorlage auf Basis der aktuellen Projektfunktionen. Sie
-            ersetzt keine individuelle rechtliche Prüfung.
+            ersetzt keine individuelle rechtliche PrÃ¼fung.
           </p>
         </section>
       </section>
