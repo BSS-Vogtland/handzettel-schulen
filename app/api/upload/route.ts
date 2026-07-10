@@ -921,7 +921,7 @@ export async function POST(request: Request) {
     const offerUrl = `${siteUrl}/angebot/${createdRequest.offer_token}`;
     const firstFile = childrenWithFiles[0].file;
 
-    await sendAdminUploadNotificationSafely({
+    void sendAdminUploadNotificationSafely({
       requestId: createdRequest.id,
       requestNumber: createdRequest.request_number,
       offerUrl,
@@ -946,8 +946,9 @@ export async function POST(request: Request) {
       originalFilename: firstFile.name,
       fileType: firstFile.type,
       fileSize: firstFile.size,
+    }).catch((error) => {
+      console.error("background admin upload notification error:", error);
     });
-
     let emailSent = false;
     let emailMessage: string | null = email
       ? "Kundenmail nach Upload bewusst deaktiviert. Die naechste Kundenmail erfolgt erst, wenn der Paketwunsch fertig ist oder nach verbindlicher Bestellung mit Rechnung."
