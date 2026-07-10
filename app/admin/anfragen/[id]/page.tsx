@@ -237,7 +237,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -268,7 +268,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+  if (!value) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -280,7 +280,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+  if (!value) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -290,7 +290,7 @@ function formatDate(value: string | null) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+  if (!size) return "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -306,17 +306,17 @@ function getStatusLabel(status: string | null) {
     case "analysis_pending":
       return "Analyse offen";
     case "analysis_running":
-      return "Analyse lÃƒÆ’Ã‚Â¤uft";
+      return "Analyse lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤uft";
     case "analysis_done":
       return "Analyse fertig";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
       return "Angebot gesendet";
     case "confirmed":
-      return "BestÃƒÆ’Ã‚Â¤tigt";
+      return "BestÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tigt";
     case "cancelled":
       return "Abgebrochen";
     default:
@@ -329,7 +329,7 @@ function getOfferStatusLabel(status: string | null) {
     case "not_created":
       return "Noch nicht erstellt";
     case "matching_done":
-      return "ProduktvorschlÃƒÆ’Ã‚Â¤ge erstellt";
+      return "ProduktvorschlÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ge erstellt";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
@@ -337,11 +337,11 @@ function getOfferStatusLabel(status: string | null) {
     case "customer_selection":
       return "Kundenauswahl";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
     case "confirmed":
-      return "BestÃƒÆ’Ã‚Â¤tigt";
+      return "BestÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tigt";
     default:
-      return status || "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+      return status || "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
   }
 }
 
@@ -350,21 +350,21 @@ function getAiStatusLabel(status: string | null) {
     case "pending":
       return "Offen";
     case "running":
-      return "LÃƒÆ’Ã‚Â¤uft";
+      return "LÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤uft";
     case "done":
       return "Fertig";
     case "error":
       return "Fehler";
     case "manual_review":
-      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
+      return "Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung";
     case "missing_file":
       return "Datei fehlt";
     case "unsupported_file_type":
-      return "Dateityp nicht unterstÃƒÆ’Ã‚Â¼tzt";
+      return "Dateityp nicht unterstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼tzt";
     case "no_items_detected":
       return "Keine Positionen erkannt";
     default:
-      return status || "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
+      return status || "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â";
   }
 }
 
@@ -378,8 +378,8 @@ function getMatchScoreLabel(score: unknown) {
   if (value >= 85) return "Sehr passend";
   if (value >= 80) return "Fast passend";
   if (value >= 70) return "Passend";
-  if (value >= 55) return "MÃƒÆ’Ã‚Â¶glich";
-  return "PrÃƒÆ’Ã‚Â¼fen";
+  if (value >= 55) return "MÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶glich";
+  return "PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen";
 }
 
 function getItemKeyFacts(item: RequestItem) {
@@ -407,18 +407,18 @@ function getItemKeyFacts(item: RequestItem) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "Automatisch vorausgewÃƒÆ’Ã‚Â¤hlt";
+      return "Automatisch vorausgewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt";
     case "auto_safe_match":
-      return "Sicher automatisch ÃƒÆ’Ã‚Â¼bernommen";
+      return "Sicher automatisch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernommen";
     case "match":
-      return "Aus Produktvorschlag ÃƒÆ’Ã‚Â¼bernommen";
+      return "Aus Produktvorschlag ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernommen";
     case "admin_manual":
-      return "Manuell im Admin ergÃƒÆ’Ã‚Â¤nzt";
+      return "Manuell im Admin ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzt";
     case "manual":
-      return "Manuell ergÃƒÆ’Ã‚Â¤nzt";
+      return "Manuell ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzt";
     case "customer":
     case "customer_selected":
-      return "Vom Kunden gewÃƒÆ’Ã‚Â¤hlt";
+      return "Vom Kunden gewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt";
     default:
       return source || "Unbekannte Quelle";
   }
@@ -470,7 +470,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     case "cancelled":
-      return "ZurÃƒÆ’Ã‚Â¼ckgezogen";
+      return "ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen";
     default:
       return status || "Unbekannt";
   }
@@ -502,7 +502,7 @@ function isArchivedSchoolRequest(request: SchoolRequest) {
 function getArchiveReasonLabel(reason?: string | null) {
   switch (reason) {
     case "auto_unpaid_14_days":
-      return "Automatisch archiviert: lÃƒÆ’Ã‚Â¤nger als 14 Tage nicht bezahlt";
+      return "Automatisch archiviert: lÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nger als 14 Tage nicht bezahlt";
     default:
       return reason || "Archiviert";
   }
@@ -513,6 +513,50 @@ function cleanChildText(value: unknown) {
   return text.length > 0 ? text : null;
 }
 
+const RESOLVED_REQUEST_ITEM_STATUSES = new Set([
+  "customer_supplies_self",
+  "covered_by_alternative",
+  "not_needed",
+  "resolved",
+  "done",
+  "ignored",
+]);
+
+function getResolvedRequestItemStatus(item: RequestItem) {
+  const record = item as {
+    status?: string | null;
+    admin_resolution_status?: string | null;
+  };
+
+  const adminStatus = String(record.admin_resolution_status || "")
+    .trim()
+    .toLowerCase();
+  const itemStatus = String(record.status || "")
+    .trim()
+    .toLowerCase();
+
+  if (RESOLVED_REQUEST_ITEM_STATUSES.has(adminStatus)) return adminStatus;
+  if (RESOLVED_REQUEST_ITEM_STATUSES.has(itemStatus)) return itemStatus;
+
+  return "";
+}
+
+function getResolvedRequestItemLabel(status: string) {
+  switch (status) {
+    case "customer_supplies_self":
+      return "Kunde besorgt selbst";
+    case "covered_by_alternative":
+      return "Durch Alternative/Sammelposition abgedeckt";
+    case "not_needed":
+      return "Vom Kunden entfernt";
+    case "resolved":
+    case "done":
+    case "ignored":
+      return "Erledigt";
+    default:
+      return "";
+  }
+}
 function isManualAdminRequestItem(item: RequestItem) {
   return item.status === "manual_admin_added";
 }
@@ -735,7 +779,7 @@ function AdminRequestChildrenOverview({
       answer_text?: string | null;
     };
 
-    return cleanChildText(record.question_text) || "RÃƒÆ’Ã‚Â¼ckfrage ohne Text";
+    return cleanChildText(record.question_text) || "RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfrage ohne Text";
   };
 
   const childIdByRequestItemId = new Map(
@@ -777,1220 +821,9 @@ function AdminRequestChildrenOverview({
       const record = item as unknown as {
         id?: string | null;
         admin_resolution_status?: string | null;
-      };
-
-      const adminResolutionStatus = String(
-        record.admin_resolution_status || ""
-      ).trim();
-
-      return (
-        !adminResolutionStatus &&
-        !!record.id &&
-        !offerItemsByRequestItemId.has(record.id)
-      );
-    });
-
-    return {
-      id: childId,
-      label: getAdminChildLabel(child, index),
-      meta: [
-        cleanChildText(child.child_name),
-        cleanChildText(child.school_name),
-        cleanChildText(child.class_name)
-          ? `Klasse ${cleanChildText(child.class_name)}`
-          : null,
-      ].filter(Boolean) as string[],
-      files: childFiles,
-      items: childItems,
-      offerItems: childOfferItems,
-      openItems: childOpenItems,
-      questions: childQuestions,
-    };
-  });
-
-  if (hasRealChildren) {
-    const unassignedFiles = files.filter((file) => !getChildRowId(file));
-    const unassignedItems = items.filter((item) => !getChildRowId(item));
-    const unassignedOfferItems = offerItems.filter(
-      (offerItem) => !getChildRowId(offerItem)
-    );
-    const unassignedQuestions = questions.filter(
-      (question) => !getChildRowId(question)
-    );
-
-    const unassignedOpenItems = unassignedItems.filter((item) => {
-      const record = item as unknown as {
-        id?: string | null;
-        admin_resolution_status?: string | null;
-      };
-
-      const adminResolutionStatus = String(
-        record.admin_resolution_status || ""
-      ).trim();
-
-      return (
-        !adminResolutionStatus &&
-        !!record.id &&
-        !offerItemsByRequestItemId.has(record.id)
-      );
-    });
-
-    if (
-      unassignedFiles.length > 0 ||
-      unassignedItems.length > 0 ||
-      unassignedOfferItems.length > 0 ||
-      unassignedQuestions.length > 0
-    ) {
-      groups.push({
-        id: "unassigned",
-        label: "Allgemein / keinem Kind zugeordnet",
-        meta: ["Allgemeine EintrÃƒÆ’Ã‚Â¤ge oder noch nicht eindeutig zugeordnet."],
-        files: unassignedFiles,
-        items: unassignedItems,
-        offerItems: unassignedOfferItems,
-        openItems: unassignedOpenItems,
-        questions: unassignedQuestions,
-      });
-    }
-  }
-
-  return (
-    <section className="rounded-[32px] border border-[#D6E7EF] bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-            Kinder / Listen-Gruppen
-          </p>
-          <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-            Admin-ÃƒÆ’Ã…â€œbersicht nach Kind
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-            Dateien, erkannte Listenpositionen, Paketpositionen, offene Punkte
-            und RÃƒÆ’Ã‚Â¼ckfragen werden pro Kind getrennt angezeigt. Die normalen
-            Bearbeitungsaktionen bleiben darunter unverÃƒÆ’Ã‚Â¤ndert erhalten.
-          </p>
-        </div>
-
-        <AdminRequestChildCreateForm requestId={request.id} />
-      </div>
-
-      <div className="mt-5 grid gap-4">
-        {groups.map((group) => (
-          <article
-            key={group.id}
-            className={
-              group.id === "unassigned"
-                ? "rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-4"
-                : "rounded-[28px] border border-[#D6E7EF] bg-[#F5FAFD] p-4"
-            }
-          >
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <h3 className="text-xl font-black text-[#102A43]">
-                  {group.label}
-                </h3>
-                <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                  {group.meta.length > 0
-                    ? group.meta.join(" Ãƒâ€šÃ‚Â· ")
-                    : "Keine Zusatzangaben hinterlegt."}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-5 gap-2 text-center text-xs font-black text-[#102A43]">
-                {[
-                  ["Dateien", group.files.length],
-                  ["Listen", group.items.length],
-                  ["Paket", group.offerItems.length],
-                  ["Offen", group.openItems.length],
-                  ["RÃƒÆ’Ã‚Â¼ckfragen", group.questions.length],
-                ].map(([label, count]) => (
-                  <div
-                    key={label}
-                    className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2"
-                  >
-                    <p className="text-[#52616F]">{label}</p>
-                    <p className="mt-1 text-lg">{count}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 xl:grid-cols-4">
-              <div className="rounded-2xl border border-[#D6E7EF] bg-white p-3">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-                  Dateien
-                </p>
-                {group.files.length > 0 ? (
-                  <ul className="space-y-2">
-                    {group.files.slice(0, 5).map((file) => (
-                      <li
-                        key={(file as unknown as { id?: string }).id || getFileTitle(file)}
-                        className="rounded-xl bg-[#F5FAFD] px-3 py-2 text-xs font-semibold text-[#52616F]"
-                      >
-                        {getFileTitle(file)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs font-semibold text-[#52616F]">
-                    Keine Datei zugeordnet.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-[#D6E7EF] bg-white p-3">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-                  Listenpositionen
-                </p>
-                {group.items.length > 0 ? (
-                  <ul className="space-y-2">
-                    {group.items.slice(0, 8).map((item) => (
-                      <li
-                        key={(item as unknown as { id?: string }).id || getRequestItemDisplayTitle(item)}
-                        className="rounded-xl bg-[#F5FAFD] px-3 py-2"
-                      >
-                        <p className="text-xs font-black text-[#102A43]">
-                          {getRequestItemDisplayTitle(item)}
-                        </p>
-                        {getRequestItemMeta(item).length > 0 ? (
-                          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getRequestItemMeta(item).join(" Ãƒâ€šÃ‚Â· ")}
-                          </p>
-                        ) : null}
-                      </li>
-                    ))}
-                    {group.items.length > 8 ? (
-                      <li className="text-xs font-bold text-[#52616F]">
-                        + {group.items.length - 8} weitere
-                      </li>
-                    ) : null}
-                  </ul>
-                ) : (
-                  <p className="text-xs font-semibold text-[#52616F]">
-                    Keine Listenposition erkannt.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-[#BFE3CD] bg-white p-3">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-                  Paketpositionen
-                </p>
-                {group.offerItems.length > 0 ? (
-                  <ul className="space-y-2">
-                    {group.offerItems.slice(0, 8).map((item) => (
-                      <li
-                        key={(item as unknown as { id?: string }).id || getOfferItemTitle(item)}
-                        className="rounded-xl bg-[#F0FFF6] px-3 py-2"
-                      >
-                        <p className="text-xs font-black text-[#102A43]">
-                          {getOfferItemTitle(item)}
-                        </p>
-                        {getOfferItemMeta(item).length > 0 ? (
-                          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getOfferItemMeta(item).join(" Ãƒâ€šÃ‚Â· ")}
-                          </p>
-                        ) : null}
-                      </li>
-                    ))}
-                    {group.offerItems.length > 8 ? (
-                      <li className="text-xs font-bold text-[#52616F]">
-                        + {group.offerItems.length - 8} weitere
-                      </li>
-                    ) : null}
-                  </ul>
-                ) : (
-                  <p className="text-xs font-semibold text-[#52616F]">
-                    Noch keine Paketposition.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-[#F1D1A8] bg-white p-3">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                  Offen / RÃƒÆ’Ã‚Â¼ckfragen
-                </p>
-
-                {group.openItems.length > 0 ? (
-                  <div className="mb-3">
-                    <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                      Offen
-                    </p>
-                    <ul className="space-y-2">
-                      {group.openItems.slice(0, 5).map((item) => (
-                        <li
-                          key={(item as unknown as { id?: string }).id || getRequestItemDisplayTitle(item)}
-                          className="rounded-xl bg-[#FFF8EE] px-3 py-2 text-xs font-semibold text-[#102A43]"
-                        >
-                          {getRequestItemDisplayTitle(item)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="mb-3 text-xs font-semibold text-[#52616F]">
-                    Keine offenen Listenpositionen.
-                  </p>
-                )}
-
-                {group.questions.length > 0 ? (
-
-
-                  <div className="mt-4 border-t border-[#F1D1A8] pt-3">
-
-
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#A75B28]">
-
-
-                      {group.id === "unassigned"
-
-
-                        ? "Allgemeine / nicht zugeordnete RÃƒÆ’Ã‚Â¼ckfragen"
-
-
-                        : "RÃƒÆ’Ã‚Â¼ckfragen an Kunden"}
-
-
-                    </p>
-
-
-                  </div>
-
-
-                ) : null}
-
-
-
-                {group.questions.length > 0 ? (
-                  <div>
-                    <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                      RÃƒÆ’Ã‚Â¼ckfragen
-                    </p>
-                    <ul className="space-y-2">
-                      {group.questions.slice(0, 5).map((question) => (
-                        <li
-                          key={(question as unknown as { id?: string }).id || getQuestionTitle(question)}
-                          className="rounded-xl bg-[#FFF8EE] px-3 py-2"
-                        >
-                          <p className="text-xs font-semibold leading-5 text-[#102A43]">
-                            {getQuestionTitle(question)}
-                          </p>
-                          <p className="mt-1 text-[11px] font-black text-[#A75B28]">
-                            {getQuestionStatusLabel(
-                              (question as unknown as { status?: string | null }).status || null
-                            )}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="text-xs font-semibold text-[#52616F]">
-                    Keine RÃƒÆ’Ã‚Â¼ckfragen.
-                  </p>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export default async function AdminRequestDetailPage({ params }: Params) {
-  const { id } = await params;
-  const supabase = getSupabaseAdmin();
-
-  const { data: requestData, error: requestError } = await supabase
-    .from("school_requests")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (requestError) {
-    throw new Error(`Anfrage konnte nicht geladen werden: ${requestError.message}`);
-  }
-
-  if (!requestData) {
-    notFound();
-  }
-
-  const request = requestData as SchoolRequest;
-
-  const { data: requestChildrenData, error: requestChildrenError } =
-    await supabase
-      .from("school_request_children")
-      .select("*")
-      .eq("request_id", request.id)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-
-  if (requestChildrenError) {
-    throw new Error(
-      `Kinder/Gruppen konnten nicht geladen werden: ${requestChildrenError.message}`
-    );
-  }
-
-  const requestChildren = (requestChildrenData || []) as RequestChild[];
-
-  const [
-    { data: filesData, error: filesError },
-    { data: itemsData, error: itemsError },
-    { data: offerItemsData, error: offerItemsError },
-    { data: questionsData, error: questionsError },
-    { data: eventsData, error: eventsError },
-  ] = await Promise.all([
-    supabase
-      .from("school_request_files")
-      .select("*")
-      .eq("request_id", request.id)
-      .order("created_at", { ascending: true }),
-
-    supabase
-      .from("school_request_items")
-      .select("*")
-      .eq("request_id", request.id)
-      .order("created_at", { ascending: true }),
-
-    supabase
-      .from("school_offer_items")
-      .select("*")
-      .eq("request_id", request.id)
-      .order("created_at", { ascending: true }),
-
-    supabase
-      .from("school_request_item_questions")
-      .select("*")
-      .eq("request_id", request.id)
-      .neq("status", "cancelled")
-      .order("created_at", { ascending: true }),
-
-    supabase
-      .from("school_request_events")
-      .select("*")
-      .eq("request_id", request.id)
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
-
-  if (filesError) {
-    throw new Error(`Dateien konnten nicht geladen werden: ${filesError.message}`);
-  }
-
-  if (itemsError) {
-    throw new Error(`Positionen konnten nicht geladen werden: ${itemsError.message}`);
-  }
-
-  if (offerItemsError) {
-    throw new Error(
-      `AusgewÃƒÆ’Ã‚Â¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
-    );
-  }
-
-  if (questionsError) {
-    throw new Error(
-      `RÃƒÆ’Ã‚Â¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
-    );
-  }
-
-  if (eventsError) {
-    throw new Error(`Events konnten nicht geladen werden: ${eventsError.message}`);
-  }
-
-  const files = (filesData || []) as RequestFile[];
-  const items = ((itemsData || []) as RequestItem[]).sort(compareAdminRequestItems);
-  const offerItems = (offerItemsData || []) as OfferItem[];
-  const questions = (questionsData || []) as RequestItemQuestion[];
-  const events = (eventsData || []) as EventRow[];
-
-  const questionsByRequestItem = new Map<string, RequestItemQuestion[]>();
-  const generalQuestions: RequestItemQuestion[] = [];
-
-  for (const question of questions) {
-    if (!question.request_item_id) {
-      generalQuestions.push(question);
-      continue;
-    }
-
-    const current = questionsByRequestItem.get(question.request_item_id) || [];
-    current.push(question);
-    questionsByRequestItem.set(question.request_item_id, current);
-  }
-
-  const itemIds = items.map((item) => item.id);
-
-  let matches: RequestMatch[] = [];
-
-  if (itemIds.length > 0) {
-    const { data: matchesData, error: matchesError } = await supabase
-      .from("school_request_matches")
-      .select("*")
-      .in("request_item_id", itemIds)
-      .order("request_item_id", { ascending: true })
-      .order("match_score", { ascending: false })
-      .order("product_name", { ascending: true })
-      .order("product_sku", { ascending: true })
-      .order("id", { ascending: true });
-
-    if (matchesError) {
-      throw new Error(
-        `ProduktvorschlÃƒÆ’Ã‚Â¤ge konnten nicht geladen werden: ${matchesError.message}`
-      );
-    }
-
-    matches = ((matchesData || []) as RequestMatch[]).sort(compareMatchesStable);
-  }
-
-  const matchesByItem = new Map<string, RequestMatch[]>();
-
-  for (const item of items) {
-    const itemMatches = matches
-      .filter((match) => match.request_item_id === item.id)
-      .sort(compareMatchesStable);
-
-    matchesByItem.set(item.id, itemMatches);
-  }
-
-  const requestItemById = new Map(items.map((item) => [item.id, item]));
-  const requestItemIndexById = new Map(
-    items.map((item, index) => [item.id, index + 1])
-  );
-    const manualOfferChildOptions = requestChildren.map((child, index) => ({
-    id: child.id,
-    label: getAdminChildLabel(child, index),
-  }));
-const matchById = new Map(matches.map((match) => [match.id, match]));
-  const offerItemsByRequestItem = new Map<string, OfferItem[]>();
-  const offerMatchIds = new Set<string>();
-
-  for (const offerItem of offerItems) {
-    if (offerItem.match_id) {
-      offerMatchIds.add(offerItem.match_id);
-    }
-
-    if (offerItem.request_item_id) {
-      const current = offerItemsByRequestItem.get(offerItem.request_item_id) || [];
-      current.push(offerItem);
-      offerItemsByRequestItem.set(offerItem.request_item_id, current);
-    }
-  }
-
-  const manualReviewItems = items.filter((item) => {
-    const selected = offerItemsByRequestItem.get(item.id) || [];
-    const adminResolutionStatus = String(
-      (item as { admin_resolution_status?: string | null }).admin_resolution_status ||
-        ""
-    ).trim();
-
-    // ZÃƒÆ’Ã‚Â¤hlt alle Positionen, die noch nicht im Paketwunsch liegen
-    // und noch nicht manuell entschieden wurden.
-    // Matches allein erledigen eine Position nicht.
-    return !adminResolutionStatus && selected.length === 0;
-  });
-
-  const manualReviewCount =
-    manualReviewItems.length + (items.length === 0 ? 1 : 0);
-
-  const selectedTotal = offerItems.reduce((sum, item) => {
-    return sum + toNumber(item.quantity, 1) * toNumber(item.product_price, 0);
-  }, 0);
-
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://www.handzettel-schulen.de";
-
-  const customerOfferUrl = request.offer_token
-    ? `${siteUrl}/angebot/${request.offer_token}`
-    : null;
-
-  const signedFiles = await Promise.all(
-    files.map(async (file) => {
-      if (!file.storage_path) {
-        return {
-          ...file,
-          signedUrl: file.file_url || null,
-        };
-      }
-
-      const { data } = await supabase.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(file.storage_path, 60 * 30);
-
-      return {
-        ...file,
-        signedUrl: data?.signedUrl || file.file_url || null,
-      };
-    })
-  );
-
-  const refreshedAt = new Date().toISOString();
-  const isArchived = isArchivedSchoolRequest(request);
-
-  return (
-    <main data-admin-request-page className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
-      <AdminScrollToPackageChecklist />
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        {isArchived ? (
-          <section className="rounded-[32px] border border-[#F2B8B8] bg-[#FFF1F1] p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#B5282D]">
-                  Archivierte Anfrage
-                </p>
-                <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                  Diese Anfrage ist inaktiv.
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
-                  {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
-                  keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
-                  VorgangszÃƒÆ’Ã‚Â¤hler mehr.
-                </p>
-                {request.archived_at ? (
-                  <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
-                    Archiviert am: {formatDateTime(request.archived_at)}
-                  </p>
-                ) : null}
-              </div>
-
-              <RestoreRequestButton requestId={request.id} />
-            </div>
-          </section>
-        ) : null}
-
-        <div className="grid gap-3">
-          <div className="flex flex-col gap-3 rounded-[28px] border border-[#E8DED2] bg-white/80 p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/admin/anfragen"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:border-[#12395F] hover:bg-[#F5FAFD]"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Zur&uuml;ck zur &Uuml;bersicht
-              </Link>
-
-              <a
-                href={`/admin/anfragen/${request.id}`}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Aktualisieren
-              </a>
-            </div>
-
-            {customerOfferUrl ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <a
-                  href={customerOfferUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
-                >
-                  <Eye className="h-4 w-4" />
-                  Kundenseite &ouml;ffnen
-                </a>
-
-                <div className="sm:min-w-[250px]">
-                  <CopyOfferLinkButton url={customerOfferUrl} variant="primary" />
-                </div>
-
-                <div className="sm:min-w-[250px]">
-                  <AdminWhatsappUpdateButton
-                    requestId={request.id}
-                    phone={request.phone}
-                    enabled={request.whatsapp_updates_enabled !== false}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-3 shadow-sm xl:flex-row xl:items-start">
-            <AdminReanalyzeRequestButton
-              requestId={request.id}
-              itemCount={items.length}
-              offerItemsCount={offerItems.length}
-            />
-
-            <AdminStrongReanalyzeRequestButton requestId={request.id} />
-
-            <AdminRematchRequestButton
-              requestId={request.id}
-              itemCount={items.length}
-            />
-
-            <AdminAdoptSafeMatchesButton
-              requestId={request.id}
-              itemCount={items.length}
-            />
-          </div>
-        </div>
-        <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-                <ClipboardList className="h-3.5 w-3.5" />
-                Admin-Detailansicht
-              </div>
-
-              <h1 className="text-3xl font-black tracking-tight text-[#102A43] sm:text-4xl">
-                Anfrage {request.request_number || request.id}
-              </h1>
-
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
-                Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
-                zuerst Anfrage und Kundendaten, dann Materialliste und
-                ProduktprÃƒÆ’Ã‚Â¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
-                Abwicklung. SpÃƒÆ’Ã‚Â¤tere Schritte liegen bewusst weiter unten.
-              </p>
-            </div>
-
-            <div className="rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">Anfrage</span>
-                  <span className="font-black text-[#102A43]">
-                    {getStatusLabel(request.status)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">KI</span>
-                  <span className="font-black text-[#102A43]">
-                    {getAiStatusLabel(request.ai_status)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">Quelle</span>
-                  <span
-                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getLeadSourceBadgeClass(
-                      request.source
-                    )}`}
-                  >
-                    {getLeadSourceLabel(request.source)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">Angebot</span>
-                  <span className="font-black text-[#102A43]">
-                    {getOfferStatusLabel(request.offer_status)}
-                  </span>
-                </div>
-
-                <div className="h-px bg-[#E8DED2]" />
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">Erstellt</span>
-                  <span className="font-black text-[#102A43]">
-                    {formatDate(request.created_at)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-[#52616F]">Geladen</span>
-                  <span className="font-black text-[#102A43]">
-                    {formatDateTime(refreshedAt)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <AdminRequestChildrenOverview
-          request={request}
-          children={requestChildren}
-          files={files}
-          items={items}
-          offerItems={offerItems}
-          questions={questions}
-        />
-
-        <section className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F4E9DC] text-[#A75B28]">
-              <FileText className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Erkannte Positionen
-            </p>
-            <p className="mt-2 text-3xl font-black">{items.length}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F4E9DC] text-[#A75B28]">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              VorschlÃƒÆ’Ã‚Â¤ge
-            </p>
-            <p className="mt-2 text-3xl font-black">{matches.length}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F4E9DC] text-[#A75B28]">
-              <PackageCheck className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Paketpositionen
-            </p>
-            <p className="mt-2 text-3xl font-black">{offerItems.length}</p>
-          </div>
-
-          <div className="rounded-[28px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF4E5] text-[#A75B28]">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Manuell prÃƒÆ’Ã‚Â¼fen
-            </p>
-            <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
-          <aside className="space-y-6">
-            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                    Kunde
-                  </p>
-                  <h2 className="font-black text-[#102A43]">
-                    {request.customer_name || "Nicht angegeben"}
-                  </h2>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                  <div className="mb-1 flex items-center gap-2 font-black text-[#102A43]">
-                    <School className="h-4 w-4 text-[#A75B28]" />
-                    Kind / Schule
-                  </div>
-                  <p className="text-[#52616F]">
-                    {request.child_name || "Kind nicht angegeben"}
-                  </p>
-                  <p className="text-[#52616F]">
-                    {request.school_name || "Schule nicht angegeben"}
-                    {request.class_name ? ` Ãƒâ€šÃ‚Â· Klasse ${request.class_name}` : ""}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                  <div className="mb-1 flex items-center gap-2 font-black text-[#102A43]">
-                    <Mail className="h-4 w-4 text-[#A75B28]" />
-                    E-Mail
-                  </div>
-                  <p className="break-words text-[#52616F]">
-                    {request.email || "Nicht angegeben"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                  <div className="mb-1 flex items-center gap-2 font-black text-[#102A43]">
-                    <Phone className="h-4 w-4 text-[#A75B28]" />
-                    Telefon
-                  </div>
-                  <div className="break-words text-[#52616F]">
-                    <div>{request.phone || "Nicht angegeben"}</div>
-                    <AdminRequestPhoneEditor
-                      requestId={request.id}
-                      initialPhone={request.phone}
-                    />
-                  </div>
-                </div>
-
-                <AdminCustomerPresenceBadge requestId={request.id} />
-
-                {request.message ? (
-                  <div className="rounded-2xl bg-[#FBF7F0] p-3">
-                    <p className="mb-1 font-black text-[#102A43]">Bemerkung</p>
-                    <p className="whitespace-pre-wrap text-[#52616F]">
-                      {request.message}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-
-            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                    Datei
-                  </p>
-                  <h2 className="font-black text-[#102A43]">
-                    Hochgeladene Liste
-                  </h2>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {signedFiles.length > 0 ? (
-                  signedFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3"
-                    >
-                      <AdminChildBadge
-                        label={getAdminChildBadgeLabel(
-                          file,
-                          requestChildren,
-                          request
-                        )}
-                        tone={getChildRowId(file) ? "blue" : "amber"}
-                      />
-
-                      <p className="font-black text-[#102A43]">
-                        {file.original_filename || "Datei"}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {formatFileSize(file.file_size)} Ãƒâ€šÃ‚Â·{" "}
-                        {file.file_type || "Dateityp unbekannt"}
-                      </p>
-
-                      {file.signedUrl ? (
-                        <a
-                          href={file.signedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#12395F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Datei ÃƒÆ’Ã‚Â¶ffnen
-                        </a>
-                      ) : null}
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-2xl bg-[#FBF7F0] p-3 text-sm font-semibold text-[#52616F]">
-                    Keine Datei gefunden.
-                  </p>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <ShoppingBasket className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                    Paketwunsch
-                  </p>
-                  <h2 className="font-black text-[#102A43]">
-                    Aktuelle Positionen
-                  </h2>
-                </div>
-              </div>
-
-              {offerItems.length > 0 ? (
-                <div className="space-y-3">
-                  {offerItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3"
-                    >
-                      <AdminChildBadge
-                        label={getAdminChildBadgeLabel(
-                          item,
-                          requestChildren,
-                          request
-                        )}
-                        tone={getChildRowId(item) ? "blue" : "amber"}
-                      />
-
-                      <p className="font-black text-[#102A43]">
-                        {item.product_name}
-                      </p>
-
-                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {item.product_sku
-                          ? `Art.-Nr.: ${item.product_sku}`
-                          : "Ohne Art.-Nr."}
-                      </p>
-
-                      <div className="mt-2 flex items-center justify-between gap-3 text-sm">
-                        <span className="font-semibold text-[#52616F]">
-                          Menge: {toNumber(item.quantity, 1)}
-                        </span>
-                        <span className="font-black text-[#102A43]">
-                          {formatMoney(
-                            toNumber(item.quantity, 1) *
-                              toNumber(item.product_price, 0)
-                          )}
-                        </span>
-                      </div>
-
-                      {(() => {
-                        const sourceItem = item.request_item_id
-                          ? requestItemById.get(item.request_item_id) || null
-                          : null;
-                        const sourceItemIndex = item.request_item_id
-                          ? requestItemIndexById.get(item.request_item_id) || null
-                          : null;
-                        const sourceMatch = item.match_id
-                          ? matchById.get(item.match_id) || null
-                          : null;
-                        const sourceFacts = sourceItem
-                          ? getItemKeyFacts(sourceItem)
-                          : [];
-
-                        return (
-                          <div className="mt-3 rounded-2xl border border-[#D9E8F5] bg-white p-3 text-xs text-[#102A43]">
-                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#12395F]">
-                              Zuordnung prÃƒÆ’Ã‚Â¼fen
-                            </p>
-
-                            <div className="mt-3 rounded-xl bg-[#F7FBFF] p-3">
-                              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#52616F]">
-                                Gelesene Listenposition
-                              </p>
-
-                              {sourceItem ? (
-                                <>
-                                  <div className="mt-2">
-                                    <AdminChildBadge
-                                      label={getAdminChildBadgeLabel(
-                                        sourceItem,
-                                        requestChildren,
-                                        request
-                                      )}
-                                      tone={
-                                        getChildRowId(sourceItem)
-                                          ? "blue"
-                                          : "amber"
-                                      }
-                                    />
-                                  </div>
-
-                                  <p className="mt-1 font-black leading-5 text-[#102A43]">
-                                    Position {sourceItemIndex || "?"}:{" "}
-                                    {getRequestItemTitle(sourceItem)}
-                                  </p>
-
-                                  {sourceItem.raw_text ? (
-                                    <p className="mt-1 whitespace-pre-wrap font-semibold leading-5 text-[#52616F]">
-                                      Rohtext: {sourceItem.raw_text}
-                                    </p>
-                                  ) : null}
-
-                                  {sourceFacts.length > 0 ? (
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                      {sourceFacts.map((fact) => (
-                                        <span
-                                          key={fact}
-                                          className="rounded-full bg-white px-2.5 py-1 font-black text-[#52616F]"
-                                        >
-                                          {fact}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </>
-                              ) : (
-                                <p className="mt-1 font-semibold leading-5 text-[#B5282D]">
-                                  Keine gelesene Listenposition verknÃƒÆ’Ã‚Â¼pft. Das ist
-                                  wahrscheinlich eine manuelle oder freie
-                                  Paketposition.
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="mt-2 rounded-xl bg-[#FFF8EE] p-3">
-                              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                                ÃƒÆ’Ã…â€œbernommener Shopartikel
-                              </p>
-
-                              <p className="mt-1 font-black leading-5 text-[#102A43]">
-                                {item.product_name}
-                              </p>
-
-                              <p className="mt-1 font-semibold leading-5 text-[#52616F]">
-                                {item.product_sku
-                                  ? `Art.-Nr.: ${item.product_sku}`
-                                  : "Ohne Art.-Nr."}
-                              </p>
-
-                              <div className="mt-2 flex flex-wrap gap-1.5">
-                                <span className="rounded-full bg-white px-2.5 py-1 font-black text-[#A75B28]">
-                                  {getOfferItemSourceLabel(item.source)}
-                                </span>
-
-                                {sourceMatch ? (
-                                  <span className="rounded-full bg-white px-2.5 py-1 font-black text-[#2F7D50]">
-                                    Match: {toNumber(sourceMatch.match_score, 0)} %
-                                  </span>
-                                ) : null}
-                              </div>
-
-                              {sourceMatch?.match_reason ? (
-                                <p className="mt-2 whitespace-pre-wrap font-semibold leading-5 text-[#52616F]">
-                                  Grund: {sourceMatch.match_reason}
-                                </p>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {item.source === "admin_manual" ? (
-                        <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                          Manuell ergÃƒÆ’Ã‚Â¤nzt
-                        </p>
-                      ) : null}
-
-                      <AdminEditOfferItemForm
-                        requestId={request.id}
-                        itemId={item.id}
-                        productName={item.product_name}
-                        productSku={item.product_sku}
-                        productPrice={item.product_price}
-                        quantity={item.quantity}
-                        unit={item.unit}
-                        notes={item.notes}
-                      />
-                            <AdminOfferItemSpecialInstructionsForm
-                              requestId={request.id}
-                              itemId={item.id}
-                              productName={item.product_name}
-                              initialNote={item.customer_note || ""}
-                              compact
-                            />
-
-                      <AdminDeleteOfferItemButton
-                        requestId={request.id}
-                        itemId={item.id}
-                        productName={item.product_name}
-                      />
-                    </div>
-                  ))}
-
-                  <div className="rounded-2xl bg-[#102A43] p-4 text-white">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-bold opacity-80">
-                        Zwischensumme
-                      </span>
-                      <span className="text-xl font-black">
-                        {formatMoney(selectedTotal)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="rounded-2xl bg-[#FBF7F0] p-3 text-sm font-semibold text-[#52616F]">
-                  Noch keine Produkte im Paketwunsch.
-                </p>
-              )}
-            </section>
-          </aside>
-
-          <section className="space-y-6">
-            <AdminOfferWorkflowStatus
-              requestStatus={request.status}
-              offerStatus={request.offer_status}
-              aiStatus={request.ai_status}
-              itemsCount={items.length}
-              offerItemsCount={offerItems.length}
-              manualReviewItemsCount={manualReviewCount}
-              events={events}
-              updatedAt={request.updated_at}
-            />
-
-            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <Mail className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                    Kundenkommunikation
-                  </p>
-
-                  <h2 className="text-xl font-black text-[#102A43]">
-                    E-Mails an den Kunden
-                  </h2>
-
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                    Sobald der Paketwunsch vorbereitet ist, sendest Du dem Kunden die Paketwunsch-Mail mit dem Link zur Kundenseite.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <AdminSendOfferUpdateMailButton requestId={request.id} />
-              </div>
-            </section>
-
-
-            <section id="package-checklist" className="scroll-mt-28">
-              <AdminPackageChecklistPanel requestId={request.id} />
-            </section>
-            <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-                  <ClipboardList className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                    Erkannte Liste
-                  </p>
-
-                  <h2 className="text-xl font-black text-[#102A43]">
-                    Positionen, VorschlÃƒÆ’Ã‚Â¤ge und manuelle Bearbeitung
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-[#52616F]">
-                    Unter jeder Position findest Du dauerhaft den Bereich
-                    ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Manuelle BearbeitungÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ. Wenn keine Positionen erkannt
-                    wurden, kannst Du trotzdem direkt Produkte in den
-                    Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-5">
-                <AdminAddRequestItemForm
-                  requestId={request.id}
-                  childOptions={manualOfferChildOptions}
-                  defaultChildId={
-                    manualOfferChildOptions.length === 1
-                      ? manualOfferChildOptions[0]?.id || null
-                      : null
-                  }
-                />
-              </div>
-
-              {items.length > 0 ? (
-                <div className="space-y-5">
-                  {items.map((item, index) => {
-                    const itemMatches = matchesByItem.get(item.id) || [];
-                    const selectedItems = offerItemsByRequestItem.get(item.id) || [];
-                    const itemQuestions = questionsByRequestItem.get(item.id) || [];
-                    const adminResolutionStatus = String(
-                      (item as { admin_resolution_status?: string | null })
-                        .admin_resolution_status || ""
-                    ).trim();
-
+      };                    const adminResolutionStatus = getResolvedRequestItemStatus(item);
                     const adminResolutionLabel =
-                      adminResolutionStatus === "customer_supplies_self"
-                        ? "Kunde besorgt selbst"
-                        : adminResolutionStatus === "covered_by_alternative"
-                        ? "Durch Alternative/Sammelposition abgedeckt"
-                        : "";
-
+                      getResolvedRequestItemLabel(adminResolutionStatus);
                     const itemIsDone =
                       selectedItems.length > 0 || Boolean(adminResolutionStatus);
 
@@ -2022,6 +855,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                             <h3 className="mt-1 text-lg font-black text-[#102A43]">
                               {getRequestItemTitle(item)}
                             </h3>
+                            {adminResolutionLabel ? (
+                              <div className="mt-2">
+                                <span className="inline-flex rounded-full border border-[#BFE3CD] bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
+                                  {adminResolutionLabel}
+                                </span>
+                              </div>
+                            ) : null}
 
                             <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-[#52616F]">
                               {getItemKeyFacts(item).map((fact) => (
@@ -2043,13 +883,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           ) : itemMatches.length === 0 ? (
                             <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF8EE] px-3 py-2 text-xs font-black text-[#A75B28]">
                               <AlertTriangle className="h-4 w-4" />
-                              manuell prÃƒÆ’Ã‚Â¼fen
+                              manuell prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fen
                             </div>
                           ) : null}
                         </div>
 
                         <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
-                          {itemIsDone ? "Details ÃƒÆ’Ã‚Â¶ffnen" : "Details einklappen"}
+                          {itemIsDone ? "Details ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen" : "Details einklappen"}
                         </div>
                         {item.status === "manual_admin_added" ? (
                           <AdminDeleteRequestItemButton
@@ -2082,7 +922,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestId={request.id}
                                 requestItemId={item.id}
                                 resolutionStatus="open"
-                                buttonLabel="Wieder ÃƒÆ’Ã‚Â¶ffnen"
+                                buttonLabel="Wieder ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶ffnen"
                                 confirmMessage="Soll diese Position wieder als offen markiert werden?"
                                 className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
                               />
@@ -2094,10 +934,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                RÃƒÆ’Ã‚Â¼ckfragen
+                                RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfragen
                               </p>
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Stelle hier eine konkrete RÃƒÆ’Ã‚Â¼ckfrage zu dieser Listenposition.
+                                Stelle hier eine konkrete RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckfrage zu dieser Listenposition.
                                 Die Antwort erscheint danach direkt an dieser Position.
                               </p>
                             </div>
@@ -2229,13 +1069,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                     <div>
                                       <div className="mb-2 flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                          {getMatchScoreLabel(match.match_score)} Ãƒâ€šÃ‚Â·{" "}
+                                          {getMatchScoreLabel(match.match_score)} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·{" "}
                                           {toNumber(match.match_score, 0)} %
                                         </span>
 
                                         {isSelected ? (
                                           <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                            AusgewÃƒÆ’Ã‚Â¤hlt
+                                            AusgewÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlt
                                           </span>
                                         ) : null}
                                       </div>
@@ -2269,7 +1109,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                           <AdminAcceptMatchButton
                                             requestId={request.id}
                                             matchId={match.id}
-                                            label="In Paket ÃƒÆ’Ã‚Â¼bernehmen"
+                                            label="In Paket ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen"
                                           />
                                         </div>
                                       ) : null}                                    </p>
@@ -2286,7 +1126,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                               </div>
 
                               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#B42318]">
-                                Manuelle PrÃƒÆ’Ã‚Â¼fung
+                                Manuelle PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung
                               </p>
 
                               <p className="text-sm font-black leading-6 text-[#8E1C1C]">
@@ -2308,9 +1148,9 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                               </p>
 
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Hier kannst Du fÃƒÆ’Ã‚Â¼r diese erkannte Position
-                                jederzeit einen zusÃƒÆ’Ã‚Â¤tzlichen oder ersetzenden
-                                Artikel in den Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen.
+                                Hier kannst Du fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r diese erkannte Position
+                                jederzeit einen zusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤tzlichen oder ersetzenden
+                                Artikel in den Paketwunsch ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼bernehmen.
                               </p>
 
                               {selectedItems.length === 0 && !adminResolutionStatus ? (
@@ -2340,10 +1180,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestItemId={item.id}
                                 childOptions={manualOfferChildOptions}
                                 defaultChildId={getChildRowId(item)}
-                                childSelectLabel="Kind fÃƒÆ’Ã‚Â¼r diese Paketposition"
+                                childSelectLabel="Kind fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r diese Paketposition"
                                 defaultProductName={getRequestItemTitle(item)}
                                 defaultQuantity={item.quantity}
-                                buttonLabel="Manuell Produkt ergÃƒÆ’Ã‚Â¤nzen"
+                                buttonLabel="Manuell Produkt ergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzen"
                               />
                             </div>
                           </div>
@@ -2372,7 +1212,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         Die automatische Erkennung konnte keine eindeutigen
                         Listenpositionen erstellen. Du kannst trotzdem direkt
                         Produkte in den Paketwunsch legen. Diese Produkte
-                        erscheinen anschlieÃƒÆ’Ã…Â¸end auf der Kundenseite und kÃƒÆ’Ã‚Â¶nnen
+                        erscheinen anschlieÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¸end auf der Kundenseite und kÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¶nnen
                         dem Kunden per Paketwunsch-Mail geschickt werden.
                       </p>
 
@@ -2385,10 +1225,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                     ? manualOfferChildOptions[0]?.id || null
                     : null
                 }
-                childSelectLabel="Kind fÃƒÆ’Ã‚Â¼r freie Paketposition"
+                childSelectLabel="Kind fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r freie Paketposition"
                         defaultProductName=""
                         defaultQuantity={1}
-                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÆ’Ã‚Â¼gen"
+                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gen"
                       />
                     </div>
                   </div>
@@ -2405,13 +1245,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-                    NÃƒÆ’Ã‚Â¤chster Abschnitt
+                    NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤chster Abschnitt
                   </p>
                   <h2 className="mt-1 text-xl font-black text-[#102A43]">
                     Rechnung, Zahlung und Abwicklung
                   </h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÆ’Ã‚Â¼fung.
+                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung.
                     Dadurch bleibt die Detailseite in der gleichen Reihenfolge
                     wie der echte Arbeitsablauf.
                   </p>
