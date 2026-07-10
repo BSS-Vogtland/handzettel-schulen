@@ -1143,7 +1143,7 @@ const matchKeywords = keywordData.matchKeywords;
   message: payload.productImage
     ? `Produkt wurde aktualisiert. Das neue Bild wurde als WebP optimiert, das Originalbild wurde gespeichert, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
     : imageWasChanged
-      ? `Produkt wurde aktualisiert. Bildverknüpfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
+      ? `Prüfung, SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`
       : `Produkt wurde aktualisiert. SEO-Daten und ${automaticAliases.length} Suchbegriffe wurden aktualisiert.`,
   productSku,
   ean,

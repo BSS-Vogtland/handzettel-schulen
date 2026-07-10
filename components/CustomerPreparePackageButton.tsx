@@ -30,7 +30,7 @@ type PrepareResponse = {
 };
 
 const TIMELINE_STEPS = [
-  { min: 0, label: "Liste wird geprÃ¼ft" },
+  { min: 0, label: "Liste wird geprüft" },
   { min: 22, label: "Schulmaterialien werden erkannt" },
   { min: 48, label: "Sichere Treffer werden gesucht" },
   { min: 72, label: "Ergebnis wird vorbereitet" },
@@ -60,7 +60,7 @@ function buildFriendlyServiceMessage(message?: string | null) {
     return message.trim();
   }
 
-  return "Alles ist bei uns angekommen. Die automatische Vorbereitung konnte Deine Liste nicht direkt eindeutig zuordnen â€“ das ist kein Problem. Genau dafÃ¼r gibt es unseren persÃ¶nlichen Service: Wir schauen uns Deine Liste jetzt manuell an und suchen die passenden Schulmaterialien fÃ¼r Dich heraus.";
+  return "Alles ist bei uns angekommen. Die automatische Vorbereitung konnte Deine Liste nicht direkt eindeutig zuordnen – das ist kein Problem. Genau dafür gibt es unseren persönlichen Service: Wir schauen uns Deine Liste jetzt manuell an und suchen die passenden Schulmaterialien für Dich heraus.";
 }
 
 function isManualServicePayload(
@@ -72,7 +72,7 @@ function isManualServicePayload(
 
   const message = payload?.message || "";
 
-  return /manuell|manuelle|persÃ¶nlich|persoenlich|keine positionen|nicht eindeutig|nicht gefunden/i.test(
+  return /manuell|manuelle|persönlich|keine positionen|nicht eindeutig|nicht gefunden/i.test(
     message
   );
 }
@@ -176,7 +176,7 @@ export default function CustomerPreparePackageButton({
         setProgress(0);
         setServiceMessage(
           buildFriendlyServiceMessage(
-            "Deine Anfrage ist angekommen. Wir prÃ¼fen Deine Liste persÃ¶nlich und bereiten Deinen Paketwunsch manuell vor."
+            "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor."
           )
         );
         return;
@@ -185,7 +185,7 @@ export default function CustomerPreparePackageButton({
       setProgress(100);
       setFeedbackMessage(
         payload.message ||
-          "Deine Liste wurde erfasst. Sichere Treffer wurden bereits fÃ¼r Dich ins Paket gelegt."
+          "Deine Liste wurde erfasst. Sichere Treffer wurden bereits für Dich ins Paket gelegt."
       );
 
       await new Promise((resolve) => window.setTimeout(resolve, 700));
@@ -195,7 +195,7 @@ export default function CustomerPreparePackageButton({
       setProgress(0);
       setServiceMessage(
         buildFriendlyServiceMessage(
-          "Deine Anfrage ist angekommen. Wir prÃ¼fen Deine Liste persÃ¶nlich und bereiten Deinen Paketwunsch manuell vor."
+          "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor."
         )
       );
     }
@@ -216,10 +216,10 @@ export default function CustomerPreparePackageButton({
             </h2>
 
             <p className="mt-3 max-w-2xl text-base leading-7 text-[#52616F]">
-              Wir prÃ¼fen Deine Schulmaterialliste, erkennen passende Produkte
-              und legen sichere Treffer automatisch fÃ¼r Dich ins Paket. Alles,
+              Wir prüfen Deine Schulmaterialliste, erkennen passende Produkte
+              und legen sichere Treffer automatisch für Dich ins Paket. Alles,
               was nicht eindeutig ist, bleibt zur Auswahl offen oder wird
-              persÃ¶nlich geprÃ¼ft.
+              persönlich geprüft.
             </p>
 
             <div className="mt-6 rounded-[24px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
@@ -288,8 +288,8 @@ export default function CustomerPreparePackageButton({
                         {state === "done"
                           ? "Abgeschlossen"
                           : state === "active"
-                            ? "Wird gerade ausgefÃ¼hrt"
-                            : "Als NÃ¤chstes"}
+                            ? "Wird gerade ausgeführt"
+                            : "Als Nächstes"}
                       </p>
                     </div>
                   </div>
@@ -496,12 +496,12 @@ export default function CustomerPreparePackageButton({
   }
 
   const introHeadline = serviceMessage
-    ? "Wir Ã¼bernehmen die persÃ¶nliche PrÃ¼fung."
+    ? "Wir übernehmen die persönliche Prüfung."
     : "Deine Liste ist angekommen.";
 
   const introText = serviceMessage
-    ? "Deine Liste liegt bei uns vor. Ab hier Ã¼bernehmen wir persÃ¶nlich und suchen die passenden Schulmaterialien fÃ¼r Dich heraus."
-    : "Starte jetzt das Auslesen Deiner Liste. Sichere Treffer werden direkt in den Paketwunsch gelegt. Wenn danach noch Positionen offen sind, entscheidest Du selbst: Artikel suchen und ergÃ¤nzen oder Handzettel-Schulen.de Ã¼bernehmen lassen.";
+    ? "Deine Liste liegt bei uns vor. Ab hier übernehmen wir persönlich und suchen die passenden Schulmaterialien für Dich heraus."
+    : "Starte jetzt das Auslesen Deiner Liste. Sichere Treffer werden direkt in den Paketwunsch gelegt. Wenn danach noch Positionen offen sind, entscheidest Du selbst: Artikel suchen und ergänzen oder Handzettel-Schulen.de übernehmen lassen.";
 
   return (
     <section className="mx-auto w-full max-w-[620px] rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
@@ -510,7 +510,7 @@ export default function CustomerPreparePackageButton({
           {serviceMessage ? (
             <div className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] px-8 py-5 text-center text-xl font-black text-[#2F7D50] shadow-sm">
               <CheckCircle2 className="h-6 w-6" />
-              <span>Wird jetzt persÃ¶nlich fÃ¼r Dich vorbereitet</span>
+              <span>Wird jetzt persönlich für Dich vorbereitet</span>
             </div>
           ) : (
             <>
@@ -534,7 +534,7 @@ export default function CustomerPreparePackageButton({
             <div className="relative h-[260px] w-full bg-white">
               <Image
                 src="/service-schulheft-assistentin.png"
-                alt="Freundliche Mitarbeiterin sucht passende Schulhefte fÃ¼r den Kunden aus dem Regal"
+                alt="Freundliche Mitarbeiterin sucht passende Schulhefte für den Kunden aus dem Regal"
                 fill
                 className="object-cover"
                 priority
@@ -544,7 +544,7 @@ export default function CustomerPreparePackageButton({
             <div className="p-5">
               <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
                 <Search className="h-3.5 w-3.5" />
-                Unser Service fÃ¼r Dich
+                Unser Service für Dich
               </div>
 
               <h3 className="mt-3 text-xl font-black text-[#102A43]">

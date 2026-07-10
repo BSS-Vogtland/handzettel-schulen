@@ -346,7 +346,7 @@ function auditProduct(product: ProductRow, aliases: string[]): AuditResult {
     missing.push("Lineallaenge fehlt");
   }
 
-  if (isKlebestift && !includesAny(combined, ["gross", "grosser", "groÃŸ", "klein", "mittel"])) {
+  if (isKlebestift && !includesAny(combined, ["gross", "grosser", "groß", "klein", "mittel"])) {
     missing.push("Klebestift-Groesse fehlt");
   }
 
@@ -629,7 +629,7 @@ export default async function ProductAuditPage({
             Produktdaten-Audit
           </div>
 
-          <h1 className="mt-3 text-3xl font-black">Matching-Daten pruefen</h1>
+          <h1 className="mt-3 text-3xl font-black">Matching-Daten prüfen</h1>
 
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             Diese Seite prueft die bereits befuellten Produktfelder und Aliase. Es werden keine Daten veraendert.

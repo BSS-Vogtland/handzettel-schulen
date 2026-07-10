@@ -42,7 +42,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase-Konfiguration fehlt. NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY pruefen."
+      "Supabase-Konfiguration fehlt. NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY prüfen."
     );
   }
 

@@ -444,7 +444,7 @@ export default async function AdminSocialPage() {
                 href="/admin"
                 className="mb-4 inline-flex text-sm font-semibold text-[#A23A2E] hover:underline"
               >
-                â† Zurück zum Adminbereich
+                ← Zurück zum Adminbereich
               </Link>
 
               <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C3] bg-[#FFFCF7] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8A5A35]">

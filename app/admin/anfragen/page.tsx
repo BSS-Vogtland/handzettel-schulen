@@ -920,7 +920,7 @@ function getWorkflowStatus(overview: RequestOverview): WorkflowStatus {
   if (isProblemPaymentRequest(overview)) {
     return {
       area: isConfirmed ? "fulfillment" : "open",
-      title: "Zahlungsproblem prüfen",
+      title: "Zahlungsprüfen",
       subtitle:
         "Der Zahlungsstatus ist auffällig. Bitte prüfen, bevor dieser Vorgang weiter bearbeitet wird.",
       badge: getPaymentStatusLabel(request.payment_status),

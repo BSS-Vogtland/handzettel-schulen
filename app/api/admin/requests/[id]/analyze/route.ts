@@ -1097,7 +1097,7 @@ function expandCoverMaterialLine(item: ExtractedItem): ExtractedItem[] | null {
       notes: [
         cleanNullableString(item.notes),
         "MANUAL_COMBO_NO_AUTO_ADOPT",
-        "Kombiposition: Heft/Rechenheft/Schreibheft mit Umschlag. Nicht automatisch in Paketwunsch uebernehmen. Admin soll Heft und Umschlag manuell als Shopartikel hinzufuegen.",
+        "Kombiposition: Heft/Rechenheft/Schreibheft mit Umschlag. Nicht automatisch in Paketwunsch uebernehmen. Admin soll Heft und Umschlag manuell als Shopartikel hinzufügen.",
         coverName ? "Enthaltener Umschlag: " + coverName : null,
         `Analyse-Version: ${ANALYZE_VERSION}`,
       ]

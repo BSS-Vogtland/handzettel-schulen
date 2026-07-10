@@ -78,7 +78,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -139,7 +139,7 @@ function getRequestItemOriginalText(item: RequestItem) {
   if (item.color) details.push(`Farbe: ${item.color}`);
 
   if (details.length > 0) {
-    parts.push(details.join(" Ã‚Â· "));
+    parts.push(details.join(" · "));
   }
 
   return parts.join("\n");
@@ -162,17 +162,17 @@ function getStatusLabel(status: string) {
     case "in_package":
       return "Im Paket";
     case "alternative_selected":
-      return "Alternative gewÃƒÂ¤hlt";
+      return "Alternative gewählt";
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht benÃƒÂ¶tigt";
+      return "Nicht benötigt";
     case "question_required":
-      return "RÃƒÂ¼ckfrage nÃƒÂ¶tig";
+      return "Rückfrage nötig";
     case "manual_check":
-      return "Manuell geprÃƒÂ¼ft";
+      return "Manuell geprüft";
     default:
-      return status || "Manuell geprÃƒÂ¼ft";
+      return status || "Manuell geprüft";
   }
 }
 
@@ -270,7 +270,7 @@ function buildChecklistRows(input: {
     rows.push({
       request_item_id: null,
       offer_item_id: offerItem.id,
-      original_text: "ZusÃƒÂ¤tzlich manuell ergÃƒÂ¤nzt",
+      original_text: "Zusätzlich manuell ergänzt",
       resolved_text: getOfferItemText(offerItem),
       status: "manual_check",
     });
@@ -363,7 +363,7 @@ async function syncExistingChecklistItems(input: {
 
     if (error) {
       throw new Error(
-        `Checklistenposition konnte nicht ergÃƒÂ¤nzt werden: ${error.message}`
+        `Checklistenposition konnte nicht ergänzt werden: ${error.message}`
       );
     }
   }
@@ -559,7 +559,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID ÃƒÂ¼bergeben." },
+        { ok: false, message: "Keine Anfrage-ID übergeben." },
         { status: 400 }
       );
     }
@@ -607,7 +607,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID ÃƒÂ¼bergeben." },
+        { ok: false, message: "Keine Anfrage-ID übergeben." },
         { status: 400 }
       );
     }

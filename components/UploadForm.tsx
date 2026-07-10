@@ -397,7 +397,7 @@ export default function UploadForm() {
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         <TrustItem text="Deine Listen werden vertraulich behandelt." />
         <TrustItem text="Jedes Kind bekommt eine eigene Zusammenfassung." />
-        <TrustItem text="Unklare Artikel werden persoenlich geprueft." />
+        <TrustItem text="Unklare Artikel werden persönlich geprüft." />
         <TrustItem text="Zahlung erfolgt erst nach Rechnung." />
       </div>
 
@@ -472,7 +472,7 @@ export default function UploadForm() {
                 id="phone-help"
                 className="mt-1 text-xs font-semibold text-[#8A5A2B]"
               >
-                Wichtig fÃƒÂ¼r RÃƒÂ¼ckfragen zur Liste und Updates zu Deinem Paketstatus.
+                Wichtig für Rückfragen zur Liste und Updates zu Deinem Paketstatus.
               </p>
             </div>
 
@@ -488,7 +488,7 @@ export default function UploadForm() {
                 name="message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Optional: Hinweise zu besonderen Wuenschen, Abholung oder Rueckfragen"
+                placeholder="Optional: Hinweise zu besonderen Wuenschen, Abholung oder Rückfragen"
                 rows={3}
                 className="w-full resize-y rounded-2xl border border-[#D8C8B8] bg-white px-4 py-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
               />
@@ -630,7 +630,7 @@ export default function UploadForm() {
 
                         <span className="text-lg font-black text-[#102A43]">
                           {child.file
-                            ? "Liste ausgewaehlt"
+                            ? "Liste ausgewählt"
                             : "Liste fuer dieses Kind auswaehlen"}
                         </span>
 
@@ -693,7 +693,7 @@ export default function UploadForm() {
             className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#D8C8B8] bg-white px-5 py-3 text-sm font-black text-[#102A43] transition hover:border-[#B5282D] hover:text-[#B5282D]"
           >
             <Plus className="h-4 w-4" />
-            Weiteres Kind hinzufuegen
+            Weiteres Kind hinzufügen
           </button>
         </section>
 

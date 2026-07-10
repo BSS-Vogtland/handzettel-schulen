@@ -407,15 +407,15 @@ function getItemKeyFacts(item: RequestItem) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "Automatisch vorausgew├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlt";
+      return "Automatisch vorausgewählt";
     case "auto_safe_match":
       return "Sicher automatisch ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernommen";
     case "match":
       return "Aus Produktvorschlag ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernommen";
     case "admin_manual":
-      return "Manuell im Admin erg├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñnzt";
+      return "Manuell im Admin ergänzt";
     case "manual":
-      return "Manuell erg├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñnzt";
+      return "Manuell ergänzt";
     case "customer":
     case "customer_selected":
       return "Vom Kunden gew├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlt";
@@ -862,7 +862,7 @@ function AdminRequestChildrenOverview({
             Kinder / Listen-Gruppen
           </p>
           <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-            Admin-├âãÆ├åÔÇÖ├âÔÇª├óÔé¼┼ôbersicht nach Kind
+            Admin-Datei-, Listen- und Paketübersicht nach Kind
           </h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             Dateien, erkannte Listenpositionen, Paketpositionen, offene Punkte
@@ -1846,7 +1846,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                       })()}
                       {item.source === "admin_manual" ? (
                         <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                          Manuell erg├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñnzt
+                          Manuell ergänzt
                         </p>
                       ) : null}
 
@@ -2402,7 +2402,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 childSelectLabel="Kind f├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝r freie Paketposition"
                         defaultProductName=""
                         defaultQuantity={1}
-                        buttonLabel="Produkt ohne erkannte Position hinzuf├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝gen"
+                        buttonLabel="Produkt ohne erkannte Position hinzufügen"
                       />
                     </div>
                   </div>

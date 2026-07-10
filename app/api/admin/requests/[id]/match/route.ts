@@ -76,7 +76,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Pr?fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -453,7 +453,7 @@ function calculateRelatedProductMatch(input: {
   }
 
   let score = 58;
-  const reasonParts = ["Artverwandter Kandidat zur Admin-Pr?fung"];
+  const reasonParts = ["Artverwandter Kandidat zur Admin-Prüfung"];
 
   if (sameFamily) {
     score += 14;
@@ -476,7 +476,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Format passt: ${itemFormat}`);
     } else {
       score -= 14;
-      reasonParts.push(`Format pr?fen: Liste ${itemFormat}, Produkt ${productFormat}`);
+      reasonParts.push(`Format prüfen: Liste ${itemFormat}, Produkt ${productFormat}`);
     }
   }
 
@@ -487,7 +487,7 @@ function calculateRelatedProductMatch(input: {
     } else {
       score -= 16;
       reasonParts.push(
-        `Lineatur pr?fen: Liste ${itemLineature}, Produkt ${productLineature}`
+        `Lineatur prüfen: Liste ${itemLineature}, Produkt ${productLineature}`
       );
     }
   }
@@ -498,7 +498,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Farbe passt: ${itemColor}`);
     } else {
       score -= 8;
-      reasonParts.push(`Farbe pr?fen: Liste ${itemColor}, Produkt ${productColor}`);
+      reasonParts.push(`Farbe prüfen: Liste ${itemColor}, Produkt ${productColor}`);
     }
   }
 
@@ -515,7 +515,7 @@ function calculateRelatedProductMatch(input: {
 
   if (hasVariantConflict) {
     score = Math.min(score, 74);
-    reasonParts.push("Variantenmerkmale m?ssen gepr?ft werden");
+    reasonParts.push("Variantenmerkmale m?ssen geprüft werden");
   } else {
     score = Math.min(score, 83);
   }
@@ -763,7 +763,7 @@ function calculateLearnedAliasMatch(input: {
     if (hasVariantConflict) {
       return {
         score: 84,
-        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen gepr?ft werden: ${cleanedAlias}`,
+        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen geprüft werden: ${cleanedAlias}`,
       };
     }
 
@@ -2531,7 +2531,7 @@ function capInflatedMatchScore(input: {
   if (
     reason.includes("teilweise erkannt") ||
     reason.includes("bitte prüfen") ||
-    reason.includes("bitte pruefen")
+    reason.includes("bitte prüfen")
   ) {
     score = Math.min(score, 74);
     capReasons.push("Teiltreffer nur zur Prüfung");
@@ -2549,11 +2549,11 @@ function capInflatedMatchScore(input: {
   if (
     reason.includes("variantenmerkmale") ||
     reason.includes("format prüfen") ||
-    reason.includes("format pruefen") ||
+    reason.includes("format prüfen") ||
     reason.includes("lineatur prüfen") ||
-    reason.includes("lineatur pruefen") ||
+    reason.includes("lineatur prüfen") ||
     reason.includes("farbe prüfen") ||
-    reason.includes("farbe pruefen")
+    reason.includes("farbe prüfen")
   ) {
     score = Math.min(score, 79);
     capReasons.push("Variantenmerkmale müssen geprüft werden");
@@ -2876,7 +2876,7 @@ export async function POST(_request: NextRequest, context: Params) {
       message:
         rowsToInsert.length > 0
           ? `Produktvorschl?ge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchma?e, Heft-Unterarten, Lineaturen, Mappen und Farben werden ber?cksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschl?ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
-          : "Es wurden keine ausreichend sicheren Produktvorschl?ge gefunden. Diese Positionen bleiben zur manuellen Pr?fung offen.",
+          : "Es wurden keine ausreichend sicheren Prüfung offen.",
     });
   } catch (error) {
     console.error("Admin product match error:", error);

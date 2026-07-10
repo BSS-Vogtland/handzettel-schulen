@@ -230,7 +230,7 @@ export default async function AdminSocialPostDetailPage({
               <p className="mt-3 max-w-3xl text-base leading-7 text-[#486581]">
                 Bearbeite Hook, Caption, Plattform-Versionen, Hashtags,
                 Keywords sowie Bild- und Video-Prompts. Über „Review öffnen“
-                prüfst Du den Beitrag vor Veröffentlichung oder Ads-Nutzung.
+                prüfentlichung oder Ads-Nutzung.
                 Über „Posting vorbereiten“ erhältst Du eine Veröffentlichungsmappe
                 mit Copy-Buttons für TikTok, Instagram und Facebook.
               </p>

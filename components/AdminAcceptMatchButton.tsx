@@ -89,7 +89,7 @@ export default function AdminAcceptMatchButton({
   requestId,
   matchId,
   disabled = false,
-  label = "In Paket Ã¼bernehmen",
+  label = "In Paket übernehmen",
 }: AdminAcceptMatchButtonProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,17 +120,17 @@ export default function AdminAcceptMatchButton({
 
       if (!response.ok || result.ok === false) {
         throw new Error(
-          result.error || result.message || "Der Vorschlag konnte nicht Ã¼bernommen werden."
+          result.error || result.message || "Der Vorschlag konnte nicht übernommen werden."
         );
       }
 
-      setFeedback(result.message || "Vorschlag wurde in den Paketwunsch Ã¼bernommen.");
+      setFeedback(result.message || "Vorschlag wurde in den Paketwunsch übernommen.");
       router.refresh();
     } catch (error) {
       setFeedback(
         error instanceof Error
           ? error.message
-          : "Der Vorschlag konnte nicht Ã¼bernommen werden."
+          : "Der Vorschlag konnte nicht übernommen werden."
       );
     } finally {
       setIsSubmitting(false);
@@ -145,7 +145,7 @@ export default function AdminAcceptMatchButton({
         disabled={disabled || isSubmitting}
         className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Wird Ã¼bernommen ..." : label}
+        {isSubmitting ? "Wird übernommen ..." : label}
       </button>
 
       {feedback ? (

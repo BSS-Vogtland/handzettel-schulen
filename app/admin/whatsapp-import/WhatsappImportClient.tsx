@@ -64,16 +64,16 @@ function normalizeLabel(value: string) {
   return value
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, "");
 }
 
 function cleanExtractedValue(value: string) {
   return value
-    .replace(/^[\s:ï¼š\-â€“â€”]+/g, "")
+    .replace(/^[\s:ï¼š\-–—]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -136,7 +136,7 @@ function extractLabeledValue(lines: string[], labels: string[]) {
       }
     }
 
-    const looseMatch = line.match(/^([A-Za-zÃ„Ã–ÃœÃ¤Ã¶Ã¼ÃŸ\-\s]{2,40})\s+(.*)$/);
+    const looseMatch = line.match(/^([A-Za-zÄÖÜäöüß\-\s]{2,40})\s+(.*)$/);
 
     if (looseMatch) {
       const label = normalizeLabel(looseMatch[1]);
@@ -200,8 +200,8 @@ function extractWhatsappData(text: string): ExtractedWhatsappData {
     "Name des Kindes",
     "Kindname",
     "Schueler",
-    "SchÃ¼lerin",
-    "SchÃ¼ler",
+    "Schülerin",
+    "Schüler",
     "Schuelerin",
   ]);
 
@@ -291,7 +291,7 @@ export default function AdminWhatsappImportPage() {
       setDetectedData(null);
       setExtractMessage(null);
       setErrorMessage(
-        "Bitte fÃ¼ge zuerst den WhatsApp-Text ein. Danach kÃ¶nnen die Kundendaten daraus Ã¼bernommen werden."
+        "Bitte füge zuerst den WhatsApp-Text ein. Danach können die Kundendaten daraus übernommen werden."
       );
       return;
     }
@@ -303,7 +303,7 @@ export default function AdminWhatsappImportPage() {
       setDetectedData(extracted);
       setExtractMessage(null);
       setErrorMessage(
-        "Es wurden keine Kundendaten erkannt. PrÃ¼fe, ob im WhatsApp-Text Angaben wie Name:, E-Mail:, Telefon:, Kind:, Schule: und Klasse: enthalten sind."
+        "Es wurden keine Kundendaten erkannt. Prüfe, ob im WhatsApp-Text Angaben wie Name:, E-Mail:, Telefon:, Kind:, Schule: und Klasse: enthalten sind."
       );
       return;
     }
@@ -320,7 +320,7 @@ export default function AdminWhatsappImportPage() {
     setExtractMessage(
       `${detectedSummary.length} Angabe${
         detectedSummary.length === 1 ? "" : "n"
-      } erkannt und in leere Felder Ã¼bernommen. Bitte prÃ¼fe die Daten vor dem Speichern.`
+      } erkannt und in leere Felder übernommen. Bitte prüfe die Daten vor dem Speichern.`
     );
   }
 
@@ -347,7 +347,7 @@ export default function AdminWhatsappImportPage() {
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die Vorbereitungs-Route hat keine JSON-Antwort geliefert. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
+          "Die Vorbereitungs-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
       }
 
@@ -382,7 +382,7 @@ export default function AdminWhatsappImportPage() {
 
     if (!hasText && !hasFile) {
       setErrorMessage(
-        "Bitte fÃ¼ge entweder den WhatsApp-Text ein oder lade ein Foto/PDF hoch."
+        "Bitte füge entweder den WhatsApp-Text ein oder lade ein Foto/PDF hoch."
       );
       return;
     }
@@ -418,7 +418,7 @@ export default function AdminWhatsappImportPage() {
         payload = rawText ? JSON.parse(rawText) : null;
       } catch {
         throw new Error(
-          "Die WhatsApp-Import-Route hat keine JSON-Antwort geliefert. PrÃ¼fe bitte zusÃ¤tzlich das Terminal."
+          "Die WhatsApp-Import-Route hat keine JSON-Antwort geliefert. Prüfe bitte zusätzlich das Terminal."
         );
       }
 
@@ -451,7 +451,7 @@ export default function AdminWhatsappImportPage() {
             className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm transition hover:bg-[#EEF4FA]"
           >
             <ArrowLeft className="h-4 w-4" />
-            ZurÃ¼ck zum Admin-Bereich
+            Zurück zum Admin-Bereich
           </Link>
 
           <Link
@@ -459,7 +459,7 @@ export default function AdminWhatsappImportPage() {
             className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
           >
             <FileText className="h-4 w-4" />
-            Anfragen Ã¶ffnen
+            Anfragen öffnen
           </Link>
         </div>
 
@@ -507,7 +507,7 @@ export default function AdminWhatsappImportPage() {
                     type="text"
                     value={customerName}
                     onChange={(event) => setCustomerName(event.target.value)}
-                    placeholder="z. B. Maria MÃ¼ller"
+                    placeholder="z. B. Maria Müller"
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10"
                   />
                 </div>
@@ -601,7 +601,7 @@ export default function AdminWhatsappImportPage() {
                       className="inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-2xl bg-[#1FA855] px-4 py-2 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                     >
                       <ScanSearch className="h-4 w-4" />
-                      Daten aus Text Ã¼bernehmen
+                      Daten aus Text übernehmen
                     </button>
                   </div>
 
@@ -613,9 +613,9 @@ export default function AdminWhatsappImportPage() {
                       setDetectedData(null);
                     }}
                     rows={9}
-                    placeholder={`Hier den WhatsApp-Text einfÃ¼gen, z. B.
+                    placeholder={`Hier den WhatsApp-Text einfügen, z. B.
 
-Name: Maria MÃ¼ller
+Name: Maria Müller
 E-Mail: maria@example.de
 Telefon: +49 173 3157671
 Kind: Mia
@@ -631,15 +631,15 @@ Klasse: 1a
                   <div className="mt-2 grid gap-2">
                     <p className="text-xs font-semibold text-[#52616F]">
                       Wenn keine Datei vorhanden ist, wird der Text als erkannte
-                      Listenpositionen Ã¼bernommen.
+                      Listenpositionen übernommen.
                     </p>
 
                     <p className="text-xs font-semibold text-[#52616F]">
-                      Tipp: Erst WhatsApp-Text einfÃ¼gen, dann{" "}
+                      Tipp: Erst WhatsApp-Text einfügen, dann{" "}
                       <span className="font-black text-[#1FA855]">
-                        â€žDaten aus Text Ã¼bernehmenâ€œ
+                        „Daten aus Text übernehmen“
                       </span>{" "}
-                      klicken und die Felder oben prÃ¼fen.
+                      klicken und die Felder oben prüfen.
                     </p>
                   </div>
                 </div>
@@ -692,7 +692,7 @@ Klasse: 1a
 
                   {file ? (
                     <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#52616F]">
-                      AusgewÃ¤hlt:{" "}
+                      Ausgewählt:{" "}
                       <span className="font-black text-[#102A43]">
                         {file.name}
                       </span>
@@ -733,7 +733,7 @@ Klasse: 1a
                     <p className="mt-1 text-sm font-semibold leading-6">
                       {result.requestNumber
                         ? `Anfrage: ${result.requestNumber}`
-                        : "Die Anfrage erscheint jetzt in der Admin-Ãœbersicht."}
+                        : "Die Anfrage erscheint jetzt in der Admin-Übersicht."}
                     </p>
 
                     {result.emailMessage ? (
@@ -744,10 +744,10 @@ Klasse: 1a
 
                     <div className="mt-4 rounded-2xl border border-[#BFE3CD] bg-white p-4 text-[#102A43]">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
-                        NÃ¤chster Schritt
+                        Nächster Schritt
                       </p>
                       <p className="mt-1 text-sm font-bold leading-6 text-[#52616F]">
-                        Jetzt die Liste auswerten, ProduktvorschlÃ¤ge erzeugen
+                        Jetzt die Liste auswerten, Produktvorschläge erzeugen
                         und sichere Treffer automatisch in den Paketwunsch legen.
                       </p>
 
@@ -760,7 +760,7 @@ Klasse: 1a
                         {isPreparing ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Liste wird vorbereitet â€¦
+                            Liste wird vorbereitet …
                           </>
                         ) : prepareResult?.ok ? (
                           <>
@@ -787,25 +787,25 @@ Klasse: 1a
                           <p>
                             Erkannte Positionen:{" "}
                             <span className="font-black text-[#102A43]">
-                              {prepareResult.itemCount ?? "â€”"}
+                              {prepareResult.itemCount ?? "—"}
                             </span>
                           </p>
                           <p>
-                            ProduktvorschlÃ¤ge:{" "}
+                            Produktvorschläge:{" "}
                             <span className="font-black text-[#102A43]">
-                              {prepareResult.matchCount ?? "â€”"}
+                              {prepareResult.matchCount ?? "—"}
                             </span>
                           </p>
                           <p>
                             Sichere Treffer:{" "}
                             <span className="font-black text-[#102A43]">
-                              {prepareResult.safeMatchCount ?? "â€”"}
+                              {prepareResult.safeMatchCount ?? "—"}
                             </span>
                           </p>
                           <p>
-                            Im Paket vorausgewÃ¤hlt:{" "}
+                            Im Paket vorausgewählt:{" "}
                             <span className="font-black text-[#102A43]">
-                              {prepareResult.autoPreselectedCount ?? "â€”"}
+                              {prepareResult.autoPreselectedCount ?? "—"}
                             </span>
                           </p>
                         </div>
@@ -818,7 +818,7 @@ Klasse: 1a
                           href={`/admin/anfragen/${result.requestId}`}
                           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                         >
-                          Anfrage Ã¶ffnen
+                          Anfrage öffnen
                           <ArrowLeft className="h-4 w-4 rotate-180" />
                         </Link>
                       ) : null}
@@ -828,7 +828,7 @@ Klasse: 1a
                         onClick={resetForm}
                         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#BFE3CD] bg-white px-4 py-3 text-sm font-black text-[#2F7D50] shadow-sm transition hover:bg-[#F0FFF6]"
                       >
-                        NÃ¤chste WhatsApp-Anfrage
+                        Nächste WhatsApp-Anfrage
                       </button>
                     </div>
                   </div>
@@ -845,7 +845,7 @@ Klasse: 1a
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Anfrage wird angelegt â€¦
+                    Anfrage wird angelegt …
                   </>
                 ) : result?.ok ? (
                   <>

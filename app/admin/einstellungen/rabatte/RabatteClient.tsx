@@ -63,7 +63,7 @@ function formatDateTime(value: string | null) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "ungÃ¼ltiges Datum";
+    return "ungültiges Datum";
   }
 
   return new Intl.DateTimeFormat("de-DE", {
@@ -222,11 +222,11 @@ export default function AdminDiscountCampaignsPage() {
     const numericDiscountValue = Number(form.discountValue.replace(",", "."));
 
     if (!form.name.trim()) {
-      return "Bitte gib einen Namen fÃ¼r die Rabattaktion ein.";
+      return "Bitte gib einen Namen für die Rabattaktion ein.";
     }
 
     if (!Number.isFinite(numericDiscountValue) || numericDiscountValue <= 0) {
-      return "Bitte gib einen Rabattwert grÃ¶ÃŸer als 0 ein.";
+      return "Bitte gib einen Rabattwert größer als 0 ein.";
     }
 
     if (form.discountType === "percent" && numericDiscountValue > 100) {
@@ -246,7 +246,7 @@ export default function AdminDiscountCampaignsPage() {
       const minimumOrderAmount = Number(form.minimumOrderAmount.replace(",", "."));
 
       if (!Number.isFinite(minimumOrderAmount) || minimumOrderAmount < 0) {
-        return "Der Mindestbestellwert muss 0 oder grÃ¶ÃŸer sein.";
+        return "Der Mindestbestellwert muss 0 oder größer sein.";
       }
     }
 
@@ -254,7 +254,7 @@ export default function AdminDiscountCampaignsPage() {
       const maxDiscountAmount = Number(form.maxDiscountAmount.replace(",", "."));
 
       if (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount <= 0) {
-        return "Der maximale Rabattbetrag muss grÃ¶ÃŸer als 0 sein.";
+        return "Der maximale Rabattbetrag muss größer als 0 sein.";
       }
     }
 
@@ -317,7 +317,7 @@ export default function AdminDiscountCampaignsPage() {
 
   async function handleDelete(campaign: DiscountCampaign) {
     const confirmed = window.confirm(
-      `Rabattaktion "${campaign.name}" wirklich lÃ¶schen?`
+      `Rabattaktion "${campaign.name}" wirklich löschen?`
     );
 
     if (!confirmed) return;
@@ -333,20 +333,20 @@ export default function AdminDiscountCampaignsPage() {
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.error ?? "Rabattaktion konnte nicht gelÃ¶scht werden.");
+        throw new Error(result.error ?? "Rabattaktion konnte nicht gelöscht werden.");
       }
 
       if (editingId === campaign.id) {
         resetForm();
       }
 
-      setMessage("Rabattaktion wurde gelÃ¶scht.");
+      setMessage("Rabattaktion wurde gelöscht.");
       await loadCampaigns();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Rabattaktion konnte nicht gelÃ¶scht werden."
+          : "Rabattaktion konnte nicht gelöscht werden."
       );
     }
   }
@@ -374,7 +374,7 @@ export default function AdminDiscountCampaignsPage() {
                 className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D8C7A8] bg-[#FFF8EA] px-4 py-2 text-sm font-semibold text-[#8A5A00] transition hover:bg-[#FFEFC7]"
               >
                 <ArrowLeft className="h-4 w-4" />
-                ZurÃ¼ck zum Admin
+                Zurück zum Admin
               </Link>
 
               <div>
@@ -387,7 +387,7 @@ export default function AdminDiscountCampaignsPage() {
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616B] sm:text-base">
                   Hier legst Du zentrale Rabattaktionen an. In V1 funktionieren
                   diese ohne Rabattcode. Die Anwendung im Shop, in der Rechnung
-                  und in PayPal folgt im nÃ¤chsten Schritt.
+                  und in PayPal folgt im nächsten Schritt.
                 </p>
               </div>
             </div>
@@ -397,7 +397,7 @@ export default function AdminDiscountCampaignsPage() {
                 Aktuell wirksam: {activeCampaigns.length}
               </p>
               <p className="mt-1 max-w-xs leading-5">
-                V1-Regel spÃ¤ter im Checkout: neueste passende aktive Kampagne
+                V1-Regel später im Checkout: neueste passende aktive Kampagne
                 wird angewendet.
               </p>
             </div>
@@ -476,7 +476,7 @@ export default function AdminDiscountCampaignsPage() {
 
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-bold">
-                  Rabattwert {form.discountType === "percent" ? "in %" : "in â‚¬"}
+                  Rabattwert {form.discountType === "percent" ? "in %" : "in €"}
                 </span>
                 <input
                   value={form.discountValue}
@@ -573,7 +573,7 @@ export default function AdminDiscountCampaignsPage() {
                 {isSaving
                   ? "Speichert..."
                   : editingId
-                    ? "Ã„nderungen speichern"
+                    ? "Änderungen speichern"
                     : "Rabattaktion erstellen"}
               </button>
 
@@ -593,7 +593,7 @@ export default function AdminDiscountCampaignsPage() {
             <div>
               <h2 className="text-xl font-black">Vorhandene Rabattaktionen</h2>
               <p className="mt-1 text-sm text-[#697985]">
-                Die eigentliche Anwendung im Checkout folgt im nÃ¤chsten Schritt.
+                Die eigentliche Anwendung im Checkout folgt im nächsten Schritt.
               </p>
             </div>
 
@@ -635,7 +635,7 @@ export default function AdminDiscountCampaignsPage() {
                               {currentlyValid
                                 ? "wirksam"
                                 : campaign.is_active
-                                  ? "aktiv, aber auÃŸerhalb Zeitraum"
+                                  ? "aktiv, aber außerhalb Zeitraum"
                                   : "inaktiv"}
                             </span>
 
@@ -722,7 +722,7 @@ export default function AdminDiscountCampaignsPage() {
                             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#F1B5B5] bg-[#FFF5F5] px-4 py-2 text-sm font-black text-[#9F1D1D] transition hover:bg-[#FFE8E8]"
                           >
                             <Trash2 className="h-4 w-4" />
-                            LÃ¶schen
+                            Löschen
                           </button>
                         </div>
                       </div>

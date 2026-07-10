@@ -810,7 +810,7 @@ export default async function AdminSocialPostingPage({
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-amber-900">
                     Dieser Beitrag ist noch nicht freigegeben. Du kannst die
-                    Texte hier prüfen und kopieren, aber Veröffentlichung und
+                    Texte hier prüfentlichung und
                     Ads-Kampagnen-Erstellung sind blockiert, bis das
                     Content-Review freigegeben wurde.
                   </p>

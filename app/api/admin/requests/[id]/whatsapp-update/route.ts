@@ -22,7 +22,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Pruefe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -57,9 +57,9 @@ async function logWhatsappOpen(input: {
   await input.supabase.from("school_request_events").insert({
     request_id: input.requestId,
     event_type: "admin_opened_whatsapp_update",
-    title: "WhatsApp-Update geÃ¶ffnet",
+    title: "WhatsApp-Update geöffnet",
     description:
-      "Der Admin hat einen vorbereiteten WhatsApp-Update-Link geÃ¶ffnet. Der Versand erfolgt manuell in WhatsApp.",
+      "Der Admin hat einen vorbereiteten WhatsApp-Update-Link geöffnet. Der Versand erfolgt manuell in WhatsApp.",
     source: "admin",
     metadata: {
       whatsappUrl: input.whatsappUrl,
@@ -75,7 +75,7 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Keine Anfrage-ID Ã¼bergeben.",
+          message: "Keine Anfrage-ID übergeben.",
         },
         { status: 400 }
       );
@@ -105,7 +105,7 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Der Kunde hat WhatsApp-Updates abgewÃ¤hlt.",
+          message: "Der Kunde hat WhatsApp-Updates abgewählt.",
         },
         { status: 409 }
       );
@@ -117,7 +117,7 @@ export async function GET(_request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "FÃ¼r diese Anfrage ist keine WhatsApp-fÃ¤hige Telefonnummer hinterlegt.",
+          message: "Für diese Anfrage ist keine WhatsApp-fähige Telefonnummer hinterlegt.",
         },
         { status: 400 }
       );
@@ -147,7 +147,7 @@ export async function GET(_request: NextRequest, context: Params) {
       requestId: schoolRequest.id,
       whatsappUrl,
     }).catch((error) => {
-      console.warn("WhatsApp-Update-Ã–ffnung konnte nicht protokolliert werden:", error);
+      console.warn("WhatsApp-Update-Öffnung konnte nicht protokolliert werden:", error);
     });
 
     await supabase
@@ -166,7 +166,7 @@ export async function GET(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "WhatsApp-Update konnte nicht geÃ¶ffnet werden.",
+            : "WhatsApp-Update konnte nicht geöffnet werden.",
       },
       { status: 500 }
     );

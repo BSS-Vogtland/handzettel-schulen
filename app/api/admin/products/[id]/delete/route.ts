@@ -404,8 +404,8 @@ export async function DELETE(_request: Request, context: Params) {
       productName,
       productSku,
       message: productSku
-        ? `Produkt „${productName}“ (${productSku}) wurde gelöscht. Historische Paketpositionen bleiben ohne direkte Produktverknüpfung erhalten.`
-        : `Produkt „${productName}“ wurde gelöscht. Historische Paketpositionen bleiben ohne direkte Produktverknüpfung erhalten.`,
+        ? `Produkt „${productName}“ (${productSku}) wurde gelöscht. Historische Paketpositionen bleiben ohne direkte Prüfung erhalten.`
+        : `Produkt „${productName}“ wurde gelöscht. Historische Paketpositionen bleiben ohne direkte Prüfung erhalten.`,
     });
   } catch (error) {
     console.error("Admin product delete error:", error);

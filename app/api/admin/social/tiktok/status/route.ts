@@ -70,7 +70,7 @@ export async function GET() {
         message:
           error instanceof Error
             ? error.message
-            : "TikTok-Systemstatus konnte nicht geprueft werden.",
+            : "TikTok-Systemstatus konnte nicht geprüft werden.",
       },
       { status: 500 }
     );

@@ -63,7 +63,7 @@ const FALLBACK_PROJECT: SocialProjectRow = {
   target_audience:
     "Eltern von Schulkindern, besonders vor dem Schulstart und bei Materiallisten",
   offer_summary:
-    "Eltern laden ihre Schulmaterialliste online hoch. Daraus wird ein vorbereiteter Paketwunsch mit passenden Artikeln erstellt. Die Eltern prüfen kurz, wählen bewusst aus und können das Schulmaterial online vorbereiten bzw. bestellen, statt stundenlang durch Geschäfte zu laufen.",
+    "Eltern laden ihre Schulmaterialliste online hoch. Daraus wird ein vorbereiteter Paketwunsch mit passenden Artikeln erstellt. Die Eltern prüfen.",
   brand_voice:
     "Direkt, verständlich, modern, vertrauenswürdig, elternnah, hilfreich, nicht aufdringlich",
   image_style:

@@ -591,7 +591,7 @@ function isAutoSelectionBlockedMatch(match: RequestMatch) {
     reason.includes("admin-pruefung") ||
     reason.includes("variantenmerkmale") ||
     reason.includes("bitte prüfen") ||
-    reason.includes("bitte pruefen") ||
+    reason.includes("bitte prüfen") ||
     reason.includes("teilweise erkannt")
   ) {
     return true;
@@ -2642,7 +2642,7 @@ const isFreshBeforeAnalysis =
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
-                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen den finalen Stand und bereiten die nächsten Schritte vor. Du kannst passende Artikel später direkt nachkaufen."
+                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen."
                       : "Bitte prüfe Deinen Paketwunsch. Wenn alles passt, bestätigst Du ihn und schließt danach die Bestellung ab."}
                   </p>
 

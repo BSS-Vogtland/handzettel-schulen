@@ -39,7 +39,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -105,7 +105,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return jsonResponse(
         {
           ok: false,
-          message: "Kein Angebotstoken Ã¼bergeben.",
+          message: "Kein Angebotstoken übergeben.",
         },
         400
       );
@@ -115,7 +115,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return jsonResponse(
         {
           ok: false,
-          message: "Keine Paketposition Ã¼bergeben.",
+          message: "Keine Paketposition übergeben.",
         },
         400
       );
@@ -159,7 +159,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Der Paketwunsch wurde bereits abgesendet. Produkte kÃ¶nnen nicht mehr entfernt werden.",
+            "Der Paketwunsch wurde bereits abgesendet. Produkte können nicht mehr entfernt werden.",
         },
         409
       );
@@ -273,9 +273,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
       supabase,
       requestId: requestRow.id,
       eventType: "customer_offer_item_removed",
-      message: `Kunde hat â€ž${
+      message: `Kunde hat „${
         offerItem.product_name || "Produkt"
-      }â€œ aus dem Paket entfernt.`,
+      }“ aus dem Paket entfernt.`,
       metadata: {
         offerItemId: offerItem.id,
         requestItemId: offerItem.request_item_id,

@@ -20,7 +20,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Pruefe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -186,7 +186,7 @@ export async function DELETE(request: NextRequest, context: Params) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Produktnutzung konnte nicht geprueft werden: " + countError.message,
+          message: "Produktnutzung konnte nicht geprüft werden: " + countError.message,
         },
         { status: 500 }
       );

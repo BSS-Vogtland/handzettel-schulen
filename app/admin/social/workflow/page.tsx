@@ -270,7 +270,7 @@ function PostWorkflowCard({
       key: "posting",
       title: "Posting-Sicherheitsvorschau",
       description:
-        "Finalen Text, Pflichtlink, Plattform und Asset prüfen. Dann veröffentlichen oder für den Kalender nutzen.",
+        "Finalen Text, Pflichtlink, Plattform und Asset prüfentlichen oder für den Kalender nutzen.",
       href: `/admin/social/${post.id}/posting`,
       buttonLabel: "Posting prüfen",
       icon: <Share2 className="h-4 w-4" />,
@@ -281,7 +281,7 @@ function PostWorkflowCard({
       key: "ads",
       title: "Optional Ads vorbereiten",
       description:
-        "Ads erst aus einem sauberen, geprüften Beitrag vorbereiten. Budget und Landingpage gesondert prüfen.",
+        "Ads erst aus einem sauberen, geprüfen.",
       href: "/admin/social/ads",
       buttonLabel: "Ads öffnen",
       icon: <BadgeEuro className="h-4 w-4" />,
@@ -546,7 +546,7 @@ export default async function AdminSocialWorkflowPage() {
 
             <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#627D98]">
               Erzeuge zuerst 3 neue Beiträge. Danach erscheint hier für jeden
-              Beitrag ein eigener Ablauf von Textprüfung bis Veröffentlichung.
+              Beitrag ein eigener Ablauf von Textprüfentlichung.
             </p>
           </section>
         ) : (

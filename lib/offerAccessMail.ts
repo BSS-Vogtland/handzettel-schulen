@@ -101,11 +101,11 @@ function createText(params: {
   return `${greeting}
 
 Du hast Deine Schulmaterialliste bei Handzettel-Schulen.de auslesen lassen.${requestLine}
-ÃƒÅ“ber diesen Link kommst Du jederzeit zurück zu Deinem Paketwunsch:
+Über diesen Link kommst Du jederzeit zurück zu Deinem Paketwunsch:
 
 ${params.offerUrl}
 
-Dort kannst Du Deine Liste prüfen, offene Positionen bearbeiten oder später Deine Bestellung abschließen.
+Dort kannst Du Deine Liste prüfene Positionen bearbeiten oder später Deine Bestellung abschließen.
 
 Wichtig: Diese Mail ist noch keine Rechnung und keine Bestellung.
 
@@ -139,8 +139,8 @@ function createHtml(params: {
         ${requestLine}
 
         <p style="margin:0 0 20px 0;line-height:1.6;color:#52616F;">
-          ÃƒÅ“ber den folgenden Button kommst Du jederzeit zurück zu Deinem Paketwunsch.
-          Dort kannst Du Deine Liste prüfen, offene Positionen bearbeiten oder später Deine Bestellung abschließen.
+          Über den folgenden Button kommst Du jederzeit zurück zu Deinem Paketwunsch.
+          Dort kannst Du Deine Liste prüfene Positionen bearbeiten oder später Deine Bestellung abschließen.
         </p>
 
         <p style="margin:24px 0;text-align:center;">
