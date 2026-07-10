@@ -18,6 +18,20 @@ type PatchPayload = {
   quantity?: number | string | null;
   unit?: string | null;
   notes?: string | null;
+  existingProductId?: string | null;
+};
+
+type ProductRow = {
+  id: string;
+  name?: string | null;
+  product_name?: string | null;
+  title?: string | null;
+  sku?: string | null;
+  product_sku?: string | null;
+  price?: number | string | null;
+  product_price?: number | string | null;
+  sale_price?: number | string | null;
+  sale_price_gross?: number | string | null;
 };
 
 function jsonResponse(data: unknown, status = 200) {
@@ -51,6 +65,29 @@ function toNumber(value: unknown, fallback = 0) {
 
   const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getProductName(product: ProductRow) {
+  return (
+    product.name ||
+    product.product_name ||
+    product.title ||
+    "Unbenanntes Produkt"
+  );
+}
+
+function getProductSku(product: ProductRow) {
+  return product.sku || product.product_sku || null;
+}
+
+function getProductPrice(product: ProductRow) {
+  return toNumber(
+    product.price ??
+      product.product_price ??
+      product.sale_price_gross ??
+      product.sale_price,
+    0
+  );
 }
 
 async function createRequestEvent(
@@ -110,12 +147,49 @@ export async function PATCH(request: NextRequest, context: Params) {
       );
     }
 
-    const productName = String(body.productName || "").trim();
-    const productSku = String(body.productSku || "").trim();
+    const existingProductId = String(body.existingProductId || "").trim();
+
+    let productName = String(body.productName || "").trim();
+    let productSku = String(body.productSku || "").trim();
+    let productPrice = toNumber(body.productPrice, 0);
+    const quantity = toNumber(body.quantity, 1) || 1;
     const unit = String(body.unit || "").trim();
     const notes = String(body.notes || "").trim();
-    const productPrice = toNumber(body.productPrice, 0);
-    const quantity = toNumber(body.quantity, 1) || 1;
+
+    let selectedProduct: ProductRow | null = null;
+
+    if (existingProductId) {
+      const { data: productData, error: productError } = await supabase
+        .from("school_products")
+        .select("*")
+        .eq("id", existingProductId)
+        .maybeSingle();
+
+      if (productError) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: `Bestandsprodukt konnte nicht geladen werden: ${productError.message}`,
+          },
+          500
+        );
+      }
+
+      if (!productData) {
+        return jsonResponse(
+          {
+            ok: false,
+            message: "Das gewählte Bestandsprodukt wurde nicht gefunden.",
+          },
+          404
+        );
+      }
+
+      selectedProduct = productData as ProductRow;
+      productName = getProductName(selectedProduct);
+      productSku = getProductSku(selectedProduct) || "";
+      productPrice = getProductPrice(selectedProduct);
+    }
 
     if (!productName) {
       return jsonResponse(
@@ -131,35 +205,30 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Die Menge muss größer als 0 sein.",
+          message: "Bitte gib eine gültige Menge ein.",
         },
         400
       );
     }
 
-    const { data: schoolRequest, error: requestError } = await supabase
-      .from("school_requests")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (requestError) {
+    if (productPrice < 0) {
       return jsonResponse(
         {
           ok: false,
-          message: `Anfrage konnte nicht geladen werden: ${requestError.message}`,
+          message: "Bitte gib einen gültigen Einzelpreis ein.",
         },
-        500
+        400
       );
     }
 
-    if (!schoolRequest) {
+    if (selectedProduct && productPrice <= 0) {
       return jsonResponse(
         {
           ok: false,
-          message: "Anfrage wurde nicht gefunden.",
+          message:
+            "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
         },
-        404
+        400
       );
     }
 
@@ -184,23 +253,34 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Paketposition wurde nicht gefunden.",
+          message: "Die Paketposition wurde nicht gefunden.",
         },
         404
       );
     }
 
+    const now = new Date().toISOString();
+
+    const updatePayload: Record<string, unknown> = {
+      product_name: productName,
+      product_sku: productSku || null,
+      product_price: productPrice,
+      quantity,
+      unit: unit || null,
+      total_price: quantity * productPrice,
+      notes: notes || null,
+      updated_at: now,
+    };
+
+    if (selectedProduct) {
+      updatePayload.product_id = selectedProduct.id;
+      updatePayload.match_id = null;
+      updatePayload.source = "admin_existing_product";
+    }
+
     const { data: updatedItem, error: updateError } = await supabase
       .from("school_offer_items")
-      .update({
-        product_name: productName,
-        product_sku: productSku || null,
-        product_price: productPrice,
-        quantity,
-        unit: unit || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", itemId)
       .eq("request_id", id)
       .select("*")
@@ -219,7 +299,7 @@ export async function PATCH(request: NextRequest, context: Params) {
     await supabase
       .from("school_requests")
       .update({
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", id);
 
@@ -227,22 +307,35 @@ export async function PATCH(request: NextRequest, context: Params) {
       supabase,
       id,
       "admin_offer_item_updated",
-      "Admin hat eine Paketposition bearbeitet.",
+      selectedProduct
+        ? `Paketposition wurde auf Shopartikel „${productName}“ geändert.`
+        : `Paketposition „${productName}“ wurde aktualisiert.`,
       {
         offerItemId: itemId,
-        oldProductName: existingItem.product_name || null,
-        newProductName: productName,
+        requestItemId:
+          (existingItem as { request_item_id?: string | null }).request_item_id ||
+          null,
+        oldProductId:
+          (existingItem as { product_id?: string | null }).product_id || null,
+        productId:
+          selectedProduct?.id ||
+          (updatedItem as { product_id?: string | null }).product_id ||
+          null,
+        productName,
         productSku: productSku || null,
         productPrice,
         quantity,
         unit: unit || null,
+        shopProductChanged: Boolean(selectedProduct),
       }
     );
 
     return jsonResponse({
       ok: true,
+      message: selectedProduct
+        ? "Paketposition wurde auf den gewählten Shopartikel geändert."
+        : "Paketposition wurde aktualisiert.",
       item: updatedItem,
-      message: "Paketposition wurde aktualisiert.",
     });
   } catch (error) {
     console.error("Admin update offer item error:", error);
