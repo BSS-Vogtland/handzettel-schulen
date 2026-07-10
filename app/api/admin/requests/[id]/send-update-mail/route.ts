@@ -2,6 +2,7 @@
 import nodemailer from "nodemailer";
 import { after, NextResponse } from "next/server";
 import { assertAdminRequestReadyForOfferMail } from "@/lib/adminRequestWorkflow";
+import { sendMailReliable } from "@/lib/mail/sendMailReliable";
 
 export const runtime = "nodejs";
 
@@ -617,7 +618,7 @@ export async function POST(_request: Request, context: RouteContext) {
     after(async () => {
     console.log("admin_package_update_mail_after_started", { requestId, customerEmail });
     try {
-      await transporter.sendMail({
+      await sendMailReliable({
       from,
       to: customerEmail,
       subject,

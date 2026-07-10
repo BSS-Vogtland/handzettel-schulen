@@ -1,6 +1,7 @@
 ﻿import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { after, NextRequest, NextResponse } from "next/server";
+import { sendMailReliable } from "@/lib/mail/sendMailReliable";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -462,7 +463,7 @@ async function sendQuestionNotificationMail(params: {
     questionText,
   };
 
-  await transporter.sendMail({
+  await sendMailReliable({
     from,
     to: customerEmail,
     subject,
