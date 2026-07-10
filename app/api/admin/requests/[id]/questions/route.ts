@@ -383,20 +383,17 @@ async function createRequestEvent(
       event_type: eventType,
       title: "RÃ¼ckfrage",
       description: message,
-      metadata: metadata ?? {},
       created_at: new Date().toISOString(),
     },
     {
       request_id: requestId,
       event_type: eventType,
       message,
-      metadata: metadata ?? {},
     },
     {
       request_id: requestId,
       type: eventType,
       message,
-      metadata: metadata ?? {},
     },
   ];
 
@@ -621,6 +618,7 @@ export async function POST(request: NextRequest, context: Params) {
     };
 
     after(async () => {
+      console.log("admin_question_mail_after_started", { requestId: id, requestItemId });
       try {
         const backgroundMailResult = await sendQuestionNotificationMail({
           requestData,
@@ -639,12 +637,6 @@ export async function POST(request: NextRequest, context: Params) {
           description: backgroundMailResult.sent
             ? `RÃ¼ckfrage-Mail wurde nach schneller Serverantwort an ${backgroundMailResult.email} gesendet.`
             : backgroundMailResult.reason || "RÃ¼ckfrage-Mail wurde nicht versendet.",
-          metadata: {
-            request_item_id: requestItemId,
-            background: true,
-            after: true,
-            mail_result: backgroundMailResult,
-          },
         });
       } catch (mailError) {
         console.error("after question mail error:", mailError);
@@ -658,11 +650,6 @@ export async function POST(request: NextRequest, context: Params) {
               mailError instanceof Error
                 ? mailError.message
                 : "Unbekannter Fehler beim Versand der RÃ¼ckfrage-Mail.",
-            metadata: {
-              request_item_id: requestItemId,
-              background: true,
-              after: true,
-            },
           });
         } catch (eventError) {
           console.error("after question mail failed event error:", eventError);
@@ -675,11 +662,6 @@ export async function POST(request: NextRequest, context: Params) {
       event_type: "background_question_mail_started",
       title: "RÃ¼ckfrage-Mailversand gestartet",
       description: "Der Mailversand zur RÃ¼ckfrage wurde gestartet.",
-      metadata: {
-        request_item_id: requestItemId,
-        background: true,
-        after: true,
-      },
     });
 
     return NextResponse.json({
@@ -703,3 +685,4 @@ export async function POST(request: NextRequest, context: Params) {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { after, NextResponse } from "next/server";
 import { assertAdminRequestReadyForOfferMail } from "@/lib/adminRequestWorkflow";
@@ -19,7 +19,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -173,7 +173,7 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("SMTP-Konfiguration unvollständig.");
+    throw new Error("SMTP-Konfiguration unvollstÃ¤ndig.");
   }
 
   return nodemailer.createTransport({
@@ -281,7 +281,7 @@ function createMailHtml(params: {
                     </td>
                     <td valign="middle" style="padding:0;">
                       <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Paketwunsch prüfen und bestätigen</div>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Paketwunsch prÃ¼fen und bestÃ¤tigen</div>
                     </td>
                   </tr>
                 </table>
@@ -297,7 +297,7 @@ function createMailHtml(params: {
                 </p>
 
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab.
+                  Bitte prÃ¼fe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestÃ¤tigst Du anschlieÃŸend Deinen Paketwunsch und schlieÃŸt die Bestellung ab.
                 </p>
 
                 ${
@@ -343,7 +343,7 @@ function createMailHtml(params: {
                   <tr>
                     <td style="border-radius:16px;background:#B5282D;">
                       <a href="${offerUrl}" style="display:inline-block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;border-radius:16px;">
-                        Paketwunsch prüfen
+                        Paketwunsch prÃ¼fen
                       </a>
                     </td>
                   </tr>
@@ -351,7 +351,7 @@ function createMailHtml(params: {
 
                 <div style="background:#FFF8EE;border:1px solid #F1D1A8;border-radius:18px;padding:16px;margin:24px 0;color:#8A4A1F;">
                   <p style="margin:0;font-size:14px;line-height:1.55;font-weight:700;">
-                    Wichtig: Mit dem Öffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite prüfst, bestätigst und den Checkout abschließt, wird daraus eine verbindliche Bestellung.
+                    Wichtig: Mit dem Ã–ffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite prÃ¼fst, bestÃ¤tigst und den Checkout abschlieÃŸt, wird daraus eine verbindliche Bestellung.
                   </p>
                 </div>
 
@@ -361,7 +361,7 @@ function createMailHtml(params: {
                 </p>
 
                 <p style="margin:26px 0 0;font-size:16px;line-height:1.55;">
-                  Viele Grüße<br />
+                  Viele GrÃ¼ÃŸe<br />
                   Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span>
                 </p>
               </td>
@@ -369,7 +369,7 @@ function createMailHtml(params: {
 
             <tr>
               <td style="padding:18px 30px;background:#FBF7F0;color:#5C6B73;font-size:12px;line-height:1.45;">
-                Diese E-Mail wurde gesendet, weil Du über Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
+                Diese E-Mail wurde gesendet, weil Du Ã¼ber Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
               </td>
             </tr>
           </table>
@@ -411,7 +411,7 @@ function createMailText(params: {
       const unit = getItemUnit(item);
       const totalPrice = getItemTotal(item);
 
-      return `- ${quantity} ${unit} ${name} · ${formatMoney(totalPrice)}`;
+      return `- ${quantity} ${unit} ${name} Â· ${formatMoney(totalPrice)}`;
     })
     .join("\n");
 
@@ -424,7 +424,7 @@ function createMailText(params: {
 
 Dein Paketwunsch ist fertig.
 
-Bitte prüfe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab.
+Bitte prÃ¼fe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestÃ¤tigst Du anschlieÃŸend Deinen Paketwunsch und schlieÃŸt die Bestellung ab.
 
 ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     childName ? `Kind: ${childName}\n` : ""
@@ -432,19 +432,19 @@ ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     className ? `Klasse: ${className}\n` : ""
   }
 
-Kurzübersicht:
+KurzÃ¼bersicht:
 ${itemLines}${moreLine}
 
 Aktueller Paketwert: ${formatMoney(total)}
 
-Paketwunsch prüfen:
+Paketwunsch prÃ¼fen:
 ${offerUrl}
 
 Wichtig:
-Mit dem Öffnen des Links bestellst Du noch nichts automatisch.
-Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns übermittelt.
+Mit dem Ã–ffnen des Links bestellst Du noch nichts automatisch.
+Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns Ã¼bermittelt.
 
-Viele Grüße
+Viele GrÃ¼ÃŸe
 Dein Team von Handzettel-Schulen.de`;
 }
 
@@ -464,11 +464,6 @@ async function insertEvent(params: {
       title: "Paketwunsch ist fertig",
       message,
       description: message,
-      metadata: {
-        offer_url_type: "customer_package_review_link",
-        offer_url: offerUrl,
-        email: customerEmail,
-      },
       created_at: new Date().toISOString(),
     },
     {
@@ -477,11 +472,6 @@ async function insertEvent(params: {
       title: "Paketwunsch-Link per E-Mail gesendet",
       message,
       description: message,
-      metadata: {
-        offer_url_type: "customer_package_review_link",
-        offer_url: offerUrl,
-        email: customerEmail,
-      },
       created_at: new Date().toISOString(),
     },
   ];
@@ -500,7 +490,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, error: "Ungültige Anfrage-ID." },
+        { ok: false, error: "UngÃ¼ltige Anfrage-ID." },
         { status: 400 }
       );
     }
@@ -536,7 +526,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Für diese Anfrage wurde keine Kunden-E-Mail gefunden. Bitte prüfe die Anfrage-Daten.",
+            "FÃ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden. Bitte prÃ¼fe die Anfrage-Daten.",
         },
         { status: 400 }
       );
@@ -547,7 +537,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Für diese Anfrage wurde kein Angebots-Token gefunden. Der Paketwunsch-Link kann nicht erstellt werden.",
+            "FÃ¼r diese Anfrage wurde kein Angebots-Token gefunden. Der Paketwunsch-Link kann nicht erstellt werden.",
         },
         { status: 400 }
       );
@@ -575,7 +565,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Es sind noch keine Paketpositionen vorhanden. Bitte erst Liste auswerten, Produkte übernehmen oder manuell ergänzen.",
+            "Es sind noch keine Paketpositionen vorhanden. Bitte erst Liste auswerten, Produkte Ã¼bernehmen oder manuell ergÃ¤nzen.",
         },
         { status: 400 }
       );
@@ -625,6 +615,7 @@ export async function POST(_request: Request, context: RouteContext) {
     };
 
     after(async () => {
+    console.log("admin_package_update_mail_after_started", { requestId, customerEmail });
     try {
       await transporter.sendMail({
       from,
@@ -639,12 +630,6 @@ export async function POST(_request: Request, context: RouteContext) {
         event_type: "background_package_update_mail_sent",
         title: "Paketwunsch-Mail versendet",
         description: `Paketwunsch-Mail wurde nach schneller Serverantwort an ${customerEmail} gesendet.`,
-        metadata: {
-          email: customerEmail,
-          offer_url: offerUrl,
-          background: true,
-          after: true,
-        },
       });
     } catch (mailError) {
       console.error("after package update mail error:", mailError);
@@ -658,12 +643,6 @@ export async function POST(_request: Request, context: RouteContext) {
             mailError instanceof Error
               ? mailError.message
               : "Unbekannter Fehler beim Versand der Paketwunsch-Mail.",
-          metadata: {
-            email: customerEmail,
-            offer_url: offerUrl,
-            background: true,
-            after: true,
-          },
         });
       } catch (eventError) {
         console.error("after package update mail failed event error:", eventError);
@@ -676,12 +655,6 @@ export async function POST(_request: Request, context: RouteContext) {
     event_type: "background_package_update_mail_started",
     title: "Paketwunsch-Mailversand gestartet",
     description: `Paketwunsch-Mailversand an ${customerEmail} wurde gestartet.`,
-    metadata: {
-      email: customerEmail,
-      offer_url: offerUrl,
-      background: true,
-      after: true,
-    },
   });
 await insertEvent({
       supabase,
@@ -710,7 +683,7 @@ await insertEvent({
 
     return NextResponse.json({
       ok: true,
-      message: "Paketwunsch-Mailversand wurde gestartet. Der Versand läuft im Hintergrund.",
+      message: "Paketwunsch-Mailversand wurde gestartet. Der Versand lÃ¤uft im Hintergrund.",
       sentTo: customerEmail,
       offerUrl,
     });
