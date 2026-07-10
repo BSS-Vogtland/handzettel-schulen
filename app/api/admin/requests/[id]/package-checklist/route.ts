@@ -78,7 +78,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -92,6 +92,20 @@ function getSupabaseAdmin() {
 
 function cleanText(value: unknown) {
   return String(value || "").trim();
+}
+
+function normalizeStatus(value: unknown) {
+  return cleanText(value).toLowerCase();
+}
+
+function getRequestItemResolutionStatus(item: RequestItem) {
+  const adminStatus = normalizeStatus(item.admin_resolution_status);
+  const itemStatus = normalizeStatus(item.status);
+
+  if (RESOLVED_ADMIN_STATUSES.has(adminStatus)) return adminStatus;
+  if (RESOLVED_ADMIN_STATUSES.has(itemStatus)) return itemStatus;
+
+  return "";
 }
 
 function toNumber(value: unknown, fallback = 1) {
@@ -125,7 +139,7 @@ function getRequestItemOriginalText(item: RequestItem) {
   if (item.color) details.push(`Farbe: ${item.color}`);
 
   if (details.length > 0) {
-    parts.push(details.join(" Â· "));
+    parts.push(details.join(" Ã‚Â· "));
   }
 
   return parts.join("\n");
@@ -148,17 +162,17 @@ function getStatusLabel(status: string) {
     case "in_package":
       return "Im Paket";
     case "alternative_selected":
-      return "Alternative gewÃ¤hlt";
+      return "Alternative gewÃƒÂ¤hlt";
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht benÃ¶tigt";
+      return "Nicht benÃƒÂ¶tigt";
     case "question_required":
-      return "RÃ¼ckfrage nÃ¶tig";
+      return "RÃƒÂ¼ckfrage nÃƒÂ¶tig";
     case "manual_check":
-      return "Manuell geprÃ¼ft";
+      return "Manuell geprÃƒÂ¼ft";
     default:
-      return status || "Manuell geprÃ¼ft";
+      return status || "Manuell geprÃƒÂ¼ft";
   }
 }
 
@@ -256,7 +270,7 @@ function buildChecklistRows(input: {
     rows.push({
       request_item_id: null,
       offer_item_id: offerItem.id,
-      original_text: "ZusÃ¤tzlich manuell ergÃ¤nzt",
+      original_text: "ZusÃƒÂ¤tzlich manuell ergÃƒÂ¤nzt",
       resolved_text: getOfferItemText(offerItem),
       status: "manual_check",
     });
@@ -349,7 +363,7 @@ async function syncExistingChecklistItems(input: {
 
     if (error) {
       throw new Error(
-        `Checklistenposition konnte nicht ergÃ¤nzt werden: ${error.message}`
+        `Checklistenposition konnte nicht ergÃƒÂ¤nzt werden: ${error.message}`
       );
     }
   }
@@ -545,7 +559,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
+        { ok: false, message: "Keine Anfrage-ID ÃƒÂ¼bergeben." },
         { status: 400 }
       );
     }
@@ -593,7 +607,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
+        { ok: false, message: "Keine Anfrage-ID ÃƒÂ¼bergeben." },
         { status: 400 }
       );
     }
