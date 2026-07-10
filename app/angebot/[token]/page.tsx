@@ -25,6 +25,7 @@ import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButto
 import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
 import CustomerOptionalOfferItemNoteForm from "@/components/CustomerOptionalOfferItemNoteForm";
 import CustomerOfferRecommendations from "@/components/CustomerOfferRecommendations";
+import CustomerProductDetailsDialog from "@/components/CustomerProductDetailsDialog";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 import LegalFooter from "@/components/LegalFooter";
 import {
@@ -166,7 +167,7 @@ type RequestEvent = {
   created_at: string | null;
 };
 
-type ProductRow = {
+type ProductRow = Record<string, unknown> & {
   id: string;
   image_url?: string | null;
   image_original_url?: string | null;
@@ -2068,11 +2069,12 @@ const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
   );
 
   const productImageById = new Map<string, string | null>();
+  const productById = new Map<string, ProductRow>();
 
 if (productIds.length > 0) {
   const { data: productRows, error: productRowsError } = await supabase
     .from("school_products")
-    .select("id, image_styled_url, image_url, image_original_url")
+    .select("*")
     .in("id", productIds);
 
   if (productRowsError) {
@@ -2082,6 +2084,9 @@ if (productIds.length > 0) {
   }
 
   for (const product of (productRows || []) as ProductRow[]) {
+    if (!product.id) continue;
+
+    productById.set(product.id, product);
     productImageById.set(product.id, getPreferredProductImageUrl(product));
   }
 }
@@ -2330,11 +2335,17 @@ const customerOpenPositionScreenMode =
                       const quantity = toNumber(item.quantity, 1) || 1;
                       const unitPrice = toNumber(item.product_price, 0);
                       const lineTotal = quantity * unitPrice;
+                      const finalReviewProductImageUrl = item.product_id
+                        ? productImageById.get(item.product_id) || null
+                        : null;
+                      const finalReviewProduct = item.product_id
+                        ? productById.get(item.product_id) || null
+                        : null;
 
                       return (
                         <article
                           key={item.id}
-                          className="grid gap-4 bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                          className="grid gap-4 bg-white p-4 sm:grid-cols-[84px_1fr_auto] sm:items-center"
                         >
                           <div>
                             <p className="text-base font-black text-[#102A43]">
@@ -2350,6 +2361,15 @@ const customerOpenPositionScreenMode =
                             <p className="mt-2 text-sm font-semibold text-[#52616F]">
                               {quantity} × {formatMoney(unitPrice)}
                             </p>
+                          
+                            <CustomerProductDetailsDialog
+                              product={finalReviewProduct}
+                              productName={item.product_name || "Artikel"}
+                              productSku={item.product_sku}
+                              productPrice={unitPrice}
+                              imageUrl={finalReviewProductImageUrl}
+                              quantity={quantity}
+                            />
                           </div>
 
                           <div className="flex flex-col items-start gap-3 sm:items-end">
