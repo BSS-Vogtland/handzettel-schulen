@@ -322,7 +322,7 @@ export default function CustomerOpenPositionDecisionPanel({
             type="button"
             onClick={chooseSelf}
             disabled={isSaving !== null}
-            className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#B8C7E0] bg-white px-7 py-3 text-base font-black text-[#102A43] shadow-md transition hover:bg-[#EEF4FA] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-14 min-w-[250px] items-center justify-center rounded-full border-2 border-[#B8C7E0] bg-white px-9 py-4 text-base font-black text-[#102A43] shadow-lg transition hover:bg-[#EEF4FA] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving === "self" ? "Wird geöffnet ..." : "Artikel selbst auswählen"}
           </button>
