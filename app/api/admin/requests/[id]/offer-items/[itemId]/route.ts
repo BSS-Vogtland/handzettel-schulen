@@ -44,7 +44,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -179,7 +179,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: "Das gewählte Bestandsprodukt wurde nicht gefunden.",
+            message: "Das gewÃ¤hlte Bestandsprodukt wurde nicht gefunden.",
           },
           404
         );
@@ -205,7 +205,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib eine gültige Menge ein.",
+          message: "Bitte gib eine gÃ¼ltige Menge ein.",
         },
         400
       );
@@ -215,7 +215,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib einen gültigen Einzelpreis ein.",
+          message: "Bitte gib einen gÃ¼ltigen Einzelpreis ein.",
         },
         400
       );
@@ -226,7 +226,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+            "Das gewÃ¤hlte Bestandsprodukt hat keinen gÃ¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
         },
         400
       );
@@ -267,7 +267,6 @@ export async function PATCH(request: NextRequest, context: Params) {
       product_price: productPrice,
       quantity,
       unit: unit || null,
-      total_price: quantity * productPrice,
       notes: notes || null,
       updated_at: now,
     };
@@ -308,8 +307,8 @@ export async function PATCH(request: NextRequest, context: Params) {
       id,
       "admin_offer_item_updated",
       selectedProduct
-        ? `Paketposition wurde auf Shopartikel „${productName}“ geändert.`
-        : `Paketposition „${productName}“ wurde aktualisiert.`,
+        ? `Paketposition wurde auf Shopartikel â€ž${productName}â€œ geÃ¤ndert.`
+        : `Paketposition â€ž${productName}â€œ wurde aktualisiert.`,
       {
         offerItemId: itemId,
         requestItemId:
@@ -333,7 +332,7 @@ export async function PATCH(request: NextRequest, context: Params) {
     return jsonResponse({
       ok: true,
       message: selectedProduct
-        ? "Paketposition wurde auf den gewählten Shopartikel geändert."
+        ? "Paketposition wurde auf den gewÃ¤hlten Shopartikel geÃ¤ndert."
         : "Paketposition wurde aktualisiert.",
       item: updatedItem,
     });
@@ -431,7 +430,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: `Paketposition konnte nicht gelöscht werden: ${deleteError.message}`,
+          message: `Paketposition konnte nicht gelÃ¶scht werden: ${deleteError.message}`,
         },
         500
       );
@@ -457,7 +456,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
       supabase,
       id,
       "admin_offer_item_deleted",
-      "Admin hat eine Paketposition gelöscht.",
+      "Admin hat eine Paketposition gelÃ¶scht.",
       {
         offerItemId: itemId,
         requestItemId: offerItem.request_item_id || null,
@@ -474,7 +473,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
 
     return jsonResponse({
       ok: true,
-      message: "Paketposition wurde gelöscht.",
+      message: "Paketposition wurde gelÃ¶scht.",
     });
   } catch (error) {
     console.error("Admin delete offer item error:", error);
@@ -485,7 +484,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "Paketposition konnte nicht gelöscht werden.",
+            : "Paketposition konnte nicht gelÃ¶scht werden.",
       },
       500
     );
