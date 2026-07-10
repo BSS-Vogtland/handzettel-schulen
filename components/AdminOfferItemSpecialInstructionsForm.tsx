@@ -1,7 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2, MessageSquareText } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  MessageSquareText,
+} from "lucide-react";
 
 type AdminOfferItemSpecialInstructionsFormProps = {
   requestId: string;
@@ -36,6 +42,7 @@ export default function AdminOfferItemSpecialInstructionsForm({
   initialNote = "",
   compact = false,
 }: AdminOfferItemSpecialInstructionsFormProps) {
+  const [isOpen, setIsOpen] = useState(Boolean(initialNote));
   const [note, setNote] = useState(initialNote || "");
   const [lastSavedNote, setLastSavedNote] = useState(initialNote || "");
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +51,7 @@ export default function AdminOfferItemSpecialInstructionsForm({
 
   const remainingCharacters = MAX_NOTE_LENGTH - note.length;
   const hasChanges = note.trim() !== lastSavedNote.trim();
+  const previewText = lastSavedNote.trim();
 
   async function handleSave() {
     if (isSaving) return;
@@ -89,6 +97,10 @@ export default function AdminOfferItemSpecialInstructionsForm({
       setNote(savedNote);
       setLastSavedNote(savedNote);
       setFeedback(payload.message || "Besonderer Hinweis wurde gespeichert.");
+
+      if (!savedNote) {
+        setIsOpen(false);
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -100,26 +112,88 @@ export default function AdminOfferItemSpecialInstructionsForm({
     }
   }
 
+  if (!isOpen) {
+    return (
+      <div
+        className={`mt-4 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] ${
+          compact ? "p-3" : "p-4"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen(true);
+            setFeedback(null);
+            setErrorMessage(null);
+          }}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#12395F]">
+              <MessageSquareText className="h-5 w-5" />
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                Besondere Hinweise
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                {previewText
+                  ? previewText
+                  : "Optionalen Hinweis zur Paketposition öffnen."}
+              </p>
+            </div>
+          </div>
+
+          <ChevronDown className="h-5 w-5 shrink-0 text-[#12395F]" />
+        </button>
+
+        {feedback ? (
+          <p className="mt-3 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-bold text-[#2F7D50]">
+            {feedback}
+          </p>
+        ) : null}
+
+        {errorMessage ? (
+          <p className="mt-3 rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-bold text-[#B5282D]">
+            {errorMessage}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`mt-4 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] ${
         compact ? "p-3" : "p-4"
       }`}
     >
-      <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#12395F]">
-          <MessageSquareText className="h-5 w-5" />
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#12395F]">
+            <MessageSquareText className="h-5 w-5" />
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+              Besondere Hinweise
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+              Hinweis zu „{productName}“. Dieser Text ist im Paketwunsch bei der
+              jeweiligen Position sichtbar.
+            </p>
+          </div>
         </div>
 
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-            Besondere Hinweise
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-            Hinweis zu „{productName}“. Dieser Text ist im Paketwunsch bei der
-            jeweiligen Position sichtbar.
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen(false)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#12395F] transition hover:bg-[#E4EEF8]"
+          aria-label="Hinweisfeld einklappen"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </button>
       </div>
 
       <textarea
