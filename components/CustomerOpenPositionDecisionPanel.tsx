@@ -258,7 +258,7 @@ export default function CustomerOpenPositionDecisionPanel({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2F7D50]">Handzettel-Schulen.de übernimmt</p>
 
           <h2 className="mt-2 max-w-3xl text-2xl font-black leading-tight text-[#102A43] sm:text-3xl">
-            Die meisten Produkte wurden bereits automatisch erkannt. Den Rest prüft Handzettel-Schulen.de persönlich für Dich.
+            Viele Produkte wurden bereits automatisch erkannt. Offene Positionen übernimmt Handzettel-Schulen.de persönlich für Dich.
           </h2>
         </div>
 
@@ -272,18 +272,18 @@ export default function CustomerOpenPositionDecisionPanel({
         </div>
       </div>
 
-      <div className="mt-6 rounded-[26px] border border-[#9BD5B0] bg-white px-5 py-5 shadow-sm sm:px-6 sm:py-6">
+      <div className="mt-7 rounded-[28px] border border-[#9BD5B0] bg-white px-6 py-6 shadow-sm sm:px-7 sm:py-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2F7D50] text-2xl font-black text-white">
             ✓
           </div>
 
           <div>
-            <p className="text-xl font-black leading-tight text-[#102A43] sm:text-2xl">
-              Du musst jetzt nichts weiter tun.
+            <p className="text-xl font-black leading-tight text-[#102A43] sm:text-[1.65rem]">
+              Handzettel-Schulen.de übernimmt den Rest für Dich.
             </p>
-            <p className="mt-2 text-lg font-black leading-tight text-[#2F7D50] sm:text-xl">
-              Du kannst die Seite jetzt einfach schließen.
+            <p className="mt-2 text-base font-black leading-7 text-[#2F7D50] sm:text-lg">
+              Du musst nichts weiter tun. Die sicher erkannten Artikel bleiben vorbereitet, offene Positionen prüfen wir persönlich.
             </p>
             <p
               data-team-ready-message
@@ -296,7 +296,7 @@ export default function CustomerOpenPositionDecisionPanel({
                 maxWidth: "1050px",
               }}
             >
-              Sobald Dein fertiger Paketwunsch bereit ist, bekommst Du eine Nachricht und kannst die Bestellung abschließen.
+              Sobald Dein fertiger Paketwunsch bereit ist, bekommst Du eine Nachricht. Danach kannst Du alles in Ruhe prüfen und die Bestellung abschließen.
             </p>
           </div>
         </div>
@@ -319,7 +319,7 @@ export default function CustomerOpenPositionDecisionPanel({
 
       <div className="mt-5 flex flex-col gap-2 border-t border-[#B9E5C8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold text-[#52616F]">
-          Du möchtest die offenen Positionen lieber selbst bearbeiten?
+          Du möchtest die offenen Positionen lieber selbst prüfen und auswählen?
         </p>
 
         <a
