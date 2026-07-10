@@ -237,7 +237,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃƒÂ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃƒÆ’Ã‚Â¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -268,7 +268,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "Ã¢â‚¬â€";
+  if (!value) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -280,7 +280,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "Ã¢â‚¬â€";
+  if (!value) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -290,7 +290,7 @@ function formatDate(value: string | null) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "Ã¢â‚¬â€";
+  if (!size) return "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -306,17 +306,17 @@ function getStatusLabel(status: string | null) {
     case "analysis_pending":
       return "Analyse offen";
     case "analysis_running":
-      return "Analyse lÃƒÂ¤uft";
+      return "Analyse lÃƒÆ’Ã‚Â¤uft";
     case "analysis_done":
       return "Analyse fertig";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
       return "Angebot gesendet";
     case "confirmed":
-      return "BestÃƒÂ¤tigt";
+      return "BestÃƒÆ’Ã‚Â¤tigt";
     case "cancelled":
       return "Abgebrochen";
     default:
@@ -329,7 +329,7 @@ function getOfferStatusLabel(status: string | null) {
     case "not_created":
       return "Noch nicht erstellt";
     case "matching_done":
-      return "ProduktvorschlÃƒÂ¤ge erstellt";
+      return "ProduktvorschlÃƒÆ’Ã‚Â¤ge erstellt";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
@@ -337,11 +337,11 @@ function getOfferStatusLabel(status: string | null) {
     case "customer_selection":
       return "Kundenauswahl";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
     case "confirmed":
-      return "BestÃƒÂ¤tigt";
+      return "BestÃƒÆ’Ã‚Â¤tigt";
     default:
-      return status || "Ã¢â‚¬â€";
+      return status || "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
   }
 }
 
@@ -350,21 +350,21 @@ function getAiStatusLabel(status: string | null) {
     case "pending":
       return "Offen";
     case "running":
-      return "LÃƒÂ¤uft";
+      return "LÃƒÆ’Ã‚Â¤uft";
     case "done":
       return "Fertig";
     case "error":
       return "Fehler";
     case "manual_review":
-      return "Manuelle PrÃƒÂ¼fung";
+      return "Manuelle PrÃƒÆ’Ã‚Â¼fung";
     case "missing_file":
       return "Datei fehlt";
     case "unsupported_file_type":
-      return "Dateityp nicht unterstÃƒÂ¼tzt";
+      return "Dateityp nicht unterstÃƒÆ’Ã‚Â¼tzt";
     case "no_items_detected":
       return "Keine Positionen erkannt";
     default:
-      return status || "Ã¢â‚¬â€";
+      return status || "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â";
   }
 }
 
@@ -378,8 +378,8 @@ function getMatchScoreLabel(score: unknown) {
   if (value >= 85) return "Sehr passend";
   if (value >= 80) return "Fast passend";
   if (value >= 70) return "Passend";
-  if (value >= 55) return "MÃƒÂ¶glich";
-  return "PrÃƒÂ¼fen";
+  if (value >= 55) return "MÃƒÆ’Ã‚Â¶glich";
+  return "PrÃƒÆ’Ã‚Â¼fen";
 }
 
 function getItemKeyFacts(item: RequestItem) {
@@ -407,18 +407,18 @@ function getItemKeyFacts(item: RequestItem) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "Automatisch vorausgewÃƒÂ¤hlt";
+      return "Automatisch vorausgewÃƒÆ’Ã‚Â¤hlt";
     case "auto_safe_match":
-      return "Sicher automatisch ÃƒÂ¼bernommen";
+      return "Sicher automatisch ÃƒÆ’Ã‚Â¼bernommen";
     case "match":
-      return "Aus Produktvorschlag ÃƒÂ¼bernommen";
+      return "Aus Produktvorschlag ÃƒÆ’Ã‚Â¼bernommen";
     case "admin_manual":
-      return "Manuell im Admin ergÃƒÂ¤nzt";
+      return "Manuell im Admin ergÃƒÆ’Ã‚Â¤nzt";
     case "manual":
-      return "Manuell ergÃƒÂ¤nzt";
+      return "Manuell ergÃƒÆ’Ã‚Â¤nzt";
     case "customer":
     case "customer_selected":
-      return "Vom Kunden gewÃƒÂ¤hlt";
+      return "Vom Kunden gewÃƒÆ’Ã‚Â¤hlt";
     default:
       return source || "Unbekannte Quelle";
   }
@@ -470,7 +470,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     case "cancelled":
-      return "ZurÃƒÂ¼ckgezogen";
+      return "ZurÃƒÆ’Ã‚Â¼ckgezogen";
     default:
       return status || "Unbekannt";
   }
@@ -502,7 +502,7 @@ function isArchivedSchoolRequest(request: SchoolRequest) {
 function getArchiveReasonLabel(reason?: string | null) {
   switch (reason) {
     case "auto_unpaid_14_days":
-      return "Automatisch archiviert: lÃƒÂ¤nger als 14 Tage nicht bezahlt";
+      return "Automatisch archiviert: lÃƒÆ’Ã‚Â¤nger als 14 Tage nicht bezahlt";
     default:
       return reason || "Archiviert";
   }
@@ -735,7 +735,7 @@ function AdminRequestChildrenOverview({
       answer_text?: string | null;
     };
 
-    return cleanChildText(record.question_text) || "RÃƒÂ¼ckfrage ohne Text";
+    return cleanChildText(record.question_text) || "RÃƒÆ’Ã‚Â¼ckfrage ohne Text";
   };
 
   const childIdByRequestItemId = new Map(
@@ -844,7 +844,7 @@ function AdminRequestChildrenOverview({
       groups.push({
         id: "unassigned",
         label: "Allgemein / keinem Kind zugeordnet",
-        meta: ["Allgemeine EintrÃƒÂ¤ge oder noch nicht eindeutig zugeordnet."],
+        meta: ["Allgemeine EintrÃƒÆ’Ã‚Â¤ge oder noch nicht eindeutig zugeordnet."],
         files: unassignedFiles,
         items: unassignedItems,
         offerItems: unassignedOfferItems,
@@ -862,12 +862,12 @@ function AdminRequestChildrenOverview({
             Kinder / Listen-Gruppen
           </p>
           <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-            Admin-ÃƒÅ“bersicht nach Kind
+            Admin-ÃƒÆ’Ã…â€œbersicht nach Kind
           </h2>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             Dateien, erkannte Listenpositionen, Paketpositionen, offene Punkte
-            und RÃƒÂ¼ckfragen werden pro Kind getrennt angezeigt. Die normalen
-            Bearbeitungsaktionen bleiben darunter unverÃƒÂ¤ndert erhalten.
+            und RÃƒÆ’Ã‚Â¼ckfragen werden pro Kind getrennt angezeigt. Die normalen
+            Bearbeitungsaktionen bleiben darunter unverÃƒÆ’Ã‚Â¤ndert erhalten.
           </p>
         </div>
 
@@ -891,7 +891,7 @@ function AdminRequestChildrenOverview({
                 </h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                   {group.meta.length > 0
-                    ? group.meta.join(" Ã‚Â· ")
+                    ? group.meta.join(" Ãƒâ€šÃ‚Â· ")
                     : "Keine Zusatzangaben hinterlegt."}
                 </p>
               </div>
@@ -902,7 +902,7 @@ function AdminRequestChildrenOverview({
                   ["Listen", group.items.length],
                   ["Paket", group.offerItems.length],
                   ["Offen", group.openItems.length],
-                  ["RÃƒÂ¼ckfragen", group.questions.length],
+                  ["RÃƒÆ’Ã‚Â¼ckfragen", group.questions.length],
                 ].map(([label, count]) => (
                   <div
                     key={label}
@@ -954,7 +954,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getRequestItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getRequestItemMeta(item).join(" Ã‚Â· ")}
+                            {getRequestItemMeta(item).join(" Ãƒâ€šÃ‚Â· ")}
                           </p>
                         ) : null}
                       </li>
@@ -988,7 +988,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getOfferItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getOfferItemMeta(item).join(" Ã‚Â· ")}
+                            {getOfferItemMeta(item).join(" Ãƒâ€šÃ‚Â· ")}
                           </p>
                         ) : null}
                       </li>
@@ -1008,7 +1008,7 @@ function AdminRequestChildrenOverview({
 
               <div className="rounded-2xl border border-[#F1D1A8] bg-white p-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
-                  Offen / RÃƒÂ¼ckfragen
+                  Offen / RÃƒÆ’Ã‚Â¼ckfragen
                 </p>
 
                 {group.openItems.length > 0 ? (
@@ -1045,10 +1045,10 @@ function AdminRequestChildrenOverview({
                       {group.id === "unassigned"
 
 
-                        ? "Allgemeine / nicht zugeordnete RÃƒÂ¼ckfragen"
+                        ? "Allgemeine / nicht zugeordnete RÃƒÆ’Ã‚Â¼ckfragen"
 
 
-                        : "RÃƒÂ¼ckfragen an Kunden"}
+                        : "RÃƒÆ’Ã‚Â¼ckfragen an Kunden"}
 
 
                     </p>
@@ -1064,7 +1064,7 @@ function AdminRequestChildrenOverview({
                 {group.questions.length > 0 ? (
                   <div>
                     <p className="mb-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                      RÃƒÂ¼ckfragen
+                      RÃƒÆ’Ã‚Â¼ckfragen
                     </p>
                     <ul className="space-y-2">
                       {group.questions.slice(0, 5).map((question) => (
@@ -1086,7 +1086,7 @@ function AdminRequestChildrenOverview({
                   </div>
                 ) : (
                   <p className="text-xs font-semibold text-[#52616F]">
-                    Keine RÃƒÂ¼ckfragen.
+                    Keine RÃƒÆ’Ã‚Â¼ckfragen.
                   </p>
                 )}
               </div>
@@ -1185,13 +1185,13 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   if (offerItemsError) {
     throw new Error(
-      `AusgewÃƒÂ¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
+      `AusgewÃƒÆ’Ã‚Â¤hlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
     );
   }
 
   if (questionsError) {
     throw new Error(
-      `RÃƒÂ¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
+      `RÃƒÆ’Ã‚Â¼ckfragen konnten nicht geladen werden: ${questionsError.message}`
     );
   }
 
@@ -1236,7 +1236,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
     if (matchesError) {
       throw new Error(
-        `ProduktvorschlÃƒÂ¤ge konnten nicht geladen werden: ${matchesError.message}`
+        `ProduktvorschlÃƒÆ’Ã‚Â¤ge konnten nicht geladen werden: ${matchesError.message}`
       );
     }
 
@@ -1284,7 +1284,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
         ""
     ).trim();
 
-    // ZÃƒÂ¤hlt alle Positionen, die noch nicht im Paketwunsch liegen
+    // ZÃƒÆ’Ã‚Â¤hlt alle Positionen, die noch nicht im Paketwunsch liegen
     // und noch nicht manuell entschieden wurden.
     // Matches allein erledigen eine Position nicht.
     return !adminResolutionStatus && selected.length === 0;
@@ -1345,7 +1345,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
                   {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
                   keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
-                  VorgangszÃƒÂ¤hler mehr.
+                  VorgangszÃƒÆ’Ã‚Â¤hler mehr.
                 </p>
                 {request.archived_at ? (
                   <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
@@ -1441,8 +1441,8 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
                 zuerst Anfrage und Kundendaten, dann Materialliste und
-                ProduktprÃƒÂ¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
-                Abwicklung. SpÃƒÂ¤tere Schritte liegen bewusst weiter unten.
+                ProduktprÃƒÆ’Ã‚Â¼fung, danach Paketwunsch-Mail, Rechnung, Zahlung und
+                Abwicklung. SpÃƒÆ’Ã‚Â¤tere Schritte liegen bewusst weiter unten.
               </p>
             </div>
 
@@ -1525,7 +1525,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
               <Sparkles className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              VorschlÃƒÂ¤ge
+              VorschlÃƒÆ’Ã‚Â¤ge
             </p>
             <p className="mt-2 text-3xl font-black">{matches.length}</p>
           </div>
@@ -1545,7 +1545,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
               <AlertTriangle className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Manuell prÃƒÂ¼fen
+              Manuell prÃƒÆ’Ã‚Â¼fen
             </p>
             <p className="mt-2 text-3xl font-black">{manualReviewCount}</p>
           </div>
@@ -1579,7 +1579,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                   </p>
                   <p className="text-[#52616F]">
                     {request.school_name || "Schule nicht angegeben"}
-                    {request.class_name ? ` Ã‚Â· Klasse ${request.class_name}` : ""}
+                    {request.class_name ? ` Ãƒâ€šÃ‚Â· Klasse ${request.class_name}` : ""}
                   </p>
                 </div>
 
@@ -1655,7 +1655,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         {file.original_filename || "Datei"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {formatFileSize(file.file_size)} Ã‚Â·{" "}
+                        {formatFileSize(file.file_size)} Ãƒâ€šÃ‚Â·{" "}
                         {file.file_type || "Dateityp unbekannt"}
                       </p>
 
@@ -1667,7 +1667,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#12395F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Datei ÃƒÂ¶ffnen
+                          Datei ÃƒÆ’Ã‚Â¶ffnen
                         </a>
                       ) : null}
                     </div>
@@ -1750,7 +1750,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         return (
                           <div className="mt-3 rounded-2xl border border-[#D9E8F5] bg-white p-3 text-xs text-[#102A43]">
                             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#12395F]">
-                              Zuordnung prÃƒÂ¼fen
+                              Zuordnung prÃƒÆ’Ã‚Â¼fen
                             </p>
 
                             <div className="mt-3 rounded-xl bg-[#F7FBFF] p-3">
@@ -1801,7 +1801,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 </>
                               ) : (
                                 <p className="mt-1 font-semibold leading-5 text-[#B5282D]">
-                                  Keine gelesene Listenposition verknÃƒÂ¼pft. Das ist
+                                  Keine gelesene Listenposition verknÃƒÆ’Ã‚Â¼pft. Das ist
                                   wahrscheinlich eine manuelle oder freie
                                   Paketposition.
                                 </p>
@@ -1810,7 +1810,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
 
                             <div className="mt-2 rounded-xl bg-[#FFF8EE] p-3">
                               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                                ÃƒÅ“bernommener Shopartikel
+                                ÃƒÆ’Ã…â€œbernommener Shopartikel
                               </p>
 
                               <p className="mt-1 font-black leading-5 text-[#102A43]">
@@ -1846,7 +1846,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                       })()}
                       {item.source === "admin_manual" ? (
                         <p className="mt-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#A75B28]">
-                          Manuell ergÃƒÂ¤nzt
+                          Manuell ergÃƒÆ’Ã‚Â¤nzt
                         </p>
                       ) : null}
 
@@ -1949,14 +1949,14 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                   </p>
 
                   <h2 className="text-xl font-black text-[#102A43]">
-                    Positionen, VorschlÃƒÂ¤ge und manuelle Bearbeitung
+                    Positionen, VorschlÃƒÆ’Ã‚Â¤ge und manuelle Bearbeitung
                   </h2>
 
                   <p className="mt-1 text-sm leading-6 text-[#52616F]">
                     Unter jeder Position findest Du dauerhaft den Bereich
-                    Ã¢â‚¬Å¾Manuelle BearbeitungÃ¢â‚¬Å“. Wenn keine Positionen erkannt
+                    ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Manuelle BearbeitungÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ. Wenn keine Positionen erkannt
                     wurden, kannst Du trotzdem direkt Produkte in den
-                    Paketwunsch ÃƒÂ¼bernehmen.
+                    Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen.
                   </p>
                 </div>
               </div>
@@ -2043,13 +2043,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           ) : itemMatches.length === 0 ? (
                             <div className="inline-flex items-center gap-2 rounded-full bg-[#FFF8EE] px-3 py-2 text-xs font-black text-[#A75B28]">
                               <AlertTriangle className="h-4 w-4" />
-                              manuell prÃƒÂ¼fen
+                              manuell prÃƒÆ’Ã‚Â¼fen
                             </div>
                           ) : null}
                         </div>
 
                         <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
-                          {itemIsDone ? "Details ÃƒÂ¶ffnen" : "Details einklappen"}
+                          {itemIsDone ? "Details ÃƒÆ’Ã‚Â¶ffnen" : "Details einklappen"}
                         </div>
                         {item.status === "manual_admin_added" ? (
                           <AdminDeleteRequestItemButton
@@ -2082,7 +2082,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestId={request.id}
                                 requestItemId={item.id}
                                 resolutionStatus="open"
-                                buttonLabel="Wieder ÃƒÂ¶ffnen"
+                                buttonLabel="Wieder ÃƒÆ’Ã‚Â¶ffnen"
                                 confirmMessage="Soll diese Position wieder als offen markiert werden?"
                                 className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
                               />
@@ -2094,10 +2094,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                RÃƒÂ¼ckfragen
+                                RÃƒÆ’Ã‚Â¼ckfragen
                               </p>
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Stelle hier eine konkrete RÃƒÂ¼ckfrage zu dieser Listenposition.
+                                Stelle hier eine konkrete RÃƒÆ’Ã‚Â¼ckfrage zu dieser Listenposition.
                                 Die Antwort erscheint danach direkt an dieser Position.
                               </p>
                             </div>
@@ -2229,13 +2229,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                     <div>
                                       <div className="mb-2 flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                          {getMatchScoreLabel(match.match_score)} Ã‚Â·{" "}
+                                          {getMatchScoreLabel(match.match_score)} Ãƒâ€šÃ‚Â·{" "}
                                           {toNumber(match.match_score, 0)} %
                                         </span>
 
                                         {isSelected ? (
                                           <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                            AusgewÃƒÂ¤hlt
+                                            AusgewÃƒÆ’Ã‚Â¤hlt
                                           </span>
                                         ) : null}
                                       </div>
@@ -2269,7 +2269,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                           <AdminAcceptMatchButton
                                             requestId={request.id}
                                             matchId={match.id}
-                                            label="In Paket ÃƒÂ¼bernehmen"
+                                            label="In Paket ÃƒÆ’Ã‚Â¼bernehmen"
                                           />
                                         </div>
                                       ) : null}                                    </p>
@@ -2286,7 +2286,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                               </div>
 
                               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#B42318]">
-                                Manuelle PrÃƒÂ¼fung
+                                Manuelle PrÃƒÆ’Ã‚Â¼fung
                               </p>
 
                               <p className="text-sm font-black leading-6 text-[#8E1C1C]">
@@ -2308,9 +2308,9 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                               </p>
 
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Hier kannst Du fÃƒÂ¼r diese erkannte Position
-                                jederzeit einen zusÃƒÂ¤tzlichen oder ersetzenden
-                                Artikel in den Paketwunsch ÃƒÂ¼bernehmen.
+                                Hier kannst Du fÃƒÆ’Ã‚Â¼r diese erkannte Position
+                                jederzeit einen zusÃƒÆ’Ã‚Â¤tzlichen oder ersetzenden
+                                Artikel in den Paketwunsch ÃƒÆ’Ã‚Â¼bernehmen.
                               </p>
 
                               {selectedItems.length === 0 && !adminResolutionStatus ? (
@@ -2340,10 +2340,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestItemId={item.id}
                                 childOptions={manualOfferChildOptions}
                                 defaultChildId={getChildRowId(item)}
-                                childSelectLabel="Kind fÃƒÂ¼r diese Paketposition"
+                                childSelectLabel="Kind fÃƒÆ’Ã‚Â¼r diese Paketposition"
                                 defaultProductName={getRequestItemTitle(item)}
                                 defaultQuantity={item.quantity}
-                                buttonLabel="Manuell Produkt ergÃƒÂ¤nzen"
+                                buttonLabel="Manuell Produkt ergÃƒÆ’Ã‚Â¤nzen"
                               />
                             </div>
                           </div>
@@ -2372,7 +2372,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         Die automatische Erkennung konnte keine eindeutigen
                         Listenpositionen erstellen. Du kannst trotzdem direkt
                         Produkte in den Paketwunsch legen. Diese Produkte
-                        erscheinen anschlieÃƒÅ¸end auf der Kundenseite und kÃƒÂ¶nnen
+                        erscheinen anschlieÃƒÆ’Ã…Â¸end auf der Kundenseite und kÃƒÆ’Ã‚Â¶nnen
                         dem Kunden per Paketwunsch-Mail geschickt werden.
                       </p>
 
@@ -2385,10 +2385,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                     ? manualOfferChildOptions[0]?.id || null
                     : null
                 }
-                childSelectLabel="Kind fÃƒÂ¼r freie Paketposition"
+                childSelectLabel="Kind fÃƒÆ’Ã‚Â¼r freie Paketposition"
                         defaultProductName=""
                         defaultQuantity={1}
-                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÂ¼gen"
+                        buttonLabel="Produkt ohne erkannte Position hinzufÃƒÆ’Ã‚Â¼gen"
                       />
                     </div>
                   </div>
@@ -2405,13 +2405,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-                    NÃƒÂ¤chster Abschnitt
+                    NÃƒÆ’Ã‚Â¤chster Abschnitt
                   </p>
                   <h2 className="mt-1 text-xl font-black text-[#102A43]">
                     Rechnung, Zahlung und Abwicklung
                   </h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÂ¼fung.
+                    Diese Schritte kommen erst nach der fachlichen ProduktprÃƒÆ’Ã‚Â¼fung.
                     Dadurch bleibt die Detailseite in der gleichen Reihenfolge
                     wie der echte Arbeitsablauf.
                   </p>

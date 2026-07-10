@@ -63,7 +63,7 @@ function getStatusLabel(status: string | null | undefined) {
     case "created":
       return "Erzeugt";
     case "in_progress":
-      return "In Prüfung";
+      return "In PrÃ¼fung";
     case "completed":
       return "Abgeschlossen";
     default:
@@ -80,13 +80,13 @@ function getItemStatusLabel(status: string | null | undefined) {
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht nötig";
+      return "Nicht nÃ¶tig";
     case "question_required":
-      return "Rückfrage";
+      return "RÃ¼ckfrage";
     case "manual_check":
-      return "Geprüft";
+      return "GeprÃ¼ft";
     default:
-      return status || "Geprüft";
+      return status || "GeprÃ¼ft";
   }
 }
 
@@ -148,11 +148,11 @@ function normalizeChecklistText(value: unknown) {
   return String(value || "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -165,12 +165,12 @@ function getColorFromChecklistText(value: unknown) {
     ["blau", "blau"],
     ["rot", "rot"],
     ["schwarz", "schwarz"],
-    ["gruen", "grün"],
-    ["grun", "grün"],
-    ["grün", "grün"],
+    ["gruen", "grÃ¼n"],
+    ["grun", "grÃ¼n"],
+    ["grÃ¼n", "grÃ¼n"],
     ["braun", "braun"],
-    ["weiss", "weiß"],
-    ["weiß", "weiß"],
+    ["weiss", "weiÃŸ"],
+    ["weiÃŸ", "weiÃŸ"],
     ["gelb", "gelb"],
     ["lila", "lila"],
     ["orange", "orange"],
@@ -187,7 +187,7 @@ function getColorFromChecklistText(value: unknown) {
 
 function getSubjectFromHefterText(value: unknown) {
   const text = String(value || "");
-  const match = text.match(/(?:für|fuer)\s+[„"“]?([^"”„(]+)[“"]?/i);
+  const match = text.match(/(?:fÃ¼r|fuer)\s+[â€ž"â€œ]?([^"â€â€ž(]+)[â€œ"]?/i);
 
   if (!match?.[1]) return "";
 
@@ -450,7 +450,7 @@ export default function AdminPackageChecklistPanel({
   async function completeChecklist() {
     setMessage(null);
 
-    if (!window.confirm("Paketwunsch-Checkliste wirklich abschließen?")) {
+    if (!window.confirm("Paketwunsch-Checkliste wirklich abschlieÃŸen?")) {
       return;
     }
 
@@ -493,7 +493,7 @@ export default function AdminPackageChecklistPanel({
 
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Interne Prüfung
+              Interne PrÃ¼fung
             </p>
 
             <h2 className="text-xl font-black text-[#102A43]">
@@ -501,7 +501,7 @@ export default function AdminPackageChecklistPanel({
             </h2>
 
             <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-              Kurzprüfung vor dem Versand der Paketwunsch-Mail: Listenposition,
+              KurzprÃ¼fung vor dem Versand der Paketwunsch-Mail: Listenposition,
               Paketprodukt, Bild, abhaken.
             </p>
           </div>
@@ -573,7 +573,7 @@ export default function AdminPackageChecklistPanel({
 
                 <div>
                   <p className="font-black text-[#102A43]">
-                    Checkliste noch nicht verfügbar.
+                    Checkliste noch nicht verfÃ¼gbar.
                   </p>
                   <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                     Die Checkliste kann erst erzeugt werden, wenn alle erkannten
@@ -629,7 +629,7 @@ export default function AdminPackageChecklistPanel({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-black text-[#102A43]">
-                  {checkedCount} von {totalCount} Positionen geprüft
+                  {checkedCount} von {totalCount} Positionen geprÃ¼ft
                 </p>
                 <p className="mt-1 text-xs font-bold text-[#52616F]">
                   Fortschritt: {progressPercent} %
@@ -684,7 +684,7 @@ export default function AdminPackageChecklistPanel({
                           {item.is_checked ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-[#2F7D50]">
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              geprüft
+                              geprÃ¼ft
                             </span>
                           ) : null}
                         </div>
@@ -722,7 +722,7 @@ export default function AdminPackageChecklistPanel({
 
                           {resolvedDetails.length > 0 ? (
                             <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
-                              {resolvedDetails.slice(0, 2).join(" · ")}
+                              {resolvedDetails.slice(0, 2).join(" Â· ")}
                             </p>
                           ) : null}
                         </div>
@@ -791,12 +791,12 @@ export default function AdminPackageChecklistPanel({
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                Prüfung abschließen
+                PrÃ¼fung abschlieÃŸen
               </button>
             ) : (
               <div className="inline-flex items-center gap-2 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3 text-sm font-black text-[#2F7D50]">
                 <CheckCircle2 className="h-4 w-4" />
-                Prüfung abgeschlossen
+                PrÃ¼fung abgeschlossen
               </div>
             )}
           </div>
