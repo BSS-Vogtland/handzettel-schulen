@@ -2345,7 +2345,7 @@ const customerOpenPositionScreenMode =
                       return (
                         <article
                           key={item.id}
-                          className="grid gap-4 bg-white p-4 sm:grid-cols-[84px_1fr_auto] sm:items-center"
+                          className="grid gap-4 bg-white p-4 sm:grid-cols-[96px_1fr_auto] sm:items-center"
                         >
                           <div>
                             <p className="text-base font-black text-[#102A43]">
