@@ -39,7 +39,7 @@ export function cleanOutgoingMailText(value: unknown, fallback = "") {
     ["Ä", "Ä"],
     ["Ö", "Ö"],
 
-    ["ÃƒÆ’Ã¢€Å¡Ãƒâ€š·", "·"],
+    ["·", "·"],
     ["·", "·"],
     ["Ãƒâ€šÃ‚·", "·"],
     ["–", "–"],

@@ -290,7 +290,7 @@ function formatDate(value: string | null) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "├âãÆ├é┬ó├â┬ó├óÔé¼┼í├é┬¼├â┬ó├óÔÇÜ┬¼├é┬Ø";
+  if (!size) return "—";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -306,7 +306,7 @@ function getStatusLabel(status: string | null) {
     case "analysis_pending":
       return "Analyse offen";
     case "analysis_running":
-      return "Analyse l├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñuft";
+      return "Analyse läuft";
     case "analysis_done":
       return "Analyse fertig";
     case "manual_review":
@@ -316,7 +316,7 @@ function getStatusLabel(status: string | null) {
     case "offer_sent":
       return "Angebot gesendet";
     case "confirmed":
-      return "Best├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñtigt";
+      return "Bestätigt";
     case "cancelled":
       return "Abgebrochen";
     default:
@@ -329,7 +329,7 @@ function getOfferStatusLabel(status: string | null) {
     case "not_created":
       return "Noch nicht erstellt";
     case "matching_done":
-      return "Produktvorschl├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñge erstellt";
+      return "Produktvorschläge erstellt";
     case "offer_created":
       return "Angebot erstellt";
     case "offer_sent":
@@ -339,9 +339,9 @@ function getOfferStatusLabel(status: string | null) {
     case "manual_review":
       return "Manuelle Prüfung";
     case "confirmed":
-      return "Best├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñtigt";
+      return "Bestätigt";
     default:
-      return status || "├âãÆ├é┬ó├â┬ó├óÔé¼┼í├é┬¼├â┬ó├óÔÇÜ┬¼├é┬Ø";
+      return status || "—";
   }
 }
 
@@ -350,7 +350,7 @@ function getAiStatusLabel(status: string | null) {
     case "pending":
       return "Offen";
     case "running":
-      return "L├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñuft";
+      return "Läuft";
     case "done":
       return "Fertig";
     case "error":
@@ -360,11 +360,11 @@ function getAiStatusLabel(status: string | null) {
     case "missing_file":
       return "Datei fehlt";
     case "unsupported_file_type":
-      return "Dateityp nicht unterst├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝tzt";
+      return "Dateityp nicht unterstützt";
     case "no_items_detected":
       return "Keine Positionen erkannt";
     default:
-      return status || "├âãÆ├é┬ó├â┬ó├óÔé¼┼í├é┬¼├â┬ó├óÔÇÜ┬¼├é┬Ø";
+      return status || "—";
   }
 }
 
@@ -378,7 +378,7 @@ function getMatchScoreLabel(score: unknown) {
   if (value >= 85) return "Sehr passend";
   if (value >= 80) return "Fast passend";
   if (value >= 70) return "Passend";
-  if (value >= 55) return "M├âãÆ├åÔÇÖ├âÔÇÜ├é┬Âglich";
+  if (value >= 55) return "Möglich";
   return "Prüfen";
 }
 
@@ -409,16 +409,16 @@ function getOfferItemSourceLabel(source: string | null) {
     case "auto_preselected":
       return "Automatisch vorausgewählt";
     case "auto_safe_match":
-      return "Sicher automatisch ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernommen";
+      return "Sicher automatisch übernommen";
     case "match":
-      return "Aus Produktvorschlag ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernommen";
+      return "Aus Produktvorschlag übernommen";
     case "admin_manual":
       return "Manuell im Admin ergänzt";
     case "manual":
       return "Manuell ergänzt";
     case "customer":
     case "customer_selected":
-      return "Vom Kunden gew├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlt";
+      return "Vom Kunden gewählt";
     default:
       return source || "Unbekannte Quelle";
   }
@@ -470,7 +470,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     case "cancelled":
-      return "Zur├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝ckgezogen";
+      return "Zurückgezogen";
     default:
       return status || "Unbekannt";
   }
@@ -502,7 +502,7 @@ function isArchivedSchoolRequest(request: SchoolRequest) {
 function getArchiveReasonLabel(reason?: string | null) {
   switch (reason) {
     case "auto_unpaid_14_days":
-      return "Automatisch archiviert: l├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñnger als 14 Tage nicht bezahlt";
+      return "Automatisch archiviert: länger als 14 Tage nicht bezahlt";
     default:
       return reason || "Archiviert";
   }
@@ -867,7 +867,7 @@ function AdminRequestChildrenOverview({
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
             Dateien, erkannte Listenpositionen, Paketpositionen, offene Punkte
             und Rückfragen werden pro Kind getrennt angezeigt. Die normalen
-            Bearbeitungsaktionen bleiben darunter unver├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñndert erhalten.
+            Bearbeitungsaktionen bleiben darunter unverändert erhalten.
           </p>
         </div>
 
@@ -891,7 +891,7 @@ function AdminRequestChildrenOverview({
                 </h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                   {group.meta.length > 0
-                    ? group.meta.join(" ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À ")
+                    ? group.meta.join(" · ")
                     : "Keine Zusatzangaben hinterlegt."}
                 </p>
               </div>
@@ -954,7 +954,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getRequestItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getRequestItemMeta(item).join(" ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À ")}
+                            {getRequestItemMeta(item).join(" · ")}
                           </p>
                         ) : null}
                       </li>
@@ -988,7 +988,7 @@ function AdminRequestChildrenOverview({
                         </p>
                         {getOfferItemMeta(item).length > 0 ? (
                           <p className="mt-1 text-[11px] font-semibold leading-4 text-[#52616F]">
-                            {getOfferItemMeta(item).join(" ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À ")}
+                            {getOfferItemMeta(item).join(" · ")}
                           </p>
                         ) : null}
                       </li>
@@ -1185,7 +1185,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
   if (offerItemsError) {
     throw new Error(
-      `Ausgew├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
+      `Ausgewählte Produkte konnten nicht geladen werden: ${offerItemsError.message}`
     );
   }
 
@@ -1236,7 +1236,7 @@ export default async function AdminRequestDetailPage({ params }: Params) {
 
     if (matchesError) {
       throw new Error(
-        `Produktvorschl├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñge konnten nicht geladen werden: ${matchesError.message}`
+        `Produktvorschläge konnten nicht geladen werden: ${matchesError.message}`
       );
     }
 
@@ -1284,7 +1284,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
         ""
     ).trim();
 
-    // Z├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlt alle Positionen, die noch nicht im Paketwunsch liegen
+    // Zählt alle Positionen, die noch nicht im Paketwunsch liegen
     // und noch nicht manuell entschieden wurden.
     // Matches allein erledigen eine Position nicht.
     return !adminResolutionStatus && selected.length === 0;
@@ -1345,7 +1345,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#7A1D1D]">
                   {getArchiveReasonLabel(request.archive_reason)}. Sie beeinflusst
                   keine normalen Arbeitslisten, Paketwunsch-Workflows oder offenen
-                  Vorgangsz├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhler mehr.
+                  Vorgangszähler mehr.
                 </p>
                 {request.archived_at ? (
                   <p className="mt-2 text-xs font-bold text-[#7A1D1D]">
@@ -1442,7 +1442,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 Diese Detailansicht folgt jetzt dem echten Arbeitsablauf:
                 zuerst Anfrage und Kundendaten, dann Materialliste und
                 Prüfung, danach Paketwunsch-Mail, Rechnung, Zahlung und
-                Abwicklung. Sp├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñtere Schritte liegen bewusst weiter unten.
+                Abwicklung. Spätere Schritte liegen bewusst weiter unten.
               </p>
             </div>
 
@@ -1525,7 +1525,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
               <Sparkles className="h-5 w-5" />
             </div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-              Vorschl├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñge
+              Vorschläge
             </p>
             <p className="mt-2 text-3xl font-black">{matches.length}</p>
           </div>
@@ -1579,7 +1579,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                   </p>
                   <p className="text-[#52616F]">
                     {request.school_name || "Schule nicht angegeben"}
-                    {request.class_name ? ` ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À Klasse ${request.class_name}` : ""}
+                    {request.class_name ? ` · Klasse ${request.class_name}` : ""}
                   </p>
                 </div>
 
@@ -1655,7 +1655,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         {file.original_filename || "Datei"}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        {formatFileSize(file.file_size)} ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À{" "}
+                        {formatFileSize(file.file_size)} ·{" "}
                         {file.file_type || "Dateityp unbekannt"}
                       </p>
 
@@ -1667,7 +1667,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                           className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#12395F] px-3 py-2 text-xs font-black text-white transition hover:brightness-110"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Datei ├âãÆ├åÔÇÖ├âÔÇÜ├é┬Âffnen
+                          Datei öffnen
                         </a>
                       ) : null}
                     </div>
@@ -1801,7 +1801,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 </>
                               ) : (
                                 <p className="mt-1 font-semibold leading-5 text-[#B5282D]">
-                                  Keine gelesene Listenposition verkn├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝pft. Das ist
+                                  Keine gelesene Listenposition verknüpft. Das ist
                                   wahrscheinlich eine manuelle oder freie
                                   Paketposition.
                                 </p>
@@ -1810,7 +1810,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
 
                             <div className="mt-2 rounded-xl bg-[#FFF8EE] p-3">
                               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#A75B28]">
-                                ├âãÆ├åÔÇÖ├âÔÇª├óÔé¼┼ôbernommener Shopartikel
+                                Übernommener Shopartikel
                               </p>
 
                               <p className="mt-1 font-black leading-5 text-[#102A43]">
@@ -1949,14 +1949,14 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                   </p>
 
                   <h2 className="text-xl font-black text-[#102A43]">
-                    Positionen, Vorschl├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñge und manuelle Bearbeitung
+                    Positionen, Vorschläge und manuelle Bearbeitung
                   </h2>
 
                   <p className="mt-1 text-sm leading-6 text-[#52616F]">
                     Unter jeder Position findest Du dauerhaft den Bereich
                     ├âãÆ├é┬ó├â┬ó├óÔé¼┼í├é┬¼├âÔÇª├é┬¥Manuelle Bearbeitung├âãÆ├é┬ó├â┬ó├óÔé¼┼í├é┬¼├âÔÇª├óÔé¼┼ô. Wenn keine Positionen erkannt
                     wurden, kannst Du trotzdem direkt Produkte in den
-                    Paketwunsch ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernehmen.
+                    Paketwunsch übernehmen.
                   </p>
                 </div>
               </div>
@@ -2063,7 +2063,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         </div>
 
                         <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black text-[#52616F]">
-                          {itemIsDone ? "Details ├âãÆ├åÔÇÖ├âÔÇÜ├é┬Âffnen" : "Details einklappen"}
+                          {itemIsDone ? "Details öffnen" : "Details einklappen"}
                         </div>
                         {item.status === "manual_admin_added" ? (
                           <AdminDeleteRequestItemButton
@@ -2096,7 +2096,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestId={request.id}
                                 requestItemId={item.id}
                                 resolutionStatus="open"
-                                buttonLabel="Wieder ├âãÆ├åÔÇÖ├âÔÇÜ├é┬Âffnen"
+                                buttonLabel="Wieder öffnen"
                                 confirmMessage="Soll diese Position wieder als offen markiert werden?"
                                 className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[#BFE3CD] bg-white px-4 py-2 text-xs font-black text-[#2F7D50] transition hover:bg-[#F0FFF6]"
                               />
@@ -2243,13 +2243,13 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                     <div>
                                       <div className="mb-2 flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
-                                          {getMatchScoreLabel(match.match_score)} ├âãÆ├óÔé¼┼í├âÔÇÜ├é┬À{" "}
+                                          {getMatchScoreLabel(match.match_score)} ·{" "}
                                           {toNumber(match.match_score, 0)} %
                                         </span>
 
                                         {isSelected ? (
                                           <span className="rounded-full bg-[#102A43] px-3 py-1 text-xs font-black text-white">
-                                            Ausgew├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñhlt
+                                            Ausgewählt
                                           </span>
                                         ) : null}
                                       </div>
@@ -2283,7 +2283,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                           <AdminAcceptMatchButton
                                             requestId={request.id}
                                             matchId={match.id}
-                                            label="In Paket ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernehmen"
+                                            label="In Paket übernehmen"
                                           />
                                         </div>
                                       ) : null}                                    </p>
@@ -2322,9 +2322,9 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                               </p>
 
                               <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
-                                Hier kannst Du f├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝r diese erkannte Position
-                                jederzeit einen zus├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñtzlichen oder ersetzenden
-                                Artikel in den Paketwunsch ├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝bernehmen.
+                                Hier kannst Du für diese erkannte Position
+                                jederzeit einen zusätzlichen oder ersetzenden
+                                Artikel in den Paketwunsch übernehmen.
                               </p>
 
                               {selectedItems.length === 0 && !adminResolutionStatus ? (
@@ -2354,10 +2354,10 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                                 requestItemId={item.id}
                                 childOptions={manualOfferChildOptions}
                                 defaultChildId={getChildRowId(item)}
-                                childSelectLabel="Kind f├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝r diese Paketposition"
+                                childSelectLabel="Kind für diese Paketposition"
                                 defaultProductName={getRequestItemTitle(item)}
                                 defaultQuantity={item.quantity}
-                                buttonLabel="Manuell Produkt erg├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñnzen"
+                                buttonLabel="Manuell Produkt ergänzen"
                               />
                             </div>
                           </div>
@@ -2386,7 +2386,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                         Die automatische Erkennung konnte keine eindeutigen
                         Listenpositionen erstellen. Du kannst trotzdem direkt
                         Produkte in den Paketwunsch legen. Diese Produkte
-                        erscheinen anschlie├âãÆ├åÔÇÖ├âÔÇª├é┬©end auf der Kundenseite und k├âãÆ├åÔÇÖ├âÔÇÜ├é┬Ânnen
+                        erscheinen anschließend auf der Kundenseite und können
                         dem Kunden per Paketwunsch-Mail geschickt werden.
                       </p>
 
@@ -2399,7 +2399,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                     ? manualOfferChildOptions[0]?.id || null
                     : null
                 }
-                childSelectLabel="Kind f├âãÆ├åÔÇÖ├âÔÇÜ├é┬╝r freie Paketposition"
+                childSelectLabel="Kind für freie Paketposition"
                         defaultProductName=""
                         defaultQuantity={1}
                         buttonLabel="Produkt ohne erkannte Position hinzufügen"
@@ -2419,7 +2419,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
-                    N├âãÆ├åÔÇÖ├âÔÇÜ├é┬ñchster Abschnitt
+                    Nächster Abschnitt
                   </p>
                   <h2 className="mt-1 text-xl font-black text-[#102A43]">
                     Rechnung, Zahlung und Abwicklung
