@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { assertAdminRequestReadyForOfferMail } from "@/lib/adminRequestWorkflow";
 
 export const runtime = "nodejs";
@@ -624,7 +624,9 @@ export async function POST(_request: Request, context: RouteContext) {
       total,
     };
 
-    await transporter.sendMail({
+    after(async () => {
+    try {
+      await transporter.sendMail({
       from,
       to: customerEmail,
       subject,
@@ -632,12 +634,61 @@ export async function POST(_request: Request, context: RouteContext) {
       html: createMailHtml(mailParams),
     });
 
-    await insertEvent({
+      await supabase.from("school_request_events").insert({
+        request_id: requestId,
+        event_type: "background_package_update_mail_sent",
+        title: "Paketwunsch-Mail versendet",
+        description: `Paketwunsch-Mail wurde nach schneller Serverantwort an ${customerEmail} gesendet.`,
+        metadata: {
+          email: customerEmail,
+          offer_url: offerUrl,
+          background: true,
+          after: true,
+        },
+      });
+    } catch (mailError) {
+      console.error("after package update mail error:", mailError);
+
+      try {
+        await supabase.from("school_request_events").insert({
+          request_id: requestId,
+          event_type: "background_package_update_mail_failed",
+          title: "Paketwunsch-Mail konnte nicht versendet werden",
+          description:
+            mailError instanceof Error
+              ? mailError.message
+              : "Unbekannter Fehler beim Versand der Paketwunsch-Mail.",
+          metadata: {
+            email: customerEmail,
+            offer_url: offerUrl,
+            background: true,
+            after: true,
+          },
+        });
+      } catch (eventError) {
+        console.error("after package update mail failed event error:", eventError);
+      }
+    }
+  });
+
+  await supabase.from("school_request_events").insert({
+    request_id: requestId,
+    event_type: "background_package_update_mail_started",
+    title: "Paketwunsch-Mailversand gestartet",
+    description: `Paketwunsch-Mailversand an ${customerEmail} wurde gestartet.`,
+    metadata: {
+      email: customerEmail,
+      offer_url: offerUrl,
+      background: true,
+      after: true,
+    },
+  });
+await insertEvent({
       supabase,
       requestId,
       offerUrl,
       customerEmail,
-      message: `Paketwunsch-Mail mit Prüflink wurde an ${customerEmail} gesendet.`,
+      message: `Paketwunsch-Mailversand an ${customerEmail} wurde gestartet.`,
     });
 
     await supabase
@@ -659,7 +710,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      message: "Paketwunsch-Mail wurde erfolgreich gesendet.",
+      message: "Paketwunsch-Mailversand wurde gestartet. Der Versand läuft im Hintergrund.",
       sentTo: customerEmail,
       offerUrl,
     });

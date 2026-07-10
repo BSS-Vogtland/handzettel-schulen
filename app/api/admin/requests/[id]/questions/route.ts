@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -615,66 +615,78 @@ export async function POST(request: NextRequest, context: Params) {
       }
     );
 
-    let mailResult: QuestionMailResult;
+    const mailResult: QuestionMailResult = {
+      sent: false,
+      reason: "Rückfrage wurde gespeichert. Der Mailversand läuft im Hintergrund.",
+    };
 
-    try {
-      mailResult = await sendQuestionNotificationMail({
-        requestData: requestData as AnyRecord,
-        requestItem,
-        questionText,
-      });
-    } catch (mailError) {
-      mailResult = {
-        sent: false,
-        reason:
-          mailError instanceof Error
-            ? mailError.message
-            : "Die Rückfrage-Mail konnte nicht versendet werden.",
-      };
-    }
+    after(async () => {
+      try {
+        const backgroundMailResult = await sendQuestionNotificationMail({
+          requestData,
+          questionText,
+          requestItemLabel,
+        });
 
-    if (mailResult.sent) {
-      await createRequestEvent(
-        supabase,
-        id,
-        "request_item_question_mail_sent",
-        `Rückfrage-Mail wurde an ${mailResult.email} gesendet.`,
-        {
-          questionId: question?.id,
-          requestItemId,
-        childId: questionChildId,
-          email: mailResult.email,
-          offerUrl: mailResult.offerUrl,
+        await supabase.from("school_request_events").insert({
+          request_id: id,
+          event_type: backgroundMailResult.sent
+            ? "background_question_mail_sent"
+            : "background_question_mail_skipped",
+          title: backgroundMailResult.sent
+            ? "Rückfrage-Mail versendet"
+            : "Rückfrage-Mail nicht versendet",
+          description: backgroundMailResult.sent
+            ? `Rückfrage-Mail wurde nach schneller Serverantwort an ${backgroundMailResult.email} gesendet.`
+            : backgroundMailResult.reason || "Rückfrage-Mail wurde nicht versendet.",
+          metadata: {
+            request_item_id: requestItemId,
+            background: true,
+            after: true,
+            mail_result: backgroundMailResult,
+          },
+        });
+      } catch (mailError) {
+        console.error("after question mail error:", mailError);
+
+        try {
+          await supabase.from("school_request_events").insert({
+            request_id: id,
+            event_type: "background_question_mail_failed",
+            title: "Rückfrage-Mail konnte nicht versendet werden",
+            description:
+              mailError instanceof Error
+                ? mailError.message
+                : "Unbekannter Fehler beim Versand der Rückfrage-Mail.",
+            metadata: {
+              request_item_id: requestItemId,
+              background: true,
+              after: true,
+            },
+          });
+        } catch (eventError) {
+          console.error("after question mail failed event error:", eventError);
         }
-      );
-
-      return jsonResponse({
-        ok: true,
-        question,
-        mail: mailResult,
-        message:
-          "Rückfrage wurde gespeichert und der Kunde wurde per E-Mail informiert.",
-      });
-    }
-
-    await createRequestEvent(
-      supabase,
-      id,
-      "request_item_question_mail_not_sent",
-      `Rückfrage wurde gespeichert, aber es wurde keine Mail versendet: ${mailResult.reason}`,
-      {
-        questionId: question?.id,
-        requestItemId,
-        childId: questionChildId,
-        reason: mailResult.reason,
       }
-    );
+    });
 
-    return jsonResponse({
+    await supabase.from("school_request_events").insert({
+      request_id: id,
+      event_type: "background_question_mail_started",
+      title: "Rückfrage-Mailversand gestartet",
+      description: "Der Mailversand zur Rückfrage wurde gestartet.",
+      metadata: {
+        request_item_id: requestItemId,
+        background: true,
+        after: true,
+      },
+    });
+
+    return NextResponse.json({
       ok: true,
       question,
       mail: mailResult,
-      message: `Rückfrage wurde gespeichert. Hinweis: ${mailResult.reason}`,
+      message: "Rückfrage wurde gespeichert. Der Mailversand läuft im Hintergrund.",
     });
   } catch (error) {
     console.error("Admin request question create error:", error);
