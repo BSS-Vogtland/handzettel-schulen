@@ -26,7 +26,6 @@ function getFirstText(
 
   for (const key of keys) {
     const value = cleanText(product[key]);
-
     if (value) return value;
   }
 
@@ -169,7 +168,7 @@ export default function CustomerProductDetailsDialog({
                   <img
                     src={imageUrl}
                     alt={title}
-                    className="h-56 w-full object-contain bg-white p-4"
+                    className="h-56 w-full bg-white object-contain p-4"
                   />
                 ) : (
                   <div className="flex h-56 w-full items-center justify-center text-[#A75B28]">
