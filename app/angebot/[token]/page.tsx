@@ -2347,6 +2347,12 @@ const customerOpenPositionScreenMode =
                           key={item.id}
                           className="grid gap-4 bg-white p-4 sm:grid-cols-[96px_1fr_auto] sm:items-center"
                         >
+                          <ProductImageBox
+                            imageUrl={finalReviewProductImageUrl}
+                            alt={item.product_name || "Artikel"}
+                            size="small"
+                          />
+
                           <div>
                             <p className="text-base font-black text-[#102A43]">
                               {item.product_name || "Artikel"}
