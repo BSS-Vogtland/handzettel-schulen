@@ -1,5 +1,6 @@
 ﻿import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
 type SmtpCandidate = {
   label: string;
@@ -201,7 +202,7 @@ export async function sendMailReliable(options: Mail.Options) {
         user,
       });
 
-      const transporter = nodemailer.createTransport({
+      const transportOptions = {
         host: candidate.host,
         port: candidate.port,
         secure: candidate.secure,
@@ -219,7 +220,9 @@ export async function sendMailReliable(options: Mail.Options) {
           servername: candidate.host,
           minVersion: "TLSv1.2",
         },
-      });
+      } as SMTPTransport.Options;
+
+      const transporter = nodemailer.createTransport(transportOptions);
 
       const result = await transporter.sendMail({
         ...options,
@@ -254,3 +257,4 @@ export async function sendMailReliable(options: Mail.Options) {
 
   throw new Error(`SMTP-Versand fehlgeschlagen. Versuche: ${errors.join(" || ")}`);
 }
+
