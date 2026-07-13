@@ -108,6 +108,7 @@ export default async function RecommendationPartnersPage({
                 <span className="rounded-xl bg-[#12395F] px-4 py-2 text-sm font-black text-white">Partner</span>
                 <Link href="/admin/empfehlungspartner/kategorien" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Kategorien</Link>
                 <Link href="/admin/empfehlungspartner/regeln" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Regeln</Link>
+                <Link href="/admin/empfehlungspartner/simulation" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Simulation</Link>
               </nav>
             </div>
 

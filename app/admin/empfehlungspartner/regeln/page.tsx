@@ -63,6 +63,7 @@ export default async function RecommendationRulesPage({ searchParams }: { search
             <Link href="/admin/empfehlungspartner" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Partner</Link>
             <Link href="/admin/empfehlungspartner/kategorien" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Kategorien</Link>
             <span className="rounded-xl bg-[#12395F] px-4 py-2 text-sm font-black text-white">Regeln</span>
+            <Link href="/admin/empfehlungspartner/simulation" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Simulation</Link>
           </nav>
         </header>
 

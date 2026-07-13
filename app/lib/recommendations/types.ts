@@ -130,3 +130,89 @@ export interface CreateRecommendationRuleInput {
 }
 
 export type UpdateRecommendationRuleInput = Partial<CreateRecommendationRuleInput>;
+
+export type RecommendationSimulationFields = Record<
+  RecommendationMatchField,
+  string
+>;
+
+export type RecommendationSimulationRuleStatus =
+  | "matched"
+  | "excluded"
+  | "not_matched"
+  | "disabled"
+  | "category_disabled";
+
+export interface RecommendationSimulationMatch {
+  term: string;
+  normalizedTerm: string;
+  field: RecommendationMatchField;
+}
+
+export interface RecommendationSimulationTermCheck {
+  term: string;
+  normalizedTerm: string;
+  matches: RecommendationSimulationMatch[];
+}
+
+export interface RecommendationSimulationEvaluatedRule {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  patternType: RecommendationPatternType;
+  priority: number;
+  status: RecommendationSimulationRuleStatus;
+  reason: string;
+  checkedFields: RecommendationMatchField[];
+  termChecks: RecommendationSimulationTermCheck[];
+  exclusionChecks: RecommendationSimulationTermCheck[];
+}
+
+export interface RecommendationSimulationPartner {
+  id: string;
+  partnerCode: string;
+  name: string;
+  priority: number;
+}
+
+export interface RecommendationSimulationWinner {
+  partner: RecommendationSimulationPartner;
+  reason: string;
+  tieBreakerUsed: boolean;
+}
+
+export interface RecommendationSimulationCategory {
+  id: string;
+  name: string;
+  matchedRules: RecommendationSimulationEvaluatedRule[];
+  rankedPartners: RecommendationSimulationPartner[];
+  winner: RecommendationSimulationWinner | null;
+  winnerReason: string;
+}
+
+export interface RecommendationSimulationRankedPartners {
+  categoryId: string;
+  categoryName: string;
+  partners: RecommendationSimulationPartner[];
+}
+
+export interface RecommendationSimulationSummary {
+  debug: boolean;
+  evaluatedRuleCount: number;
+  matchedRuleCount: number;
+  excludedRuleCount: number;
+  matchedCategoryCount: number;
+  eligiblePartnerCount: number;
+  winnerCount: number;
+  message: string;
+}
+
+export interface RecommendationSimulationResult {
+  projectKey: string;
+  normalizedFields: RecommendationSimulationFields;
+  evaluatedRules: RecommendationSimulationEvaluatedRule[];
+  matchedCategories: RecommendationSimulationCategory[];
+  rankedPartners: RecommendationSimulationRankedPartners[];
+  summary: RecommendationSimulationSummary;
+}
