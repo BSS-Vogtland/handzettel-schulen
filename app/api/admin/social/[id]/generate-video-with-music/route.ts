@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -228,6 +229,9 @@ async function loadMusicTrack(musicTrackId: string) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   const jobId = randomUUID();
   const tempDir = path.join(os.tmpdir(), `social-music-${jobId}`);
 

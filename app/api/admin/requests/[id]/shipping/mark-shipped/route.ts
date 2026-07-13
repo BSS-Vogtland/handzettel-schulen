@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { NextRequest, NextResponse } from "next/server";
@@ -261,6 +262,9 @@ async function insertEvent(params: {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   const { id } = await context.params;
   const requestId = cleanText(id, 120);
 

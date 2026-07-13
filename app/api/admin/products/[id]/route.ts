@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { normalizeProductCategory } from "@/lib/productCategories";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
@@ -809,6 +810,9 @@ async function getActiveProductOfferItemUsage(params: {
   };
 }
 export async function PATCH(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const supabase = getSupabaseAdmin();

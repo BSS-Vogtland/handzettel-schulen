@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import {
   buildPublicConnectionStatus,
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const storedConnection = await loadStoredTikTokConnection();
     const publicStatus = buildPublicConnectionStatus({ storedConnection });

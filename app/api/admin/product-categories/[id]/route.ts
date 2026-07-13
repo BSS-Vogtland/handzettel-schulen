@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -57,6 +58,9 @@ async function getCategoryById(supabase: ReturnType<typeof getSupabaseAdmin>, id
 }
 
 export async function PATCH(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const payload = await request.json().catch(() => ({}));
@@ -168,6 +172,9 @@ export async function PATCH(request: NextRequest, context: Params) {
 }
 
 export async function DELETE(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const payload = await request.json().catch(() => ({}));

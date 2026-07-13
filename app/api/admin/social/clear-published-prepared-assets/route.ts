@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -159,6 +160,9 @@ async function archiveAssets(assetIds: string[]) {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     if (!isAuthorized(request)) {
       return NextResponse.json(

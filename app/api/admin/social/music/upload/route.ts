@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -60,6 +61,9 @@ function getSafeFilename(filename: string) {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const formData = await request.formData();
 

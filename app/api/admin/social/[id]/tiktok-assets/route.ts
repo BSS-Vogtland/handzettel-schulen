@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -241,6 +242,9 @@ function simplifyAsset(asset: SocialAssetRow) {
 }
 
 export async function GET(request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const postId = await getPostIdFromRequest(request, context);
 

@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -32,6 +33,9 @@ function cleanText(value: unknown) {
 }
 
 export async function POST(_request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const requestId = cleanText(id);

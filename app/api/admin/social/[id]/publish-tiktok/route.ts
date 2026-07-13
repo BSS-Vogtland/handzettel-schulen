@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import {
   buildTikTokCaption,
@@ -80,6 +81,9 @@ async function parseBody(request: Request) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const id = await getPostIdFromRequest(request, context);
 

@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { createUniqueProductSku } from "../../../../../../lib/productSku";
@@ -399,6 +400,9 @@ async function createAliasFlexible(
 }
 
 export async function POST(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const supabase = getSupabaseAdmin();

@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { rebuildOfferRecommendations } from "@/app/lib/offerRecommendations";
@@ -136,6 +137,9 @@ async function createRequestEvent(params: {
 }
 
 export async function GET(_request: Request, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const requestId = String(id || "").trim();
@@ -272,6 +276,9 @@ export async function GET(_request: Request, context: Params) {
 }
 
 export async function POST(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const requestId = String(id || "").trim();

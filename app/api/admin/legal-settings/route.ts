@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextResponse } from "next/server";
 import {
   getLegalSettings,
@@ -8,6 +9,9 @@ import {
 export const runtime = "nodejs";
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const settings = await getLegalSettings();
 
@@ -30,6 +34,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const payload = (await request.json()) as LegalSettingsUpdateInput;
 

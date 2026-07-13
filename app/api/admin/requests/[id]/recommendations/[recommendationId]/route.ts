@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -51,6 +52,9 @@ function toInteger(value: unknown, fallback = 100) {
 }
 
 export async function PATCH(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id, recommendationId } = await context.params;
     const requestId = String(id || "").trim();

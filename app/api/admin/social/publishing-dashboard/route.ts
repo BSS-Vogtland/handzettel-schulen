@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getTikTokDraftUploadReadiness } from "@/lib/social/tiktokPosting";
@@ -92,6 +93,9 @@ function getId(row: UnknownRow) {
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const posts = await loadRecentPosts();
     const postIds = posts.map(getId).filter(Boolean);

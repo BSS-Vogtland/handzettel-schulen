@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextResponse } from "next/server";
 import { rebuildOfferRecommendations } from "@/app/lib/offerRecommendations";
 
@@ -15,6 +16,9 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 export async function POST(_request: Request, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const requestId = String(id || "").trim();

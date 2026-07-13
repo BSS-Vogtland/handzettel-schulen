@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getTikTokDraftUploadReadiness } from "@/lib/social/tiktokPosting";
@@ -81,6 +82,9 @@ async function loadPublishEvents(postId: string) {
 }
 
 export async function GET(request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const id = await getPostIdFromRequest(request, context);
 

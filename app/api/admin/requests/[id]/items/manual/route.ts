@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
@@ -69,6 +70,9 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 export async function POST(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
 

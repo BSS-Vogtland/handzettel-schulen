@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -41,6 +42,9 @@ function secondsBetweenNow(value: string | null) {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const supabase = getSupabaseAdmin();

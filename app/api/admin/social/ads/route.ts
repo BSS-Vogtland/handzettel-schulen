@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -112,6 +113,9 @@ async function loadActiveProjectId() {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const payload = (await request.json()) as CampaignPayload;
 

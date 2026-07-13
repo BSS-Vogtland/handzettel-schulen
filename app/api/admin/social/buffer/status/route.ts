@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -79,6 +80,9 @@ async function bufferGraphQl<T>(query: string) {
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const apiKey = getBufferApiKey();
 

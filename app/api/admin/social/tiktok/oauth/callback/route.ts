@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
@@ -32,6 +33,9 @@ function buildAdminRedirect({
 }
 
 export async function GET(request: Request) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   const cookieStore = await cookies();
 
   try {

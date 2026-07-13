@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { randomUUID } from "crypto";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
@@ -1386,6 +1387,9 @@ export async function POST(
   request: Request,
   context: { params?: Promise<{ id?: string }> | { id?: string } }
 ) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const id = await getPostIdFromRequest(request, context);
 

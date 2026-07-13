@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { updateAdminRequestWorkflowState } from "@/lib/adminRequestWorkflow";
@@ -53,6 +54,9 @@ function getResolutionLabel(status: ResolutionStatus) {
 }
 
 export async function POST(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id, itemId } = await context.params;
     const supabase = getSupabaseAdmin();

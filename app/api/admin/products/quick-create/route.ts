@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { normalizeProductCategory } from "@/lib/productCategories";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
@@ -824,6 +825,9 @@ async function addAliasesFlexible(input: {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const supabase = getSupabaseAdmin();
     const formData = await request.formData();

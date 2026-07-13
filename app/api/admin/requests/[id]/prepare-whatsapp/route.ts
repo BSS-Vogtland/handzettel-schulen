@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -289,11 +290,17 @@ async function createRequestEvent(input: {
   }
 }
 
-async function callLocalRoute(path: string) {
+async function callLocalRoute(path: string, cookieHeader: string | null) {
   const siteUrl = getSiteUrl();
+  const headers = new Headers();
+
+  if (cookieHeader) {
+    headers.set("cookie", cookieHeader);
+  }
 
   const response = await fetch(`${siteUrl}${path}`, {
     method: "POST",
+    headers,
     cache: "no-store",
   });
 
@@ -561,8 +568,12 @@ const existingByRequestItem = new Map<string, OfferItem[]>();
   };
 }
 
-export async function POST(_request: NextRequest, context: Params) {
+export async function POST(request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
+    const cookieHeader = request.headers.get("cookie");
     const { id } = await context.params;
     const supabase = getSupabaseAdmin();
 
@@ -641,7 +652,8 @@ export async function POST(_request: NextRequest, context: Params) {
       }
 
       const analyzePayload = await callLocalRoute(
-        `/api/admin/requests/${id}/analyze`
+        `/api/admin/requests/${id}/analyze`,
+        cookieHeader
       );
 
       analyzeRan = true;
@@ -682,7 +694,10 @@ export async function POST(_request: NextRequest, context: Params) {
       }
     }
 
-    const matchPayload = await callLocalRoute(`/api/admin/requests/${id}/match`);
+    const matchPayload = await callLocalRoute(
+      `/api/admin/requests/${id}/match`,
+      cookieHeader
+    );
 
     const autoPreselectResult = await insertSafeMatchesIntoOffer({
       supabase,

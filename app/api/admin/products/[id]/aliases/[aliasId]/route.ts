@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -38,6 +39,9 @@ type RouteContext = {
 };
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const params = await Promise.resolve(context.params);
     const productId = String(params.id || "").trim();

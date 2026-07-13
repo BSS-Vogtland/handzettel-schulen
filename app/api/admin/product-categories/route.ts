@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -38,6 +39,9 @@ function toInteger(value: unknown, fallback: number) {
 }
 
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const supabase = getSupabaseAdmin();
     const activeOnly = request.nextUrl.searchParams.get("active") === "1";
@@ -62,6 +66,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const payload = await request.json().catch(() => ({}));
     const label = cleanString(payload.label);

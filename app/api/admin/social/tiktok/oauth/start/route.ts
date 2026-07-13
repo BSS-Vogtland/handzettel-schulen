@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import {
   buildTikTokAuthorizationUrl,
@@ -12,6 +13,9 @@ function getBaseUrl() {
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const state = createTikTokOAuthState();
     const url = buildTikTokAuthorizationUrl({ state });

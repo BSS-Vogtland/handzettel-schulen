@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextRequest, NextResponse } from "next/server";
 import { styleProductImageById } from "@/app/lib/productImageStyling";
 
@@ -16,6 +17,9 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 export async function POST(_request: NextRequest, context: Params) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const productId = String(id || "").trim();
@@ -60,6 +64,9 @@ export async function POST(_request: NextRequest, context: Params) {
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   return jsonResponse(
     {
       ok: false,

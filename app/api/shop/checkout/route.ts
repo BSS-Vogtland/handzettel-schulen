@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { buildShopLeadSource, LEAD_SOURCE_COOKIE_NAME } from "@/lib/lead-source";
 import { sendAdminShopOrderNotification } from "../../../lib/adminNotifications";
+import { sendRequestInvoiceMail } from "@/app/lib/requestInvoiceMailService";
 import {
   findActiveDiscountCampaign,
   roundMoney,
@@ -415,46 +416,23 @@ function formatEuroForEvent(value: number) {
 
 
 async function sendCustomerInvoiceMailSafely(params: {
-  request: NextRequest;
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   invoiceNumber: string | null;
 }) {
-  const { request, supabase, requestId, invoiceNumber } = params;
+  const { supabase, requestId, invoiceNumber } = params;
 
   try {
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-      new URL(request.url).origin;
+    const result = await sendRequestInvoiceMail({ requestId });
 
-    const response = await fetch(
-      `${siteUrl}/api/admin/requests/${encodeURIComponent(
-        requestId
-      )}/invoice/send-mail`,
-      {
-        method: "POST",
-        cache: "no-store",
-      }
-    );
-
-    const rawText = await response.text().catch(() => "");
-    let payload = null;
-
-    try {
-      payload = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      payload = null;
-    }
-
-    if (!response.ok || payload?.ok === false) {
+    if (!result.data.ok) {
       await insertRequestEvent({
         supabase,
         requestId,
         eventType: "customer_invoice_mail_failed",
         title: "Rechnungsmail an Kunde fehlgeschlagen",
         description:
-          payload?.message ||
-          rawText ||
+          result.data.message ||
           "Die Rechnungsmail an den Kunden konnte nach der Shop-Bestellung nicht automatisch versendet werden.",
       });
 
@@ -1068,7 +1046,6 @@ export async function POST(request: NextRequest) {
     });
 
     await sendCustomerInvoiceMailSafely({
-      request,
       supabase,
       requestId,
       invoiceNumber: invoice.invoice_number,

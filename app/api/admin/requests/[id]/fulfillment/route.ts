@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -410,6 +411,9 @@ async function insertBlockedEvent(params: {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await context.params;
     const requestId = String(id || "").trim();
@@ -583,6 +587,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function GET() {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   return NextResponse.json(
     {
       ok: false,

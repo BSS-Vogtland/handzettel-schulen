@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -130,6 +131,9 @@ function normalizeSearch(value: unknown) {
 }
 
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const supabase = getSupabaseAdmin();
     const searchParams = request.nextUrl.searchParams;

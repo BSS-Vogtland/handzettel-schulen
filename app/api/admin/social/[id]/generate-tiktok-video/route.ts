@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -548,6 +549,9 @@ async function parseBody(request: Request) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const postId = await getPostIdFromRequest(request, context);
 

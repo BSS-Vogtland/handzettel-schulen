@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -19,6 +20,9 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ assetId: string }> }
 ) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const { assetId } = await context.params;
 

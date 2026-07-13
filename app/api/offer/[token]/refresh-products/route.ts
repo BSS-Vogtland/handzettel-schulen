@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { runRequestMatching } from "@/app/lib/requestMatchingService";
+import { adoptSafeRequestMatches } from "@/app/lib/requestSafeMatchAdoptionService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,13 +28,6 @@ function getSupabaseAdmin() {
       autoRefreshToken: false,
     },
   });
-}
-
-function getBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000"
-  );
 }
 
 async function insertRequestEvent(input: {
@@ -149,26 +144,16 @@ export async function POST(_request: Request, context: Params) {
         "Der Kunde hat auf der Angebotsseite die erneute Produktsuche gestartet.",
     });
 
-    const baseUrl = getBaseUrl();
+    const matchResult = await runRequestMatching({ requestId });
 
-    const matchResponse = await fetch(
-      `${baseUrl}/api/admin/requests/${requestId}/match`,
-      {
-        method: "POST",
-        cache: "no-store",
-      }
-    );
-
-    const matchResult = await matchResponse.json().catch(() => null);
-
-    if (!matchResponse.ok || !matchResult?.ok) {
+    if (!matchResult.data.ok) {
       await insertRequestEvent({
         requestId,
         eventType: "customer_product_refresh_failed",
         title: "Neue Produktsuche fehlgeschlagen",
         description:
-          matchResult?.message ||
-          matchResult?.error ||
+          matchResult.data.message ||
+          matchResult.data.error ||
           "Die Produktvorschläge konnten nicht neu berechnet werden.",
       });
 
@@ -176,32 +161,23 @@ export async function POST(_request: Request, context: Params) {
         {
           ok: false,
           message:
-            matchResult?.message ||
-            matchResult?.error ||
+            matchResult.data.message ||
+            matchResult.data.error ||
             "Die Produktvorschläge konnten nicht neu berechnet werden.",
         },
         { status: 500 }
       );
     }
 
-    const adoptResponse = await fetch(
-      `${baseUrl}/api/admin/requests/${requestId}/adopt-safe-matches`,
-      {
-        method: "POST",
-        cache: "no-store",
-      }
-    );
+    const adoptResult = await adoptSafeRequestMatches({ requestId });
 
-    const adoptResult = await adoptResponse.json().catch(() => null);
-
-    if (!adoptResponse.ok || !adoptResult?.ok) {
+    if (!adoptResult.data.ok) {
       await insertRequestEvent({
         requestId,
         eventType: "customer_product_refresh_failed",
         title: "Neue Produktsuche teilweise fehlgeschlagen",
         description:
-          adoptResult?.message ||
-          adoptResult?.error ||
+          adoptResult.data.message ||
           "Die Produktvorschläge wurden neu berechnet, aber sichere Treffer konnten nicht übernommen werden.",
       });
 
@@ -209,8 +185,7 @@ export async function POST(_request: Request, context: Params) {
         {
           ok: false,
           message:
-            adoptResult?.message ||
-            adoptResult?.error ||
+            adoptResult.data.message ||
             "Die Produktvorschläge wurden neu berechnet, aber sichere Treffer konnten nicht übernommen werden.",
         },
         { status: 500 }
@@ -218,13 +193,13 @@ export async function POST(_request: Request, context: Params) {
     }
 
     const adoptedCount =
-      typeof adoptResult.adoptedCount === "number"
-        ? adoptResult.adoptedCount
+      typeof adoptResult.data.adoptedCount === "number"
+        ? adoptResult.data.adoptedCount
         : 0;
 
     const skippedCount =
-      typeof adoptResult.skippedCount === "number"
-        ? adoptResult.skippedCount
+      typeof adoptResult.data.skippedCount === "number"
+        ? adoptResult.data.skippedCount
         : 0;
 
     const message =
@@ -246,7 +221,7 @@ export async function POST(_request: Request, context: Params) {
       rematched: true,
       adoptedCount,
       skippedCount,
-      minimumScore: adoptResult.minimumScore ?? 85,
+      minimumScore: adoptResult.data.minimumScore ?? 85,
       message,
     });
   } catch (error) {

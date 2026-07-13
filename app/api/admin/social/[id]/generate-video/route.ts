@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 ﻿import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import path from "path";
@@ -223,6 +224,9 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   const tempDir = path.join(os.tmpdir(), `social-video-${randomUUID()}`);
 
   try {

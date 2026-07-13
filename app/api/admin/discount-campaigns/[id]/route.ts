@@ -1,3 +1,4 @@
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -108,6 +109,9 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> } | { params: { id: string } }
 ) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const id = await getCampaignId(context);
 
@@ -268,6 +272,9 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> } | { params: { id: string } }
 ) {
+  const unauthorized = await requireAdminApiSession();
+  if (unauthorized) return unauthorized;
+
   try {
     const id = await getCampaignId(context);
 

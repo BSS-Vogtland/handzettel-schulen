@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { scheduleOfferAccessMail } from "@/lib/offerAccessMail";
+import { analyzeRequestMaterials } from "@/app/lib/requestAnalysisService";
+import { runRequestMatching } from "@/app/lib/requestMatchingService";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -46,10 +48,6 @@ type OfferItemRow = {
   request_item_id: string | null;
   match_id: string | null;
   product_id: string | null;
-};
-
-type PrepareRequestBody = {
-  requestId?: string | null;
 };
 
 const AUTO_PRESELECT_MIN_SCORE = 80;
@@ -217,41 +215,6 @@ function getTokenVariants(value: string) {
   );
 }
 
-async function readBodySafely(request: NextRequest) {
-  try {
-    return (await request.json()) as PrepareRequestBody;
-  } catch {
-    return {};
-  }
-}
-
-async function loadSchoolRequestById(params: {
-  supabase: ReturnType<typeof getSupabaseAdmin>;
-  requestId: string;
-}) {
-  const cleanRequestId = String(params.requestId || "").trim();
-
-  if (!cleanRequestId) {
-    return {
-      data: null,
-      error: null,
-      usedRequestId: null,
-    };
-  }
-
-  const { data, error } = await params.supabase
-    .from("school_requests")
-    .select("id, status, offer_status, ai_status")
-    .eq("id", cleanRequestId)
-    .maybeSingle();
-
-  return {
-    data: data ? (data as SchoolRequest) : null,
-    error,
-    usedRequestId: cleanRequestId,
-  };
-}
-
 async function loadSchoolRequestByOfferToken(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   rawToken: string;
@@ -294,38 +257,8 @@ async function loadSchoolRequestByOfferToken(params: {
 
 async function loadSchoolRequest(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
-  requestIdFromBody: string;
   rawToken: string;
 }) {
-  if (params.requestIdFromBody) {
-    const requestLookupById = await loadSchoolRequestById({
-      supabase: params.supabase,
-      requestId: params.requestIdFromBody,
-    });
-
-    if (requestLookupById.error) {
-      return {
-        data: null,
-        error: requestLookupById.error,
-        usedLookup: "request_id",
-        usedRequestId: requestLookupById.usedRequestId,
-        usedToken: null,
-        tokenVariants: getTokenVariants(params.rawToken),
-      };
-    }
-
-    if (requestLookupById.data) {
-      return {
-        data: requestLookupById.data,
-        error: null,
-        usedLookup: "request_id",
-        usedRequestId: requestLookupById.usedRequestId,
-        usedToken: null,
-        tokenVariants: getTokenVariants(params.rawToken),
-      };
-    }
-  }
-
   const requestLookupByToken = await loadSchoolRequestByOfferToken({
     supabase: params.supabase,
     rawToken: params.rawToken,
@@ -335,7 +268,6 @@ async function loadSchoolRequest(params: {
     data: requestLookupByToken.data,
     error: requestLookupByToken.error,
     usedLookup: "offer_token",
-    usedRequestId: null,
     usedToken: requestLookupByToken.usedToken,
     tokenVariants: requestLookupByToken.tokenVariants,
   };
@@ -417,28 +349,6 @@ async function markRequestAsManualReview(params: {
     ...(metadata || {}),
     manualReview: true,
   });
-}
-
-async function readJsonSafely(response: Response) {
-  const rawText = await response.text();
-
-  try {
-    return {
-      rawText,
-      json: rawText ? JSON.parse(rawText) : null,
-    };
-  } catch {
-    return {
-      rawText,
-      json: null,
-    };
-  }
-}
-
-function getShortRawText(rawText: string) {
-  if (!rawText) return "";
-
-  return rawText.replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
@@ -736,16 +646,14 @@ const existingRequestItemIds = new Set(
   };
 }
 
-export async function POST(request: NextRequest, context: Params) {
+export async function POST(_request: NextRequest, context: Params) {
   try {
     const { token: rawTokenFromParams } = await context.params;
-    const body = await readBodySafely(request);
 
     const cleanToken = decodeTokenSafely(rawTokenFromParams);
-    const requestIdFromBody = String(body.requestId || "").trim();
     const supabase = getSupabaseAdmin();
 
-    if (!cleanToken && !requestIdFromBody) {
+    if (!cleanToken) {
       return jsonResponse(
         {
           ok: false,
@@ -758,7 +666,6 @@ export async function POST(request: NextRequest, context: Params) {
 
     const requestLookup = await loadSchoolRequest({
       supabase,
-      requestIdFromBody,
       rawToken: rawTokenFromParams,
     });
 
@@ -783,7 +690,6 @@ export async function POST(request: NextRequest, context: Params) {
           debug:
             process.env.NODE_ENV === "development"
               ? {
-                  requestIdFromBody,
                   tokenVariants: requestLookup.tokenVariants,
                 }
               : undefined,
@@ -837,7 +743,6 @@ export async function POST(request: NextRequest, context: Params) {
         metadata: {
           reason: "missing_file",
           token: cleanToken,
-          requestIdFromBody,
           usedLookup: requestLookup.usedLookup,
         },
       });
@@ -870,9 +775,7 @@ export async function POST(request: NextRequest, context: Params) {
       "Kunde hat die automatische Paketvorbereitung gestartet.",
       {
         token: cleanToken,
-        requestIdFromBody,
         usedLookup: requestLookup.usedLookup,
-        usedRequestId: requestLookup.usedRequestId,
         usedToken: requestLookup.usedToken,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
       }
@@ -885,54 +788,10 @@ export async function POST(request: NextRequest, context: Params) {
 
     let itemCount = existingItemCount || 0;
 
-    const origin = new URL(request.url).origin;
-
     if (itemCount === 0) {
-      const analyzeUrl = `${origin}/api/admin/requests/${requestId}/analyze`;
+      const analyzeResult = await analyzeRequestMaterials({ requestId });
 
-      const analyzeResponse = await fetch(analyzeUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const analyzePayload = await readJsonSafely(analyzeResponse);
-
-      if (!analyzePayload.json) {
-        await markRequestAsManualReview({
-          supabase,
-          requestId,
-          aiStatus: "error",
-          offerStatus: "manual_review",
-          eventType: "package_prepare_needs_manual_review",
-          message:
-            "Die automatische Analyse konnte nicht abgeschlossen werden, weil die Analyse-Route keine JSON-Antwort geliefert hat.",
-          metadata: {
-            reason: "analyze_no_json_response",
-            details: getShortRawText(analyzePayload.rawText),
-            token: cleanToken,
-            requestIdFromBody,
-          },
-        });
-
-        return jsonResponse(
-          {
-            ok: false,
-            manualReview: true,
-            reason: "analyze_no_json_response",
-            message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
-            details:
-              process.env.NODE_ENV === "development"
-                ? getShortRawText(analyzePayload.rawText)
-                : undefined,
-          },
-          422
-        );
-      }
-
-      if (!analyzeResponse.ok || analyzePayload.json.ok === false) {
+      if (!analyzeResult.data.ok) {
         await markRequestAsManualReview({
           supabase,
           requestId,
@@ -943,9 +802,8 @@ export async function POST(request: NextRequest, context: Params) {
             "Die automatische Analyse konnte die Liste nicht auswerten. Die Anfrage wurde zur manuellen Prüfung markiert.",
           metadata: {
             reason: "analyze_failed",
-            details: analyzePayload.json,
+            details: analyzeResult.data,
             token: cleanToken,
-            requestIdFromBody,
           },
         });
 
@@ -958,7 +816,7 @@ export async function POST(request: NextRequest, context: Params) {
               "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
-                ? analyzePayload.json
+                ? analyzeResult.data
                 : undefined,
           },
           422
@@ -988,7 +846,6 @@ export async function POST(request: NextRequest, context: Params) {
           matchCount: 0,
           preselectedCount: 0,
           token: cleanToken,
-          requestIdFromBody,
         },
       });
 
@@ -1038,52 +895,9 @@ export async function POST(request: NextRequest, context: Params) {
     }
 
     if (matchCount === 0) {
-      const matchUrl = `${origin}/api/admin/requests/${requestId}/match`;
+      const matchResult = await runRequestMatching({ requestId });
 
-      const matchResponse = await fetch(matchUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const matchPayload = await readJsonSafely(matchResponse);
-
-      if (!matchPayload.json) {
-        await markRequestAsManualReview({
-          supabase,
-          requestId,
-          aiStatus: "done",
-          offerStatus: "manual_review",
-          eventType: "package_prepare_needs_manual_review",
-          message:
-            "Die automatische Produktzuordnung konnte nicht abgeschlossen werden, weil die Matching-Route keine JSON-Antwort geliefert hat.",
-          metadata: {
-            reason: "match_no_json_response",
-            itemCount,
-            details: getShortRawText(matchPayload.rawText),
-            token: cleanToken,
-            requestIdFromBody,
-          },
-        });
-
-        return jsonResponse(
-          {
-            ok: false,
-            manualReview: true,
-            reason: "match_no_json_response",
-            message:
-              "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
-            details:
-              process.env.NODE_ENV === "development"
-                ? getShortRawText(matchPayload.rawText)
-                : undefined,
-          },
-          422
-        );
-      }
-
-      if (!matchResponse.ok || matchPayload.json.ok === false) {
+      if (!matchResult.data.ok) {
         await markRequestAsManualReview({
           supabase,
           requestId,
@@ -1095,9 +909,8 @@ export async function POST(request: NextRequest, context: Params) {
           metadata: {
             reason: "match_failed",
             itemCount,
-            details: matchPayload.json,
+            details: matchResult.data,
             token: cleanToken,
-            requestIdFromBody,
           },
         });
 
@@ -1110,7 +923,7 @@ export async function POST(request: NextRequest, context: Params) {
               "Deine Anfrage ist angekommen. Wir prüfen Deine Liste persönlich und bereiten Deinen Paketwunsch manuell vor.",
             details:
               process.env.NODE_ENV === "development"
-                ? matchPayload.json
+                ? matchResult.data
                 : undefined,
           },
           422
