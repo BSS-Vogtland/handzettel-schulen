@@ -3,6 +3,7 @@ import AdminLogoutButton from "@/components/AdminLogoutButton";
 import {
   ArrowRight,
   ClipboardList,
+  Handshake,
   Megaphone,
   MessageCircle,
   PackagePlus,
@@ -171,6 +172,33 @@ export default function AdminHomePage() {
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Zu den Produkten
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/empfehlungspartner"
+            className="group rounded-[32px] border border-[#D6E7EF] bg-[#F5FAFD] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
+          >
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#12395F]">
+              <Handshake className="h-6 w-6" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
+              Partnerempfehlungen
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+              Empfehlungspartner verwalten
+            </h2>
+
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
+              Pflege externe Partner, Zielseiten, Zuordnungszeiträume und
+              Provisionskonditionen für spätere Materialempfehlungen.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+              Zu den Empfehlungspartnern
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
