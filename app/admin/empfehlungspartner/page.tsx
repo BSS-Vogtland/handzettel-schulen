@@ -102,8 +102,13 @@ export default async function RecommendationPartnersPage({
               <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">Partnerempfehlungen</p>
               <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Empfehlungspartner</h1>
               <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-                Verwalte externe Geschäftspartner, Zielseiten, Zuordnungsdauer und wirtschaftliche Konditionen. Kategorien und Regeln folgen im nächsten Bauabschnitt.
+                Verwalte externe Geschäftspartner, Zielseiten, Zuordnungsdauer und wirtschaftliche Konditionen.
               </p>
+              <nav className="mt-5 flex flex-wrap gap-2" aria-label="Empfehlungsverwaltung">
+                <span className="rounded-xl bg-[#12395F] px-4 py-2 text-sm font-black text-white">Partner</span>
+                <Link href="/admin/empfehlungspartner/kategorien" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Kategorien</Link>
+                <Link href="/admin/empfehlungspartner/regeln" className="rounded-xl border border-[#D8C8B8] px-4 py-2 text-sm font-black">Regeln</Link>
+              </nav>
             </div>
 
             <Link
@@ -125,7 +130,7 @@ export default async function RecommendationPartnersPage({
             <input
               name="search"
               defaultValue={search}
-              placeholder="Name, Slug oder Beschreibung"
+              placeholder="Name, Kennung, Slug oder Beschreibung"
               className="min-h-11 rounded-2xl border border-[#D8C8B8] bg-[#FFFCF8] px-4 text-sm font-bold outline-none focus:border-[#A75B28]"
             />
           </label>

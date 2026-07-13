@@ -343,6 +343,13 @@ export default function AdminRecommendationPartnerForm({
           </p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {initialPartner ? (
+              <label className="grid gap-2 md:col-span-2">
+                <span className="text-sm font-black">Interne Partnerkennung</span>
+                <input value={initialPartner.partner_code} readOnly className={`${fieldClass} cursor-not-allowed bg-[#F1F3F5] text-[#52616F]`} />
+                <span className="text-xs font-semibold text-[#697985]">Die Kennung wird automatisch vergeben und kann nicht geändert werden.</span>
+              </label>
+            ) : null}
             <label className="grid gap-2">
               <span className="text-sm font-black">Name *</span>
               <input

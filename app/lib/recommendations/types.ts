@@ -12,6 +12,7 @@ export type RecommendationNumeric = number | string;
 export interface RecommendationPartner {
   id: string;
   project_key: string;
+  partner_code: string;
   name: string;
   slug: string;
   description: string | null;
@@ -45,7 +46,10 @@ export interface RecommendationPartnerCategoryLink {
   project_key: string;
   partner_id: string;
   category_id: string;
+  priority: number;
+  active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface RecommendationRule {
@@ -65,6 +69,7 @@ export interface RecommendationRule {
 
 export interface CreateRecommendationPartnerInput {
   projectKey?: string;
+  partnerCode?: string;
   name: string;
   slug: string;
   description?: string | null;
@@ -79,9 +84,11 @@ export interface CreateRecommendationPartnerInput {
   internalNote?: string | null;
 }
 
-export type UpdateRecommendationPartnerInput = Partial<CreateRecommendationPartnerInput>;
+export type UpdateRecommendationPartnerInput = Partial<
+  Omit<CreateRecommendationPartnerInput, "partnerCode">
+>;
 
-export interface CreateRecommendationCategoryInput {
+export interface CreateRecommendationPartnerCategoryInput {
   projectKey?: string;
   name: string;
   slug: string;
@@ -90,14 +97,25 @@ export interface CreateRecommendationCategoryInput {
   sortOrder?: number;
 }
 
+export type UpdateRecommendationPartnerCategoryInput =
+  Partial<CreateRecommendationPartnerCategoryInput>;
+
+export type CreateRecommendationCategoryInput =
+  CreateRecommendationPartnerCategoryInput;
 export type UpdateRecommendationCategoryInput =
-  Partial<CreateRecommendationCategoryInput>;
+  UpdateRecommendationPartnerCategoryInput;
 
 export interface CreateRecommendationPartnerCategoryLinkInput {
   projectKey?: string;
   partnerId: string;
   categoryId: string;
+  priority?: number;
+  active?: boolean;
 }
+
+export type UpdateRecommendationPartnerCategoryLinkInput = Partial<
+  Pick<CreateRecommendationPartnerCategoryLinkInput, "priority" | "active">
+>;
 
 export interface CreateRecommendationRuleInput {
   projectKey?: string;

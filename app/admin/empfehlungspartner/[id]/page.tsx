@@ -3,9 +3,19 @@ import {
   getRecommendationPartnerById,
   RecommendationPartnerServiceError,
 } from "@/app/lib/recommendations/partnerService";
-import type { RecommendationPartner } from "@/app/lib/recommendations/types";
+import { listRecommendationCategories } from "@/app/lib/recommendations/categoryService";
+import {
+  listCategoryPartnerLinks,
+  type RecommendationCategoryPartnerLinkAdmin,
+} from "@/app/lib/recommendations/categoryLinkService";
+import { RecommendationServiceError } from "@/app/lib/recommendations/serviceSupport";
+import type {
+  RecommendationPartner,
+  RecommendationPartnerCategory,
+} from "@/app/lib/recommendations/types";
+import AdminRecommendationCategoryLinks from "@/components/AdminRecommendationCategoryLinks";
 import AdminRecommendationPartnerForm from "@/components/AdminRecommendationPartnerForm";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -31,9 +41,26 @@ export default async function EditRecommendationPartnerPage({
 
   let partner: RecommendationPartner | null = null;
   let errorMessage: string | null = null;
+  let categories: RecommendationPartnerCategory[] = [];
+  let categoryLinks: RecommendationCategoryPartnerLinkAdmin[] = [];
+  let categoryErrorMessage: string | null = null;
 
   try {
     partner = await getRecommendationPartnerById(id, projectKey);
+    try {
+      [categories, categoryLinks] = await Promise.all([
+        listRecommendationCategories({ projectKey: partner.project_key }),
+        listCategoryPartnerLinks({
+          projectKey: partner.project_key,
+          partnerId: partner.id,
+        }),
+      ]);
+    } catch (categoryError) {
+      categoryErrorMessage =
+        categoryError instanceof RecommendationServiceError
+          ? categoryError.message
+          : "Kategoriezuordnungen konnten nicht geladen werden.";
+    }
   } catch (error) {
     if (
       error instanceof RecommendationPartnerServiceError &&
@@ -62,7 +89,9 @@ export default async function EditRecommendationPartnerPage({
           <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">Partner bearbeiten</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">{partner?.name ?? "Empfehlungspartner"}</h1>
           {partner ? (
-            <p className="mt-2 text-sm font-bold text-[#52616F]">Projekt: {partner.project_key} · Slug: {partner.slug}</p>
+            <p className="mt-2 text-sm font-bold text-[#52616F]">
+              Kennung: {partner.partner_code} · Projekt: {partner.project_key} · Slug: {partner.slug}
+            </p>
           ) : null}
         </header>
 
@@ -84,15 +113,12 @@ export default async function EditRecommendationPartnerPage({
               }
             />
 
-            <aside className="flex items-start gap-3 rounded-[28px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 text-[#12395F]">
-              <Info className="mt-0.5 h-5 w-5 shrink-0" />
-              <div>
-                <p className="font-black">Kategorien und Regeln folgen im nächsten Bauabschnitt</p>
-                <p className="mt-1 text-sm font-semibold leading-6">
-                  E1B verwaltet ausschließlich Partnerstammdaten. Noch werden keine Empfehlungen an Kunden ausgespielt.
-                </p>
-              </div>
-            </aside>
+            <AdminRecommendationCategoryLinks
+              partner={partner}
+              categories={categories}
+              initialLinks={categoryLinks}
+              initialError={categoryErrorMessage}
+            />
           </>
         ) : null}
       </section>

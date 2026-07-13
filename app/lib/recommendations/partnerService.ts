@@ -7,12 +7,14 @@ import type {
 } from "@/app/lib/recommendations/types";
 import { normalizeRecommendationSlug } from "@/app/lib/recommendations/slug";
 import { validateRecommendationTargetUrl } from "@/app/lib/recommendations/urls";
+import { generateAvailableRecommendationPartnerCode } from "@/app/lib/recommendations/partnerCode";
 
 export const DEFAULT_RECOMMENDATION_PROJECT_KEY = "handzettel-schulen";
 
 const PARTNER_COLUMNS = [
   "id",
   "project_key",
+  "partner_code",
   "name",
   "slug",
   "description",
@@ -82,6 +84,7 @@ type PartnerMutationValues = {
 type DatabaseErrorLike = {
   code?: string;
   message?: string;
+  details?: string;
 };
 
 function getSupabaseAdminClient() {
@@ -109,7 +112,9 @@ function validationError(message: string): never {
 }
 
 function isDatabaseNotReadyError(error: DatabaseErrorLike) {
-  return error.code === "42P01" || error.code === "PGRST205";
+  return ["42P01", "42703", "PGRST204", "PGRST205"].includes(
+    error.code ?? "",
+  );
 }
 
 function throwDatabaseError(
@@ -124,7 +129,7 @@ function throwDatabaseError(
   if (isDatabaseNotReadyError(error)) {
     throw new RecommendationPartnerServiceError(
       "DATABASE_NOT_READY",
-      "Die Empfehlungspartner-Datenbank ist noch nicht eingerichtet.",
+      "Die Empfehlungsdatenbank ist noch nicht vollständig eingerichtet.",
       500,
     );
   }
@@ -223,6 +228,7 @@ function normalizePartnerRow(value: unknown): RecommendationPartner {
   return {
     id: requiredText(row.id, "Partner-ID"),
     project_key: requiredText(row.project_key, "Projekt"),
+    partner_code: requiredText(row.partner_code, "Partnerkennung"),
     name: requiredText(row.name, "Name"),
     slug: requiredText(row.slug, "Slug"),
     description: typeof row.description === "string" ? row.description : null,
@@ -415,7 +421,7 @@ export async function listRecommendationPartners(
   }
   if (search) {
     query = query.or(
-      `name.ilike.%${search}%,slug.ilike.%${search}%,description.ilike.%${search}%`,
+      `name.ilike.%${search}%,partner_code.ilike.%${search}%,slug.ilike.%${search}%,description.ilike.%${search}%`,
     );
   }
 
@@ -473,17 +479,36 @@ export async function createRecommendationPartner(
 ): Promise<RecommendationPartner> {
   const values = normalizeMutationInput(input);
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("recommendation_partners")
-    .insert(values)
-    .select(PARTNER_COLUMNS)
-    .single();
 
-  if (error) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const partnerCode = await generateAvailableRecommendationPartnerCode(
+      supabase,
+      values.project_key,
+    );
+    const { data, error } = await supabase
+      .from("recommendation_partners")
+      .insert({ ...values, partner_code: partnerCode })
+      .select(PARTNER_COLUMNS)
+      .single();
+
+    if (!error) return normalizePartnerRow(data);
+
+    const errorText = `${error.message ?? ""} ${error.details ?? ""}`;
+    if (
+      error.code === "23505" &&
+      errorText.includes("recommendation_partners_project_partner_code_unique")
+    ) {
+      continue;
+    }
+
     throwDatabaseError(error, "Der Empfehlungspartner konnte nicht angelegt werden.");
   }
 
-  return normalizePartnerRow(data);
+  throw new RecommendationPartnerServiceError(
+    "CONFLICT",
+    "Es konnte keine freie Partnerkennung erzeugt werden. Bitte erneut versuchen.",
+    409,
+  );
 }
 
 export async function updateRecommendationPartner(

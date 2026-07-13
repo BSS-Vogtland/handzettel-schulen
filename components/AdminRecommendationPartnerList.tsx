@@ -226,6 +226,9 @@ export default function AdminRecommendationPartnerList({
                     </div>
 
                     <p className="mt-2 break-all text-sm font-bold text-[#A75B28]">/{partner.slug}</p>
+                    <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#52616F]">
+                      Kennung: {partner.partner_code}
+                    </p>
                     {partner.description ? (
                       <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
                         {partner.description}
