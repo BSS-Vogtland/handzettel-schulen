@@ -25,9 +25,12 @@ import CustomerReorderToCartButton from "@/components/CustomerReorderToCartButto
 import CustomerQuestionAnswerForm from "@/components/CustomerQuestionAnswerForm";
 import CustomerOptionalOfferItemNoteForm from "@/components/CustomerOptionalOfferItemNoteForm";
 import CustomerOfferRecommendations from "@/components/CustomerOfferRecommendations";
+import CustomerPartnerRecommendations from "@/components/CustomerPartnerRecommendations";
 import CustomerProductDetailsDialog from "@/components/CustomerProductDetailsDialog";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 import LegalFooter from "@/components/LegalFooter";
+import { getCustomerPartnerRecommendations } from "@/app/lib/recommendations/customerRecommendationService";
+import type { CustomerPartnerRecommendation } from "@/app/lib/recommendations/customerRecommendationTypes";
 import {
   buildCustomerWhatsappOptInText,
   createWhatsappLink,
@@ -111,6 +114,8 @@ type RequestItem = {
   notes: string | null;
   confidence: number | string | null;
   status: string | null;
+  admin_resolution_status?: string | null;
+  child_id?: string | null;
 };
 
 type RequestMatch = {
@@ -2234,6 +2239,36 @@ const customerOpenPositionScreenMode =
     );
   }
 
+  let partnerRecommendations: CustomerPartnerRecommendation[] = [];
+  try {
+    partnerRecommendations = await getCustomerPartnerRecommendations({
+      request: {
+        isActive: request.is_active ?? null,
+        status: request.status,
+        offerStatus: request.offer_status,
+        archivedAt: request.archived_at ?? null,
+      },
+      materials: items.map((item) => ({
+        id: item.id,
+        rawText: item.raw_text,
+        productName: item.normalized_name,
+        normalizedName: item.normalized_name,
+        category: item.category,
+        productType: item.product_type ?? null,
+        notes: item.notes,
+        status: item.status,
+        adminResolutionStatus: item.admin_resolution_status ?? null,
+        childId: item.child_id ?? null,
+      })),
+      coveredRequestItemIds: selectedOfferItems.flatMap((item) =>
+        item.request_item_id ? [item.request_item_id] : [],
+      ),
+      activeChildIds: requestChildren.map((child) => child.id),
+    });
+  } catch {
+    partnerRecommendations = [];
+  }
+
   const customerOfferFinalizedAt = (
     request as {
       customer_offer_finalized_at?: string | null;
@@ -2306,6 +2341,8 @@ const customerOpenPositionScreenMode =
               Wenn alles passt, bestätigst Du den Paketwunsch und schließt danach die Bestellung ab.
             </p>
           </section>
+
+          <CustomerPartnerRecommendations recommendations={partnerRecommendations} />
 
           <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-8">
             <div className="flex flex-col gap-2 border-b border-[#E8DED2] pb-4 sm:flex-row sm:items-end sm:justify-between">
@@ -3642,6 +3679,10 @@ const isFreshBeforeAnalysis =
         ) : null}
       </section>
 
+
+      <div className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+        <CustomerPartnerRecommendations recommendations={partnerRecommendations} />
+      </div>
 
       <CustomerOfferRecommendations
         token={token}
