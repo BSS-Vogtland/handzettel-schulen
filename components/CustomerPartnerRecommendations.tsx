@@ -1,10 +1,60 @@
 import { ExternalLink, Sparkles } from "lucide-react";
 import type { CustomerPartnerRecommendation } from "@/app/lib/recommendations/customerRecommendationTypes";
 
+const INTERNAL_REDIRECT_ORIGIN = "https://recommendation.internal";
+
 function safeRedirectPath(value: string) {
-  return /^\/empfehlung\/[a-z0-9]+(?:-[a-z0-9]+)*\?context=[A-Za-z0-9_-]+$/.test(value)
-    ? value
-    : null;
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue.startsWith("/empfehlung/")) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(rawValue, INTERNAL_REDIRECT_ORIGIN);
+
+    if (parsedUrl.origin !== INTERNAL_REDIRECT_ORIGIN) {
+      return null;
+    }
+
+    if (
+      !/^\/empfehlung\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsedUrl.pathname)
+    ) {
+      return null;
+    }
+
+    if (parsedUrl.hash) {
+      return null;
+    }
+
+    const parameterNames = Array.from(parsedUrl.searchParams.keys());
+
+    if (
+      parameterNames.length !== 1 ||
+      parameterNames[0] !== "context" ||
+      parsedUrl.searchParams.getAll("context").length !== 1
+    ) {
+      return null;
+    }
+
+    const context = parsedUrl.searchParams.get("context") || "";
+
+    /*
+     * Erlaubt URL-sichere Base64-Zeichen sowie Punkte als Trennzeichen
+     * des versionierten/verschlüsselten Redirect-Kontexts.
+     */
+    if (
+      context.length < 20 ||
+      context.length > 4096 ||
+      !/^[A-Za-z0-9._~-]+$/.test(context)
+    ) {
+      return null;
+    }
+
+    return `${parsedUrl.pathname}?context=${encodeURIComponent(context)}`;
+  } catch {
+    return null;
+  }
 }
 
 export default function CustomerPartnerRecommendations({
@@ -13,18 +63,28 @@ export default function CustomerPartnerRecommendations({
   recommendations: CustomerPartnerRecommendation[];
 }) {
   const safeRecommendations = recommendations.flatMap((recommendation) => {
-    const redirectPath = safeRedirectPath(recommendation.partner.redirectPath);
-    if (!redirectPath) return [];
-    return [{
-      ...recommendation,
-      partner: {
-        ...recommendation.partner,
-        redirectPath,
+    const redirectPath = safeRedirectPath(
+      recommendation.partner.redirectPath,
+    );
+
+    if (!redirectPath) {
+      return [];
+    }
+
+    return [
+      {
+        ...recommendation,
+        partner: {
+          ...recommendation.partner,
+          redirectPath,
+        },
       },
-    }];
+    ];
   });
 
-  if (safeRecommendations.length === 0) return null;
+  if (safeRecommendations.length === 0) {
+    return null;
+  }
 
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-8">
@@ -32,10 +92,12 @@ export default function CustomerPartnerRecommendations({
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFF7ED] text-[#A75B28]">
           <Sparkles className="h-5 w-5" />
         </div>
+
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
             Für Deine Materialliste
           </p>
+
           <h2 className="mt-1 text-2xl font-black text-[#102A43]">
             Passende Empfehlungen
           </h2>
@@ -44,8 +106,8 @@ export default function CustomerPartnerRecommendations({
 
       <p className="mb-5 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-semibold leading-6 text-[#70451F]">
         Partnerempfehlung: Wenn Du über diesen Link etwas kaufst, kann
-        Handzettel-Schulen.de eine Vergütung erhalten. Für Dich entstehen dadurch
-        keine Mehrkosten.
+        Handzettel-Schulen.de eine Vergütung erhalten. Für Dich entstehen
+        dadurch keine Mehrkosten.
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -57,6 +119,7 @@ export default function CustomerPartnerRecommendations({
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
               {recommendation.category}
             </p>
+
             <div className="mt-4 flex items-center gap-4">
               {recommendation.partner.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -66,18 +129,22 @@ export default function CustomerPartnerRecommendations({
                   className="h-16 w-16 rounded-2xl border border-[#E8DED2] bg-white object-contain p-2"
                 />
               ) : null}
+
               <h3 className="text-xl font-black text-[#102A43]">
                 {recommendation.partner.name}
               </h3>
             </div>
+
             {recommendation.partner.description ? (
               <p className="mt-4 text-sm font-semibold leading-6 text-[#52616F]">
                 {recommendation.partner.description}
               </p>
             ) : null}
+
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
               {recommendation.categoryReason}
             </p>
+
             <a
               href={recommendation.partner.redirectPath}
               target="_blank"
