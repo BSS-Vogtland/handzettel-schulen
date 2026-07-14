@@ -1,6 +1,11 @@
 import { ExternalLink, Sparkles } from "lucide-react";
 import type { CustomerPartnerRecommendation } from "@/app/lib/recommendations/customerRecommendationTypes";
-import { validateCustomerPartnerUrl } from "@/app/lib/recommendations/customerRecommendationService";
+
+function safeRedirectPath(value: string) {
+  return /^\/empfehlung\/[a-z0-9]+(?:-[a-z0-9]+)*\?context=[A-Za-z0-9_-]+$/.test(value)
+    ? value
+    : null;
+}
 
 export default function CustomerPartnerRecommendations({
   recommendations,
@@ -8,14 +13,13 @@ export default function CustomerPartnerRecommendations({
   recommendations: CustomerPartnerRecommendation[];
 }) {
   const safeRecommendations = recommendations.flatMap((recommendation) => {
-    const targetUrl = validateCustomerPartnerUrl(recommendation.partner.targetUrl);
-    if (!targetUrl) return [];
+    const redirectPath = safeRedirectPath(recommendation.partner.redirectPath);
+    if (!redirectPath) return [];
     return [{
       ...recommendation,
       partner: {
         ...recommendation.partner,
-        targetUrl,
-        logoUrl: validateCustomerPartnerUrl(recommendation.partner.logoUrl),
+        redirectPath,
       },
     }];
   });
@@ -75,7 +79,7 @@ export default function CustomerPartnerRecommendations({
               {recommendation.categoryReason}
             </p>
             <a
-              href={recommendation.partner.targetUrl}
+              href={recommendation.partner.redirectPath}
               target="_blank"
               rel="sponsored noopener noreferrer"
               className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#102A43] px-5 py-3 text-sm font-black text-white transition hover:bg-[#1D3E5E]"

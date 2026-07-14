@@ -7,6 +7,8 @@ import {
   type RecommendationEnginePartner,
   type RecommendationEngineRule,
 } from "@/app/lib/recommendations/recommendationEngineService";
+import { createRecommendationRedirectContext } from "@/app/lib/recommendations/recommendationRedirectContext";
+import { validateRecommendationHttpUrl } from "@/app/lib/recommendations/recommendationUrl";
 import type { CustomerPartnerRecommendation } from "@/app/lib/recommendations/customerRecommendationTypes";
 import type {
   RecommendationMatchField,
@@ -47,6 +49,7 @@ export type CustomerRecommendationMaterial = {
 
 export type CustomerRecommendationContext = {
   request: {
+    id: string;
     isActive: boolean | null;
     status: string | null;
     offerStatus: string | null;
@@ -79,25 +82,6 @@ function requiredText(value: unknown) {
 
 function optionalText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-export function validateCustomerPartnerUrl(value: unknown) {
-  const text = optionalText(value);
-  if (!text) return null;
-  try {
-    const parsed = new URL(text);
-    if (
-      (parsed.protocol !== "https:" && parsed.protocol !== "http:")
-      || !parsed.hostname
-      || parsed.username
-      || parsed.password
-    ) {
-      return null;
-    }
-    return parsed.toString();
-  } catch {
-    return null;
-  }
 }
 
 function integer(value: unknown) {
@@ -169,10 +153,11 @@ function normalizePartner(value: unknown): RecommendationEnginePartner {
     id: requiredText(row.id),
     partnerCode: requiredText(row.partner_code),
     name: requiredText(row.name),
+    slug: requiredText(row.slug),
     active: row.active === true,
     description: optionalText(row.description),
-    targetUrl: validateCustomerPartnerUrl(row.target_url) ?? undefined,
-    logoUrl: validateCustomerPartnerUrl(row.logo_url),
+    targetUrl: validateRecommendationHttpUrl(row.target_url) ?? undefined,
+    logoUrl: validateRecommendationHttpUrl(row.logo_url),
   };
 }
 
@@ -202,7 +187,7 @@ async function loadRecommendationData(projectKey: string) {
       .limit(MAX_LINKS + 1),
     supabase
       .from("recommendation_partners")
-      .select("id,partner_code,name,description,target_url,logo_url,active")
+      .select("id,partner_code,name,slug,description,target_url,logo_url,active")
       .eq("project_key", projectKey)
       .limit(MAX_PARTNERS + 1),
   ]);
@@ -325,14 +310,35 @@ export async function getCustomerPartnerRecommendations(
     ...data,
   });
 
-  return engineResult.matchedCategories
+  const materialById = new Map(materials.map((material) => [material.id, material]));
+  const recommendations = await Promise.all(engineResult.matchedCategories
     .filter((category) => category.winner?.targetUrl)
     .sort((left, right) => left.name.localeCompare(right.name, "de"))
-    .map((category) => {
+    .map(async (category) => {
       const winner = category.winner!;
+      const matchedRule = category.matchedRules[0];
+      const matchedEntry = matchedRule?.termChecks
+        .flatMap((check) => check.matches)[0];
+      const matchedMaterial = matchedEntry
+        ? materialById.get(matchedEntry.documentId)
+        : null;
+      if (!winner.slug || !matchedRule || !matchedEntry || !matchedMaterial) {
+        return null;
+      }
       const labels = category.matchedRules.flatMap((rule) =>
         rule.termChecks.flatMap((check) => check.matches.map((match) => match.documentLabel)),
       );
+      const redirectContext = createRecommendationRedirectContext({
+        projectKey,
+        partnerId: winner.id,
+        partnerSlug: winner.slug,
+        categoryId: category.id,
+        ruleId: matchedRule.id,
+        requestId: context.request.id,
+        childId: matchedMaterial.childId,
+        requestItemId: matchedMaterial.id,
+        matchedTerm: matchedEntry.normalizedTerm,
+      });
       return {
         category: category.name,
         categoryReason: categoryReason(labels),
@@ -341,8 +347,11 @@ export async function getCustomerPartnerRecommendations(
           partnerCode: winner.partnerCode,
           description: winner.description ?? null,
           logoUrl: winner.logoUrl ?? null,
-          targetUrl: winner.targetUrl!,
+          redirectPath: `/empfehlung/${encodeURIComponent(winner.slug)}?context=${encodeURIComponent(redirectContext)}`,
         },
       };
-    });
+    }));
+  return recommendations.filter(
+    (recommendation): recommendation is CustomerPartnerRecommendation => recommendation !== null,
+  );
 }

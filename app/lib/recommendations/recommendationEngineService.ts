@@ -49,6 +49,7 @@ export type RecommendationEnginePartner = {
   id: string;
   partnerCode: string;
   name: string;
+  slug?: string;
   active: boolean;
   description?: string | null;
   targetUrl?: string;

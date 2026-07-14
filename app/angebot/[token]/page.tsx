@@ -2243,6 +2243,7 @@ const customerOpenPositionScreenMode =
   try {
     partnerRecommendations = await getCustomerPartnerRecommendations({
       request: {
+        id: request.id,
         isActive: request.is_active ?? null,
         status: request.status,
         offerStatus: request.offer_status,

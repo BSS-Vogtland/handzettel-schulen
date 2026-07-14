@@ -6,6 +6,6 @@ export type CustomerPartnerRecommendation = {
     partnerCode: string;
     description: string | null;
     logoUrl: string | null;
-    targetUrl: string;
+    redirectPath: string;
   };
 };
