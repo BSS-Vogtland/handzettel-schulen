@@ -1,4 +1,4 @@
-import { ExternalLink, Sparkles } from "lucide-react";
+﻿import { ExternalLink, Sparkles } from "lucide-react";
 import type { CustomerPartnerRecommendation } from "@/app/lib/recommendations/customerRecommendationTypes";
 
 const INTERNAL_REDIRECT_ORIGIN = "https://recommendation.internal";
@@ -39,10 +39,6 @@ function safeRedirectPath(value: string) {
 
     const context = parsedUrl.searchParams.get("context") || "";
 
-    /*
-     * Erlaubt URL-sichere Base64-Zeichen sowie Punkte als Trennzeichen
-     * des versionierten/verschlüsselten Redirect-Kontexts.
-     */
     if (
       context.length < 20 ||
       context.length > 4096 ||
