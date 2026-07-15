@@ -1,4 +1,5 @@
 export type CustomerPartnerRecommendation = {
+  requestItemId: string;
   category: string;
   categoryReason: string;
   partner: {

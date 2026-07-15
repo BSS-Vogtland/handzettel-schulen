@@ -26,6 +26,7 @@ const MAX_RULES = 500;
 const MAX_CATEGORIES = 500;
 const MAX_PARTNERS = 1_000;
 const MAX_LINKS = 2_000;
+
 const MATCH_FIELDS: RecommendationMatchField[] = [
   "raw_text",
   "normalized_name",
@@ -69,7 +70,7 @@ export class CustomerRecommendationServiceError extends Error {
 
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object"
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -77,6 +78,7 @@ function requiredText(value: unknown) {
   if (typeof value !== "string" || !value.trim()) {
     throw new CustomerRecommendationServiceError();
   }
+
   return value.trim();
 }
 
@@ -86,22 +88,37 @@ function optionalText(value: unknown) {
 
 function integer(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
-  if (!Number.isInteger(parsed)) throw new CustomerRecommendationServiceError();
+
+  if (!Number.isInteger(parsed)) {
+    throw new CustomerRecommendationServiceError();
+  }
+
   return parsed;
 }
 
 function stringArray(value: unknown) {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => typeof entry !== "string")
+  ) {
     throw new CustomerRecommendationServiceError();
   }
+
   return value as string[];
 }
 
 function matchFields(value: unknown) {
   const fields = stringArray(value);
-  if (fields.length === 0 || fields.some((field) => !MATCH_FIELDS.includes(field as RecommendationMatchField))) {
+
+  if (
+    fields.length === 0 ||
+    fields.some(
+      (field) => !MATCH_FIELDS.includes(field as RecommendationMatchField),
+    )
+  ) {
     throw new CustomerRecommendationServiceError();
   }
+
   return [...new Set(fields)] as RecommendationMatchField[];
 }
 
@@ -109,11 +126,13 @@ function patternType(value: unknown): RecommendationPatternType {
   if (value !== "term" && value !== "phrase") {
     throw new CustomerRecommendationServiceError();
   }
+
   return value;
 }
 
 function normalizeRule(value: unknown): RecommendationEngineRule {
   const row = record(value);
+
   return {
     id: requiredText(row.id),
     categoryId: requiredText(row.category_id),
@@ -129,6 +148,7 @@ function normalizeRule(value: unknown): RecommendationEngineRule {
 
 function normalizeCategory(value: unknown): RecommendationEngineCategory {
   const row = record(value);
+
   return {
     id: requiredText(row.id),
     name: requiredText(row.name),
@@ -139,6 +159,7 @@ function normalizeCategory(value: unknown): RecommendationEngineCategory {
 
 function normalizeLink(value: unknown): RecommendationEngineLink {
   const row = record(value);
+
   return {
     partnerId: requiredText(row.partner_id),
     categoryId: requiredText(row.category_id),
@@ -149,6 +170,7 @@ function normalizeLink(value: unknown): RecommendationEngineLink {
 
 function normalizePartner(value: unknown): RecommendationEnginePartner {
   const row = record(value);
+
   return {
     id: requiredText(row.id),
     partnerCode: requiredText(row.partner_code),
@@ -169,46 +191,86 @@ function ensureLimit(values: unknown[] | null, maximum: number) {
 
 async function loadRecommendationData(projectKey: string) {
   const supabase = getRecommendationAdminClient();
-  const [ruleResult, categoryResult, linkResult, partnerResult] = await Promise.all([
-    supabase
-      .from("recommendation_rules")
-      .select("id,category_id,name,pattern_type,terms,excluded_terms,match_fields,priority,active")
-      .eq("project_key", projectKey)
-      .limit(MAX_RULES + 1),
-    supabase
-      .from("recommendation_partner_categories")
-      .select("id,name,active,sort_order")
-      .eq("project_key", projectKey)
-      .limit(MAX_CATEGORIES + 1),
-    supabase
-      .from("recommendation_partner_category_links")
-      .select("partner_id,category_id,priority,active")
-      .eq("project_key", projectKey)
-      .limit(MAX_LINKS + 1),
-    supabase
-      .from("recommendation_partners")
-      .select("id,partner_code,name,slug,description,target_url,logo_url,active")
-      .eq("project_key", projectKey)
-      .limit(MAX_PARTNERS + 1),
-  ]);
 
-  if ([ruleResult, categoryResult, linkResult, partnerResult].some((result) => result.error)) {
+  const [ruleResult, categoryResult, linkResult, partnerResult] =
+    await Promise.all([
+      supabase
+        .from("recommendation_rules")
+        .select(
+          "id,category_id,name,pattern_type,terms,excluded_terms,match_fields,priority,active",
+        )
+        .eq("project_key", projectKey)
+        .limit(MAX_RULES + 1),
+
+      supabase
+        .from("recommendation_partner_categories")
+        .select("id,name,active,sort_order")
+        .eq("project_key", projectKey)
+        .limit(MAX_CATEGORIES + 1),
+
+      supabase
+        .from("recommendation_partner_category_links")
+        .select("partner_id,category_id,priority,active")
+        .eq("project_key", projectKey)
+        .limit(MAX_LINKS + 1),
+
+      supabase
+        .from("recommendation_partners")
+        .select(
+          "id,partner_code,name,slug,description,target_url,logo_url,active",
+        )
+        .eq("project_key", projectKey)
+        .limit(MAX_PARTNERS + 1),
+    ]);
+
+  if (
+    [ruleResult, categoryResult, linkResult, partnerResult].some(
+      (result) => result.error,
+    )
+  ) {
+    console.error("[Recommendation delivery] Daten konnten nicht geladen werden", {
+      rulesError: Boolean(ruleResult.error),
+      categoriesError: Boolean(categoryResult.error),
+      linksError: Boolean(linkResult.error),
+      partnersError: Boolean(partnerResult.error),
+    });
+
     throw new CustomerRecommendationServiceError();
   }
+
   ensureLimit(ruleResult.data, MAX_RULES);
   ensureLimit(categoryResult.data, MAX_CATEGORIES);
   ensureLimit(linkResult.data, MAX_LINKS);
   ensureLimit(partnerResult.data, MAX_PARTNERS);
 
-  return {
+  const data = {
     rules: (ruleResult.data ?? []).map(normalizeRule),
     categories: (categoryResult.data ?? []).map(normalizeCategory),
     links: (linkResult.data ?? []).map(normalizeLink),
     partners: (partnerResult.data ?? []).map(normalizePartner),
   };
+
+  console.info("[Recommendation delivery] Stammdaten geladen", {
+    projectKey,
+    rules: data.rules.length,
+    categories: data.categories.length,
+    links: data.links.length,
+    partners: data.partners.length,
+    activeRules: data.rules.filter((entry) => entry.active).length,
+    activeCategories: data.categories.filter((entry) => entry.active).length,
+    activeLinks: data.links.filter((entry) => entry.active).length,
+    activePartners: data.partners.filter((entry) => entry.active).length,
+    partnersWithValidTarget: data.partners.filter(
+      (entry) => entry.active && Boolean(entry.targetUrl),
+    ).length,
+  });
+
+  return data;
 }
 
-function materialFields(material: CustomerRecommendationMaterial): RecommendationSimulationFields {
+function materialFields(
+  material: CustomerRecommendationMaterial,
+): RecommendationSimulationFields {
   return {
     raw_text: material.rawText || "",
     normalized_name: material.normalizedName || material.productName || "",
@@ -243,36 +305,88 @@ function normalizedStatus(value: string | null) {
 function relevantMaterials(context: CustomerRecommendationContext) {
   const requestStatus = normalizedStatus(context.request.status);
   const offerStatus = normalizedStatus(context.request.offerStatus);
+
   if (
-    context.request.isActive === false
-    || Boolean(context.request.archivedAt)
-    || CLOSED_REQUEST_STATUSES.has(requestStatus)
-    || CLOSED_REQUEST_STATUSES.has(offerStatus)
+    context.request.isActive === false ||
+    Boolean(context.request.archivedAt) ||
+    CLOSED_REQUEST_STATUSES.has(requestStatus) ||
+    CLOSED_REQUEST_STATUSES.has(offerStatus)
   ) {
+    console.info("[Recommendation delivery] Anfrage nicht empfehlungsfähig", {
+      requestId: context.request.id,
+      isActive: context.request.isActive,
+      archived: Boolean(context.request.archivedAt),
+      requestStatus,
+      offerStatus,
+    });
+
     return [];
   }
 
   const coveredRequestItemIds = new Set(context.coveredRequestItemIds);
   const activeChildIds = new Set(context.activeChildIds);
-  return context.materials.filter((material) => {
-    if (coveredRequestItemIds.has(material.id)) return false;
-    if (material.childId && !activeChildIds.has(material.childId)) return false;
-    if (EXCLUDED_MATERIAL_STATUSES.has(normalizedStatus(material.status))) return false;
-    if (EXCLUDED_MATERIAL_STATUSES.has(normalizedStatus(material.adminResolutionStatus))) {
+
+  const exclusionCounters = {
+    covered: 0,
+    inactiveChild: 0,
+    materialStatus: 0,
+    adminStatus: 0,
+  };
+
+  const relevant = context.materials.filter((material) => {
+    if (coveredRequestItemIds.has(material.id)) {
+      exclusionCounters.covered += 1;
       return false;
     }
+
+    if (material.childId && !activeChildIds.has(material.childId)) {
+      exclusionCounters.inactiveChild += 1;
+      return false;
+    }
+
+    if (
+      EXCLUDED_MATERIAL_STATUSES.has(normalizedStatus(material.status))
+    ) {
+      exclusionCounters.materialStatus += 1;
+      return false;
+    }
+
+    if (
+      EXCLUDED_MATERIAL_STATUSES.has(
+        normalizedStatus(material.adminResolutionStatus),
+      )
+    ) {
+      exclusionCounters.adminStatus += 1;
+      return false;
+    }
+
     return true;
   });
+
+  console.info("[Recommendation delivery] Materialfilter", {
+    requestId: context.request.id,
+    totalMaterials: context.materials.length,
+    relevantMaterials: relevant.length,
+    coveredRequestItemIds: coveredRequestItemIds.size,
+    activeChildIds: activeChildIds.size,
+    excluded: exclusionCounters,
+    relevantMaterialIds: relevant.map((material) => material.id),
+  });
+
+  return relevant;
 }
 
 function categoryReason(labels: string[]) {
   const uniqueLabels = [...new Set(labels.filter(Boolean))];
+
   if (uniqueLabels.length === 1) {
     return `Passend zu „${uniqueLabels[0]}“ in Deiner Materialliste.`;
   }
+
   if (uniqueLabels.length > 1) {
     return `Passend zu ${uniqueLabels.length} Positionen in Deiner Materialliste.`;
   }
+
   return "Passend zu den Angaben in Deiner Materialliste.";
 }
 
@@ -280,78 +394,250 @@ export async function getCustomerPartnerRecommendations(
   context: CustomerRecommendationContext,
   projectKey = DEFAULT_RECOMMENDATION_PROJECT_KEY,
 ): Promise<CustomerPartnerRecommendation[]> {
+  console.info("[Recommendation delivery] Auswertung gestartet", {
+    requestId: context.request.id,
+    projectKey,
+    materialCount: context.materials.length,
+    coveredMaterialCount: context.coveredRequestItemIds.length,
+    activeChildCount: context.activeChildIds.length,
+  });
+
   const materials = relevantMaterials(context);
-  if (materials.length === 0) return [];
+
+  if (materials.length === 0) {
+    console.info("[Recommendation delivery] Keine relevanten Materialien", {
+      requestId: context.request.id,
+    });
+
+    return [];
+  }
+
   if (materials.length > MAX_MATERIAL_ITEMS) {
+    console.error("[Recommendation delivery] Materiallimit überschritten", {
+      requestId: context.request.id,
+      count: materials.length,
+      maximum: MAX_MATERIAL_ITEMS,
+    });
+
     throw new CustomerRecommendationServiceError();
   }
+
   const totalTextLength = materials.reduce(
-    (total, material) => total + [
-      material.productName,
-      material.rawText,
-      material.normalizedName,
-      material.category,
-      material.productType,
-      material.notes,
-    ].reduce<number>((sum, value) => sum + (value?.length ?? 0), 0),
+    (total, material) =>
+      total +
+      [
+        material.productName,
+        material.rawText,
+        material.normalizedName,
+        material.category,
+        material.productType,
+        material.notes,
+      ].reduce<number>(
+        (sum, value) => sum + (value?.length ?? 0),
+        0,
+      ),
     0,
   );
+
   if (totalTextLength > MAX_MATERIAL_TEXT_LENGTH) {
+    console.error("[Recommendation delivery] Textlimit überschritten", {
+      requestId: context.request.id,
+      totalTextLength,
+      maximum: MAX_MATERIAL_TEXT_LENGTH,
+    });
+
     throw new CustomerRecommendationServiceError();
   }
 
   const data = await loadRecommendationData(projectKey);
+
   const engineResult = evaluateRecommendationEngine({
     documents: materials.map((material) => ({
       id: material.id,
-      label: material.productName || material.normalizedName || "Materiallistenposition",
+      label:
+        material.productName ||
+        material.normalizedName ||
+        "Materiallistenposition",
       fields: materialFields(material),
     })),
     ...data,
   });
 
-  const materialById = new Map(materials.map((material) => [material.id, material]));
-  const recommendations = await Promise.all(engineResult.matchedCategories
-    .filter((category) => category.winner?.targetUrl)
-    .sort((left, right) => left.name.localeCompare(right.name, "de"))
-    .map(async (category) => {
-      const winner = category.winner!;
-      const matchedRule = category.matchedRules[0];
-      const matchedEntry = matchedRule?.termChecks
-        .flatMap((check) => check.matches)[0];
-      const matchedMaterial = matchedEntry
-        ? materialById.get(matchedEntry.documentId)
-        : null;
-      if (!winner.slug || !matchedRule || !matchedEntry || !matchedMaterial) {
-        return null;
-      }
-      const labels = category.matchedRules.flatMap((rule) =>
-        rule.termChecks.flatMap((check) => check.matches.map((match) => match.documentLabel)),
-      );
-      const redirectContext = createRecommendationRedirectContext({
-        projectKey,
-        partnerId: winner.id,
-        partnerSlug: winner.slug,
-        categoryId: category.id,
-        ruleId: matchedRule.id,
-        requestId: context.request.id,
-        childId: matchedMaterial.childId,
-        requestItemId: matchedMaterial.id,
-        matchedTerm: matchedEntry.normalizedTerm,
-      });
-      return {
-        category: category.name,
-        categoryReason: categoryReason(labels),
-        partner: {
-          name: winner.name,
-          partnerCode: winner.partnerCode,
-          description: winner.description ?? null,
-          logoUrl: winner.logoUrl ?? null,
-          redirectPath: `/empfehlung/${encodeURIComponent(winner.slug)}?context=${encodeURIComponent(redirectContext)}`,
-        },
-      };
-    }));
-  return recommendations.filter(
-    (recommendation): recommendation is CustomerPartnerRecommendation => recommendation !== null,
+  console.info("[Recommendation delivery] Engine-Ergebnis", {
+    requestId: context.request.id,
+    matchedCategoryCount: engineResult.matchedCategories.length,
+    matchedCategories: engineResult.matchedCategories.map((category) => ({
+      categoryId: category.id,
+      categoryName: category.name,
+      matchedRuleCount: category.matchedRules.length,
+      hasWinner: Boolean(category.winner),
+      winnerName: category.winner?.name ?? null,
+      winnerSlug: category.winner?.slug ?? null,
+      winnerHasTargetUrl: Boolean(category.winner?.targetUrl),
+    })),
+  });
+
+  const materialById = new Map(
+    materials.map((material) => [material.id, material]),
   );
+
+  const matchingCategories = engineResult.matchedCategories
+    .filter((category) => {
+      const hasTargetUrl = Boolean(category.winner?.targetUrl);
+
+      if (!hasTargetUrl) {
+        console.warn(
+          "[Recommendation delivery] Kategorie ohne gültiges Partnerziel verworfen",
+          {
+            requestId: context.request.id,
+            categoryId: category.id,
+            categoryName: category.name,
+            winnerName: category.winner?.name ?? null,
+          },
+        );
+      }
+
+      return hasTargetUrl;
+    })
+    .sort((left, right) => left.name.localeCompare(right.name, "de"));
+
+  const recommendations = await Promise.all(
+    matchingCategories.flatMap((category) => {
+      const winner = category.winner!;
+      const firstMatchByMaterialId = new Map<
+        string,
+        {
+          matchedRule: (typeof category.matchedRules)[number];
+          matchedEntry: (typeof category.matchedRules)[number]["termChecks"][number]["matches"][number];
+        }
+      >();
+
+      for (const matchedRule of category.matchedRules) {
+        for (const matchedEntry of matchedRule.termChecks.flatMap(
+          (check) => check.matches,
+        )) {
+          if (!firstMatchByMaterialId.has(matchedEntry.documentId)) {
+            firstMatchByMaterialId.set(matchedEntry.documentId, {
+              matchedRule,
+              matchedEntry,
+            });
+          }
+        }
+      }
+
+      return [...firstMatchByMaterialId.values()].map(async ({
+        matchedRule,
+        matchedEntry,
+      }) => {
+        const matchedMaterial = materialById.get(matchedEntry.documentId);
+
+        if (!winner.slug || !matchedMaterial) {
+          console.warn(
+            "[Recommendation delivery] Unvollständiger Match verworfen",
+            {
+              requestId: context.request.id,
+              categoryId: category.id,
+              categoryName: category.name,
+              hasWinnerSlug: Boolean(winner.slug),
+              hasMatchedMaterial: Boolean(matchedMaterial),
+              matchedDocumentId: matchedEntry.documentId,
+            },
+          );
+
+          return null;
+        }
+
+        const labels = category.matchedRules.flatMap((rule) =>
+          rule.termChecks.flatMap((check) =>
+            check.matches
+              .filter((match) => match.documentId === matchedMaterial.id)
+              .map((match) => match.documentLabel),
+          ),
+        );
+
+        let redirectContext: string;
+
+        try {
+          redirectContext = createRecommendationRedirectContext({
+            projectKey,
+            partnerId: winner.id,
+            partnerSlug: winner.slug,
+            categoryId: category.id,
+            ruleId: matchedRule.id,
+            requestId: context.request.id,
+            childId: matchedMaterial.childId,
+            requestItemId: matchedMaterial.id,
+            matchedTerm: matchedEntry.normalizedTerm,
+          });
+        } catch (error) {
+          console.error(
+            "[Recommendation delivery] Redirect-Kontext konnte nicht erzeugt werden",
+            {
+              requestId: context.request.id,
+              projectKey,
+              partnerId: winner.id,
+              partnerSlug: winner.slug,
+              categoryId: category.id,
+              ruleId: matchedRule.id,
+              requestItemId: matchedMaterial.id,
+              hasChildId: Boolean(matchedMaterial.childId),
+              errorName:
+                error instanceof Error ? error.name : "UnknownError",
+              errorMessage:
+                error instanceof Error
+                  ? error.message
+                  : "Unbekannter Fehler",
+            },
+          );
+
+          return null;
+        }
+
+        const redirectPath =
+          `/empfehlung/${encodeURIComponent(winner.slug)}` +
+          `?context=${encodeURIComponent(redirectContext)}`;
+
+        console.info("[Recommendation delivery] Empfehlung erzeugt", {
+          requestId: context.request.id,
+          categoryId: category.id,
+          categoryName: category.name,
+          partnerId: winner.id,
+          partnerName: winner.name,
+          partnerSlug: winner.slug,
+          ruleId: matchedRule.id,
+          requestItemId: matchedMaterial.id,
+          redirectContextLength: redirectContext.length,
+          redirectPathLength: redirectPath.length,
+        });
+
+        return {
+          requestItemId: matchedMaterial.id,
+          category: category.name,
+          categoryReason: categoryReason(labels),
+          partner: {
+            name: winner.name,
+            partnerCode: winner.partnerCode,
+            description: winner.description ?? null,
+            logoUrl: winner.logoUrl ?? null,
+            redirectPath,
+          },
+        };
+      });
+    }),
+  );
+
+  const safeRecommendations = recommendations.filter(
+    (
+      recommendation,
+    ): recommendation is CustomerPartnerRecommendation =>
+      recommendation !== null,
+  );
+
+  console.info("[Recommendation delivery] Auswertung beendet", {
+    requestId: context.request.id,
+    matchingCategoryCount: matchingCategories.length,
+    recommendationCount: safeRecommendations.length,
+  });
+
+  return safeRecommendations;
 }

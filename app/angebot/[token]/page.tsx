@@ -1307,6 +1307,7 @@ function CustomerChildDetailedPackageSections({
   selectedMatchIds,
   productImageById,
   matchById,
+  partnerRecommendations,
 }: {
   token: string;
   request: SchoolRequest;
@@ -1320,6 +1321,7 @@ function CustomerChildDetailedPackageSections({
   selectedMatchIds: Set<string>;
   productImageById: Map<string, string | null>;
   matchById: Map<string, RequestMatch>;
+  partnerRecommendations: CustomerPartnerRecommendation[];
 }) {
   const hasRealChildren = children.length > 0;
   const activeChildren = hasRealChildren
@@ -1757,6 +1759,19 @@ function CustomerChildDetailedPackageSections({
                               Für diese Position gibt es noch keinen sicheren Produktvorschlag. Du kannst unten selbst suchen oder die Position vom Team prüfen lassen.
                             </p>
                           )}
+
+                          {!isConfirmed ? (
+                            <CustomerPartnerRecommendations
+                              recommendations={
+                                hasRealChildren
+                                  ? partnerRecommendations.filter(
+                                      (recommendation) =>
+                                        recommendation.requestItemId === item.id,
+                                    )
+                                  : []
+                              }
+                            />
+                          ) : null}
 
                           {!isConfirmed ? (
                             <CustomerProductSearch
@@ -2343,8 +2358,6 @@ const customerOpenPositionScreenMode =
             </p>
           </section>
 
-          <CustomerPartnerRecommendations recommendations={partnerRecommendations} />
-
           <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-8">
             <div className="flex flex-col gap-2 border-b border-[#E8DED2] pb-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -2671,6 +2684,7 @@ const isFreshBeforeAnalysis =
           selectedMatchIds={selectedMatchIds}
           productImageById={productImageById}
           matchById={matchById}
+          partnerRecommendations={partnerRecommendations}
         />
 
         {!isConfirmed && hasChildScopedCustomerView && items.length > 0 ? (
@@ -3394,6 +3408,17 @@ const isFreshBeforeAnalysis =
                             })}
                           </div>
 
+                          <CustomerPartnerRecommendations
+                            recommendations={
+                              !hasChildScopedCustomerView
+                                ? partnerRecommendations.filter(
+                                    (recommendation) =>
+                                      recommendation.requestItemId === item.id,
+                                  )
+                                : []
+                            }
+                          />
+
                           <CustomerProductSearch
                             token={token}
                             requestItemId={item.id}
@@ -3479,6 +3504,15 @@ const isFreshBeforeAnalysis =
                           <p className="mt-4 text-sm font-semibold leading-6 text-[#102A43]">
                             {getCustomerResolutionText(resolutionStatus)}
                           </p>
+
+                          {isCustomerSuppliesSelf ? (
+                            <CustomerPartnerRecommendations
+                              recommendations={partnerRecommendations.filter(
+                                (recommendation) =>
+                                  recommendation.requestItemId === item.id,
+                              )}
+                            />
+                          ) : null}
                         </article>
                       );
                     })}
@@ -3561,6 +3595,17 @@ const isFreshBeforeAnalysis =
                               Wird geprüft
                             </div>
                           </div>
+
+                          <CustomerPartnerRecommendations
+                            recommendations={
+                              !hasChildScopedCustomerView
+                                ? partnerRecommendations.filter(
+                                    (recommendation) =>
+                                      recommendation.requestItemId === item.id,
+                                  )
+                                : []
+                            }
+                          />
 
                           <CustomerProductSearch
                             token={token}
@@ -3679,11 +3724,6 @@ const isFreshBeforeAnalysis =
           </section>
         ) : null}
       </section>
-
-
-      <div className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
-        <CustomerPartnerRecommendations recommendations={partnerRecommendations} />
-      </div>
 
       <CustomerOfferRecommendations
         token={token}
