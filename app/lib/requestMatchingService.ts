@@ -86,7 +86,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -113,10 +113,10 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
     .replace(/gr?n/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
@@ -463,7 +463,7 @@ function calculateRelatedProductMatch(input: {
   }
 
   let score = 58;
-  const reasonParts = ["Artverwandter Kandidat zur Admin-Prüfung"];
+  const reasonParts = ["Artverwandter Kandidat zur Admin-PrÃ¼fung"];
 
   if (sameFamily) {
     score += 14;
@@ -486,7 +486,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Format passt: ${itemFormat}`);
     } else {
       score -= 14;
-      reasonParts.push(`Format prüfen: Liste ${itemFormat}, Produkt ${productFormat}`);
+      reasonParts.push(`Format prÃ¼fen: Liste ${itemFormat}, Produkt ${productFormat}`);
     }
   }
 
@@ -497,7 +497,7 @@ function calculateRelatedProductMatch(input: {
     } else {
       score -= 16;
       reasonParts.push(
-        `Lineatur prüfen: Liste ${itemLineature}, Produkt ${productLineature}`
+        `Lineatur prÃ¼fen: Liste ${itemLineature}, Produkt ${productLineature}`
       );
     }
   }
@@ -508,7 +508,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Farbe passt: ${itemColor}`);
     } else {
       score -= 8;
-      reasonParts.push(`Farbe prüfen: Liste ${itemColor}, Produkt ${productColor}`);
+      reasonParts.push(`Farbe prÃ¼fen: Liste ${itemColor}, Produkt ${productColor}`);
     }
   }
 
@@ -525,7 +525,7 @@ function calculateRelatedProductMatch(input: {
 
   if (hasVariantConflict) {
     score = Math.min(score, 74);
-    reasonParts.push("Variantenmerkmale m?ssen geprüft werden");
+    reasonParts.push("Variantenmerkmale m?ssen geprÃ¼ft werden");
   } else {
     score = Math.min(score, 83);
   }
@@ -773,7 +773,7 @@ function calculateLearnedAliasMatch(input: {
     if (hasVariantConflict) {
       return {
         score: 84,
-        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen geprüft werden: ${cleanedAlias}`,
+        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen geprÃ¼ft werden: ${cleanedAlias}`,
       };
     }
 
@@ -1115,7 +1115,7 @@ function extractBookDimensionsMm(value: unknown): BookDimensions | null {
   const rawText = String(value ?? "")
     .toLowerCase()
     .replace(/,/g, ".")
-    .replace(/×/g, "x")
+    .replace(/Ã—/g, "x")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -1170,7 +1170,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 45,
-      reason: `Buchma?e passt exakt: ${input.product.label}`,
+      reason: `Buchmaße passt exakt: ${input.product.label}`,
     };
   }
 
@@ -1178,7 +1178,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 38,
-      reason: `Buchma?e passt mit kleiner Toleranz: ${input.product.label}`,
+      reason: `Buchmaße passt mit kleiner Toleranz: ${input.product.label}`,
     };
   }
 
@@ -1186,7 +1186,7 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 28,
-      reason: `Buchma?e liegt im passenden Toleranzbereich: ${input.product.label}`,
+      reason: `Buchmaße liegt im passenden Toleranzbereich: ${input.product.label}`,
     };
   }
 
@@ -1200,14 +1200,14 @@ function compareBookDimensions(input: {
     return {
       compatible: true,
       score: 20,
-      reason: `Buchma?e passt als etwas gr??erer Umschlag: ${input.product.label}`,
+      reason: `Buchmaße passt als etwas gr??erer Umschlag: ${input.product.label}`,
     };
   }
 
   return {
     compatible: false,
     score: 0,
-    reason: `Buchma?e passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
+    reason: `Buchmaße passt nicht: gesucht ${input.requested.label}, Produkt ${input.product.label}`,
   };
 }
 
@@ -2183,7 +2183,7 @@ function calculateMatch(input: {
     } else {
       score = Math.max(score, 85);
       reasons.push(
-        `Produktname/Alias passt, Variantenmerkmal wird zus?tzlich ber?cksichtigt`
+        `Produktname/Alias passt, Variantenmerkmal wird zus?tzlich berücksichtigt`
       );
     }
   }
@@ -2473,7 +2473,7 @@ async function createRequestEvent(
     {
       request_id: requestId,
       event_type: eventType,
-      title: "Produktvorschl?ge berechnet",
+      title: "Produktvorschläge berechnet",
       description: message,
       created_at: new Date().toISOString(),
     },
@@ -2505,7 +2505,7 @@ function extractExplicitNumbersForScoring(value: unknown) {
 
   const numbers = Array.from(
     new Set(
-      Array.from(text.matchAll(/(?:nr\.?|nummer|pinsel|lineal|größe|groesse|größe:|groesse:)?\s*(\d{1,3})(?:\s*cm)?/gi))
+      Array.from(text.matchAll(/(?:nr\.?|nummer|pinsel|lineal|grÃ¶ÃŸe|groesse|grÃ¶ÃŸe:|groesse:)?\s*(\d{1,3})(?:\s*cm)?/gi))
         .map((match) => match[1])
         .filter(Boolean)
     )
@@ -2540,33 +2540,33 @@ function capInflatedMatchScore(input: {
 
   if (
     reason.includes("teilweise erkannt") ||
-    reason.includes("bitte prüfen") ||
-    reason.includes("bitte prüfen")
+    reason.includes("bitte prÃ¼fen") ||
+    reason.includes("bitte prÃ¼fen")
   ) {
     score = Math.min(score, 74);
-    capReasons.push("Teiltreffer nur zur Prüfung");
+    capReasons.push("Teiltreffer nur zur PrÃ¼fung");
   }
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prüfung") ||
+    reason.includes("admin-prÃ¼fung") ||
     reason.includes("admin-pruefung")
   ) {
     score = Math.min(score, 79);
-    capReasons.push("artverwandter Kandidat nur zur Admin-Prüfung");
+    capReasons.push("artverwandter Kandidat nur zur Admin-PrÃ¼fung");
   }
 
   if (
     reason.includes("variantenmerkmale") ||
-    reason.includes("format prüfen") ||
-    reason.includes("format prüfen") ||
-    reason.includes("lineatur prüfen") ||
-    reason.includes("lineatur prüfen") ||
-    reason.includes("farbe prüfen") ||
-    reason.includes("farbe prüfen")
+    reason.includes("format prÃ¼fen") ||
+    reason.includes("format prÃ¼fen") ||
+    reason.includes("lineatur prÃ¼fen") ||
+    reason.includes("lineatur prÃ¼fen") ||
+    reason.includes("farbe prÃ¼fen") ||
+    reason.includes("farbe prÃ¼fen")
   ) {
     score = Math.min(score, 79);
-    capReasons.push("Variantenmerkmale müssen geprüft werden");
+    capReasons.push("Variantenmerkmale mÃ¼ssen geprÃ¼ft werden");
   }
 
   if (
@@ -2576,7 +2576,7 @@ function capInflatedMatchScore(input: {
     })
   ) {
     score = Math.min(score, 74);
-    capReasons.push("abweichende explizite Nummer/Größe");
+    capReasons.push("abweichende explizite Nummer/GrÃ¶ÃŸe");
   }
 
   if (capReasons.length === 0) {
@@ -2847,7 +2847,7 @@ export async function runRequestMatching(input: {
         return jsonResponse(
           {
             ok: false,
-            message: `Produktvorschl?ge konnten nicht gespeichert werden: ${insertError.message}`,
+            message: `Produktvorschläge konnten nicht gespeichert werden: ${insertError.message}`,
           },
           500
         );
@@ -2866,7 +2866,7 @@ export async function runRequestMatching(input: {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschl?ge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchma?e, Heft-Unterarten, Lineaturen, Mappen und Farben werden ber?cksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
@@ -2887,8 +2887,8 @@ export async function runRequestMatching(input: {
       minVisibleScore: MIN_VISIBLE_SCORE,
       message:
         rowsToInsert.length > 0
-          ? `Produktvorschl?ge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchma?e, Heft-Unterarten, Lineaturen, Mappen und Farben werden ber?cksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschl?ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
-          : "Es wurden keine ausreichend sicheren Prüfung offen.",
+          ? `Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschl?ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
+          : "Es wurden keine ausreichend sicheren PrÃ¼fung offen.",
     });
   } catch (error) {
     console.error("Admin product match error:", error);
@@ -2899,7 +2899,7 @@ export async function runRequestMatching(input: {
         message:
           error instanceof Error
             ? error.message
-            : "Produktvorschl?ge konnten nicht erstellt werden.",
+            : "Produktvorschläge konnten nicht erstellt werden.",
       },
       500
     );
