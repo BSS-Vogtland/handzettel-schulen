@@ -38,8 +38,8 @@ export default function AdminIsbnImportPage() {
 
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
             Finde Buchdaten, Cover, Verlag und weitere Metadaten anhand einer
-            ISBN. Vor der späteren Übernahme wird automatisch geprüft, ob das
-            Buch bereits im Produktkatalog vorhanden ist.
+            ISBN. Vor der Übernahme wird automatisch geprüft, ob das Buch
+            bereits im Produktkatalog vorhanden ist.
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -66,7 +66,7 @@ export default function AdminIsbnImportPage() {
                 3. Übernehmen
               </p>
               <p className="mt-1 text-sm font-bold text-[#102A43]">
-                Danach als Produkt speichern
+                Als Produkt speichern
               </p>
             </div>
           </div>
