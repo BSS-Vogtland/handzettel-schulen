@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import {
   ArrowLeft,
+  BookOpen,
   Camera,
   Filter,
   ImageIcon,
@@ -84,7 +85,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -115,7 +116,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
@@ -133,11 +134,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/grün/g, "gruen")
+    .replace(/Ã¤/g, "ae")
+    .replace(/Ã¶/g, "oe")
+    .replace(/Ã¼/g, "ue")
+    .replace(/ÃŸ/g, "ss")
+    .replace(/grÃ¼n/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -227,7 +228,7 @@ function getProductImageCandidates(product: ProductRow) {
 function getEditableProductImageUrl(product: ProductRow) {
   /*
     Wichtig:
-    Für die Bearbeitungsmaske darf NICHT image_styled_url übergeben werden.
+    FÃ¼r die Bearbeitungsmaske darf NICHT image_styled_url Ã¼bergeben werden.
     Sonst kann ein KI-Hintergrundbild versehentlich als normales image_url gespeichert werden.
   */
   return cleanImageUrl(product.image_url);
@@ -508,7 +509,7 @@ export default async function AdminProductsPage({
             className="inline-flex items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Zurück zum Admin-Bereich
+            ZurÃ¼ck zum Admin-Bereich
           </Link>
 
           <Link
@@ -534,7 +535,7 @@ export default async function AdminProductsPage({
 
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Lege Produkte zentral an und bearbeite bestehende Produkte
-                direkt im Bestand. Änderungen wirken sich auf Produktsuche,
+                direkt im Bestand. Ã„nderungen wirken sich auf Produktsuche,
                 Matching und Kundenseite aus.
               </p>
 
@@ -551,7 +552,14 @@ export default async function AdminProductsPage({
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
                 >
                   <ShoppingBasket className="h-4 w-4" />
-                  Tabellenpflege öffnen
+                  Tabellenpflege Ã¶ffnen
+                </Link>
+                <Link
+                  href="/admin/produkte/isbn"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#A75B28] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Buch per ISBN
                 </Link>
                 <Link
                   href="/admin/produkte/kategorien"
@@ -562,8 +570,8 @@ export default async function AdminProductsPage({
                 </Link>
 
                 <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-sm font-semibold leading-6 text-[#52616F]">
-                  Ideal für Laden/Lager: Produkt fotografieren, Name und Preis
-                  eintragen, speichern, nächstes Produkt.
+                  Ideal fÃ¼r Laden/Lager: Produkt fotografieren, Name und Preis
+                  eintragen, speichern, nÃ¤chstes Produkt.
                 </div>
               </div>
             </div>
@@ -588,7 +596,7 @@ export default async function AdminProductsPage({
                 className="mt-4 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
               >
                 <Smartphone className="h-4 w-4" />
-                Mobile Erfassung öffnen
+                Mobile Erfassung Ã¶ffnen
               </Link>
             </div>
           </div>
@@ -610,7 +618,7 @@ export default async function AdminProductsPage({
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52616F]">
                 Suche nach Produktname, Art.-Nr., EAN, Kategorie, Farbe,
-                Format, Lineatur, Buchmaß oder Alias. Nutze die Filter, um
+                Format, Lineatur, BuchmaÃŸ oder Alias. Nutze die Filter, um
                 gezielt unfertige Produkte oder Produkte ohne KI-Hintergrund zu
                 finden.
               </p>
@@ -663,7 +671,7 @@ export default async function AdminProductsPage({
                 href="/admin/produkte"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#E8DED2] transition hover:bg-[#EEF4FA]"
               >
-                Zurücksetzen
+                ZurÃ¼cksetzen
               </Link>
             </form>
 
@@ -721,7 +729,7 @@ export default async function AdminProductsPage({
             {(searchQuery || activeFilter !== "all") ? (
               <p className="mt-4 text-sm font-bold text-[#52616F]">
                 Ergebnis: {filteredProducts.length} von {products.length} Produkten
-                {searchQuery ? ` · Suche: „${searchQuery}“` : ""}
+                {searchQuery ? ` Â· Suche: â€ž${searchQuery}â€œ` : ""}
               </p>
             ) : null}
           </div>
@@ -796,7 +804,7 @@ export default async function AdminProductsPage({
 
                           {bookMeasureLabel ? (
                             <span className="rounded-full bg-[#F5FAFD] px-3 py-1 text-xs font-black text-[#12395F] ring-1 ring-[#D6E7EF]">
-                              Buchmaß: {bookMeasureLabel}
+                              BuchmaÃŸ: {bookMeasureLabel}
                             </span>
                           ) : null}
 
@@ -829,7 +837,7 @@ export default async function AdminProductsPage({
                           <div className="mt-3 rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-semibold text-[#12395F]">
                             {bookMeasureLabel ? (
                               <p>
-                                Buchmaß:{" "}
+                                BuchmaÃŸ:{" "}
                                 <span className="font-black">
                                   {bookMeasureLabel}
                                 </span>
@@ -921,7 +929,7 @@ export default async function AdminProductsPage({
                           Erstellt: {formatDate(product.created_at)}
                         </p>
                         <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                          Geändert: {formatDate(product.updated_at)}
+                          GeÃ¤ndert: {formatDate(product.updated_at)}
                         </p>
 
                         {product.active === false ? (
@@ -966,8 +974,8 @@ export default async function AdminProductsPage({
               </h3>
 
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
-                Ändere die Suche oder setze den Filter zurück. Wenn das Produkt
-                wirklich fehlt, kannst Du es über die Produkterfassung neu
+                Ã„ndere die Suche oder setze den Filter zurÃ¼ck. Wenn das Produkt
+                wirklich fehlt, kannst Du es Ã¼ber die Produkterfassung neu
                 anlegen.
               </p>
 
@@ -975,7 +983,7 @@ export default async function AdminProductsPage({
                 href="/admin/produkte"
                 className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#12395F] px-5 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
               >
-                Filter zurücksetzen
+                Filter zurÃ¼cksetzen
               </Link>
             </div>
           )}
@@ -993,7 +1001,7 @@ export default async function AdminProductsPage({
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52616F]">
                 Lege oben Dein erstes Produkt an oder nutze die mobile
                 Produkterfassung mit Kamera. Danach kann es in Kundenlisten
-                gefunden und manuell übernommen werden.
+                gefunden und manuell Ã¼bernommen werden.
               </p>
 
               <Link
