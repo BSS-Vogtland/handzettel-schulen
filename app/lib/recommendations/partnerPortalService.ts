@@ -62,6 +62,10 @@ export type PartnerPortalReferral = {
   matchedTerm: string | null;
   clickedAt: string;
   attributionExpiresAt: string;
+  identityAuthorized: boolean;
+  identityConsentId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
   status: PartnerReferralFeedbackStatus;
   externalOrderReference: string | null;
   orderDate: string | null;
@@ -500,9 +504,35 @@ function normalizePartnerRow(
 function normalizeReferralRow(
   feedbackValue: unknown,
   clickValue: unknown,
+  identityValue: unknown = null,
 ): PartnerPortalReferral {
   const feedback = record(feedbackValue);
   const click = record(clickValue);
+  const identity = record(identityValue);
+
+  const identityConsentId = nullableDatabaseText(
+    identity.id,
+  );
+
+  const customerName = identityConsentId
+    ? nullableDatabaseText(
+        identity.customer_name_snapshot,
+      )
+    : null;
+
+  const customerEmail = identityConsentId
+    ? nullableDatabaseText(
+        identity.customer_email_snapshot,
+      )
+    : null;
+
+  const identityAuthorized = Boolean(
+    identityConsentId &&
+      customerName &&
+      customerEmail &&
+      identity.status === "granted" &&
+      !identity.revoked_at,
+  );
 
   return {
     feedbackId: requiredDatabaseText(
@@ -532,6 +562,19 @@ function normalizeReferralRow(
       click.attribution_expires_at,
       "Zuordnungsende",
     ),
+    identityAuthorized,
+    identityConsentId:
+      identityAuthorized
+        ? identityConsentId
+        : null,
+    customerName:
+      identityAuthorized
+        ? customerName
+        : null,
+    customerEmail:
+      identityAuthorized
+        ? customerEmail
+        : null,
     status: normalizedStatus(feedback.status),
     externalOrderReference: nullableDatabaseText(
       feedback.external_order_reference,
@@ -893,6 +936,111 @@ export async function listPartnerPortalReferrals(
     }),
   );
 
+  const {
+    data: identityData,
+    error: identityError,
+  } = await supabase
+    .from("recommendation_identity_consents")
+    .select(
+      [
+        "id",
+        "click_id",
+        "partner_id",
+        "status",
+        "customer_name_snapshot",
+        "customer_email_snapshot",
+        "revoked_at",
+      ].join(","),
+    )
+    .eq("partner_id", session.partner.id)
+    .eq("status", "granted")
+    .is("revoked_at", null)
+    .in("click_id", clickIds);
+
+  if (identityError) {
+    databaseError(
+      identityError,
+      "Die freigegebenen Kundendaten konnten nicht geladen werden.",
+    );
+  }
+
+  const identityMap = new Map(
+    (identityData ?? []).flatMap((value) => {
+      const row = record(value);
+
+      const clickId = nullableDatabaseText(
+        row.click_id,
+      );
+
+      if (
+        !clickId ||
+        !isRecommendationUuid(clickId)
+      ) {
+        return [];
+      }
+
+      return [[clickId, value] as const];
+    }),
+  );
+
+  const disclosureRows = (
+    identityData ?? []
+  ).flatMap((value) => {
+    const row = record(value);
+
+    const consentId = nullableDatabaseText(
+      row.id,
+    );
+
+    const clickId = nullableDatabaseText(
+      row.click_id,
+    );
+
+    if (
+      !consentId ||
+      !clickId ||
+      !isRecommendationUuid(consentId) ||
+      !isRecommendationUuid(clickId)
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        consent_id: consentId,
+        partner_id: session.partner.id,
+        click_id: clickId,
+        disclosure_type: "partner_portal",
+        disclosed_fields: [
+          "customer_name",
+          "customer_email",
+        ],
+        recipient_email:
+          session.partner.contactEmail,
+        report_id: null,
+        disclosed_at:
+          new Date().toISOString(),
+        created_at:
+          new Date().toISOString(),
+      },
+    ];
+  });
+
+  if (disclosureRows.length > 0) {
+    const { error: disclosureError } =
+      await supabase
+        .from(
+          "recommendation_identity_disclosures",
+        )
+        .insert(disclosureRows);
+
+    if (disclosureError) {
+      databaseError(
+        disclosureError,
+        "Die Offenlegung der freigegebenen Kundendaten konnte nicht protokolliert werden.",
+      );
+    }
+  }
   const referrals = feedbackRows
     .map((feedback) => {
       const feedbackRow = record(feedback);
@@ -907,7 +1055,11 @@ export async function listPartnerPortalReferrals(
         return null;
       }
 
-      return normalizeReferralRow(feedback, click);
+      return normalizeReferralRow(
+        feedback,
+        click,
+        identityMap.get(clickId) ?? null,
+      );
     })
     .filter(
       (

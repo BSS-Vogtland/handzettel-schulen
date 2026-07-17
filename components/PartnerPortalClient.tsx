@@ -11,7 +11,9 @@ import {
   Euro,
   ExternalLink,
   Loader2,
+  Mail,
   RefreshCw,
+  UserRound,
   Save,
   ShoppingCart,
   XCircle,
@@ -304,6 +306,13 @@ function ReferralCard({
             <span className="rounded-full bg-[#102a43] px-3 py-1 font-mono text-xs font-bold tracking-wide text-white">
               {referral.referralCode}
             </span>
+
+            {referral.identityAuthorized ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
+                <BadgeCheck className="h-4 w-4" />
+                Identität freigegeben
+              </span>
+            ) : null}
           </div>
 
           <h2 className="mt-3 text-lg font-bold text-[#102a43]">
@@ -333,6 +342,60 @@ function ReferralCard({
 
       {open ? (
         <div className="border-t border-slate-100 px-5 pb-6 pt-5 sm:px-7">
+          {referral.identityAuthorized ? (
+            <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-700">
+                    Freigegebene Kundendaten
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-blue-900">
+                    Der Kunde hat der Übermittlung von Name und E-Mail-Adresse an Deinen Betrieb ausdrücklich zugestimmt.
+                    Verwende die Daten ausschließlich zur Bestellzuordnung und Statusrückmeldung.
+                  </p>
+                </div>
+
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-800">
+                  <BadgeCheck className="h-4 w-4" />
+                  Einwilligung aktiv
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-blue-100 bg-white p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <UserRound className="h-4 w-4" />
+                    Kundenname
+                  </div>
+
+                  <p className="mt-2 break-words text-sm font-bold text-[#102a43]">
+                    {referral.customerName}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-blue-100 bg-white p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <Mail className="h-4 w-4" />
+                    E-Mail-Adresse
+                  </div>
+
+                  {referral.customerEmail ? (
+                    <a
+                      href={`mailto:${referral.customerEmail}`}
+                      className="mt-2 block break-all text-sm font-bold text-blue-800 underline decoration-2 underline-offset-2"
+                    >
+                      {referral.customerEmail}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                      Nicht verfügbar
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
             Bitte prüfe in Deinem Bestellsystem, ob der
             Vermittlungscode{" "}
@@ -765,9 +828,12 @@ export default function PartnerPortalClient({
 
             <p>
               Bitte gib ausschließlich Rückmeldungen zu Bestellungen ab,
-              die anhand des jeweiligen Vermittlungscodes eindeutig
-              zugeordnet werden können. Es werden in diesem Bereich keine
-              Kundennamen oder Kontaktdaten angezeigt.
+              die anhand des jeweiligen Vermittlungscodes oder der ausdrücklich
+              freigegebenen Kundendaten eindeutig zugeordnet werden können.
+              Name und E-Mail-Adresse werden nur angezeigt, wenn der jeweilige
+              Kunde der Übermittlung an Deinen Betrieb zugestimmt hat. Die Daten
+              dürfen ausschließlich zur Bestellzuordnung und Statusrückmeldung
+              verwendet werden.
             </p>
           </div>
         </footer>
