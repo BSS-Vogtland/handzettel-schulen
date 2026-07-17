@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
+import { mergeIsbnBookSources } from "@/lib/isbn/merge";
 import { resolveOptionalIsbnSources } from "@/lib/isbn/providerRegistry";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,6 +30,8 @@ type GoogleVolumeInfo = {
     large?: string;
     extraLarge?: string;
   };
+  infoLink?: string;
+  canonicalVolumeLink?: string;
 };
 
 type GoogleSaleInfo = {
@@ -123,6 +126,15 @@ type NormalizedBookSource = {
   priceCurrency?: string | null;
   priceSource?: string | null;
   coverSource?: string | null;
+  coverSourceUrl?: string | null;
+  coverCanBeImported?: boolean | null;
+  coverDeliveryMode?: "download" | "external" | "manual" | null;
+  coverUsageStatus?:
+    "public_domain" | "cc0" | "api_terms" | "manual_review" | null;
+  coverLicense?: string | null;
+  coverLicenseUrl?: string | null;
+  coverAttribution?: string | null;
+  coverRightsNote?: string | null;
 };
 
 function cleanString(value: unknown) {
@@ -149,34 +161,32 @@ function decodeXml(value: unknown) {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&#x([0-9a-fA-F]+);/g, (_match, hex: string) =>
-      String.fromCodePoint(Number.parseInt(hex, 16))
+      String.fromCodePoint(Number.parseInt(hex, 16)),
     )
     .replace(/&#([0-9]+);/g, (_match, decimal: string) =>
-      String.fromCodePoint(Number.parseInt(decimal, 10))
+      String.fromCodePoint(Number.parseInt(decimal, 10)),
     );
 }
 
 function stripXml(value: unknown) {
-  return cleanString(
-    decodeXml(String(value ?? "").replace(/<[^>]*>/g, " "))
-  );
+  return cleanString(decodeXml(String(value ?? "").replace(/<[^>]*>/g, " ")));
 }
 
 function extractMetaContent(
   html: string,
   attribute: "property" | "name",
-  key: string
+  key: string,
 ) {
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   const patterns = [
     new RegExp(
       `<meta\\b[^>]*${attribute}=["']${escapedKey}["'][^>]*content=["']([^"']+)["'][^>]*>`,
-      "i"
+      "i",
     ),
     new RegExp(
       `<meta\\b[^>]*content=["']([^"']+)["'][^>]*${attribute}=["']${escapedKey}["'][^>]*>`,
-      "i"
+      "i",
     ),
   ];
 
@@ -207,7 +217,7 @@ function extractJsonLdBlocks(html: string) {
     try {
       blocks.push(JSON.parse(raw));
     } catch {
-      // UngÃƒÂ¼ltige oder dynamisch ergÃƒÂ¤nzte JSON-LD-BlÃƒÂ¶cke ignorieren.
+      // Ungültige oder dynamisch ergänzte JSON-LD-Blöcke ignorieren.
     }
   }
 
@@ -343,7 +353,7 @@ function extractProductOffers(record: Record<string, unknown>) {
       parsePriceNumber(offerRecord.price) ||
       parsePriceNumber(
         (offerRecord.priceSpecification as Record<string, unknown> | undefined)
-          ?.price
+          ?.price,
       );
 
     if (!price) {
@@ -354,7 +364,7 @@ function extractProductOffers(record: Record<string, unknown>) {
       cleanString(offerRecord.priceCurrency) ||
       cleanString(
         (offerRecord.priceSpecification as Record<string, unknown> | undefined)
-          ?.priceCurrency
+          ?.priceCurrency,
       ) ||
       "EUR";
 
@@ -376,10 +386,7 @@ function findCornelsenProductUrl(html: string, isbn: string) {
     const href = decodeXml(match[1]);
     const hrefIsbn = normalizeIsbn(href);
 
-    if (
-      href.includes("/produkte/") &&
-      hrefIsbn.includes(normalizedIsbn)
-    ) {
+    if (href.includes("/produkte/") && hrefIsbn.includes(normalizedIsbn)) {
       return resolveAbsoluteUrl(href, "https://www.cornelsen.de");
     }
   }
@@ -401,10 +408,10 @@ function findCornelsenProductUrl(html: string, isbn: string) {
 function parseCornelsenProduct(
   html: string,
   pageUrl: string,
-  isbn: string
+  isbn: string,
 ): NormalizedBookSource | null {
   const jsonLdRecords = extractJsonLdBlocks(html).flatMap((block) =>
-    flattenJsonLd(block)
+    flattenJsonLd(block),
   );
 
   const productRecord =
@@ -433,16 +440,14 @@ function parseCornelsenProduct(
     extractMetaContent(html, "property", "og:description") ||
     extractMetaContent(html, "name", "description");
 
-  const offer = productRecord
-    ? extractProductOffers(productRecord)
-    : null;
+  const offer = productRecord ? extractProductOffers(productRecord) : null;
 
   let fallbackPrice: number | null = null;
 
   if (!offer) {
     const pricePatterns = [
       /(?:Preis|Verkaufspreis|EUR)\s*[:=]?\s*["']?(\d{1,4}[,.]\d{2})/i,
-      /(\d{1,4}[,.]\d{2})\s*(?:EUR|Ã¢â€šÂ¬)/i,
+      /(\d{1,4}[,.]\d{2})\s*(?:EUR|€)/i,
       /"price"\s*:\s*"?(\d{1,4}(?:[,.]\d{1,2})?)/i,
     ];
 
@@ -478,10 +483,20 @@ function parseCornelsenProduct(
     isbn10: isbn.length === 10 ? isbn : null,
     isbn13: isbn.length === 13 ? isbn : null,
     coverUrl: resolveAbsoluteUrl(image, pageUrl),
-    recommendedPrice: offer?.price || fallbackPrice,
-    priceCurrency: offer?.currency || (fallbackPrice ? "EUR" : null),
-    priceSource: offer || fallbackPrice ? "Cornelsen Verlag" : null,
+    recommendedPrice: null,
+    priceCurrency: null,
+    priceSource: null,
     coverSource: image ? "Cornelsen Verlag" : null,
+    coverSourceUrl: image ? pageUrl : null,
+    coverCanBeImported: false,
+    coverDeliveryMode: image ? "manual" : null,
+    coverUsageStatus: image ? "manual_review" : null,
+    coverLicense: null,
+    coverLicenseUrl: null,
+    coverAttribution: image ? "Cornelsen Verlag" : null,
+    coverRightsNote: image
+      ? "Das Bild stammt von der offiziellen Verlagsseite, wird ohne ausdrückliche Nutzungserlaubnis aber nicht automatisch übernommen."
+      : null,
   };
 }
 
@@ -563,9 +578,7 @@ function forceHttps(value: unknown) {
   return url;
 }
 
-function uniqueStrings(
-  values: Array<string | null | undefined>
-) {
+function uniqueStrings(values: Array<string | null | undefined>) {
   const result: string[] = [];
   const seen = new Set<string>();
 
@@ -591,7 +604,7 @@ function uniqueStrings(
 
 function getGoogleIdentifier(
   identifiers: GoogleIndustryIdentifier[] | undefined,
-  type: string
+  type: string,
 ) {
   return (
     identifiers?.find((identifier) => identifier.type === type)?.identifier ||
@@ -616,7 +629,7 @@ function cleanMarcValue(value: unknown) {
   return cleanString(
     String(value ?? "")
       .replace(/\s*[\/:;,]\s*$/g, "")
-      .replace(/^\s*[\/:;,]\s*/g, "")
+      .replace(/^\s*[\/:;,]\s*/g, ""),
   );
 }
 
@@ -625,7 +638,7 @@ function extractMarcDataFields(xml: string, tag: string) {
 
   const expression = new RegExp(
     `<(?:marc:)?datafield\\b[^>]*\\btag=["']${tag}["'][^>]*>([\\s\\S]*?)<\\/(?:marc:)?datafield>`,
-    "gi"
+    "gi",
   );
 
   for (const match of xml.matchAll(expression)) {
@@ -638,7 +651,7 @@ function extractMarcDataFields(xml: string, tag: string) {
 function extractMarcControlField(xml: string, tag: string) {
   const expression = new RegExp(
     `<(?:marc:)?controlfield\\b[^>]*\\btag=["']${tag}["'][^>]*>([\\s\\S]*?)<\\/(?:marc:)?controlfield>`,
-    "i"
+    "i",
   );
 
   const match = expression.exec(xml);
@@ -651,7 +664,7 @@ function extractMarcSubfields(fieldXml: string, code: string) {
 
   const expression = new RegExp(
     `<(?:marc:)?subfield\\b[^>]*\\bcode=["']${code}["'][^>]*>([\\s\\S]*?)<\\/(?:marc:)?subfield>`,
-    "gi"
+    "gi",
   );
 
   for (const match of fieldXml.matchAll(expression)) {
@@ -665,11 +678,7 @@ function extractMarcSubfields(fieldXml: string, code: string) {
   return values;
 }
 
-function firstMarcSubfield(
-  xml: string,
-  tag: string,
-  codes: string[]
-) {
+function firstMarcSubfield(xml: string, tag: string, codes: string[]) {
   const fields = extractMarcDataFields(xml, tag);
 
   for (const field of fields) {
@@ -685,11 +694,7 @@ function firstMarcSubfield(
   return null;
 }
 
-function allMarcSubfields(
-  xml: string,
-  tags: string[],
-  codes: string[]
-) {
+function allMarcSubfields(xml: string, tags: string[], codes: string[]) {
   const values: string[] = [];
 
   for (const tag of tags) {
@@ -741,10 +746,10 @@ function normalizeLanguageCode(value: unknown) {
 function extractDnbRecordXml(responseXml: string) {
   const recordMatch =
     responseXml.match(
-      /<(?:srw:)?recordData\b[^>]*>([\s\S]*?)<\/(?:srw:)?recordData>/i
+      /<(?:srw:)?recordData\b[^>]*>([\s\S]*?)<\/(?:srw:)?recordData>/i,
     ) ||
     responseXml.match(
-      /<(?:marc:)?record\b[^>]*>([\s\S]*?)<\/(?:marc:)?record>/i
+      /<(?:marc:)?record\b[^>]*>([\s\S]*?)<\/(?:marc:)?record>/i,
     );
 
   return recordMatch?.[1] || null;
@@ -752,7 +757,7 @@ function extractDnbRecordXml(responseXml: string) {
 
 function parseDnbRecord(
   responseXml: string,
-  requestedIsbn: string
+  requestedIsbn: string,
 ): NormalizedBookSource | null {
   const recordXml = extractDnbRecordXml(responseXml);
 
@@ -762,13 +767,9 @@ function parseDnbRecord(
 
   const titleField = extractMarcDataFields(recordXml, "245")[0] || "";
 
-  const title = cleanMarcValue(
-    extractMarcSubfields(titleField, "a")[0]
-  );
+  const title = cleanMarcValue(extractMarcSubfields(titleField, "a")[0]);
 
-  const subtitle = cleanMarcValue(
-    extractMarcSubfields(titleField, "b")[0]
-  );
+  const subtitle = cleanMarcValue(extractMarcSubfields(titleField, "b")[0]);
 
   if (!title) {
     return null;
@@ -777,7 +778,7 @@ function parseDnbRecord(
   const authors = allMarcSubfields(
     recordXml,
     ["100", "110", "111", "700", "710", "711"],
-    ["a"]
+    ["a"],
   );
 
   const publisher =
@@ -795,24 +796,20 @@ function parseDnbRecord(
     firstMarcSubfield(recordXml, "520", ["b"]);
 
   const pageCount = parsePositiveInteger(
-    firstMarcSubfield(recordXml, "300", ["a"])
+    firstMarcSubfield(recordXml, "300", ["a"]),
   );
 
   const language = normalizeLanguageCode(
-    firstMarcSubfield(recordXml, "041", ["a"])
+    firstMarcSubfield(recordXml, "041", ["a"]),
   );
 
   const subjects = allMarcSubfields(
     recordXml,
     ["600", "610", "611", "630", "648", "650", "651", "653"],
-    ["a", "x", "y", "z"]
+    ["a", "x", "y", "z"],
   );
 
-  const isbnValues = allMarcSubfields(
-    recordXml,
-    ["020"],
-    ["a", "z"]
-  )
+  const isbnValues = allMarcSubfields(recordXml, ["020"], ["a", "z"])
     .map((value) => normalizeIsbn(value))
     .filter(Boolean);
 
@@ -835,7 +832,7 @@ function parseDnbRecord(
     sourceId: dnbId,
     sourceUrl: dnbId
       ? `https://d-nb.info/${encodeURIComponent(
-          dnbId.replace(/^\(DE-101\)/, "")
+          dnbId.replace(/^\(DE-101\)/, ""),
         )}`
       : null,
     title,
@@ -854,10 +851,7 @@ function parseDnbRecord(
   };
 }
 
-async function fetchJson<T>(
-  url: string,
-  timeoutMs = 10000
-): Promise<T | null> {
+async function fetchJson<T>(url: string, timeoutMs = 10000): Promise<T | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -868,8 +862,7 @@ async function fetchJson<T>(
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent":
-          "Handzettel-Schulen.de ISBN-Import/1.0",
+        "User-Agent": "Handzettel-Schulen.de ISBN-Import/1.0",
       },
     });
 
@@ -887,7 +880,7 @@ async function fetchJson<T>(
 
 async function fetchText(
   url: string,
-  timeoutMs = 12000
+  timeoutMs = 12000,
 ): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -899,8 +892,7 @@ async function fetchText(
       signal: controller.signal,
       headers: {
         Accept: "application/xml,text/xml;q=0.9,*/*;q=0.8",
-        "User-Agent":
-          "Handzettel-Schulen.de ISBN-Import/1.0",
+        "User-Agent": "Handzettel-Schulen.de ISBN-Import/1.0",
       },
     });
 
@@ -917,7 +909,7 @@ async function fetchText(
 }
 
 async function loadCornelsenBook(
-  isbn: string
+  isbn: string,
 ): Promise<NormalizedBookSource | null> {
   const searchUrls = [
     `https://www.cornelsen.de/suche?query=${encodeURIComponent(isbn)}`,
@@ -954,13 +946,8 @@ async function loadCornelsenBook(
   return parseCornelsenProduct(productHtml, productUrl, isbn);
 }
 
-async function loadDnbBook(
-  isbn: string
-): Promise<NormalizedBookSource | null> {
-  const queryVariants = [
-    `isbn=${isbn}`,
-    `num=${isbn}`,
-  ];
+async function loadDnbBook(isbn: string): Promise<NormalizedBookSource | null> {
+  const queryVariants = [`isbn=${isbn}`, `num=${isbn}`];
 
   for (const query of queryVariants) {
     const params = new URLSearchParams({
@@ -972,7 +959,7 @@ async function loadDnbBook(
     });
 
     const responseXml = await fetchText(
-      `https://services.dnb.de/sru/dnb?${params.toString()}`
+      `https://services.dnb.de/sru/dnb?${params.toString()}`,
     );
 
     if (!responseXml) {
@@ -990,7 +977,7 @@ async function loadDnbBook(
 }
 
 async function loadGoogleBook(
-  isbn: string
+  isbn: string,
 ): Promise<NormalizedBookSource | null> {
   const apiKey = cleanString(process.env.GOOGLE_BOOKS_API_KEY);
 
@@ -1006,7 +993,7 @@ async function loadGoogleBook(
   }
 
   const response = await fetchJson<GoogleBooksResponse>(
-    `https://www.googleapis.com/books/v1/volumes?${params.toString()}`
+    `https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
   );
 
   const items = response?.items || [];
@@ -1017,19 +1004,15 @@ async function loadGoogleBook(
 
   const exactItem =
     items.find((item) => {
-      const identifiers =
-        item.volumeInfo?.industryIdentifiers || [];
+      const identifiers = item.volumeInfo?.industryIdentifiers || [];
 
       return identifiers.some(
         (identifier) =>
-          normalizeIsbn(identifier.identifier) ===
-          normalizeIsbn(isbn)
+          normalizeIsbn(identifier.identifier) === normalizeIsbn(isbn),
       );
     }) || items[0];
 
   const info = exactItem.volumeInfo;
-  const saleInfo = exactItem.saleInfo;
-
   if (!info?.title) {
     return null;
   }
@@ -1037,11 +1020,12 @@ async function loadGoogleBook(
   return {
     source: "Google Books",
     sourceId: cleanString(exactItem.id),
-    sourceUrl: exactItem.id
-      ? `https://books.google.de/books?id=${encodeURIComponent(
-          exactItem.id
-        )}`
-      : null,
+    sourceUrl:
+      forceHttps(info.infoLink) ||
+      forceHttps(info.canonicalVolumeLink) ||
+      (exactItem.id
+        ? `https://books.google.de/books?id=${encodeURIComponent(exactItem.id)}`
+        : null),
     title: cleanString(info.title),
     subtitle: cleanString(info.subtitle),
     authors: uniqueStrings(info.authors || []),
@@ -1050,43 +1034,52 @@ async function loadGoogleBook(
     edition: null,
     description: cleanString(info.description),
     pageCount:
-      typeof info.pageCount === "number" &&
-      info.pageCount > 0
+      typeof info.pageCount === "number" && info.pageCount > 0
         ? info.pageCount
         : null,
     language: cleanString(info.language),
     subjects: uniqueStrings(info.categories || []),
-    isbn10: getGoogleIdentifier(
-      info.industryIdentifiers,
-      "ISBN_10"
-    ),
-    isbn13: getGoogleIdentifier(
-      info.industryIdentifiers,
-      "ISBN_13"
-    ),
+    isbn10: getGoogleIdentifier(info.industryIdentifiers, "ISBN_10"),
+    isbn13: getGoogleIdentifier(info.industryIdentifiers, "ISBN_13"),
     coverUrl: forceHttps(
       info.imageLinks?.extraLarge ||
         info.imageLinks?.large ||
         info.imageLinks?.medium ||
         info.imageLinks?.thumbnail ||
-        info.imageLinks?.smallThumbnail
+        info.imageLinks?.smallThumbnail,
     ),
-    recommendedPrice:
-      parsePriceNumber(saleInfo?.listPrice?.amount) ||
-      parsePriceNumber(saleInfo?.retailPrice?.amount),
-    priceCurrency:
-      cleanString(saleInfo?.listPrice?.currencyCode) ||
-      cleanString(saleInfo?.retailPrice?.currencyCode),
-    priceSource:
-      saleInfo?.listPrice?.amount || saleInfo?.retailPrice?.amount
-        ? "Google Books"
-        : null,
+    recommendedPrice: null,
+    priceCurrency: null,
+    priceSource: null,
     coverSource: info.imageLinks ? "Google Books" : null,
+    coverSourceUrl:
+      forceHttps(info.infoLink) ||
+      forceHttps(info.canonicalVolumeLink) ||
+      (exactItem.id
+        ? `https://books.google.de/books?id=${encodeURIComponent(exactItem.id)}`
+        : null),
+    // Google Books darf als offizielle Recherche- und Vorschauquelle dienen.
+    // Das Bild wird jedoch nicht automatisch heruntergeladen oder dauerhaft
+    // in unserem Produktkatalog gespeichert, da die API-Ausgabe allein keine
+    // pauschale Nutzungsfreigabe für jedes einzelne Buchcover belegt.
+    coverCanBeImported: false,
+    coverDeliveryMode: info.imageLinks ? "external" : null,
+    coverUsageStatus: info.imageLinks ? "manual_review" : null,
+    coverLicense: info.imageLinks
+      ? "Google Books API-Nutzungsbedingungen"
+      : null,
+    coverLicenseUrl: info.imageLinks
+      ? "https://developers.google.com/books/terms"
+      : null,
+    coverAttribution: info.imageLinks ? "Google Books" : null,
+    coverRightsNote: info.imageLinks
+      ? "Das Cover wird nur als Recherchevorschau angezeigt und nicht automatisch in den Produktkatalog übernommen. Vor einer manuellen Übernahme müssen die Bildrechte über Verlag oder Lieferant geklärt werden."
+      : null,
   };
 }
 
 async function loadOpenLibraryBook(
-  isbn: string
+  isbn: string,
 ): Promise<NormalizedBookSource | null> {
   const key = `ISBN:${isbn}`;
 
@@ -1096,10 +1089,8 @@ async function loadOpenLibraryBook(
     jscmd: "data",
   });
 
-  const response = await fetchJson<
-    Record<string, OpenLibraryBook>
-  >(
-    `https://openlibrary.org/api/books?${params.toString()}`
+  const response = await fetchJson<Record<string, OpenLibraryBook>>(
+    `https://openlibrary.org/api/books?${params.toString()}`,
   );
 
   const book = response?.[key];
@@ -1111,60 +1102,51 @@ async function loadOpenLibraryBook(
   return {
     source: "Open Library",
     sourceUrl: forceHttps(book.url),
-    sourceId: cleanString(
-      book.identifiers?.openlibrary?.[0]
-    ),
+    sourceId: cleanString(book.identifiers?.openlibrary?.[0]),
     title: cleanString(book.title),
     subtitle: cleanString(book.subtitle),
     authors: uniqueStrings(
-      (book.authors || []).map((author) =>
-        cleanString(author.name)
-      )
+      (book.authors || []).map((author) => cleanString(author.name)),
     ),
     publisher:
       cleanString(book.publishers?.[0]?.name) ||
-      cleanString(
-        book.publishers
-          ?.map((item) => item.name)
-          .join(", ")
-      ),
+      cleanString(book.publishers?.map((item) => item.name).join(", ")),
     publishedDate: cleanString(book.publish_date),
     edition: null,
     description: null,
     pageCount:
-      typeof book.number_of_pages === "number" &&
-      book.number_of_pages > 0
+      typeof book.number_of_pages === "number" && book.number_of_pages > 0
         ? book.number_of_pages
         : null,
     language: null,
     subjects: uniqueStrings(
-      (book.subjects || []).map((subject) =>
-        cleanString(subject.name)
-      )
+      (book.subjects || []).map((subject) => cleanString(subject.name)),
     ),
-    isbn10: cleanString(
-      book.identifiers?.isbn_10?.[0]
-    ),
-    isbn13: cleanString(
-      book.identifiers?.isbn_13?.[0]
-    ),
+    isbn10: cleanString(book.identifiers?.isbn_10?.[0]),
+    isbn13: cleanString(book.identifiers?.isbn_13?.[0]),
     coverUrl: forceHttps(
-      book.cover?.large ||
-        book.cover?.medium ||
-        book.cover?.small
+      book.cover?.large || book.cover?.medium || book.cover?.small,
     ),
     recommendedPrice: null,
     priceCurrency: null,
     priceSource: null,
     coverSource: book.cover ? "Open Library" : null,
+    coverSourceUrl: book.cover ? forceHttps(book.url) : null,
+    coverCanBeImported: false,
+    coverDeliveryMode: book.cover ? "manual" : null,
+    coverUsageStatus: book.cover ? "manual_review" : null,
+    coverLicense: null,
+    coverLicenseUrl: null,
+    coverAttribution: book.cover ? "Open Library" : null,
+    coverRightsNote: book.cover
+      ? "Open Library weist selbst darauf hin, dass Rechte Dritter bestehen können. Das Bild wird deshalb nur als Recherchehinweis angezeigt und nicht automatisch übernommen."
+      : null,
   };
 }
 
-async function findExistingProduct(
-  isbnValues: string[]
-) {
+async function findExistingProduct(isbnValues: string[]) {
   const candidates = uniqueStrings(
-    isbnValues.map((value) => normalizeIsbn(value))
+    isbnValues.map((value) => normalizeIsbn(value)),
   );
 
   for (const candidate of candidates) {
@@ -1176,9 +1158,7 @@ async function findExistingProduct(
       .maybeSingle();
 
     if (error) {
-      throw new Error(
-        `ISBN-DublettenprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼fung fehlgeschlagen: ${error.message}`
-      );
+      throw new Error(`ISBN-Dublettenprüfung fehlgeschlagen: ${error.message}`);
     }
 
     if (data) {
@@ -1199,21 +1179,6 @@ async function findExistingProduct(
   return null;
 }
 
-function firstSourceValue<T>(
-  sources: NormalizedBookSource[],
-  getter: (source: NormalizedBookSource) => T | null | undefined
-) {
-  for (const source of sources) {
-    const value = getter(source);
-
-    if (value !== null && value !== undefined && value !== "") {
-      return value;
-    }
-  }
-
-  return null;
-}
-
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -1226,7 +1191,7 @@ export async function GET(request: Request) {
           ok: false,
           message: "Bitte gib eine ISBN ein.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -1235,29 +1200,24 @@ export async function GET(request: Request) {
         {
           ok: false,
           message:
-            "Die eingegebene Nummer ist keine gÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ltige ISBN-10 oder ISBN-13.",
+            "Die eingegebene Nummer ist keine gültige ISBN-10 oder ISBN-13.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const requestedIsbn13 =
-      isbn.length === 10
-        ? convertIsbn10To13(isbn)
-        : isbn;
-
     const [
+      optionalProviderBooks,
       dnbBook,
       cornelsenBook,
       googleBook,
       openLibraryBook,
-      optionalProviderBooks,
     ] = await Promise.all([
+      resolveOptionalIsbnSources(isbn),
       loadDnbBook(isbn),
       loadCornelsenBook(isbn),
       loadGoogleBook(isbn),
       loadOpenLibraryBook(isbn),
-      resolveOptionalIsbnSources(isbn),
     ]);
 
     const availableSources = [
@@ -1266,217 +1226,30 @@ export async function GET(request: Request) {
       cornelsenBook,
       googleBook,
       openLibraryBook,
-    ].filter(
-      (source): source is NormalizedBookSource =>
-        Boolean(source)
-    );
+    ].filter((source): source is NormalizedBookSource => Boolean(source));
 
     if (availableSources.length === 0) {
       return NextResponse.json(
         {
           ok: false,
           message:
-            "Zu dieser ISBN wurden weder bei der Deutschen Nationalbibliothek noch bei Google Books oder Open Library Buchdaten gefunden.",
+            "Zu dieser ISBN wurden weder bei der Deutschen Nationalbibliothek, bei Wikimedia Commons, beim Verlag, bei Google Books oder bei Open Library Buchdaten gefunden.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    /*
-      PrioritÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤t:
-      1. DNB fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r deutsche bibliografische Daten
-      2. Google Books fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r Beschreibung und Cover
-      3. Open Library als weitere ErgÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nzung
-    */
-    const orderedSources = [
-      ...optionalProviderBooks,
-      dnbBook,
-      cornelsenBook,
-      googleBook,
-      openLibraryBook,
-    ].filter(
-      (source): source is NormalizedBookSource =>
-        Boolean(source)
-    );
-
-    const isbn10 =
-      normalizeIsbn(
-        firstSourceValue(
-          orderedSources,
-          (source) => source.isbn10
-        )
-      ) ||
-      (isbn.length === 10 ? isbn : null);
-
-    const isbn13 =
-      normalizeIsbn(
-        firstSourceValue(
-          orderedSources,
-          (source) => source.isbn13
-        )
-      ) ||
-      requestedIsbn13 ||
-      (isbn.length === 13 ? isbn : null);
+    const book = mergeIsbnBookSources(isbn, availableSources);
 
     const existingProduct = await findExistingProduct(
-      [isbn, isbn10, isbn13].filter(
-        (value): value is string => Boolean(value)
-      )
-    );
-
-    const title = firstSourceValue(
-      orderedSources,
-      (source) => source.title
-    );
-
-    const subtitle = firstSourceValue(
-      orderedSources,
-      (source) => source.subtitle
-    );
-
-    const authors = uniqueStrings(
-      orderedSources.flatMap(
-        (source) => source.authors || []
-      )
-    );
-
-    const publisher = firstSourceValue(
-      orderedSources,
-      (source) => source.publisher
-    );
-
-    const publishedDate = firstSourceValue(
-      orderedSources,
-      (source) => source.publishedDate
-    );
-
-    const edition = firstSourceValue(
-      orderedSources,
-      (source) => source.edition
-    );
-
-    const description = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        dnbBook,
-        openLibraryBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
+      [isbn, book.isbn10, book.isbn13].filter((value): value is string =>
+        Boolean(value),
       ),
-      (source) => source.description
-    );
-
-    const pageCount = firstSourceValue(
-      orderedSources,
-      (source) => source.pageCount
-    );
-
-    const language = firstSourceValue(
-      orderedSources,
-      (source) => source.language
-    );
-
-    const subjects = uniqueStrings(
-      orderedSources.flatMap(
-        (source) => source.subjects || []
-      )
-    );
-
-    const sourceCover = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        openLibraryBook,
-        dnbBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
-      ),
-      (source) => source.coverUrl
-    );
-
-    const coverUrl = sourceCover || null;
-
-    const recommendedPrice = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        openLibraryBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
-      ),
-      (source) => source.recommendedPrice
-    );
-
-    const priceCurrency = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        openLibraryBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
-      ),
-      (source) => source.priceCurrency
-    );
-
-    const priceSource = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        openLibraryBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
-      ),
-      (source) => source.priceSource
-    );
-
-    const coverSource = firstSourceValue(
-      [
-        cornelsenBook,
-        googleBook,
-        openLibraryBook,
-      ].filter(
-        (source): source is NormalizedBookSource =>
-          Boolean(source)
-      ),
-      (source) => source.coverSource
     );
 
     return NextResponse.json({
       ok: true,
-      book: {
-        requestedIsbn: isbn,
-        isbn10,
-        isbn13,
-        title,
-        subtitle,
-        authors,
-        publisher,
-        publishedDate,
-        edition,
-        description,
-        pageCount,
-        language,
-        subjects,
-        coverUrl,
-        coverSource,
-        recommendedPrice,
-        priceCurrency: priceCurrency || (recommendedPrice ? "EUR" : null),
-        priceSource,
-        sources: orderedSources.map(
-          (source) => source.source
-        ),
-        sourceDetails: orderedSources.map((source) => ({
-          name: source.source,
-          sourceId: source.sourceId || null,
-          sourceUrl: source.sourceUrl || null,
-        })),
-      },
+      book,
       existingProduct,
     });
   } catch (error) {
@@ -1488,9 +1261,9 @@ export async function GET(request: Request) {
         message:
           error instanceof Error
             ? error.message
-            : "Die ISBN-Suche konnte nicht ausgefÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼hrt werden.",
+            : "Die ISBN-Suche konnte nicht ausgeführt werden.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,7 +1,4 @@
-import type {
-  IsbnBookSource,
-  MergedIsbnBook,
-} from "@/lib/isbn/types";
+import type { IsbnBookSource, MergedIsbnBook } from "@/lib/isbn/types";
 import {
   convertIsbn10To13,
   normalizeIsbn,
@@ -10,7 +7,7 @@ import {
 
 function firstValue<T>(
   sources: IsbnBookSource[],
-  getter: (source: IsbnBookSource) => T | null | undefined
+  getter: (source: IsbnBookSource) => T | null | undefined,
 ) {
   for (const source of sources) {
     const value = getter(source);
@@ -23,14 +20,7 @@ function firstValue<T>(
   return null;
 }
 
-function prioritizeSources(sources: IsbnBookSource[]) {
-  const order = [
-    "VLB",
-    "Deutsche Nationalbibliothek",
-    "Google Books",
-    "Open Library",
-  ];
-
+function sortSources(sources: IsbnBookSource[], order: string[]) {
   return [...sources].sort((left, right) => {
     const leftIndex = order.indexOf(left.source);
     const rightIndex = order.indexOf(right.source);
@@ -44,11 +34,49 @@ function prioritizeSources(sources: IsbnBookSource[]) {
   });
 }
 
+function selectCoverSource(sources: IsbnBookSource[]) {
+  const coverSources = sources.filter((source) => Boolean(source.coverUrl));
+
+  const importable = sortSources(
+    coverSources.filter((source) => source.coverCanBeImported === true),
+    ["Wikimedia Commons", "Google Books"],
+  );
+
+  if (importable[0]) {
+    return importable[0];
+  }
+
+  return (
+    sortSources(coverSources, [
+      "Cornelsen Verlag",
+      "Open Library",
+      "Google Books",
+      "Wikimedia Commons",
+    ])[0] || null
+  );
+}
+
 export function mergeIsbnBookSources(
   requestedIsbn: string,
-  rawSources: IsbnBookSource[]
+  rawSources: IsbnBookSource[],
 ): MergedIsbnBook {
-  const sources = prioritizeSources(rawSources);
+  const metadataSources = sortSources(rawSources, [
+    "Deutsche Nationalbibliothek",
+    "Cornelsen Verlag",
+    "Google Books",
+    "Open Library",
+    "Wikimedia Commons",
+  ]);
+
+  const descriptionSources = sortSources(rawSources, [
+    "Cornelsen Verlag",
+    "Google Books",
+    "Deutsche Nationalbibliothek",
+    "Open Library",
+    "Wikimedia Commons",
+  ]);
+
+  const selectedCover = selectCoverSource(rawSources);
 
   const requestedIsbn13 =
     requestedIsbn.length === 10
@@ -56,27 +84,13 @@ export function mergeIsbnBookSources(
       : requestedIsbn;
 
   const isbn10 =
-    normalizeIsbn(
-      firstValue(sources, (source) => source.isbn10)
-    ) ||
+    normalizeIsbn(firstValue(metadataSources, (source) => source.isbn10)) ||
     (requestedIsbn.length === 10 ? requestedIsbn : null);
 
   const isbn13 =
-    normalizeIsbn(
-      firstValue(sources, (source) => source.isbn13)
-    ) ||
+    normalizeIsbn(firstValue(metadataSources, (source) => source.isbn13)) ||
     requestedIsbn13 ||
     (requestedIsbn.length === 13 ? requestedIsbn : null);
-
-  const tradeSources = sources.filter(
-    (source) =>
-      source.source === "VLB" ||
-      source.source === "Google Books"
-  );
-
-  const coverSources = sources.filter((source) =>
-    Boolean(source.coverUrl)
-  );
 
   return {
     requestedIsbn,
@@ -84,70 +98,51 @@ export function mergeIsbnBookSources(
     isbn10,
     isbn13,
 
-    title: firstValue(sources, (source) => source.title),
-    subtitle: firstValue(sources, (source) => source.subtitle),
+    title: firstValue(metadataSources, (source) => source.title),
+    subtitle: firstValue(metadataSources, (source) => source.subtitle),
 
     authors: uniqueIsbnStrings(
-      sources.flatMap((source) => source.authors || [])
+      metadataSources.flatMap((source) => source.authors || []),
     ),
 
-    publisher: firstValue(sources, (source) => source.publisher),
+    publisher: firstValue(metadataSources, (source) => source.publisher),
     publishedDate: firstValue(
-      sources,
-      (source) => source.publishedDate
+      metadataSources,
+      (source) => source.publishedDate,
     ),
-    edition: firstValue(sources, (source) => source.edition),
+    edition: firstValue(metadataSources, (source) => source.edition),
 
-    description: firstValue(
-      [
-        ...tradeSources,
-        ...sources.filter(
-          (source) => !tradeSources.includes(source)
-        ),
-      ],
-      (source) => source.description
-    ),
+    description: firstValue(descriptionSources, (source) => source.description),
 
-    pageCount: firstValue(sources, (source) => source.pageCount),
-    language: firstValue(sources, (source) => source.language),
+    pageCount: firstValue(metadataSources, (source) => source.pageCount),
+    language: firstValue(metadataSources, (source) => source.language),
 
     subjects: uniqueIsbnStrings(
-      sources.flatMap((source) => source.subjects || [])
+      metadataSources.flatMap((source) => source.subjects || []),
     ),
 
-    coverUrl: firstValue(coverSources, (source) => source.coverUrl),
-    coverSource: firstValue(
-      coverSources,
-      (source) => source.coverSource || source.source
-    ),
+    coverUrl: selectedCover?.coverUrl || null,
+    coverSource: selectedCover?.coverSource || selectedCover?.source || null,
+    coverSourceUrl:
+      selectedCover?.coverSourceUrl || selectedCover?.sourceUrl || null,
+    coverCanBeImported: selectedCover?.coverCanBeImported === true,
+    coverDeliveryMode: selectedCover?.coverDeliveryMode || null,
+    coverUsageStatus: selectedCover?.coverUsageStatus || null,
+    coverLicense: selectedCover?.coverLicense || null,
+    coverLicenseUrl: selectedCover?.coverLicenseUrl || null,
+    coverAttribution: selectedCover?.coverAttribution || null,
+    coverRightsNote: selectedCover?.coverRightsNote || null,
 
-    recommendedPrice: firstValue(
-      tradeSources,
-      (source) => source.recommendedPrice
-    ),
+    // Verkaufspreise werden bewusst immer manuell geprüft und eingetragen.
+    recommendedPrice: null,
+    priceCurrency: null,
+    priceSource: null,
 
-    priceCurrency:
-      firstValue(tradeSources, (source) => source.priceCurrency) ||
-      (firstValue(
-        tradeSources,
-        (source) => source.recommendedPrice
-      )
-        ? "EUR"
-        : null),
+    availability: firstValue(metadataSources, (source) => source.availability),
 
-    priceSource: firstValue(
-      tradeSources,
-      (source) => source.priceSource || source.source
-    ),
+    sources: uniqueIsbnStrings(metadataSources.map((source) => source.source)),
 
-    availability: firstValue(
-      tradeSources,
-      (source) => source.availability
-    ),
-
-    sources: sources.map((source) => source.source),
-
-    sourceDetails: sources.map((source) => ({
+    sourceDetails: metadataSources.map((source) => ({
       name: source.source,
       sourceId: source.sourceId || null,
       sourceUrl: source.sourceUrl || null,

@@ -36,6 +36,13 @@ type ProductRow = {
   image_original_url?: string | null;
   image_styled_url?: string | null;
   image_styled_at?: string | null;
+  image_source?: string | null;
+  image_source_url?: string | null;
+  image_license?: string | null;
+  image_license_url?: string | null;
+  image_attribution?: string | null;
+  image_usage_status?: string | null;
+  image_checked_at?: string | null;
   book_width_mm?: number | string | null;
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
@@ -69,7 +76,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
@@ -138,10 +145,88 @@ function setIfColumnExists(
   updatePayload: Record<string, unknown>,
   product: ProductRow,
   columnName: string,
-  value: unknown
+  value: unknown,
 ) {
   if (hasColumn(product, columnName)) {
     updatePayload[columnName] = value;
+  }
+}
+
+type ImageSourceMetadata = {
+  source: string | null;
+  sourceUrl: string | null;
+  license: string | null;
+  licenseUrl: string | null;
+  attribution: string | null;
+  usageStatus: string | null;
+};
+
+async function updateImageSourceMetadataFlexible(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  product: ProductRow,
+  metadata: ImageSourceMetadata,
+) {
+  const hasMetadata = Boolean(
+    metadata.source ||
+    metadata.sourceUrl ||
+    metadata.license ||
+    metadata.licenseUrl ||
+    metadata.attribution ||
+    metadata.usageStatus,
+  );
+
+  if (!hasMetadata) {
+    return;
+  }
+
+  const updatePayload: Record<string, unknown> = {};
+
+  setIfColumnExists(updatePayload, product, "image_source", metadata.source);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "image_source_url",
+    metadata.sourceUrl,
+  );
+  setIfColumnExists(updatePayload, product, "image_license", metadata.license);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "image_license_url",
+    metadata.licenseUrl,
+  );
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "image_attribution",
+    metadata.attribution,
+  );
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "image_usage_status",
+    metadata.usageStatus,
+  );
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "image_checked_at",
+    new Date().toISOString(),
+  );
+
+  if (Object.keys(updatePayload).length === 0) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("school_products")
+    .update(updatePayload)
+    .eq("id", product.id);
+
+  if (error) {
+    throw new Error(
+      `Bildquellen-Metadaten konnten nicht gespeichert werden: ${error.message}`,
+    );
   }
 }
 
@@ -156,7 +241,7 @@ function getProductSku(product: ProductRow) {
 function getProductPrice(product: ProductRow) {
   return toNumber(
     product.price ?? product.sale_price_gross ?? product.sale_price,
-    0
+    0,
   );
 }
 
@@ -179,7 +264,7 @@ function isSameProductVariant(
     lineature: string;
     bookWidthMm: number | null;
     bookHeightMm: number | null;
-  }
+  },
 ) {
   if (!sameOptionalText(getProductName(product), input.productName)) {
     return false;
@@ -220,7 +305,7 @@ async function findExistingProductByUniqueIdentifiersOrVariant(
     lineature: string;
     bookWidthMm: number | null;
     bookHeightMm: number | null;
-  }
+  },
 ) {
   if (input.productSku) {
     const { data, error } = await supabase
@@ -253,7 +338,7 @@ async function findExistingProductByUniqueIdentifiersOrVariant(
   }
 
   const sameVariant = (data as ProductRow[]).find((product) =>
-    isSameProductVariant(product, input)
+    isSameProductVariant(product, input),
   );
 
   return sameVariant || null;
@@ -325,7 +410,7 @@ async function uploadBufferToStorage(input: {
 
   if (uploadError) {
     throw new Error(
-      `Produktbild konnte nicht hochgeladen werden: ${uploadError.message}`
+      `Produktbild konnte nicht hochgeladen werden: ${uploadError.message}`,
     );
   }
 
@@ -429,7 +514,7 @@ async function buildSeoPayload(params: {
       bookWidthMm: params.bookWidthMm,
       bookHeightMm: params.bookHeightMm,
       bookSizeNote: params.bookSizeNote,
-    })
+    }),
   );
 
   const seoSlug = await createUniqueSeoSlug({
@@ -454,37 +539,47 @@ async function buildSeoPayload(params: {
 
   const filteredPayload: Record<string, unknown> = {};
 
-  setIfColumnExists(filteredPayload, params.product, "seo_slug", fullPayload.seo_slug);
-  setIfColumnExists(filteredPayload, params.product, "seo_title", fullPayload.seo_title);
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "seo_slug",
+    fullPayload.seo_slug,
+  );
+  setIfColumnExists(
+    filteredPayload,
+    params.product,
+    "seo_title",
+    fullPayload.seo_title,
+  );
   setIfColumnExists(
     filteredPayload,
     params.product,
     "seo_description",
-    fullPayload.seo_description
+    fullPayload.seo_description,
   );
   setIfColumnExists(
     filteredPayload,
     params.product,
     "seo_keywords",
-    fullPayload.seo_keywords
+    fullPayload.seo_keywords,
   );
   setIfColumnExists(
     filteredPayload,
     params.product,
     "image_alt_text",
-    fullPayload.image_alt_text
+    fullPayload.image_alt_text,
   );
   setIfColumnExists(
     filteredPayload,
     params.product,
     "image_title_text",
-    fullPayload.image_title_text
+    fullPayload.image_title_text,
   );
   setIfColumnExists(
     filteredPayload,
     params.product,
     "seo_updated_at",
-    fullPayload.seo_updated_at
+    fullPayload.seo_updated_at,
   );
 
   return filteredPayload;
@@ -493,7 +588,7 @@ async function buildSeoPayload(params: {
 async function uploadProductImage(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   file: File | null,
-  productName: string
+  productName: string,
 ): Promise<UploadedProductImage> {
   if (!file) {
     return {
@@ -525,7 +620,8 @@ async function uploadProductImage(
 
   const arrayBuffer = await file.arrayBuffer();
   const originalBuffer = Buffer.from(arrayBuffer);
-  const optimizedBuffer = await createOptimizedProductImageBuffer(originalBuffer);
+  const optimizedBuffer =
+    await createOptimizedProductImageBuffer(originalBuffer);
 
   const originalImageUrl = await uploadBufferToStorage({
     supabase,
@@ -569,7 +665,7 @@ async function createProductFlexible(
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
-  }
+  },
 ) {
   const seoPayload = await buildSeoPayload({
     supabase,
@@ -659,7 +755,7 @@ async function createProductFlexible(
   }
 
   throw new Error(
-    `Produkt konnte nicht angelegt werden. Prüfe die Spalten in school_products. Letzter Fehler: ${lastErrorMessage}`
+    `Produkt konnte nicht angelegt werden. Prüfe die Spalten in school_products. Letzter Fehler: ${lastErrorMessage}`,
   );
 }
 
@@ -682,7 +778,7 @@ async function updateExistingProductFlexible(
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
-  }
+  },
 ) {
   const now = new Date().toISOString();
 
@@ -712,24 +808,49 @@ async function updateExistingProductFlexible(
 
   setIfColumnExists(updatePayload, product, "price", input.productPrice);
   setIfColumnExists(updatePayload, product, "sale_price", input.productPrice);
-  setIfColumnExists(updatePayload, product, "sale_price_gross", input.productPrice);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "sale_price_gross",
+    input.productPrice,
+  );
 
   setIfColumnExists(updatePayload, product, "category", input.category || null);
-  setIfColumnExists(updatePayload, product, "product_type", input.productType || null);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "product_type",
+    input.productType || null,
+  );
   setIfColumnExists(updatePayload, product, "format", input.format || null);
   setIfColumnExists(updatePayload, product, "color", input.color || null);
-  setIfColumnExists(updatePayload, product, "lineature", input.lineature || null);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "lineature",
+    input.lineature || null,
+  );
 
   setIfColumnExists(updatePayload, product, "book_width_mm", input.bookWidthMm);
-  setIfColumnExists(updatePayload, product, "book_height_mm", input.bookHeightMm);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "book_height_mm",
+    input.bookHeightMm,
+  );
   setIfColumnExists(
     updatePayload,
     product,
     "book_size_note",
-    input.bookSizeNote || null
+    input.bookSizeNote || null,
   );
 
-  setIfColumnExists(updatePayload, product, "match_keywords", input.matchKeywords);
+  setIfColumnExists(
+    updatePayload,
+    product,
+    "match_keywords",
+    input.matchKeywords,
+  );
 
   if (input.imageUrl) {
     setIfColumnExists(updatePayload, product, "image_url", input.imageUrl);
@@ -740,7 +861,7 @@ async function updateExistingProductFlexible(
       updatePayload,
       product,
       "image_original_url",
-      input.originalImageUrl
+      input.originalImageUrl,
     );
   }
 
@@ -761,14 +882,16 @@ async function updateExistingProductFlexible(
     .eq("id", product.id);
 
   if (error) {
-    throw new Error(`Produkt konnte nicht aktualisiert werden: ${error.message}`);
+    throw new Error(
+      `Produkt konnte nicht aktualisiert werden: ${error.message}`,
+    );
   }
 }
 
 async function createAliasFlexible(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   productId: string,
-  aliasText: string
+  aliasText: string,
 ) {
   const cleanedAlias = String(aliasText || "").trim();
 
@@ -815,7 +938,7 @@ async function addAliasesFlexible(input: {
     const created = await createAliasFlexible(
       input.supabase,
       input.productId,
-      alias
+      alias,
     );
 
     if (created) aliasCount += 1;
@@ -845,7 +968,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte wähle eine feste Produktkategorie aus.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const productType = String(formData.get("productType") || "").trim();
@@ -853,6 +976,19 @@ export async function POST(request: NextRequest) {
     const color = String(formData.get("color") || "").trim();
     const lineature = String(formData.get("lineature") || "").trim();
     const aliases = String(formData.get("aliases") || "").trim();
+    const rejectExisting =
+      String(formData.get("rejectExisting") || "").trim() === "true";
+    const skipImageStyling =
+      String(formData.get("skipImageStyling") || "").trim() === "true";
+
+    const imageSourceMetadata: ImageSourceMetadata = {
+      source: cleanString(formData.get("imageSource")),
+      sourceUrl: cleanString(formData.get("imageSourceUrl")),
+      license: cleanString(formData.get("imageLicense")),
+      licenseUrl: cleanString(formData.get("imageLicenseUrl")),
+      attribution: cleanString(formData.get("imageAttribution")),
+      usageStatus: cleanString(formData.get("imageUsageStatus")),
+    };
 
     const bookWidthMm = toOptionalInteger(formData.get("bookWidthMm"));
     const bookHeightMm = toOptionalInteger(formData.get("bookHeightMm"));
@@ -870,7 +1006,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           message: "Bitte gib einen Produktnamen ein.",
         },
-        400
+        400,
       );
     }
 
@@ -884,7 +1020,7 @@ export async function POST(request: NextRequest) {
           message:
             "Bitte gib beim Buchmaß entweder Breite und Höhe an oder lasse beide Felder leer.",
         },
-        400
+        400,
       );
     }
 
@@ -919,7 +1055,7 @@ export async function POST(request: NextRequest) {
     const uploadedImage = await uploadProductImage(
       supabase,
       imageFile,
-      productName
+      productName,
     );
 
     const existingProduct =
@@ -935,6 +1071,29 @@ export async function POST(request: NextRequest) {
         bookWidthMm,
         bookHeightMm,
       });
+
+    if (existingProduct && rejectExisting) {
+      return jsonResponse(
+        {
+          ok: false,
+          existing: true,
+          product: {
+            id: existingProduct.id,
+            productName: getProductName(existingProduct),
+            productSku: getProductSku(existingProduct),
+            ean: existingProduct.ean || ean || null,
+            productPrice: getProductPrice(existingProduct),
+            imageUrl:
+              existingProduct.image_url ||
+              existingProduct.image_original_url ||
+              null,
+          },
+          message:
+            "Der Import wurde blockiert, weil bereits ein Produkt mit dieser ISBN/EAN oder derselben Produktvariante vorhanden ist.",
+        },
+        409,
+      );
+    }
 
     if (existingProduct) {
       await updateExistingProductFlexible(supabase, existingProduct, {
@@ -961,15 +1120,28 @@ export async function POST(request: NextRequest) {
         aliases: keywordData.aliases,
       });
 
-      const autoStyle =
-        uploadedImage.imageUrl && uploadedImage.originalImageUrl
-          ? await tryStyleProductImageById(existingProduct.id)
-          : {
-              attempted: false,
-              ok: false,
-              result: null,
-              message: "Kein neues Bild übergeben.",
-            };
+      if (uploadedImage.imageUrl || uploadedImage.originalImageUrl) {
+        await updateImageSourceMetadataFlexible(
+          supabase,
+          existingProduct,
+          imageSourceMetadata,
+        );
+      }
+
+      const shouldStyleImage =
+        !skipImageStyling &&
+        Boolean(uploadedImage.imageUrl && uploadedImage.originalImageUrl);
+
+      const autoStyle = shouldStyleImage
+        ? await tryStyleProductImageById(existingProduct.id)
+        : {
+            attempted: false,
+            ok: false,
+            result: null,
+            message: skipImageStyling
+              ? "Bildstyling wurde für dieses Originalbild bewusst deaktiviert."
+              : "Kein neues Bild übergeben.",
+          };
 
       return jsonResponse({
         ok: true,
@@ -1000,9 +1172,11 @@ export async function POST(request: NextRequest) {
             : null,
         message:
           uploadedImage.imageUrl || bookWidthMm || bookHeightMm || bookSizeNote
-            ? autoStyle.ok
-              ? `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten, ${keywordData.aliases.length} Suchbegriffe und KI-Hintergrund wurden aktualisiert.`
-              : `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten und ${keywordData.aliases.length} Suchbegriffe wurden aktualisiert. Der KI-Hintergrund konnte nicht automatisch erzeugt werden.`
+            ? skipImageStyling && uploadedImage.imageUrl
+              ? `Dieses Produkt existiert bereits. Das Originalbild wurde ohne KI-Veränderung übernommen; Buchmaße, SEO-Daten und ${keywordData.aliases.length} Suchbegriffe wurden aktualisiert.`
+              : autoStyle.ok
+                ? `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten, ${keywordData.aliases.length} Suchbegriffe und KI-Hintergrund wurden aktualisiert.`
+                : `Dieses Produkt existiert bereits. Bild, Buchmaße, SEO-Daten und ${keywordData.aliases.length} Suchbegriffe wurden aktualisiert. Der KI-Hintergrund konnte nicht automatisch erzeugt werden.`
             : `Dieses Produkt existiert bereits. ${keywordData.aliases.length} Suchbegriffe und SEO-Daten wurden aktualisiert.`,
       });
     }
@@ -1031,15 +1205,28 @@ export async function POST(request: NextRequest) {
       aliases: keywordData.aliases,
     });
 
-    const autoStyle =
-      uploadedImage.imageUrl && uploadedImage.originalImageUrl
-        ? await tryStyleProductImageById(product.id)
-        : {
-            attempted: false,
-            ok: false,
-            result: null,
-            message: "Kein neues Bild übergeben.",
-          };
+    if (uploadedImage.imageUrl || uploadedImage.originalImageUrl) {
+      await updateImageSourceMetadataFlexible(
+        supabase,
+        product,
+        imageSourceMetadata,
+      );
+    }
+
+    const shouldStyleImage =
+      !skipImageStyling &&
+      Boolean(uploadedImage.imageUrl && uploadedImage.originalImageUrl);
+
+    const autoStyle = shouldStyleImage
+      ? await tryStyleProductImageById(product.id)
+      : {
+          attempted: false,
+          ok: false,
+          result: null,
+          message: skipImageStyling
+            ? "Bildstyling wurde für dieses Originalbild bewusst deaktiviert."
+            : "Kein neues Bild übergeben.",
+        };
 
     return jsonResponse({
       ok: true,
@@ -1067,9 +1254,11 @@ export async function POST(request: NextRequest) {
             }
           : null,
       message: uploadedImage.imageUrl
-        ? autoStyle.ok
-          ? `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten, ${keywordData.aliases.length} Suchbegriffen und KI-Hintergrund angelegt.`
-          : `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt. Der KI-Hintergrund konnte nicht automatisch erzeugt werden und kann später im Produkt manuell erstellt werden.`
+        ? skipImageStyling
+          ? `Produkt wurde mit unverändertem Originalbild, optimierter Shopdatei, gespeicherter Bildquelle, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt. Ein KI-Hintergrund wurde bewusst nicht erzeugt.`
+          : autoStyle.ok
+            ? `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten, ${keywordData.aliases.length} Suchbegriffen und KI-Hintergrund angelegt.`
+            : `Produkt wurde mit optimiertem Shopbild, Originalbild, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt. Der KI-Hintergrund konnte nicht automatisch erzeugt werden und kann später im Produkt manuell erstellt werden.`
         : `Produkt wurde mit optionalen Buchmaßen, SEO-Daten und ${keywordData.aliases.length} Suchbegriffen angelegt und ist ab sofort verfügbar.`,
     });
   } catch (error) {
@@ -1083,7 +1272,7 @@ export async function POST(request: NextRequest) {
             ? error.message
             : "Produkt konnte nicht angelegt werden.",
       },
-      500
+      500,
     );
   }
 }

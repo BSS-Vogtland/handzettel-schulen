@@ -35,6 +35,15 @@ type BookData = {
   subjects: string[];
   coverUrl: string | null;
   coverSource: string | null;
+  coverSourceUrl: string | null;
+  coverCanBeImported: boolean;
+  coverDeliveryMode: "download" | "external" | "manual" | null;
+  coverUsageStatus:
+    "public_domain" | "cc0" | "api_terms" | "manual_review" | null;
+  coverLicense: string | null;
+  coverLicenseUrl: string | null;
+  coverAttribution: string | null;
+  coverRightsNote: string | null;
   recommendedPrice: number | null;
   priceCurrency: string | null;
   priceSource: string | null;
@@ -119,17 +128,6 @@ function uniqueTextList(values: Array<string | null | undefined>) {
   }
 
   return result;
-}
-
-function formatMoney(value: number | null, currency: string | null) {
-  if (value === null || !Number.isFinite(value)) {
-    return null;
-  }
-
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: currency || "EUR",
-  }).format(value);
 }
 
 function formatPriceInput(value: number | null) {
@@ -344,7 +342,7 @@ export default function AdminIsbnImportTool() {
     setBookSizeNote(buildBookDetails(book));
     setAliases("");
     setAliasesWereManuallyEdited(false);
-    setIncludeCover(Boolean(book.coverUrl));
+    setIncludeCover(Boolean(book.coverUrl && book.coverCanBeImported));
     setSuccessMessage(null);
     setSavedProduct(null);
   }, [book]);
@@ -465,13 +463,14 @@ export default function AdminIsbnImportTool() {
   }
 
   async function downloadCoverFile(coverUrl: string, productIsbn: string) {
-    const response = await fetch(
-      `/api/admin/products/isbn-cover?url=${encodeURIComponent(coverUrl)}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
+    const requestUrl = coverUrl.startsWith("/api/admin/products/isbn-cover")
+      ? coverUrl
+      : `/api/admin/products/isbn-cover?url=${encodeURIComponent(coverUrl)}`;
+
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       const rawText = await response.text();
@@ -580,6 +579,12 @@ export default function AdminIsbnImportTool() {
 
       let coverFile: File | null = null;
 
+      if (includeCover && !book.coverCanBeImported) {
+        throw new Error(
+          "Dieses Cover ist nur als Recherchehinweis verfügbar und darf nicht automatisch übernommen werden.",
+        );
+      }
+
       if (includeCover && book.coverUrl) {
         coverFile = await downloadCoverFile(book.coverUrl, productIsbn);
       }
@@ -600,6 +605,31 @@ export default function AdminIsbnImportTool() {
       formData.append("bookSizeNote", bookSizeNote.trim());
       formData.append("aliases", aliases.trim());
       formData.append("rejectExisting", "true");
+      formData.append("skipImageStyling", "true");
+      formData.append(
+        "imageSource",
+        includeCover ? book.coverSource || "" : "",
+      );
+      formData.append(
+        "imageSourceUrl",
+        includeCover ? book.coverSourceUrl || "" : "",
+      );
+      formData.append(
+        "imageLicense",
+        includeCover ? book.coverLicense || "" : "",
+      );
+      formData.append(
+        "imageLicenseUrl",
+        includeCover ? book.coverLicenseUrl || "" : "",
+      );
+      formData.append(
+        "imageAttribution",
+        includeCover ? book.coverAttribution || "" : "",
+      );
+      formData.append(
+        "imageUsageStatus",
+        includeCover ? book.coverUsageStatus || "" : "",
+      );
 
       if (coverFile) {
         formData.append("productImage", coverFile);
@@ -667,9 +697,10 @@ export default function AdminIsbnImportTool() {
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-            Gib eine ISBN-10 oder ISBN-13 ein. Die Suche kombiniert die
-            eingebundenen Buchdatenquellen und prüft anschließend den
-            vorhandenen Produktkatalog auf Dubletten.
+            Gib eine ISBN-10 oder ISBN-13 ein. Grunddaten kommen vorrangig aus
+            der Deutschen Nationalbibliothek. Cover werden zusätzlich über
+            Wikimedia Commons und Google Books gesucht. Nicht eindeutig nutzbare
+            Bilder werden nur als Recherchehinweis angezeigt.
           </p>
         </div>
 
@@ -817,7 +848,10 @@ export default function AdminIsbnImportTool() {
                   <img
                     src={book.coverUrl}
                     alt={book.title || "Buchcover"}
-                    onError={() => setCoverLoadFailed(true)}
+                    onError={() => {
+                      setCoverLoadFailed(true);
+                      setIncludeCover(false);
+                    }}
                     className="h-[360px] w-full object-contain p-4"
                   />
                 ) : (
@@ -831,8 +865,8 @@ export default function AdminIsbnImportTool() {
                 )}
               </div>
 
-              {book.coverUrl && !coverLoadFailed ? (
-                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-4 py-3">
+              {book.coverUrl && !coverLoadFailed && book.coverCanBeImported ? (
+                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3">
                   <input
                     type="checkbox"
                     checked={includeCover}
@@ -842,25 +876,82 @@ export default function AdminIsbnImportTool() {
                   />
                   <span>
                     <span className="block text-sm font-black text-[#102A43]">
-                      Cover übernehmen
+                      Cover automatisch übernehmen
                     </span>
                     <span className="mt-1 block text-xs font-semibold leading-5 text-[#52616F]">
-                      Das Bild wird über den sicheren Proxy geladen und durch
-                      die vorhandene Bildoptimierung verarbeitet.
+                      Das Originalcover wird technisch optimiert, aber bewusst
+                      nicht mit einem KI-Hintergrund verändert. Quelle und
+                      Nutzungsstatus werden am Produkt gespeichert.
                     </span>
                   </span>
                 </label>
+              ) : book.coverUrl && !coverLoadFailed ? (
+                <div className="mt-3 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-xs font-semibold leading-5 text-[#8A4A1F]">
+                  Dieses Bild wird nur als Recherchehinweis angezeigt. Es wird
+                  nicht automatisch in den Produktkatalog übernommen. Lade bei
+                  Bedarf später ein freigegebenes Cover manuell hoch.
+                </div>
               ) : (
                 <div className="mt-3 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
-                  Kein Cover verfügbar. Der Produktimport bleibt vollständig
-                  nutzbar.
+                  Kein automatisch nutzbares Cover gefunden. Das Bild kann
+                  später im Produkt manuell ergänzt werden.
                 </div>
               )}
 
               {book.coverSource ? (
-                <p className="mt-2 text-xs font-semibold text-[#7B8792]">
-                  Coverquelle: {book.coverSource}
-                </p>
+                <div className="mt-3 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
+                  <p>
+                    <span className="font-black text-[#102A43]">
+                      Coverquelle:
+                    </span>{" "}
+                    {book.coverSource}
+                  </p>
+                  {book.coverLicense ? (
+                    <p className="mt-1">
+                      <span className="font-black text-[#102A43]">
+                        Nutzung:
+                      </span>{" "}
+                      {book.coverLicense}
+                    </p>
+                  ) : null}
+                  {book.coverAttribution ? (
+                    <p className="mt-1">
+                      <span className="font-black text-[#102A43]">
+                        Urheber/Quelle:
+                      </span>{" "}
+                      {book.coverAttribution}
+                    </p>
+                  ) : null}
+                  {book.coverRightsNote ? (
+                    <p className="mt-2 text-[#7B8792]">
+                      {book.coverRightsNote}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {book.coverSourceUrl ? (
+                      <a
+                        href={book.coverSourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-black text-[#12395F] hover:underline"
+                      >
+                        Quelle öffnen
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                    {book.coverLicenseUrl ? (
+                      <a
+                        href={book.coverLicenseUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-black text-[#12395F] hover:underline"
+                      >
+                        Bedingungen öffnen
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
             </div>
 
@@ -871,8 +962,9 @@ export default function AdminIsbnImportTool() {
                 </h3>
                 <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
                   Alle Felder können vor dem Speichern angepasst werden. SKU,
-                  SEO-Daten, Matching-Keywords und Bildoptimierung erzeugt die
-                  vorhandene Produktanlage automatisch.
+                  SEO-Daten und Matching-Keywords erzeugt die vorhandene
+                  Produktanlage automatisch. Buchcover bleiben unverändert und
+                  erhalten keinen KI-Hintergrund.
                 </p>
               </div>
 
@@ -904,16 +996,9 @@ export default function AdminIsbnImportTool() {
                     className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 text-sm font-semibold text-[#102A43] outline-none transition focus:border-[#B5282D] focus:ring-4 focus:ring-[#B5282D]/10 disabled:bg-[#F3F4F5]"
                   />
                   <span className="mt-2 block text-xs font-semibold leading-5 text-[#7B8792]">
-                    {book.recommendedPrice
-                      ? `Vorbelegung: ${formatMoney(
-                          book.recommendedPrice,
-                          book.priceCurrency,
-                        )}${
-                          book.priceSource
-                            ? ` · Quelle: ${book.priceSource}`
-                            : ""
-                        }`
-                      : "Kein verlässlicher Preis gefunden. Bitte manuell prüfen und eintragen."}
+                    Der Preis wird bewusst nicht aus externen Buchdaten
+                    übernommen. Bitte beim Lieferanten oder Verlag prüfen und
+                    manuell eintragen.
                   </span>
                 </label>
 

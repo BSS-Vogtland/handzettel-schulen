@@ -4,87 +4,133 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024;
+const MAX_COVER_SIZE_BYTES = 12 * 1024 * 1024;
 
-const DEFAULT_ALLOWED_HOSTS = [
+const ALLOWED_EXTERNAL_COVER_HOSTS = [
   "books.google.com",
   "books.google.de",
+  "books.googleusercontent.com",
   "googleusercontent.com",
-  "openlibrary.org",
-  "covers.openlibrary.org",
-  "cornelsen.de",
-  "vlb.de",
-  "buchhandel.de",
+  "upload.wikimedia.org",
 ];
 
-function cleanString(value: unknown): string | null {
+function jsonError(message: string, status: number) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message,
+    },
+    { status },
+  );
+}
+
+function cleanString(value: unknown) {
   const cleaned = String(value ?? "").trim();
 
   return cleaned.length > 0 ? cleaned : null;
 }
 
-function normalizeIsbn(value: unknown): string {
-  return String(value ?? "")
-    .toUpperCase()
-    .replace(/[^0-9X]/g, "")
-    .slice(0, 13);
-}
-
-function getConfiguredAllowedHosts(): string[] {
-  const configuredHosts = String(
-    process.env.ISBN_COVER_ALLOWED_HOSTS || ""
-  )
-    .split(",")
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean);
-
-  return Array.from(
-    new Set([...DEFAULT_ALLOWED_HOSTS, ...configuredHosts])
-  );
-}
-
-function isAllowedHostname(hostname: string): boolean {
+function isAllowedExternalHost(hostname: string) {
   const normalizedHostname = hostname.toLowerCase();
 
-  return getConfiguredAllowedHosts().some((allowedHost) => {
+  return ALLOWED_EXTERNAL_COVER_HOSTS.some((allowedHost) => {
+    const normalizedAllowedHost = allowedHost.toLowerCase();
+
     return (
-      normalizedHostname === allowedHost ||
-      normalizedHostname.endsWith(`.${allowedHost}`)
+      normalizedHostname === normalizedAllowedHost ||
+      normalizedHostname.endsWith(`.${normalizedAllowedHost}`)
     );
   });
 }
 
-function getImageExtension(contentType: string): string {
-  const normalized = contentType.toLowerCase();
+async function fetchCover(targetUrl: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 18000);
 
-  if (normalized.includes("png")) return "png";
-  if (normalized.includes("webp")) return "webp";
-  if (normalized.includes("avif")) return "avif";
-  if (normalized.includes("gif")) return "gif";
-
-  return "jpg";
+  try {
+    return await fetch(targetUrl, {
+      method: "GET",
+      cache: "no-store",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
+        "User-Agent": "Handzettel-Schulen.de ISBN-Cover-Proxy/2.0",
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const text = await response.text();
-
-    if (!text) {
-      return "";
+async function imageResponseFromUpstream(response: Response) {
+  if (!response.ok) {
+    if (response.status === 404 || response.status === 204) {
+      return jsonError("Für dieses Buch wurde kein Cover gefunden.", 404);
     }
 
-    try {
-      const payload = JSON.parse(text) as {
-        message?: string;
-      };
-
-      return payload.message || text;
-    } catch {
-      return text;
+    if (response.status === 401 || response.status === 403) {
+      return jsonError("Die Coverquelle hat den Zugriff abgelehnt.", 502);
     }
-  } catch {
-    return "";
+
+    return jsonError(
+      `Das Cover konnte nicht geladen werden (Quelle: HTTP ${response.status}).`,
+      502,
+    );
   }
+
+  let finalUrl: URL;
+
+  try {
+    finalUrl = new URL(response.url);
+  } catch {
+    return jsonError(
+      "Die Coverquelle hat auf eine ungültige URL umgeleitet.",
+      502,
+    );
+  }
+
+  if (
+    finalUrl.protocol !== "https:" ||
+    !isAllowedExternalHost(finalUrl.hostname)
+  ) {
+    return jsonError(
+      "Die Coverquelle hat auf einen nicht freigegebenen Host umgeleitet.",
+      403,
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    return jsonError("Die Coverquelle hat keine Bilddatei geliefert.", 502);
+  }
+
+  const contentLength = Number(response.headers.get("content-length") || 0);
+
+  if (Number.isFinite(contentLength) && contentLength > MAX_COVER_SIZE_BYTES) {
+    return jsonError("Die Coverdatei ist größer als 12 MB.", 413);
+  }
+
+  const imageBuffer = await response.arrayBuffer();
+
+  if (imageBuffer.byteLength === 0) {
+    return jsonError("Die geladene Coverdatei ist leer.", 502);
+  }
+
+  if (imageBuffer.byteLength > MAX_COVER_SIZE_BYTES) {
+    return jsonError("Die Coverdatei ist größer als 12 MB.", 413);
+  }
+
+  return new NextResponse(imageBuffer, {
+    status: 200,
+    headers: {
+      "Content-Type": contentType,
+      "Content-Length": String(imageBuffer.byteLength),
+      "Cache-Control": "private, max-age=300",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -95,189 +141,45 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const sourceUrl = cleanString(
-      request.nextUrl.searchParams.get("url")
-    );
+    const rawUrl = cleanString(request.nextUrl.searchParams.get("url"));
 
-    const isbn =
-      normalizeIsbn(request.nextUrl.searchParams.get("isbn")) ||
-      "buch";
-
-    if (!sourceUrl) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Es wurde keine Cover-URL übergeben.",
-        },
-        { status: 400 }
-      );
+    if (!rawUrl) {
+      return jsonError("Es wurde keine Cover-URL übergeben.", 400);
     }
 
-    let parsedUrl: URL;
+    let targetUrl: URL;
 
     try {
-      parsedUrl = new URL(sourceUrl);
+      targetUrl = new URL(rawUrl);
     } catch {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Die übergebene Cover-URL ist ungültig.",
-        },
-        { status: 400 }
+      return jsonError("Die übergebene Cover-URL ist ungültig.", 400);
+    }
+
+    if (targetUrl.protocol !== "https:") {
+      return jsonError(
+        "Cover dürfen ausschließlich über HTTPS geladen werden.",
+        400,
       );
     }
 
-    if (parsedUrl.protocol !== "https:") {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Cover dürfen nur über HTTPS geladen werden.",
-        },
-        { status: 400 }
+    if (!isAllowedExternalHost(targetUrl.hostname)) {
+      return jsonError(
+        `Die Coverquelle ${targetUrl.hostname} ist nicht für die automatische Übernahme freigegeben.`,
+        403,
       );
     }
 
-    if (!isAllowedHostname(parsedUrl.hostname)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            `Der Cover-Host „${parsedUrl.hostname}“ ist nicht freigegeben. ` +
-            "Ergänze ihn bei Bedarf in ISBN_COVER_ALLOWED_HOSTS.",
-        },
-        { status: 400 }
-      );
-    }
+    const response = await fetchCover(targetUrl.toString());
 
-    const controller = new AbortController();
-
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, 15000);
-
-    let externalResponse: Response;
-
-    try {
-      externalResponse = await fetch(parsedUrl.toString(), {
-        method: "GET",
-        cache: "no-store",
-        redirect: "follow",
-        signal: controller.signal,
-        headers: {
-          Accept:
-            "image/avif,image/webp,image/png,image/jpeg,image/*",
-          "User-Agent":
-            "Handzettel-Schulen.de ISBN-Cover-Import/1.0",
-        },
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!externalResponse.ok) {
-      const externalMessage =
-        await readErrorMessage(externalResponse);
-
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            `Das Cover konnte nicht geladen werden. HTTP ${externalResponse.status}.` +
-            (externalMessage
-              ? ` Antwort: ${externalMessage.slice(0, 300)}`
-              : ""),
-        },
-        { status: 502 }
-      );
-    }
-
-    const contentType = String(
-      externalResponse.headers.get("content-type") || ""
-    )
-      .split(";")[0]
-      .trim()
-      .toLowerCase();
-
-    if (!contentType.startsWith("image/")) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message:
-            "Die externe Adresse hat keine Bilddatei geliefert.",
-        },
-        { status: 502 }
-      );
-    }
-
-    const declaredLength = Number(
-      externalResponse.headers.get("content-length") || 0
-    );
-
-    if (
-      Number.isFinite(declaredLength) &&
-      declaredLength > MAX_IMAGE_SIZE_BYTES
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Das gefundene Cover ist größer als 12 MB.",
-        },
-        { status: 413 }
-      );
-    }
-
-    const arrayBuffer =
-      await externalResponse.arrayBuffer();
-
-    if (arrayBuffer.byteLength === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Die geladene Coverdatei ist leer.",
-        },
-        { status: 502 }
-      );
-    }
-
-    if (arrayBuffer.byteLength > MAX_IMAGE_SIZE_BYTES) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Das gefundene Cover ist größer als 12 MB.",
-        },
-        { status: 413 }
-      );
-    }
-
-    const extension = getImageExtension(contentType);
-
-    return new NextResponse(arrayBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(arrayBuffer.byteLength),
-        "Content-Disposition":
-          `inline; filename="isbn-${isbn}.${extension}"`,
-        "Cache-Control": "private, no-store, max-age=0",
-      },
-    });
+    return imageResponseFromUpstream(response);
   } catch (error) {
-    console.error("ISBN cover download error:", error);
+    console.error("ISBN cover proxy error:", error);
 
-    const isAbortError =
-      error instanceof Error &&
-      error.name === "AbortError";
-
-    return NextResponse.json(
-      {
-        ok: false,
-        message: isAbortError
-          ? "Das Laden des Covers hat zu lange gedauert."
-          : error instanceof Error
-            ? error.message
-            : "Das Cover konnte nicht geladen werden.",
-      },
-      { status: 500 }
+    return jsonError(
+      error instanceof Error
+        ? error.message
+        : "Das Buchcover konnte nicht geladen werden.",
+      500,
     );
   }
 }
