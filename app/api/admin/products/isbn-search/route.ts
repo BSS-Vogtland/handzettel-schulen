@@ -946,6 +946,107 @@ async function loadCornelsenBook(
   return parseCornelsenProduct(productHtml, productUrl, isbn);
 }
 
+function buildCoverProxyUrl(targetUrl: string) {
+  return `/api/admin/products/isbn-cover?url=${encodeURIComponent(targetUrl)}`;
+}
+
+function formatWestermannIsbn(isbn: string) {
+  const normalized = normalizeIsbn(isbn);
+
+  if (/^978314\d{7}$/.test(normalized)) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 12)}-${normalized.slice(12)}`;
+  }
+
+  if (/^9783427\d{6}$/.test(normalized)) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3, 4)}-${normalized.slice(4, 7)}-${normalized.slice(7, 12)}-${normalized.slice(12)}`;
+  }
+
+  if (/^97838377\d{5}$/.test(normalized)) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3, 4)}-${normalized.slice(4, 8)}-${normalized.slice(8, 12)}-${normalized.slice(12)}`;
+  }
+
+  return null;
+}
+
+function loadDirectPublisherCoverSources(isbn: string): NormalizedBookSource[] {
+  const normalized = normalizeIsbn(isbn);
+  const sources: NormalizedBookSource[] = [];
+
+  if (/^(9783464|978306)/.test(normalized)) {
+    const rawCoverUrl = `https://static.cornelsen.de/media/${normalized}/${normalized}_COVER_STD_B260_X2.png`;
+
+    sources.push({
+      source: "Cornelsen Verlag",
+      sourceId: normalized,
+      sourceUrl: `https://www.cornelsen.de/suche?query=${encodeURIComponent(normalized)}`,
+      publisher: "Cornelsen",
+      isbn10: normalized.length === 10 ? normalized : null,
+      isbn13: normalized.length === 13 ? normalized : null,
+      coverUrl: buildCoverProxyUrl(rawCoverUrl),
+      coverSource: "Cornelsen Verlag",
+      coverSourceUrl: `https://www.cornelsen.de/suche?query=${encodeURIComponent(normalized)}`,
+      coverCanBeImported: false,
+      coverDeliveryMode: "manual",
+      coverUsageStatus: "manual_review",
+      coverLicense: null,
+      coverLicenseUrl: null,
+      coverAttribution: "Cornelsen Verlag",
+      coverRightsNote:
+        "Direktes Cover von der offiziellen Cornelsen-Mediendomain. Vor der dauerhaften Übernahme müssen die Bildrechte geklärt werden.",
+    });
+  }
+
+  const westermannIsbn = formatWestermannIsbn(normalized);
+
+  if (westermannIsbn) {
+    const rawCoverUrl = `https://c.wgr.de/i/artikel/288x288-fit/${westermannIsbn}.webp`;
+
+    sources.push({
+      source: "Westermann Verlag",
+      sourceId: normalized,
+      sourceUrl: `https://www.westermann.de/artikel/${westermannIsbn}`,
+      publisher: "Westermann",
+      isbn10: normalized.length === 10 ? normalized : null,
+      isbn13: normalized.length === 13 ? normalized : null,
+      coverUrl: buildCoverProxyUrl(rawCoverUrl),
+      coverSource: "Westermann Verlag",
+      coverSourceUrl: `https://www.westermann.de/artikel/${westermannIsbn}`,
+      coverCanBeImported: false,
+      coverDeliveryMode: "manual",
+      coverUsageStatus: "manual_review",
+      coverLicense: null,
+      coverLicenseUrl: null,
+      coverAttribution: "Westermann Verlag",
+      coverRightsNote:
+        "Direktes Cover von der offiziellen Westermann-Mediendomain. Vor der dauerhaften Übernahme müssen die Bildrechte geklärt werden.",
+    });
+  }
+
+  if (normalized.length === 13) {
+    const rawCoverUrl = `https://covers.openlibrary.org/b/isbn/${normalized}-L.jpg?default=false`;
+
+    sources.push({
+      source: "Open Library",
+      sourceId: normalized,
+      sourceUrl: `https://openlibrary.org/isbn/${normalized}`,
+      isbn13: normalized,
+      coverUrl: buildCoverProxyUrl(rawCoverUrl),
+      coverSource: "Open Library",
+      coverSourceUrl: `https://openlibrary.org/isbn/${normalized}`,
+      coverCanBeImported: false,
+      coverDeliveryMode: "manual",
+      coverUsageStatus: "manual_review",
+      coverLicense: null,
+      coverLicenseUrl: null,
+      coverAttribution: "Open Library",
+      coverRightsNote:
+        "Direkter ISBN-Coverversuch bei Open Library. Rechte Dritter sind möglich; deshalb nur als Recherchevorschau.",
+    });
+  }
+
+  return sources;
+}
+
 async function loadDnbBook(isbn: string): Promise<NormalizedBookSource | null> {
   const queryVariants = [`isbn=${isbn}`, `num=${isbn}`];
 
@@ -1206,6 +1307,8 @@ export async function GET(request: Request) {
       );
     }
 
+    const directPublisherCoverBooks = loadDirectPublisherCoverSources(isbn);
+
     const [
       optionalProviderBooks,
       dnbBook,
@@ -1221,6 +1324,7 @@ export async function GET(request: Request) {
     ]);
 
     const availableSources = [
+      ...directPublisherCoverBooks,
       ...optionalProviderBooks,
       dnbBook,
       cornelsenBook,

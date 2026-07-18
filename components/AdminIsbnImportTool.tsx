@@ -20,6 +20,20 @@ import {
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+type CoverCandidate = {
+  coverUrl: string;
+  coverSource: string;
+  coverSourceUrl: string | null;
+  coverCanBeImported: boolean;
+  coverDeliveryMode: "download" | "external" | "manual" | null;
+  coverUsageStatus:
+    "public_domain" | "cc0" | "api_terms" | "manual_review" | null;
+  coverLicense: string | null;
+  coverLicenseUrl: string | null;
+  coverAttribution: string | null;
+  coverRightsNote: string | null;
+};
+
 type BookData = {
   requestedIsbn: string;
   isbn10: string | null;
@@ -44,6 +58,7 @@ type BookData = {
   coverLicenseUrl: string | null;
   coverAttribution: string | null;
   coverRightsNote: string | null;
+  coverCandidates: CoverCandidate[];
   recommendedPrice: number | null;
   priceCurrency: string | null;
   priceSource: string | null;
@@ -310,6 +325,41 @@ export default function AdminIsbnImportTool() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [savedProduct, setSavedProduct] = useState<SavedProduct | null>(null);
   const [coverLoadFailed, setCoverLoadFailed] = useState(false);
+  const [activeCoverIndex, setActiveCoverIndex] = useState(0);
+
+  const coverCandidates = useMemo<CoverCandidate[]>(() => {
+    if (!book) {
+      return [];
+    }
+
+    if (
+      Array.isArray(book.coverCandidates) &&
+      book.coverCandidates.length > 0
+    ) {
+      return book.coverCandidates;
+    }
+
+    if (!book.coverUrl) {
+      return [];
+    }
+
+    return [
+      {
+        coverUrl: book.coverUrl,
+        coverSource: book.coverSource || "Unbekannte Coverquelle",
+        coverSourceUrl: book.coverSourceUrl,
+        coverCanBeImported: book.coverCanBeImported,
+        coverDeliveryMode: book.coverDeliveryMode,
+        coverUsageStatus: book.coverUsageStatus,
+        coverLicense: book.coverLicense,
+        coverLicenseUrl: book.coverLicenseUrl,
+        coverAttribution: book.coverAttribution,
+        coverRightsNote: book.coverRightsNote,
+      },
+    ];
+  }, [book]);
+
+  const activeCover = coverCandidates[activeCoverIndex] || null;
 
   const generatedAliases = useMemo(
     () =>
@@ -342,7 +392,10 @@ export default function AdminIsbnImportTool() {
     setBookSizeNote(buildBookDetails(book));
     setAliases("");
     setAliasesWereManuallyEdited(false);
-    setIncludeCover(Boolean(book.coverUrl && book.coverCanBeImported));
+    setActiveCoverIndex(0);
+    setCoverLoadFailed(false);
+    const firstCover = book.coverCandidates?.[0] || null;
+    setIncludeCover(Boolean(firstCover?.coverCanBeImported));
     setSuccessMessage(null);
     setSavedProduct(null);
   }, [book]);
@@ -402,6 +455,7 @@ export default function AdminIsbnImportTool() {
     setSuccessMessage(null);
     setSavedProduct(null);
     setCoverLoadFailed(false);
+    setActiveCoverIndex(0);
 
     if (normalizedIsbn.length !== 10 && normalizedIsbn.length !== 13) {
       setErrorMessage("Bitte gib eine vollständige ISBN-10 oder ISBN-13 ein.");
@@ -449,6 +503,7 @@ export default function AdminIsbnImportTool() {
     setSuccessMessage(null);
     setSavedProduct(null);
     setCoverLoadFailed(false);
+    setActiveCoverIndex(0);
 
     window.setTimeout(() => {
       inputRef.current?.focus();
@@ -460,6 +515,30 @@ export default function AdminIsbnImportTool() {
     setAliasesWereManuallyEdited(false);
     setSuccessMessage("Die Suchbegriffe wurden neu generiert.");
     setErrorMessage(null);
+  }
+
+  function selectCoverCandidate(index: number) {
+    const candidate = coverCandidates[index];
+
+    if (!candidate) {
+      return;
+    }
+
+    setActiveCoverIndex(index);
+    setCoverLoadFailed(false);
+    setIncludeCover(candidate.coverCanBeImported);
+  }
+
+  function handleCoverLoadError() {
+    const nextIndex = activeCoverIndex + 1;
+
+    if (nextIndex < coverCandidates.length) {
+      selectCoverCandidate(nextIndex);
+      return;
+    }
+
+    setCoverLoadFailed(true);
+    setIncludeCover(false);
   }
 
   async function downloadCoverFile(coverUrl: string, productIsbn: string) {
@@ -579,14 +658,14 @@ export default function AdminIsbnImportTool() {
 
       let coverFile: File | null = null;
 
-      if (includeCover && !book.coverCanBeImported) {
+      if (includeCover && !activeCover?.coverCanBeImported) {
         throw new Error(
           "Dieses Cover ist nur als Recherchehinweis verfügbar und darf nicht automatisch übernommen werden.",
         );
       }
 
-      if (includeCover && book.coverUrl) {
-        coverFile = await downloadCoverFile(book.coverUrl, productIsbn);
+      if (includeCover && activeCover?.coverUrl) {
+        coverFile = await downloadCoverFile(activeCover.coverUrl, productIsbn);
       }
 
       const formData = new FormData();
@@ -608,27 +687,27 @@ export default function AdminIsbnImportTool() {
       formData.append("skipImageStyling", "true");
       formData.append(
         "imageSource",
-        includeCover ? book.coverSource || "" : "",
+        includeCover ? activeCover?.coverSource || "" : "",
       );
       formData.append(
         "imageSourceUrl",
-        includeCover ? book.coverSourceUrl || "" : "",
+        includeCover ? activeCover?.coverSourceUrl || "" : "",
       );
       formData.append(
         "imageLicense",
-        includeCover ? book.coverLicense || "" : "",
+        includeCover ? activeCover?.coverLicense || "" : "",
       );
       formData.append(
         "imageLicenseUrl",
-        includeCover ? book.coverLicenseUrl || "" : "",
+        includeCover ? activeCover?.coverLicenseUrl || "" : "",
       );
       formData.append(
         "imageAttribution",
-        includeCover ? book.coverAttribution || "" : "",
+        includeCover ? activeCover?.coverAttribution || "" : "",
       );
       formData.append(
         "imageUsageStatus",
-        includeCover ? book.coverUsageStatus || "" : "",
+        includeCover ? activeCover?.coverUsageStatus || "" : "",
       );
 
       if (coverFile) {
@@ -844,14 +923,12 @@ export default function AdminIsbnImportTool() {
           <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
             <div>
               <div className="overflow-hidden rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0]">
-                {book.coverUrl && !coverLoadFailed ? (
+                {activeCover && !coverLoadFailed ? (
                   <img
-                    src={book.coverUrl}
+                    key={activeCover.coverUrl}
+                    src={activeCover.coverUrl}
                     alt={book.title || "Buchcover"}
-                    onError={() => {
-                      setCoverLoadFailed(true);
-                      setIncludeCover(false);
-                    }}
+                    onError={handleCoverLoadError}
                     className="h-[360px] w-full object-contain p-4"
                   />
                 ) : (
@@ -865,7 +942,9 @@ export default function AdminIsbnImportTool() {
                 )}
               </div>
 
-              {book.coverUrl && !coverLoadFailed && book.coverCanBeImported ? (
+              {activeCover &&
+              !coverLoadFailed &&
+              activeCover.coverCanBeImported ? (
                 <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-4 py-3">
                   <input
                     type="checkbox"
@@ -885,7 +964,7 @@ export default function AdminIsbnImportTool() {
                     </span>
                   </span>
                 </label>
-              ) : book.coverUrl && !coverLoadFailed ? (
+              ) : activeCover && !coverLoadFailed ? (
                 <div className="mt-3 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-xs font-semibold leading-5 text-[#8A4A1F]">
                   Dieses Bild wird nur als Recherchehinweis angezeigt. Es wird
                   nicht automatisch in den Produktkatalog übernommen. Lade bei
@@ -898,39 +977,63 @@ export default function AdminIsbnImportTool() {
                 </div>
               )}
 
-              {book.coverSource ? (
+              {coverCandidates.length > 1 ? (
+                <div className="mt-3 rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#A75B28]">
+                    Gefundene Coverquellen
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {coverCandidates.map((candidate, index) => (
+                      <button
+                        key={`${candidate.coverSource}-${candidate.coverUrl}`}
+                        type="button"
+                        onClick={() => selectCoverCandidate(index)}
+                        className={`rounded-xl px-3 py-2 text-xs font-black transition ${
+                          index === activeCoverIndex
+                            ? "bg-[#12395F] text-white"
+                            : "bg-white text-[#12395F] ring-1 ring-[#D8C8B8] hover:bg-[#EEF4FA]"
+                        }`}
+                      >
+                        {candidate.coverSource}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeCover ? (
                 <div className="mt-3 rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-xs font-semibold leading-5 text-[#52616F]">
                   <p>
                     <span className="font-black text-[#102A43]">
                       Coverquelle:
                     </span>{" "}
-                    {book.coverSource}
+                    {activeCover.coverSource}
                   </p>
-                  {book.coverLicense ? (
+                  {activeCover.coverLicense ? (
                     <p className="mt-1">
                       <span className="font-black text-[#102A43]">
                         Nutzung:
                       </span>{" "}
-                      {book.coverLicense}
+                      {activeCover.coverLicense}
                     </p>
                   ) : null}
-                  {book.coverAttribution ? (
+                  {activeCover.coverAttribution ? (
                     <p className="mt-1">
                       <span className="font-black text-[#102A43]">
                         Urheber/Quelle:
                       </span>{" "}
-                      {book.coverAttribution}
+                      {activeCover.coverAttribution}
                     </p>
                   ) : null}
-                  {book.coverRightsNote ? (
+                  {activeCover.coverRightsNote ? (
                     <p className="mt-2 text-[#7B8792]">
-                      {book.coverRightsNote}
+                      {activeCover.coverRightsNote}
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap gap-3">
-                    {book.coverSourceUrl ? (
+                    {activeCover.coverSourceUrl ? (
                       <a
-                        href={book.coverSourceUrl}
+                        href={activeCover.coverSourceUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 font-black text-[#12395F] hover:underline"
@@ -939,9 +1042,9 @@ export default function AdminIsbnImportTool() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     ) : null}
-                    {book.coverLicenseUrl ? (
+                    {activeCover.coverLicenseUrl ? (
                       <a
-                        href={book.coverLicenseUrl}
+                        href={activeCover.coverLicenseUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 font-black text-[#12395F] hover:underline"

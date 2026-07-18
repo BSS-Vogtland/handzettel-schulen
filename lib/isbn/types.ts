@@ -3,10 +3,24 @@ export type IsbnCoverDeliveryMode = "download" | "external" | "manual";
 export type IsbnCoverUsageStatus =
   "public_domain" | "cc0" | "api_terms" | "manual_review";
 
+export type IsbnCoverCandidate = {
+  coverUrl: string;
+  coverSource: string;
+  coverSourceUrl: string | null;
+  coverCanBeImported: boolean;
+  coverDeliveryMode: IsbnCoverDeliveryMode | null;
+  coverUsageStatus: IsbnCoverUsageStatus | null;
+  coverLicense: string | null;
+  coverLicenseUrl: string | null;
+  coverAttribution: string | null;
+  coverRightsNote: string | null;
+};
+
 export type IsbnBookSourceName =
   | "Deutsche Nationalbibliothek"
   | "Wikimedia Commons"
   | "Cornelsen Verlag"
+  | "Westermann Verlag"
   | "Google Books"
   | "Open Library"
   | string;
@@ -85,6 +99,7 @@ export type MergedIsbnBook = {
   coverLicenseUrl: string | null;
   coverAttribution: string | null;
   coverRightsNote: string | null;
+  coverCandidates: IsbnCoverCandidate[];
 
   recommendedPrice: number | null;
   priceCurrency: string | null;
@@ -97,5 +112,7 @@ export type MergedIsbnBook = {
     name: string;
     sourceId: string | null;
     sourceUrl: string | null;
+    coverFound: boolean;
+    coverUrl: string | null;
   }>;
 };

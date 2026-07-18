@@ -12,6 +12,9 @@ const ALLOWED_EXTERNAL_COVER_HOSTS = [
   "books.googleusercontent.com",
   "googleusercontent.com",
   "upload.wikimedia.org",
+  "static.cornelsen.de",
+  "c.wgr.de",
+  "covers.openlibrary.org",
 ];
 
 function jsonError(message: string, status: number) {
@@ -55,7 +58,7 @@ async function fetchCover(targetUrl: string) {
       signal: controller.signal,
       headers: {
         Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
-        "User-Agent": "Handzettel-Schulen.de ISBN-Cover-Proxy/2.0",
+        "User-Agent": "Handzettel-Schulen.de ISBN-Cover-Proxy/3.0",
       },
     });
   } finally {

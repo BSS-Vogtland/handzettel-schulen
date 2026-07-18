@@ -1,4 +1,8 @@
-import type { IsbnBookSource, MergedIsbnBook } from "@/lib/isbn/types";
+import type {
+  IsbnBookSource,
+  IsbnCoverCandidate,
+  MergedIsbnBook,
+} from "@/lib/isbn/types";
 import {
   convertIsbn10To13,
   normalizeIsbn,
@@ -34,26 +38,42 @@ function sortSources(sources: IsbnBookSource[], order: string[]) {
   });
 }
 
-function selectCoverSource(sources: IsbnBookSource[]) {
-  const coverSources = sources.filter((source) => Boolean(source.coverUrl));
+export function buildCoverCandidates(
+  sources: IsbnBookSource[],
+): IsbnCoverCandidate[] {
+  const orderedSources = sortSources(sources, [
+    "Cornelsen Verlag",
+    "Westermann Verlag",
+    "Wikimedia Commons",
+    "Google Books",
+    "Open Library",
+  ]);
+  const seen = new Set<string>();
+  const candidates: IsbnCoverCandidate[] = [];
 
-  const importable = sortSources(
-    coverSources.filter((source) => source.coverCanBeImported === true),
-    ["Wikimedia Commons", "Google Books"],
-  );
+  for (const source of orderedSources) {
+    const coverUrl = String(source.coverUrl || "").trim();
 
-  if (importable[0]) {
-    return importable[0];
+    if (!coverUrl || seen.has(coverUrl)) {
+      continue;
+    }
+
+    seen.add(coverUrl);
+    candidates.push({
+      coverUrl,
+      coverSource: source.coverSource || source.source,
+      coverSourceUrl: source.coverSourceUrl || source.sourceUrl || null,
+      coverCanBeImported: source.coverCanBeImported === true,
+      coverDeliveryMode: source.coverDeliveryMode || null,
+      coverUsageStatus: source.coverUsageStatus || null,
+      coverLicense: source.coverLicense || null,
+      coverLicenseUrl: source.coverLicenseUrl || null,
+      coverAttribution: source.coverAttribution || null,
+      coverRightsNote: source.coverRightsNote || null,
+    });
   }
 
-  return (
-    sortSources(coverSources, [
-      "Cornelsen Verlag",
-      "Open Library",
-      "Google Books",
-      "Wikimedia Commons",
-    ])[0] || null
-  );
+  return candidates;
 }
 
 export function mergeIsbnBookSources(
@@ -63,6 +83,7 @@ export function mergeIsbnBookSources(
   const metadataSources = sortSources(rawSources, [
     "Deutsche Nationalbibliothek",
     "Cornelsen Verlag",
+    "Westermann Verlag",
     "Google Books",
     "Open Library",
     "Wikimedia Commons",
@@ -70,13 +91,15 @@ export function mergeIsbnBookSources(
 
   const descriptionSources = sortSources(rawSources, [
     "Cornelsen Verlag",
+    "Westermann Verlag",
     "Google Books",
     "Deutsche Nationalbibliothek",
     "Open Library",
     "Wikimedia Commons",
   ]);
 
-  const selectedCover = selectCoverSource(rawSources);
+  const coverCandidates = buildCoverCandidates(rawSources);
+  const selectedCover = coverCandidates[0] || null;
 
   const requestedIsbn13 =
     requestedIsbn.length === 10
@@ -122,9 +145,8 @@ export function mergeIsbnBookSources(
     ),
 
     coverUrl: selectedCover?.coverUrl || null,
-    coverSource: selectedCover?.coverSource || selectedCover?.source || null,
-    coverSourceUrl:
-      selectedCover?.coverSourceUrl || selectedCover?.sourceUrl || null,
+    coverSource: selectedCover?.coverSource || null,
+    coverSourceUrl: selectedCover?.coverSourceUrl || null,
     coverCanBeImported: selectedCover?.coverCanBeImported === true,
     coverDeliveryMode: selectedCover?.coverDeliveryMode || null,
     coverUsageStatus: selectedCover?.coverUsageStatus || null,
@@ -132,6 +154,7 @@ export function mergeIsbnBookSources(
     coverLicenseUrl: selectedCover?.coverLicenseUrl || null,
     coverAttribution: selectedCover?.coverAttribution || null,
     coverRightsNote: selectedCover?.coverRightsNote || null,
+    coverCandidates,
 
     // Verkaufspreise werden bewusst immer manuell geprüft und eingetragen.
     recommendedPrice: null,
@@ -146,6 +169,8 @@ export function mergeIsbnBookSources(
       name: source.source,
       sourceId: source.sourceId || null,
       sourceUrl: source.sourceUrl || null,
+      coverFound: Boolean(source.coverUrl),
+      coverUrl: source.coverUrl || null,
     })),
   };
 }
