@@ -1,6 +1,11 @@
+
 import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getRequestItemResolutionStatus,
+  isRequestItemResolvedForWorkflow,
+} from "@/lib/requestWorkflowBlocking";
 
 export const dynamic = "force-dynamic";
 
@@ -64,22 +69,13 @@ type ChecklistItem = {
   updated_at: string | null;
 };
 
-const RESOLVED_ADMIN_STATUSES = new Set<string>([
-  "customer_supplies_self",
-  "covered_by_alternative",
-  "not_needed",
-  "resolved",
-  "done",
-  "ignored",
-]);
-
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -93,20 +89,6 @@ function getSupabaseAdmin() {
 
 function cleanText(value: unknown) {
   return String(value || "").trim();
-}
-
-function normalizeStatus(value: unknown) {
-  return cleanText(value).toLowerCase();
-}
-
-function getRequestItemResolutionStatus(item: RequestItem) {
-  const adminStatus = normalizeStatus(item.admin_resolution_status);
-  const itemStatus = normalizeStatus(item.status);
-
-  if (RESOLVED_ADMIN_STATUSES.has(adminStatus)) return adminStatus;
-  if (RESOLVED_ADMIN_STATUSES.has(itemStatus)) return itemStatus;
-
-  return "";
 }
 
 function toNumber(value: unknown, fallback = 1) {
@@ -140,7 +122,7 @@ function getRequestItemOriginalText(item: RequestItem) {
   if (item.color) details.push(`Farbe: ${item.color}`);
 
   if (details.length > 0) {
-    parts.push(details.join(" · "));
+    parts.push(details.join(" Â· "));
   }
 
   return parts.join("\n");
@@ -160,20 +142,21 @@ function getOfferItemText(item: OfferItem) {
 
 function getStatusLabel(status: string) {
   switch (status) {
+    case "selected":
     case "in_package":
       return "Im Paket";
     case "alternative_selected":
-      return "Alternative gewählt";
+      return "Alternative gewÃ¤hlt";
     case "not_available":
       return "Nicht lieferbar";
     case "not_needed":
-      return "Nicht benötigt";
+      return "Nicht benÃ¶tigt";
     case "question_required":
-      return "Rückfrage nötig";
+      return "RÃ¼ckfrage nÃ¶tig";
     case "manual_check":
-      return "Manuell geprüft";
+      return "Manuell geprÃ¼ft";
     default:
-      return status || "Manuell geprüft";
+      return status || "Manuell geprÃ¼ft";
   }
 }
 
@@ -189,17 +172,11 @@ function getProductImageUrl(product: ProductRow | null | undefined) {
 }
 
 function isRequestItemResolved(item: RequestItem, offerItems: OfferItem[]) {
-  const linkedOfferItems = offerItems.filter(
+  const hasLinkedOfferItem = offerItems.some(
     (offerItem) => offerItem.request_item_id === item.id
   );
 
-  if (linkedOfferItems.length > 0) return true;
-
-  const resolutionStatus = getRequestItemResolutionStatus(item);
-
-  if (RESOLVED_ADMIN_STATUSES.has(resolutionStatus)) return true;
-
-  return false;
+  return isRequestItemResolvedForWorkflow(item, hasLinkedOfferItem);
 }
 
 function buildChecklistRows(input: {
@@ -271,7 +248,7 @@ function buildChecklistRows(input: {
     rows.push({
       request_item_id: null,
       offer_item_id: offerItem.id,
-      original_text: "Zusätzlich manuell ergänzt",
+      original_text: "ZusÃ¤tzlich manuell ergÃ¤nzt",
       resolved_text: getOfferItemText(offerItem),
       status: "manual_check",
     });
@@ -364,7 +341,7 @@ async function syncExistingChecklistItems(input: {
 
     if (error) {
       throw new Error(
-        `Checklistenposition konnte nicht ergänzt werden: ${error.message}`
+        `Checklistenposition konnte nicht ergÃ¤nzt werden: ${error.message}`
       );
     }
   }
@@ -563,7 +540,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
         { status: 400 }
       );
     }
@@ -614,7 +591,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, message: "Keine Anfrage-ID übergeben." },
+        { ok: false, message: "Keine Anfrage-ID Ã¼bergeben." },
         { status: 400 }
       );
     }
@@ -766,3 +743,4 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+

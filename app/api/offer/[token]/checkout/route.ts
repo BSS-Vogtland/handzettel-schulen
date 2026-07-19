@@ -1,6 +1,8 @@
+
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendRequestInvoiceMail } from "@/app/lib/requestInvoiceMailService";
+import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +50,10 @@ type RequestRow = {
   child_name: string | null;
   school_name: string | null;
   class_name: string | null;
+  checkout_override_enabled: boolean | null;
+  checkout_override_at: string | null;
+  checkout_override_note: string | null;
+  checkout_override_by: string | null;
 };
 
 type OfferItemRow = {
@@ -87,7 +93,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -138,30 +144,6 @@ function toNumber(value: unknown, fallback = 0) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function isResolvedRequestItemForCheckout(item: RequestItemRow) {
-  const status = String(item.status || "").trim().toLowerCase();
-  const adminResolutionStatus = String(
-    item.admin_resolution_status || ""
-  )
-    .trim()
-    .toLowerCase();
-
-  return (
-    status === "customer_supplies_self" ||
-    status === "covered_by_alternative" ||
-    status === "resolved" ||
-    status === "done" ||
-    status === "not_needed" ||
-    status === "ignored" ||
-    adminResolutionStatus === "customer_supplies_self" ||
-    adminResolutionStatus === "covered_by_alternative" ||
-    adminResolutionStatus === "resolved" ||
-    adminResolutionStatus === "done" ||
-    adminResolutionStatus === "not_needed" ||
-    adminResolutionStatus === "ignored"
-  );
 }
 
 async function getInvoiceNumber(
@@ -279,7 +261,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Kein Paketwunsch-Token übergeben.",
+          message: "Kein Paketwunsch-Token Ã¼bergeben.",
         },
         { status: 400 }
       );
@@ -337,7 +319,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib eine gültige E-Mail-Adresse ein.",
+          message: "Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.",
         },
         { status: 400 }
       );
@@ -347,7 +329,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib gültige Rechnungsdaten ein.",
+          message: "Bitte gib gÃ¼ltige Rechnungsdaten ein.",
         },
         { status: 400 }
       );
@@ -357,7 +339,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib Deine vollständige Rechnungsadresse ein.",
+          message: "Bitte gib Deine vollstÃ¤ndige Rechnungsadresse ein.",
         },
         { status: 400 }
       );
@@ -370,7 +352,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib die vollständige abweichende Lieferadresse ein.",
+          message: "Bitte gib die vollstÃ¤ndige abweichende Lieferadresse ein.",
         },
         { status: 400 }
       );
@@ -393,6 +375,10 @@ export async function POST(request: Request, context: RouteContext) {
           "child_name",
           "school_name",
           "class_name",
+          "checkout_override_enabled",
+          "checkout_override_at",
+          "checkout_override_note",
+          "checkout_override_by",
         ].join(", ")
       )
       .eq("offer_token", offerToken)
@@ -449,7 +435,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Dein Paketwunsch enthält noch keine Produkte und kann noch nicht bestellt werden.",
+            "Dein Paketwunsch enthÃ¤lt noch keine Produkte und kann noch nicht bestellt werden.",
         },
         { status: 409 }
       );
@@ -470,27 +456,20 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
+          message: `Listenpositionen konnten nicht geprÃ¼ft werden: ${requestItemsError.message}`,
         },
         { status: 500 }
       );
     }
 
     const requestItems = ((requestItemsData || []) as unknown) as RequestItemRow[];
-    const coveredRequestItemIds = new Set(
-      ((offerItemsData || []) as Array<{ request_item_id?: string | null }>)
-        .map((item) => item.request_item_id)
-        .filter((value): value is string => Boolean(value))
+    const blockingState = getRequestBlockingState(
+      requestItems,
+      offerItems,
+      requestRow.checkout_override_enabled === true
     );
-    const checkoutBlockingRequestItems = requestItems.filter((item) => {
-      const status = cleanString(item.status).toLowerCase();
-
-      if (coveredRequestItemIds.has(item.id)) return false;
-      if (isResolvedRequestItemForCheckout(item)) return false;
-
-      return status !== "selected";
-    });
-
+    const coveredRequestItemIds = blockingState.coveredRequestItemIds;
+    const checkoutBlockingRequestItems = blockingState.effectiveBlockingItems;
 
     if (checkoutBlockingRequestItems.length > 0) {
       await supabase
@@ -506,9 +485,9 @@ export async function POST(request: Request, context: RouteContext) {
         supabase,
         requestId,
         eventType: "customer_package_submitted_manual_review",
-        title: "Paketwunsch benötigt Prüfung",
+        title: "Paketwunsch benÃ¶tigt PrÃ¼fung",
         description:
-          "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
+          "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prÃ¼fen.",
         metadata: {
           open_request_items_count: checkoutBlockingRequestItems.length,
           covered_request_item_ids: Array.from(coveredRequestItemIds),
@@ -517,7 +496,7 @@ export async function POST(request: Request, context: RouteContext) {
             status: item.status,
             admin_resolution_status: item.admin_resolution_status,
             is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
-            is_resolved_for_checkout: isResolvedRequestItemForCheckout(item),
+            is_resolved_for_checkout: false,
           })),
           offer_items_count: offerItems.length,
           request_items_count: requestItems.length,
@@ -528,7 +507,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prüft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
+            "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prÃ¼ft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
         },
         { status: 409 }
       );
@@ -635,7 +614,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Die Rechnung wurde erzeugt, aber es wurde kein Rechnungstoken zurückgegeben.",
+            "Die Rechnung wurde erzeugt, aber es wurde kein Rechnungstoken zurÃ¼ckgegeben.",
         },
         { status: 500 }
       );
@@ -755,6 +734,11 @@ export async function POST(request: Request, context: RouteContext) {
         total_amount: totalAmount,
         fulfillment_method: fulfillmentMethod,
         payment_method: paymentMethod,
+        checkout_override_used:
+          requestRow.checkout_override_enabled === true &&
+          blockingState.rawBlockingCount > 0,
+        checkout_override_raw_blocking_count:
+          blockingState.rawBlockingCount,
       },
     });
 
@@ -798,3 +782,5 @@ export async function GET() {
     { status: 405 }
   );
 }
+
+
