@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BookOpen, Mail } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Mail,
+  PackageCheck,
+} from "lucide-react";
 import { supabaseServer } from "@/lib/supabase/server";
 import AdminBookSupplierInquiryActions from "@/components/AdminBookSupplierInquiryActions";
 
@@ -95,6 +100,7 @@ export default async function AdminBookSupplierInquiryDetailPage({
     { data: partner, error: partnerError },
     { data: items, error: itemsError },
     { data: events, error: eventsError },
+    { data: orders, error: ordersError },
   ] = await Promise.all([
     supabaseServer
       .from("book_supplier_partners")
@@ -112,6 +118,13 @@ export default async function AdminBookSupplierInquiryDetailPage({
       .from("book_supplier_events")
       .select("*")
       .eq("inquiry_id", inquiry.id)
+      .order("created_at", {
+        ascending: false,
+      }),
+    supabaseServer
+      .from("book_supplier_orders")
+      .select("*")
+      .eq("source_inquiry_id", inquiry.id)
       .order("created_at", {
         ascending: false,
       }),
@@ -134,6 +147,12 @@ export default async function AdminBookSupplierInquiryDetailPage({
   if (eventsError) {
     throw new Error(
       `Ereignisse konnten nicht geladen werden: ${eventsError.message}`,
+    );
+  }
+
+  if (ordersError) {
+    throw new Error(
+      `Buchaufträge konnten nicht geladen werden: ${ordersError.message}`,
     );
   }
 
@@ -215,8 +234,75 @@ export default async function AdminBookSupplierInquiryDetailPage({
                 wasSent={Boolean(inquiry.sent_at)}
               />
             </div>
+
+            <div className="my-5 h-px bg-[#C8D8E8]" />
+
+            <p className="text-sm font-black text-[#102A43]">
+              Nach manueller Zahlungsprüfung
+            </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#52616F]">
+              Bücher und Mengen werden im nächsten Schritt
+              bewusst ausgewählt und verbindlich gesendet.
+            </p>
+
+            <Link
+              href={`/admin/buchhandlung/anfragen/${inquiry.id}/auftrag-neu`}
+              className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white"
+            >
+              <PackageCheck className="h-4 w-4" />
+              Verbindlichen Auftrag erstellen
+            </Link>
           </aside>
         </header>
+
+        {(orders || []).length > 0 ? (
+          <section className="rounded-[30px] border border-[#BFE3CD] bg-[#F0FFF6] p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="h-5 w-5 text-[#2F7D50]" />
+              <h2 className="text-xl font-black text-[#102A43]">
+                Verbindliche Buchaufträge
+              </h2>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {(orders || []).map((order) => (
+                <Link
+                  key={order.id}
+                  href={`/admin/buchhandlung/auftraege/${order.id}`}
+                  className="flex flex-col gap-2 rounded-2xl border border-[#BFE3CD] bg-white p-4 transition hover:border-[#2F7D50] sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-black">
+                      {order.order_number}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                      Erstellt {formatDate(order.created_at)}
+                      {order.customer_reference
+                        ? ` · ${order.customer_reference}`
+                        : ""}
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-[#EEF4FA] px-3 py-1 text-xs font-black text-[#12395F]">
+                    {order.status === "draft"
+                      ? "Entwurf"
+                      : order.status === "sent"
+                        ? "Gesendet"
+                        : order.status === "accepted"
+                          ? "Angenommen"
+                          : order.status === "partially_accepted"
+                            ? "Teilweise angenommen"
+                            : order.status === "unavailable"
+                              ? "Nicht lieferbar"
+                              : order.status === "ready"
+                                ? "Zur Abholung bereit"
+                                : order.status}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="grid gap-4">
           {(items || []).map((item, index) => (

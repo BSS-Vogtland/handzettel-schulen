@@ -337,3 +337,286 @@ export async function sendBookSupplierResponseNotification(params: {
     `,
   });
 }
+
+type SupplierOrder = {
+  order_number: string;
+  response_token: string;
+  customer_reference: string | null;
+  fulfillment_method: string;
+  admin_note: string | null;
+};
+
+type SupplierOrderItem = {
+  isbn: string;
+  title: string;
+  subtitle: string | null;
+  authors: string[] | null;
+  publisher: string | null;
+  quantity: number;
+  supplier_status?: string | null;
+  accepted_quantity?: number | null;
+  supplier_note?: string | null;
+};
+
+function getOrderStatusLabel(
+  status: string | null | undefined,
+) {
+  switch (status) {
+    case "accepted":
+      return "Angenommen";
+    case "partially_accepted":
+      return "Teilweise angenommen";
+    case "unavailable":
+      return "Nicht lieferbar";
+    case "ready":
+      return "Zur Abholung bereit";
+    default:
+      return "Noch nicht beantwortet";
+  }
+}
+
+function getFulfillmentLabel(
+  method: string | null | undefined,
+) {
+  return method === "delivery"
+    ? "Lieferung an Handzettel-Schulen.de"
+    : "Abholung bei der Buchhandlung";
+}
+
+export async function sendBookSupplierOrderMail(params: {
+  partner: SupplierPartner;
+  order: SupplierOrder;
+  sourceInquiryNumber: string;
+  items: SupplierOrderItem[];
+}) {
+  const recipient = clean(params.partner.email);
+
+  if (!recipient) {
+    throw new Error(
+      "Bei der Vogtländischen Buchhandlung ist noch keine E-Mail-Adresse hinterlegt.",
+    );
+  }
+
+  const responseUrl = `${getSiteUrl()}/lieferantenportal/buchauftrag/${encodeURIComponent(
+    params.order.response_token,
+  )}`;
+
+  const rowsHtml = params.items
+    .map((item) => {
+      const details = [
+        item.subtitle,
+        item.authors?.length
+          ? item.authors.join(", ")
+          : null,
+        item.publisher,
+      ]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join("<br />");
+
+      return `
+        <tr>
+          <td style="padding:12px;border-bottom:1px solid #E8DED2;font-weight:700;">
+            ${escapeHtml(item.isbn)}
+          </td>
+          <td style="padding:12px;border-bottom:1px solid #E8DED2;">
+            <strong>${escapeHtml(item.title)}</strong>
+            ${
+              details
+                ? `<div style="margin-top:4px;color:#52616F;font-size:13px;">${details}</div>`
+                : ""
+            }
+          </td>
+          <td style="padding:12px;border-bottom:1px solid #E8DED2;text-align:center;font-weight:800;">
+            ${item.quantity}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const textRows = params.items
+    .map(
+      (item, index) =>
+        `${index + 1}. ${item.quantity} × ${item.title}\nISBN: ${item.isbn}`,
+    )
+    .join("\n\n");
+
+  const greeting = params.partner.contact_person
+    ? `Guten Tag ${params.partner.contact_person},`
+    : "Guten Tag,";
+
+  const customerReference = clean(
+    params.order.customer_reference,
+  );
+
+  await sendMail({
+    to: recipient,
+    subject: `Verbindlicher Buchauftrag ${params.order.order_number}`,
+    text: `${greeting}
+
+hiermit bestellen wir verbindlich die folgenden Titel:
+
+${textRows}
+
+Auftragsnummer: ${params.order.order_number}
+Bezug zur Verfügbarkeitsanfrage: ${params.sourceInquiryNumber}
+Abwicklung: ${getFulfillmentLabel(
+      params.order.fulfillment_method,
+    )}
+${
+  customerReference
+    ? `Interne Referenz: ${customerReference}\n`
+    : ""
+}${
+  params.order.admin_note
+    ? `Hinweis:\n${params.order.admin_note}\n\n`
+    : ""
+}Auftrag bestätigen:
+${responseUrl}
+
+Vielen Dank.
+
+Handzettel-Schulen.de`,
+    html: `
+      <div style="margin:0;padding:24px;background:#FBF7F0;font-family:Arial,Helvetica,sans-serif;color:#102A43;">
+        <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #E8DED2;border-radius:24px;overflow:hidden;">
+          <div style="padding:24px 28px;background:#102A43;color:#ffffff;">
+            <div style="font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#F1D1A8;">
+              Handzettel-Schulen.de
+            </div>
+            <h1 style="margin:8px 0 0;font-size:26px;">
+              Verbindlicher Buchauftrag ${escapeHtml(
+                params.order.order_number,
+              )}
+            </h1>
+          </div>
+
+          <div style="padding:28px;">
+            <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
+              ${escapeHtml(greeting)}
+            </p>
+
+            <p style="font-size:16px;line-height:1.6;margin:0 0 22px;">
+              hiermit bestellen wir verbindlich die folgenden Titel.
+            </p>
+
+            <div style="margin-bottom:22px;padding:16px;border:1px solid #C8D8E8;background:#EEF4FA;border-radius:16px;">
+              <div><strong>Auftragsnummer:</strong> ${escapeHtml(
+                params.order.order_number,
+              )}</div>
+              <div style="margin-top:6px;"><strong>Verfügbarkeitsanfrage:</strong> ${escapeHtml(
+                params.sourceInquiryNumber,
+              )}</div>
+              <div style="margin-top:6px;"><strong>Abwicklung:</strong> ${escapeHtml(
+                getFulfillmentLabel(
+                  params.order.fulfillment_method,
+                ),
+              )}</div>
+              ${
+                customerReference
+                  ? `<div style="margin-top:6px;"><strong>Interne Referenz:</strong> ${escapeHtml(
+                      customerReference,
+                    )}</div>`
+                  : ""
+              }
+            </div>
+
+            <table style="width:100%;border-collapse:collapse;border:1px solid #E8DED2;border-radius:16px;overflow:hidden;">
+              <thead>
+                <tr style="background:#FBF7F0;">
+                  <th style="padding:12px;text-align:left;">ISBN</th>
+                  <th style="padding:12px;text-align:left;">Titel</th>
+                  <th style="padding:12px;text-align:center;">Menge</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+
+            ${
+              params.order.admin_note
+                ? `<div style="margin-top:22px;padding:16px;border:1px solid #F1D1A8;background:#FFF8EE;border-radius:16px;">
+                    <strong>Hinweis:</strong><br />
+                    ${escapeHtml(params.order.admin_note)}
+                  </div>`
+                : ""
+            }
+
+            <div style="margin-top:26px;">
+              <a
+                href="${escapeHtml(responseUrl)}"
+                style="display:inline-block;padding:15px 22px;border-radius:14px;background:#B5282D;color:#ffffff;text-decoration:none;font-weight:800;"
+              >
+                Auftrag bestätigen
+              </a>
+            </div>
+
+            <p style="margin:24px 0 0;color:#52616F;font-size:13px;line-height:1.5;">
+              Der Link ist ausschließlich für diesen Auftrag gültig.
+            </p>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+}
+
+export async function sendBookSupplierOrderResponseNotification(
+  params: {
+    partner: SupplierPartner;
+    order: SupplierOrder;
+    items: SupplierOrderItem[];
+  },
+) {
+  const recipient =
+    clean(process.env.BOOK_SUPPLIER_ADMIN_EMAIL) ||
+    clean(process.env.CONTACT_EMAIL) ||
+    clean(process.env.SMTP_USER) ||
+    clean(process.env.EMAIL_USER);
+
+  if (!recipient) {
+    return;
+  }
+
+  const rows = params.items
+    .map((item) => {
+      const details = [
+        `Status: ${getOrderStatusLabel(
+          item.supplier_status,
+        )}`,
+        item.accepted_quantity !== null &&
+        item.accepted_quantity !== undefined
+          ? `Bestätigte Menge: ${item.accepted_quantity}`
+          : null,
+        item.supplier_note
+          ? `Notiz: ${item.supplier_note}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      return `<li style="margin-bottom:12px;"><strong>${escapeHtml(
+        item.title,
+      )}</strong><br />ISBN ${escapeHtml(
+        item.isbn,
+      )}<br />${escapeHtml(details)}</li>`;
+    })
+    .join("");
+
+  await sendMail({
+    to: recipient,
+    subject: `Rückmeldung zu Buchauftrag ${params.order.order_number}`,
+    text: `Die ${params.partner.name} hat den Buchauftrag ${params.order.order_number} aktualisiert.`,
+    html: `
+      <div style="font-family:Arial,Helvetica,sans-serif;color:#102A43;">
+        <h1>Rückmeldung zu ${escapeHtml(
+          params.order.order_number,
+        )}</h1>
+        <p>Die ${escapeHtml(
+          params.partner.name,
+        )} hat den verbindlichen Buchauftrag aktualisiert.</p>
+        <ul>${rows}</ul>
+      </div>
+    `,
+  });
+}
