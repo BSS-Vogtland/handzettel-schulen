@@ -21,7 +21,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -175,7 +175,7 @@ function createTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    throw new Error("SMTP-Konfiguration unvollstÃ¤ndig.");
+    throw new Error("SMTP-Konfiguration unvollständig.");
   }
 
   return nodemailer.createTransport({
@@ -283,7 +283,7 @@ function createMailHtml(params: {
                     </td>
                     <td valign="middle" style="padding:0;">
                       <div style="font-size:22px;font-weight:800;letter-spacing:-0.3px;line-height:1.15;white-space:nowrap;">Handzettel-Schulen.de</div>
-                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Paketwunsch prÃ¼fen und bestÃ¤tigen</div>
+                      <div style="margin-top:6px;font-size:14px;line-height:1.35;color:#F7EFE6;">Paketwunsch prüfen und bestätigen</div>
                     </td>
                   </tr>
                 </table>
@@ -299,7 +299,7 @@ function createMailHtml(params: {
                 </p>
 
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.55;">
-                  Bitte prÃ¼fe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestÃ¤tigst Du anschlieÃŸend Deinen Paketwunsch und schlieÃŸt die Bestellung ab.
+                  Bitte prüfe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab.
                 </p>
 
                 ${
@@ -345,7 +345,7 @@ function createMailHtml(params: {
                   <tr>
                     <td style="border-radius:16px;background:#B5282D;">
                       <a href="${offerUrl}" style="display:inline-block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:800;border-radius:16px;">
-                        Paketwunsch prÃ¼fen
+                        Paketwunsch prüfen
                       </a>
                     </td>
                   </tr>
@@ -353,7 +353,7 @@ function createMailHtml(params: {
 
                 <div style="background:#FFF8EE;border:1px solid #F1D1A8;border-radius:18px;padding:16px;margin:24px 0;color:#8A4A1F;">
                   <p style="margin:0;font-size:14px;line-height:1.55;font-weight:700;">
-                    Wichtig: Mit dem Ã–ffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite prÃ¼fst, bestÃ¤tigst und den Checkout abschlieÃŸt, wird daraus eine verbindliche Bestellung.
+                    Wichtig: Mit dem Öffnen des Links bestellst Du noch nichts automatisch. Erst wenn Du Deinen Paketwunsch auf der Seite prüfst, bestätigst und den Checkout abschließt, wird daraus eine verbindliche Bestellung.
                   </p>
                 </div>
 
@@ -363,7 +363,7 @@ function createMailHtml(params: {
                 </p>
 
                 <p style="margin:26px 0 0;font-size:16px;line-height:1.55;">
-                  Viele GrÃ¼ÃŸe<br />
+                  Viele Grüße<br />
                   Dein Team von <span style="white-space:nowrap;">Handzettel-Schulen.de</span>
                 </p>
               </td>
@@ -371,7 +371,7 @@ function createMailHtml(params: {
 
             <tr>
               <td style="padding:18px 30px;background:#FBF7F0;color:#5C6B73;font-size:12px;line-height:1.45;">
-                Diese E-Mail wurde gesendet, weil Du Ã¼ber Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
+                Diese E-Mail wurde gesendet, weil Du über Handzettel-Schulen.de eine Schulmaterialliste eingereicht hast.
               </td>
             </tr>
           </table>
@@ -413,7 +413,7 @@ function createMailText(params: {
       const unit = getItemUnit(item);
       const totalPrice = getItemTotal(item);
 
-      return `- ${quantity} ${unit} ${name} Â· ${formatMoney(totalPrice)}`;
+      return `- ${quantity} ${unit} ${name} · ${formatMoney(totalPrice)}`;
     })
     .join("\n");
 
@@ -426,7 +426,7 @@ function createMailText(params: {
 
 Dein Paketwunsch ist fertig.
 
-Bitte prÃ¼fe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestÃ¤tigst Du anschlieÃŸend Deinen Paketwunsch und schlieÃŸt die Bestellung ab.
+Bitte prüfe die vorgeschlagenen Produkte in Ruhe.<br />\nWenn alles passt, bestätigst Du anschließend Deinen Paketwunsch und schließt die Bestellung ab.
 
 ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     childName ? `Kind: ${childName}\n` : ""
@@ -434,19 +434,19 @@ ${requestNumber ? `Anfrage: ${requestNumber}\n` : ""}${
     className ? `Klasse: ${className}\n` : ""
   }
 
-KurzÃ¼bersicht:
+Kurzübersicht:
 ${itemLines}${moreLine}
 
 Aktueller Paketwert: ${formatMoney(total)}
 
-Paketwunsch prÃ¼fen:
+Paketwunsch prüfen:
 ${offerUrl}
 
 Wichtig:
-Mit dem Ã–ffnen des Links bestellst Du noch nichts automatisch.
-Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns Ã¼bermittelt.
+Mit dem Öffnen des Links bestellst Du noch nichts automatisch.
+Erst wenn Du Deinen Paketwunsch auf der Seite bewusst absendest, wird er an uns übermittelt.
 
-Viele GrÃ¼ÃŸe
+Viele Grüße
 Dein Team von Handzettel-Schulen.de`;
 }
 
@@ -495,7 +495,7 @@ export async function POST(_request: Request, context: RouteContext) {
 
     if (!requestId) {
       return NextResponse.json(
-        { ok: false, error: "UngÃ¼ltige Anfrage-ID." },
+        { ok: false, error: "Ungültige Anfrage-ID." },
         { status: 400 }
       );
     }
@@ -531,7 +531,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "FÃ¼r diese Anfrage wurde keine Kunden-E-Mail gefunden. Bitte prÃ¼fe die Anfrage-Daten.",
+            "Für diese Anfrage wurde keine Kunden-E-Mail gefunden. Bitte prüfe die Anfrage-Daten.",
         },
         { status: 400 }
       );
@@ -542,7 +542,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "FÃ¼r diese Anfrage wurde kein Angebots-Token gefunden. Der Paketwunsch-Link kann nicht erstellt werden.",
+            "Für diese Anfrage wurde kein Angebots-Token gefunden. Der Paketwunsch-Link kann nicht erstellt werden.",
         },
         { status: 400 }
       );
@@ -570,7 +570,7 @@ export async function POST(_request: Request, context: RouteContext) {
         {
           ok: false,
           error:
-            "Es sind noch keine Paketpositionen vorhanden. Bitte erst Liste auswerten, Produkte Ã¼bernehmen oder manuell ergÃ¤nzen.",
+            "Es sind noch keine Paketpositionen vorhanden. Bitte erst Liste auswerten, Produkte übernehmen oder manuell ergänzen.",
         },
         { status: 400 }
       );
@@ -688,7 +688,7 @@ await insertEvent({
 
     return NextResponse.json({
       ok: true,
-      message: "Paketwunsch-Mailversand wurde gestartet. Der Versand lÃ¤uft im Hintergrund.",
+      message: "Paketwunsch-Mailversand wurde gestartet. Der Versand läuft im Hintergrund.",
       sentTo: customerEmail,
       offerUrl,
     });

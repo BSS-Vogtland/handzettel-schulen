@@ -45,7 +45,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -183,7 +183,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         return jsonResponse(
           {
             ok: false,
-            message: "Das gewÃ¤hlte Bestandsprodukt wurde nicht gefunden.",
+            message: "Das gewählte Bestandsprodukt wurde nicht gefunden.",
           },
           404
         );
@@ -209,7 +209,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib eine gÃ¼ltige Menge ein.",
+          message: "Bitte gib eine gültige Menge ein.",
         },
         400
       );
@@ -219,7 +219,7 @@ export async function PATCH(request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: "Bitte gib einen gÃ¼ltigen Einzelpreis ein.",
+          message: "Bitte gib einen gültigen Einzelpreis ein.",
         },
         400
       );
@@ -230,7 +230,7 @@ export async function PATCH(request: NextRequest, context: Params) {
         {
           ok: false,
           message:
-            "Das gewÃ¤hlte Bestandsprodukt hat keinen gÃ¼ltigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
+            "Das gewählte Bestandsprodukt hat keinen gültigen Preis. Bitte pflege den Preis zuerst in der Produktverwaltung.",
         },
         400
       );
@@ -311,8 +311,8 @@ export async function PATCH(request: NextRequest, context: Params) {
       id,
       "admin_offer_item_updated",
       selectedProduct
-        ? `Paketposition wurde auf Shopartikel â€ž${productName}â€œ geÃ¤ndert.`
-        : `Paketposition â€ž${productName}â€œ wurde aktualisiert.`,
+        ? `Paketposition wurde auf Shopartikel „${productName}“ geändert.`
+        : `Paketposition „${productName}“ wurde aktualisiert.`,
       {
         offerItemId: itemId,
         requestItemId:
@@ -336,7 +336,7 @@ export async function PATCH(request: NextRequest, context: Params) {
     return jsonResponse({
       ok: true,
       message: selectedProduct
-        ? "Paketposition wurde auf den gewÃ¤hlten Shopartikel geÃ¤ndert."
+        ? "Paketposition wurde auf den gewählten Shopartikel geändert."
         : "Paketposition wurde aktualisiert.",
       item: updatedItem,
     });
@@ -437,7 +437,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
       return jsonResponse(
         {
           ok: false,
-          message: `Paketposition konnte nicht gelÃ¶scht werden: ${deleteError.message}`,
+          message: `Paketposition konnte nicht gelöscht werden: ${deleteError.message}`,
         },
         500
       );
@@ -463,7 +463,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
       supabase,
       id,
       "admin_offer_item_deleted",
-      "Admin hat eine Paketposition gelÃ¶scht.",
+      "Admin hat eine Paketposition gelöscht.",
       {
         offerItemId: itemId,
         requestItemId: offerItem.request_item_id || null,
@@ -480,7 +480,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
 
     return jsonResponse({
       ok: true,
-      message: "Paketposition wurde gelÃ¶scht.",
+      message: "Paketposition wurde gelöscht.",
     });
   } catch (error) {
     console.error("Admin delete offer item error:", error);
@@ -491,7 +491,7 @@ export async function DELETE(_request: NextRequest, context: Params) {
         message:
           error instanceof Error
             ? error.message
-            : "Paketposition konnte nicht gelÃ¶scht werden.",
+            : "Paketposition konnte nicht gelöscht werden.",
       },
       500
     );
