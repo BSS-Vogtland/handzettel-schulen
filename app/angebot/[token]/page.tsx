@@ -215,7 +215,7 @@ function getCustomerResolutionTitle(status: CustomerVisibleResolutionStatus) {
     case "customer_supplies_self":
       return "Bitte selbst besorgen";
     case "covered_by_alternative":
-      return "Bereits berÃ¼cksichtigt";
+      return "Bereits berücksichtigt";
     default:
       return "";
   }
@@ -224,7 +224,7 @@ function getCustomerResolutionTitle(status: CustomerVisibleResolutionStatus) {
 function getCustomerResolutionText(status: CustomerVisibleResolutionStatus) {
   switch (status) {
     case "customer_supplies_self":
-      return "Diesen Artikel fÃ¼hren wir aktuell nicht im Sortiment. Bitte besorge ihn separat.";
+      return "Diesen Artikel führen wir aktuell nicht im Sortiment. Bitte besorge ihn separat.";
     case "covered_by_alternative":
       return "Diese Position ist durch einen passenden Alternativartikel oder eine Sammelposition im Paketwunsch abgedeckt.";
     default:
@@ -239,7 +239,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -273,11 +273,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
-    .replace(/grÃ¼n/g, "gruen")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/grün/g, "gruen")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -584,7 +584,7 @@ function isStrictMatchVisible(item: RequestItem, match: RequestMatch) {
 }
 
 function isCustomerVisibleLearnedMatch(_match: RequestMatch) {
-  // S0: gelernte Alias-Treffer bleiben bis zur echten Lerntabelle Admin-PrÃ¼fung.
+  // S0: gelernte Alias-Treffer bleiben bis zur echten Lerntabelle Admin-Prüfung.
   return false;
 }
 function isCustomerHiddenReviewMatch(match: RequestMatch) {
@@ -592,7 +592,7 @@ function isCustomerHiddenReviewMatch(match: RequestMatch) {
 
   return (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prÃ¼fung") ||
+    reason.includes("admin-prüfung") ||
     reason.includes("admin-pruefung") ||
     reason.includes("variantenmerkmale")
   );
@@ -602,10 +602,10 @@ function isAutoSelectionBlockedMatch(match: RequestMatch) {
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prÃ¼fung") ||
+    reason.includes("admin-prüfung") ||
     reason.includes("admin-pruefung") ||
     reason.includes("variantenmerkmale") ||
-    reason.includes("bitte prÃ¼fen") ||
+    reason.includes("bitte prüfen") ||
     reason.includes("bitte pruefen") ||
     reason.includes("teilweise erkannt")
   ) {
@@ -717,7 +717,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatFileSize(size: number | null) {
-  if (!size) return "â€”";
+  if (!size) return "—";
 
   if (size < 1024 * 1024) {
     return `${Math.round(size / 1024)} KB`;
@@ -739,15 +739,15 @@ function getMatchScoreLabel(score: unknown) {
 function getOfferItemSourceLabel(source: string | null) {
   switch (source) {
     case "auto_preselected":
-      return "FÃ¼r Dich vorausgewÃ¤hlt";
+      return "Für Dich vorausgewählt";
     case "admin_manual":
-      return "Von Handzettel-Schulen.de ergÃ¤nzt";
+      return "Von Handzettel-Schulen.de ergänzt";
     case "admin_existing_product":
-      return "Von Handzettel-Schulen.de ergÃ¤nzt";
+      return "Von Handzettel-Schulen.de ergänzt";
     case "customer_search":
       return "Von Dir gesucht";
     case "customer_selection":
-      return "Von Dir ausgewÃ¤hlt";
+      return "Von Dir ausgewählt";
     case "match":
       return "";
     default:
@@ -764,7 +764,7 @@ function getQuestionStatusLabel(status: string | null) {
     case "resolved":
       return "Erledigt";
     default:
-      return status || "RÃ¼ckfrage";
+      return status || "Rückfrage";
   }
 }
 
@@ -812,7 +812,7 @@ function getCleanCustomerOfferItemNote(item: { notes?: string | null }) {
     const scoreMatch = note.match(/(\d{1,3})\s*%/);
     const score = scoreMatch ? scoreMatch[1] : "99";
 
-    return `Automatisch vorausgewÃ¤hlt, da der Produkttreffer ${score} % Ãœbereinstimmung erreicht hat.`;
+    return `Automatisch vorausgewählt, da der Produkttreffer ${score} % Übereinstimmung erreicht hat.`;
   }
 
   return note;
@@ -832,10 +832,10 @@ function getOfferItemScoreLabel(
   if (score <= 0) return null;
 
   if (item.source === "auto_preselected" || score >= AUTO_PRESELECT_MIN_SCORE) {
-    return `VorausgewÃ¤hlt Â· ${score} %`;
+    return `Vorausgewählt · ${score} %`;
   }
 
-  return `${getMatchScoreLabel(score)} Â· ${score} %`;
+  return `${getMatchScoreLabel(score)} · ${score} %`;
 }
 
 function isAutoPreselectedOfferItem(
@@ -926,10 +926,10 @@ async function insertMissingSafeMatchesIntoOffer(params: {
         unit: "Stk.",
         source: "auto_preselected",
         status: "preselected",
-        notes: `Automatisch vorausgewÃ¤hlt, da der Produkttreffer ${toNumber(
+        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
           bestSafeMatch.match_score,
           0
-        )} % Ãœbereinstimmung erreicht hat.`,
+        )} % Übereinstimmung erreicht hat.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -948,7 +948,7 @@ async function insertMissingSafeMatchesIntoOffer(params: {
   await supabase.from("school_request_events").insert({
     request_id: request.id,
     event_type: "customer_auto_preselected_items_repaired",
-    title: "Sichere Treffer automatisch ergÃ¤nzt",
+    title: "Sichere Treffer automatisch ergänzt",
     description: `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt. Schwelle: ${AUTO_PRESELECT_MIN_SCORE} %.`,
     created_at: new Date().toISOString(),
   });
@@ -1187,7 +1187,7 @@ function CustomerChildPackageOverview({
 
               {meta.length > 0 ? (
                 <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                  {meta.join(" Â· ")}
+                  {meta.join(" · ")}
                 </p>
               ) : null}
             </li>
@@ -1217,7 +1217,7 @@ function toK4e2Number(value: unknown, fallback = 0) {
 
 function formatK4e2Money(value: unknown) {
   const amount = toK4e2Number(value, 0);
-  return amount.toFixed(2).replace(".", ",") + " Ã¢â€šÂ¬";
+  return amount.toFixed(2).replace(".", ",") + " €";
 }
 
 function getK4e2OfferTitle(item: OfferItem) {
@@ -1248,10 +1248,10 @@ function getK4e2OfferSourceLabel(item: OfferItem) {
   switch (source) {
     case "customer_selection":
     case "customer_search":
-      return "Von Dir gewÃ¤hlt";
+      return "Von Dir gewählt";
     case "admin_manual":
     case "admin_existing_product":
-      return "Von Handzettel-Schulen.de ergÃ¤nzt";
+      return "Von Handzettel-Schulen.de ergänzt";
     default:
       return "";
   }
@@ -1408,7 +1408,7 @@ function CustomerChildDetailedPackageSections({
       groups.push({
         id: "unassigned",
         label: "Noch nicht zugeordnet",
-        meta: ["Diese Positionen werden vom Team geprÃ¼ft."],
+        meta: ["Diese Positionen werden vom Team geprüft."],
         files: unassignedFiles,
         items: unassignedItems,
         offerItems: unassignedOfferItems,
@@ -1437,7 +1437,7 @@ function CustomerChildDetailedPackageSections({
         </h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
           Jede Liste wird je Kind angezeigt. Du kannst Paketartikel entfernen,
-          Hinweise speichern, offene Positionen auswÃ¤hlen oder selbst ein Produkt
+          Hinweise speichern, offene Positionen auswählen oder selbst ein Produkt
           suchen.
         </p>
       </div>
@@ -1601,7 +1601,7 @@ function CustomerChildDetailedPackageSections({
                   </ul>
                 ) : (
                   <p className="rounded-2xl border border-[#BFE3CD] bg-white p-3 text-sm font-semibold text-[#52616F]">
-                    FÃ¼r dieses Kind liegt noch keine Paketposition vor.
+                    Für dieses Kind liegt noch keine Paketposition vor.
                   </p>
                 )}
               </div>
@@ -1757,7 +1757,7 @@ function CustomerChildDetailedPackageSections({
                             </div>
                           ) : (
                             <p className="rounded-2xl border border-dashed border-[#F1D1A8] bg-[#FFF8EE] p-3 text-sm font-semibold text-[#A75B28]">
-                              FÃ¼r diese Position gibt es noch keinen sicheren Produktvorschlag. Du kannst unten selbst suchen oder die Position vom Team prÃ¼fen lassen.
+                              Für diese Position gibt es noch keinen sicheren Produktvorschlag. Du kannst unten selbst suchen oder die Position vom Team prüfen lassen.
                             </p>
                           )}
 
@@ -1785,7 +1785,7 @@ function CustomerChildDetailedPackageSections({
                   </ul>
                 ) : (
                   <p className="rounded-2xl border border-[#F1D1A8] bg-white p-3 text-sm font-semibold text-[#52616F]">
-                    FÃ¼r dieses Kind sind aktuell keine Listenpositionen offen.
+                    Für dieses Kind sind aktuell keine Listenpositionen offen.
                   </p>
                 )}
               </div>
@@ -1959,7 +1959,7 @@ const { data: customerDecisionEventsData, error: customerDecisionEventsError } =
 
     if (matchError) {
       throw new Error(
-        `ProduktvorschlÃ¤ge konnten nicht geladen werden: ${matchError.message}`
+        `Produktvorschläge konnten nicht geladen werden: ${matchError.message}`
       );
     }
 
@@ -2343,8 +2343,8 @@ const customerOpenPositionScreenMode =
             </h1>
 
             <p className="mt-3 max-w-2xl text-base font-semibold leading-relaxed text-[#52616F]">
-              Bitte prÃ¼fe die Artikel. Du kannst einzelne Positionen noch entfernen.
-              Wenn alles passt, bestÃ¤tigst Du den Paketwunsch und schlieÃŸt danach die Bestellung ab.
+              Bitte prüfe die Artikel. Du kannst einzelne Positionen noch entfernen.
+              Wenn alles passt, bestätigst Du den Paketwunsch und schließt danach die Bestellung ab.
             </p>
           </section>
 
@@ -2406,7 +2406,7 @@ const customerOpenPositionScreenMode =
                             ) : null}
 
                             <p className="mt-2 text-sm font-semibold text-[#52616F]">
-                              {quantity} Ã— {formatMoney(unitPrice)}
+                              {quantity} × {formatMoney(unitPrice)}
                             </p>
                           
                             <CustomerProductDetailsDialog
@@ -2455,8 +2455,8 @@ const customerOpenPositionScreenMode =
                     disabled={hasOpenCustomerBlockingItems}
                     buttonLabel={
                       hasOpenCustomerBlockingItems
-                        ? "Offene Positionen zuerst klÃ¤ren"
-                        : "Paketwunsch bestÃ¤tigen"
+                        ? "Offene Positionen zuerst klären"
+                        : "Paketwunsch bestätigen"
                     }
                   />
                 </div>
@@ -2470,10 +2470,10 @@ const customerOpenPositionScreenMode =
                 Empfehlungen
               </p>
               <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                Sinnvolle ErgÃ¤nzungen
+                Sinnvolle Ergänzungen
               </h2>
               <p className="mt-2 text-sm font-semibold text-[#52616F]">
-                Maximal 3 VorschlÃ¤ge. Du kannst sie bei Bedarf hinzufÃ¼gen.
+                Maximal 3 Vorschläge. Du kannst sie bei Bedarf hinzufügen.
               </p>
             </div>
 
@@ -2519,26 +2519,26 @@ const isFreshBeforeAnalysis =
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#2F7D50]">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  PersÃ¶nlicher Service
+                  Persönlicher Service
                 </div>
 
                 <h1 className="mt-4 text-3xl font-black tracking-tight text-[#102A43] sm:text-5xl">
-                  Wir Ã¼bernehmen die persÃ¶nliche PrÃ¼fung.
+                  Wir übernehmen die persönliche Prüfung.
                 </h1>
 
                 <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-[#52616F]">
                   Deine Liste ist bei uns angekommen. Die automatische
                   Vorbereitung konnte Deine Liste nicht direkt eindeutig
-                  zuordnen â€“ das ist kein Problem. Genau dafÃ¼r gibt es unseren
-                  persÃ¶nlichen Service: Wir schauen uns Deine Liste jetzt
-                  manuell an und suchen die passenden Schulmaterialien fÃ¼r Dich
+                  zuordnen – das ist kein Problem. Genau dafür gibt es unseren
+                  persönlichen Service: Wir schauen uns Deine Liste jetzt
+                  manuell an und suchen die passenden Schulmaterialien für Dich
                   heraus.
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <div className="rounded-[22px] border border-[#BFE3CD] bg-[#F0FFF6] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-[#2F7D50]">
-                      BestÃ¤tigt
+                      Bestätigt
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#2F7D50]">
                       Deine Anfrage ist angekommen.
@@ -2550,13 +2550,13 @@ const isFreshBeforeAnalysis =
                       Service
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#52616F]">
-                      Wir prÃ¼fen die Liste persÃ¶nlich.
+                      Wir prüfen die Liste persönlich.
                     </p>
                   </div>
 
                   <div className="rounded-[22px] border border-[#D6E7EF] bg-[#F5FAFD] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
-                      NÃ¤chster Schritt
+                      Nächster Schritt
                     </p>
                     <p className="mt-1 text-sm font-black leading-6 text-[#12395F]">
                       Du bekommst eine Nachricht per WhatsApp, sobald Dein Paketwunsch fertig ist.
@@ -2580,9 +2580,9 @@ const isFreshBeforeAnalysis =
                       </h2>
 
                       <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                        Unser Team sucht die passenden Artikel fÃ¼r Dich heraus.
+                        Unser Team sucht die passenden Artikel für Dich heraus.
                         Sobald Dein Paketwunsch vorbereitet ist, bekommst Du
-                        eine email mit Deinem persÃ¶nlichen PrÃ¼flink.
+                        eine E-Mail mit Deinem persönlichen Prüflink.
                       </p>
                     </div>
                   </div>
@@ -2592,14 +2592,14 @@ const isFreshBeforeAnalysis =
               <aside className="flex flex-col gap-4">
                 <div className="inline-flex min-h-[76px] w-full items-center justify-center gap-3 rounded-[28px] border border-[#BFE3CD] bg-[#F0FFF6] px-8 py-5 text-center text-xl font-black text-[#2F7D50] shadow-sm">
                   <CheckCircle2 className="h-6 w-6" />
-                  <span>Wird persÃ¶nlich fÃ¼r Dich vorbereitet</span>
+                  <span>Wird persönlich für Dich vorbereitet</span>
                 </div>
 
                 <div className="overflow-hidden rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] shadow-sm">
                   <div className="relative h-[280px] w-full bg-white">
                     <Image
                       src="/service-schulheft-assistentin.png"
-                      alt="Freundliche Mitarbeiterin sucht passende Schulhefte fÃ¼r den Kunden aus dem Regal"
+                      alt="Freundliche Mitarbeiterin sucht passende Schulhefte für den Kunden aus dem Regal"
                       fill
                       className="object-cover"
                       priority
@@ -2609,18 +2609,18 @@ const isFreshBeforeAnalysis =
                   <div className="p-5">
                     <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#A75B28]">
                       <Search className="h-3.5 w-3.5" />
-                      Unser Service fÃ¼r Dich
+                      Unser Service für Dich
                     </div>
 
                     <h3 className="mt-3 text-xl font-black text-[#102A43]">
-                      Wir suchen nicht nur automatisch â€“ wir prÃ¼fen auch
-                      persÃ¶nlich.
+                      Wir suchen nicht nur automatisch – wir prüfen auch
+                      persönlich.
                     </h3>
 
                     <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
                       Wenn ein Artikel nicht sofort automatisch erkannt wird,
                       ist das kein Problem. Genau dann schaut unser Team
-                      persÃ¶nlich auf Deine Liste.
+                      persönlich auf Deine Liste.
                     </p>
                   </div>
                 </div>
@@ -2704,14 +2704,14 @@ const isFreshBeforeAnalysis =
 
                   <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-5xl">
                     {isConfirmed
-                      ? "Dein Schulpaket ist bestÃ¤tigt"
+                      ? "Dein Schulpaket ist bestätigt"
                       : "Dein Paketwunsch ist fertig."}
                   </h1>
 
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base sm:leading-7">
                     {isConfirmed
-                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de Ã¼bermittelt. Wir prÃ¼fen."
-                      : "Bitte prÃ¼fe Deinen Paketwunsch. Wenn alles passt, bestÃ¤tigst Du ihn und schlieÃŸt danach die Bestellung ab."}
+                      ? "Dein Paketwunsch wurde an Handzettel-Schulen.de übermittelt. Wir prüfen."
+                      : "Bitte prüfe Deinen Paketwunsch. Wenn alles passt, bestätigst Du ihn und schließt danach die Bestellung ab."}
                   </p>
 
                 </div>
@@ -2724,7 +2724,7 @@ const isFreshBeforeAnalysis =
                       Sicher
                     </p>
                     <p className="mt-1 font-black">
-                      Treffer ab 85 % werden vorausgewÃ¤hlt.
+                      Treffer ab 85 % werden vorausgewählt.
                     </p>
                   </div>
 
@@ -2733,7 +2733,7 @@ const isFreshBeforeAnalysis =
                       Offen
                     </p>
                     <p className="mt-1 font-black">
-                      Wenn etwas offen bleibt, entscheidest Du: selbst ergÃ¤nzen oder Team Ã¼bernehmen lassen.
+                      Wenn etwas offen bleibt, entscheidest Du: selbst ergänzen oder Team übernehmen lassen.
                     </p>
                   </div>
 
@@ -2742,7 +2742,7 @@ const isFreshBeforeAnalysis =
                       Service
                     </p>
                     <p className="mt-1 font-black">
-                      Wir Ã¼bernehmen offene Positionen, sobald Du es auswÃ¤hlst.
+                      Wir übernehmen offene Positionen, sobald Du es auswählst.
                     </p>
                   </div>
                 </div>
@@ -2772,7 +2772,7 @@ const isFreshBeforeAnalysis =
                 </div>
 
                 <div className="flex justify-between gap-3">
-                  <span>Noch klÃ¤ren</span>
+                  <span>Noch klären</span>
                   <span className="font-black text-[#A75B28]">
                     {openChoiceItems.length}
                   </span>
@@ -2793,8 +2793,8 @@ const isFreshBeforeAnalysis =
                     disabled={hasOpenCustomerBlockingItems}
                     buttonLabel={
                       hasOpenCustomerBlockingItems
-                        ? "Offene Positionen zuerst klÃ¤ren"
-                        : "Paketwunsch bestÃ¤tigen"
+                        ? "Offene Positionen zuerst klären"
+                        : "Paketwunsch bestätigen"
                     }
                   />
                 </div>
@@ -2802,8 +2802,8 @@ const isFreshBeforeAnalysis =
 
               {!isConfirmed ? (
                 <p className="mt-4 text-xs font-semibold leading-5 text-[#52616F]">
-                  Du kommst erst mit dem BestÃ¤tigungsbutton in den Checkout
-                  ab. Vorher kannst Du Artikel entfernen oder ergÃ¤nzen.
+                  Du kommst erst mit dem Bestätigungsbutton in den Checkout
+                  ab. Vorher kannst Du Artikel entfernen oder ergänzen.
                 </p>
               ) : null}
 
@@ -2812,7 +2812,7 @@ const isFreshBeforeAnalysis =
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-sm font-black">
-                      Dein Paketwunsch wurde bestÃ¤tigt.
+                      Dein Paketwunsch wurde bestätigt.
                     </p>
                   </div>
                 </div>
@@ -2830,14 +2830,14 @@ const isFreshBeforeAnalysis =
 
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                  Kurze RÃ¼ckfrage
+                  Kurze Rückfrage
                 </p>
                 <h2 className="text-2xl font-black text-[#102A43]">
                   Wir brauchen noch eine kurze Info von Dir
                 </h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                  Bitte beantworte die RÃ¼ckfrage direkt hier. Dann kÃ¶nnen wir
-                  die betroffene Position sauber prÃ¼fen und Dein Paket fertigstellen.
+                  Bitte beantworte die Rückfrage direkt hier. Dann können wir
+                  die betroffene Position sauber prüfen und Dein Paket fertigstellen.
                 </p>
               </div>
             </div>
@@ -2858,7 +2858,7 @@ const isFreshBeforeAnalysis =
                         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
                           {relatedItem
                             ? `Position: ${getK4e2RequestItemTitle(relatedItem)}`
-                            : "Allgemeine RÃ¼ckfrage"}
+                            : "Allgemeine Rückfrage"}
                         </p>
                         <p className="mt-2 whitespace-pre-wrap text-base font-black leading-7 text-[#102A43]">
                           {question.question_text}
@@ -2906,7 +2906,7 @@ const isFreshBeforeAnalysis =
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {request.school_name || "Schule nicht angegeben"}
-              {request.class_name ? ` Â· Klasse ${request.class_name}` : ""}
+              {request.class_name ? ` · Klasse ${request.class_name}` : ""}
             </p>
           </div>
 
@@ -2933,7 +2933,7 @@ const isFreshBeforeAnalysis =
               Bearbeitungsstand
             </p>
             <h2 className="mt-2 text-lg font-black">
-              {isConfirmed ? "Abgesendet" : "Noch prÃ¼fbar"}
+              {isConfirmed ? "Abgesendet" : "Noch prüfbar"}
             </h2>
             <p className="mt-1 text-sm text-[#52616F]">
               {handledItemCount} von {items.length} Positionen im Paket
@@ -2953,11 +2953,11 @@ const isFreshBeforeAnalysis =
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <h2 className="font-black">
-                  Dein Paketwunsch wurde erfolgreich bestÃ¤tigt.
+                  Dein Paketwunsch wurde erfolgreich bestätigt.
                 </h2>
                 <p className="mt-1 text-sm leading-6">
                   Handzettel-Schulen.de hat Deine Auswahl erhalten. Wenn noch
-                  etwas unklar ist, prÃ¼fen wir es persÃ¶nlich, bevor Dein Paket
+                  etwas unklar ist, prüfen wir es persönlich, bevor Dein Paket
                   final vorbereitet wird.
                 </p>
               </div>
@@ -2983,8 +2983,8 @@ const isFreshBeforeAnalysis =
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[#2F7D50]">
                       Diese Produkte passen sehr sicher zu Deiner Liste. Du
-                      musst hier nichts tun â€“ nur entfernen, falls Du einen
-                      Artikel nicht mÃ¶chtest.
+                      musst hier nichts tun – nur entfernen, falls Du einen
+                      Artikel nicht möchtest.
                     </p>
                   </div>
                 </div>
@@ -3022,7 +3022,7 @@ const isFreshBeforeAnalysis =
                               <div>
                                 <div className="mb-2 flex flex-wrap gap-2">
                                   <span className="rounded-full bg-[#2F7D50] px-3 py-1 text-xs font-black text-white">
-                                    {scoreLabel || "VorausgewÃ¤hlt"}
+                                    {scoreLabel || "Vorausgewählt"}
                                   </span>
 
                                   <span className="rounded-full bg-[#F0FFF6] px-3 py-1 text-xs font-black text-[#2F7D50]">
@@ -3111,10 +3111,10 @@ const isFreshBeforeAnalysis =
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        ZusÃ¤tzlich im Paket
+                        Zusätzlich im Paket
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Von Dir oder unserem Team ergÃ¤nzt
+                        Von Dir oder unserem Team ergänzt
                       </h2>
                     </div>
                   </div>
@@ -3247,9 +3247,9 @@ const isFreshBeforeAnalysis =
                         Diese Artikel brauchen noch eine Auswahl
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#A75B28]">
-                        Hier gibt es passende VorschlÃ¤ge, aber noch keinen
+                        Hier gibt es passende Vorschläge, aber noch keinen
                         Treffer, den wir ohne Deine Entscheidung automatisch
-                        Ã¼bernehmen mÃ¶chten.
+                        übernehmen möchten.
                       </p>
                     </div>
                   </div>
@@ -3348,7 +3348,7 @@ const isFreshBeforeAnalysis =
                                             {getMatchScoreLabel(
                                               match.match_score
                                             )}{" "}
-                                            Â· {toNumber(match.match_score, 0)} %
+                                            · {toNumber(match.match_score, 0)} %
                                           </span>
 
                                           {matchIndex === 0 ? (
@@ -3435,10 +3435,10 @@ const isFreshBeforeAnalysis =
                         Hinweis zu einzelnen Listenpositionen
                       </p>
                       <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-                        Diese Positionen sind geklÃ¤rt
+                        Diese Positionen sind geklärt
                       </h2>
                       <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                        FÃ¼r diese Artikel ist keine weitere Auswahl durch Dich nÃ¶tig.
+                        Für diese Artikel ist keine weitere Auswahl durch Dich nötig.
                       </p>
                     </div>
                   </div>
@@ -3518,15 +3518,15 @@ const isFreshBeforeAnalysis =
 
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                        PersÃ¶nlicher Service
+                        Persönlicher Service
                       </p>
                       <h2 className="text-2xl font-black text-[#102A43]">
-                        Diese Positionen prÃ¼fen wir fÃ¼r Dich
+                        Diese Positionen prüfen wir für Dich
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-[#52616F]">
                         Wenn kein sicherer Treffer vorhanden ist, raten wir
-                        nicht einfach. Diese Artikel werden von uns persÃ¶nlich
-                        geprÃ¼ft und sauber ergÃ¤nzt.
+                        nicht einfach. Diese Artikel werden von uns persönlich
+                        geprüft und sauber ergänzt.
                       </p>
                     </div>
                   </div>
@@ -3543,7 +3543,7 @@ const isFreshBeforeAnalysis =
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                                PrÃ¼fposition {index + 1}
+                                Prüfposition {index + 1}
                               </p>
 
                               <h3 className="mt-1 text-xl font-black text-[#102A43]">
@@ -3576,13 +3576,13 @@ const isFreshBeforeAnalysis =
                               </div>
 
                               <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
-                                Du musst hier nichts weiter tun. Wir prÃ¼fen
-                                diese Position persÃ¶nlich.
+                                Du musst hier nichts weiter tun. Wir prüfen
+                                diese Position persönlich.
                               </p>
                             </div>
 
                             <div className="rounded-2xl border border-[#E8DED2] bg-white px-4 py-3 text-sm font-black text-[#A75B28]">
-                              Wird geprÃ¼ft
+                              Wird geprüft
                             </div>
                           </div>
 
@@ -3686,8 +3686,8 @@ const isFreshBeforeAnalysis =
                         disabled={hasOpenCustomerBlockingItems}
                         buttonLabel={
                           hasOpenCustomerBlockingItems
-                            ? "Offene Positionen zuerst klÃ¤ren"
-                            : "Paketwunsch bestÃ¤tigen"
+                            ? "Offene Positionen zuerst klären"
+                            : "Paketwunsch bestätigen"
                         }
                       />
                     ) : null}
@@ -3705,8 +3705,8 @@ const isFreshBeforeAnalysis =
                     Keine Sorge bei unklaren Artikeln.
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                    Wenn etwas nicht eindeutig erkannt wurde, prÃ¼fen wir es
-                    persÃ¶nlich, statt Dir ein falsches Produkt vorzuschlagen.
+                    Wenn etwas nicht eindeutig erkannt wurde, prüfen wir es
+                    persönlich, statt Dir ein falsches Produkt vorzuschlagen.
                   </p>
                 </section>
               ) : null}

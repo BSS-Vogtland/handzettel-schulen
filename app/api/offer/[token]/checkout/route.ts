@@ -93,7 +93,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -261,7 +261,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Kein Paketwunsch-Token Ã¼bergeben.",
+          message: "Kein Paketwunsch-Token übergeben.",
         },
         { status: 400 }
       );
@@ -319,7 +319,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.",
+          message: "Bitte gib eine gültige E-Mail-Adresse ein.",
         },
         { status: 400 }
       );
@@ -329,7 +329,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib gÃ¼ltige Rechnungsdaten ein.",
+          message: "Bitte gib gültige Rechnungsdaten ein.",
         },
         { status: 400 }
       );
@@ -339,7 +339,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib Deine vollstÃ¤ndige Rechnungsadresse ein.",
+          message: "Bitte gib Deine vollständige Rechnungsadresse ein.",
         },
         { status: 400 }
       );
@@ -352,7 +352,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib die vollstÃ¤ndige abweichende Lieferadresse ein.",
+          message: "Bitte gib die vollständige abweichende Lieferadresse ein.",
         },
         { status: 400 }
       );
@@ -435,7 +435,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Dein Paketwunsch enthÃ¤lt noch keine Produkte und kann noch nicht bestellt werden.",
+            "Dein Paketwunsch enthält noch keine Produkte und kann noch nicht bestellt werden.",
         },
         { status: 409 }
       );
@@ -456,7 +456,7 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Listenpositionen konnten nicht geprÃ¼ft werden: ${requestItemsError.message}`,
+          message: `Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
         },
         { status: 500 }
       );
@@ -485,9 +485,9 @@ export async function POST(request: Request, context: RouteContext) {
         supabase,
         requestId,
         eventType: "customer_package_submitted_manual_review",
-        title: "Paketwunsch benÃ¶tigt PrÃ¼fung",
+        title: "Paketwunsch benötigt Prüfung",
         description:
-          "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prÃ¼fen.",
+          "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
           open_request_items_count: checkoutBlockingRequestItems.length,
           covered_request_item_ids: Array.from(coveredRequestItemIds),
@@ -507,7 +507,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prÃ¼ft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
+            "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prüft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
         },
         { status: 409 }
       );
@@ -614,7 +614,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           ok: false,
           message:
-            "Die Rechnung wurde erzeugt, aber es wurde kein Rechnungstoken zurÃ¼ckgegeben.",
+            "Die Rechnung wurde erzeugt, aber es wurde kein Rechnungstoken zurückgegeben.",
         },
         { status: 500 }
       );
