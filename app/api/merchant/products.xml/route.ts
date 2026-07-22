@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getProductAvailability,
+  getProductAvailabilityDate,
+  getProductBrand,
+  getProductGtin,
+  getProductMpn,
+  productHasUniqueIdentifiers,
+} from "@/lib/product-commerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,10 +133,6 @@ function getProductSku(product: ProductRow) {
     "item_number",
     "artikelnummer",
   ]);
-}
-
-function getProductEan(product: ProductRow) {
-  return getStringValue(product, ["ean", "gtin", "barcode"]);
 }
 
 function getProductPrice(product: ProductRow) {
@@ -319,24 +323,37 @@ function buildFeedItem(product: ProductRow) {
   const link = `${siteUrl}/shop/produkt/${slug}`;
   const imageUrl = getProductImageUrl(product);
   const price = getProductPrice(product);
-  const ean = getProductEan(product);
-  const sku = getProductSku(product);
-  const brand = getStringValue(product, ["brand", "manufacturer", "marke"]) || "Handzettel-Schulen.de";
+  const gtin = getProductGtin(product);
+  const brand = getProductBrand(product);
+  const mpn = getProductMpn(product);
+  const availability = getProductAvailability(product);
+  const availabilityDate = getProductAvailabilityDate(product);
+  const identifierExists = productHasUniqueIdentifiers(product);
   const color = getProductColor(product);
   const productType = buildProductType(product);
   const googleProductCategory = getGoogleProductCategory(product);
 
-  if (!id || !title || price <= 0 || !imageUrl) {
+  if (!id || !title || !slug || price <= 0 || !imageUrl) {
     return "";
   }
 
-  const gtinTag = ean
-    ? `<g:gtin>${escapeXml(ean)}</g:gtin>`
+  const gtinTag = gtin
+    ? `<g:gtin>${escapeXml(gtin)}</g:gtin>`
     : "";
 
-  const mpnTag = sku
-    ? `<g:mpn>${escapeXml(sku)}</g:mpn>`
+  const brandTag = brand
+    ? `<g:brand>${escapeXml(brand)}</g:brand>`
     : "";
+
+  const mpnTag = brand && mpn
+    ? `<g:mpn>${escapeXml(mpn)}</g:mpn>`
+    : "";
+
+  const availabilityDateTag =
+    availabilityDate &&
+    (availability === "preorder" || availability === "backorder")
+      ? `<g:availability_date>${escapeXml(availabilityDate)}</g:availability_date>`
+      : "";
 
   const colorTag = color
     ? `<g:color>${escapeXml(color)}</g:color>`
@@ -349,12 +366,14 @@ function buildFeedItem(product: ProductRow) {
       <g:description>${escapeXml(description)}</g:description>
       <g:link>${escapeXml(link)}</g:link>
       <g:image_link>${escapeXml(imageUrl)}</g:image_link>
-      <g:availability>in_stock</g:availability>
+      <g:availability>${escapeXml(availability)}</g:availability>
+      ${availabilityDateTag}
       <g:price>${price.toFixed(2)} EUR</g:price>
       <g:condition>new</g:condition>
-      <g:brand>${escapeXml(brand)}</g:brand>
+      ${brandTag}
       ${gtinTag}
       ${mpnTag}
+      <g:identifier_exists>${identifierExists ? "yes" : "no"}</g:identifier_exists>
       ${colorTag}
       <g:google_product_category>${escapeXml(googleProductCategory)}</g:google_product_category>
       <g:product_type>${escapeXml(productType)}</g:product_type>

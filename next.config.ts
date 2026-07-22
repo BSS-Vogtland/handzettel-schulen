@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/upload",
+        destination: "https://www.handzettel-schulen.de/",
+        permanent: true,
+      },
+      {
         source: "/:path*",
         has: [
           {

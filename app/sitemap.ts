@@ -114,8 +114,25 @@ function isVisibleProduct(product: ProductRow) {
   }
 
   return !["inactive", "archived", "deleted", "disabled"].includes(
-    status.toLowerCase()
+    status.toLowerCase(),
   );
+}
+
+function getSafeLastModified(
+  value: string | null,
+  fallback: Date,
+) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = new Date(value);
+
+  if (!Number.isFinite(parsed.getTime())) {
+    return fallback;
+  }
+
+  return parsed;
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -136,10 +153,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${siteUrl}/upload`,
+      url: `${siteUrl}/widerruf-rueckgabe`,
       lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.8,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${siteUrl}/impressum`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.4,
+    },
+    {
+      url: `${siteUrl}/datenschutz`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.4,
     },
   ];
 
@@ -158,19 +187,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return staticRoutes;
   }
 
-  const productRoutes: MetadataRoute.Sitemap = ((data || []) as ProductRow[])
-    .filter(isVisibleProduct)
-    .map((product) => {
-      const updatedAt = getStringValue(product, ["updated_at", "created_at"]);
-      const slug = getProductSlug(product);
+  const usedUrls = new Set(staticRoutes.map((entry) => entry.url));
 
-      return {
-        url: `${siteUrl}/shop/produkt/${slug}`,
-        lastModified: updatedAt ? new Date(updatedAt) : now,
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      };
+  const productRoutes: MetadataRoute.Sitemap = [];
+
+  for (const product of (data || []) as ProductRow[]) {
+    if (!isVisibleProduct(product)) {
+      continue;
+    }
+
+    const slug = getProductSlug(product);
+
+    if (!slug) {
+      continue;
+    }
+
+    const url = `${siteUrl}/shop/produkt/${slug}`;
+
+    if (usedUrls.has(url)) {
+      continue;
+    }
+
+    usedUrls.add(url);
+
+    const updatedAt = getStringValue(product, [
+      "updated_at",
+      "created_at",
+    ]);
+
+    productRoutes.push({
+      url,
+      lastModified: getSafeLastModified(updatedAt, now),
+      changeFrequency: "weekly",
+      priority: 0.7,
     });
+  }
 
   return [...staticRoutes, ...productRoutes];
 }

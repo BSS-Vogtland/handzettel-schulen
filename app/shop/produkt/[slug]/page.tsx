@@ -2,6 +2,16 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import ShopProductAddToCartButton from "@/components/ShopProductAddToCartButton";
+import {
+  getAvailabilityPresentation,
+  getProductAvailability,
+  getProductAvailabilityDate,
+  getProductBrand,
+  getProductGtin,
+  getProductMpn,
+  getSchemaAvailability,
+} from "@/lib/product-commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -114,10 +124,6 @@ function getProductSku(product: ProductRow) {
     "item_number",
     "artikelnummer",
   ]);
-}
-
-function getProductEan(product: ProductRow) {
-  return getStringValue(product, ["ean", "gtin", "barcode"]);
 }
 
 function getProductPrice(product: ProductRow) {
@@ -245,6 +251,33 @@ function formatPrice(value: number) {
   }).format(value);
 }
 
+function formatAvailabilityDate(value: string | null) {
+  if (!value) return null;
+
+  const parsed = new Date(value);
+
+  if (!Number.isFinite(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(parsed);
+}
+
+function getAvailabilityBadgeClass(tone: "green" | "amber" | "red") {
+  switch (tone) {
+    case "red":
+      return "bg-[#FFF1F1] text-[#B5282D] ring-[#F3C6C8]";
+    case "amber":
+      return "bg-[#FFF8EE] text-[#A75B28] ring-[#F1D1A8]";
+    default:
+      return "bg-[#F0FFF6] text-[#2F7D50] ring-[#BFE3CD]";
+  }
+}
+
 async function loadProductBySlug(slug: string) {
   const supabase = getSupabaseAdmin();
 
@@ -316,9 +349,12 @@ export default async function ProductDetailPage({ params }: Params) {
   }
 
   const siteUrl = getSiteUrl();
+  const productId = getProductId(product);
   const name = getProductName(product);
   const sku = getProductSku(product);
-  const ean = getProductEan(product);
+  const gtin = getProductGtin(product);
+  const brand = getProductBrand(product);
+  const mpn = getProductMpn(product);
   const price = getProductPrice(product);
   const category = getProductCategory(product);
   const productType = getProductType(product);
@@ -328,6 +364,21 @@ export default async function ProductDetailPage({ params }: Params) {
   const imageUrl = getProductImageUrl(product);
   const imageAlt = getProductImageAlt(product, name);
   const description = getProductDescription(product);
+  const availability = getProductAvailability(product);
+  const availabilityDate = getProductAvailabilityDate(product);
+  const formattedAvailabilityDate = formatAvailabilityDate(availabilityDate);
+  const availabilityPresentation =
+    price > 0
+      ? getAvailabilityPresentation(availability)
+      : {
+          label: "Preis derzeit nicht verfügbar",
+          description:
+            "Für diesen Artikel ist aktuell kein gültiger Verkaufspreis hinterlegt.",
+          canOrder: false,
+          tone: "red" as const,
+        };
+  const canOrder =
+    availabilityPresentation.canOrder && Boolean(productId) && price > 0;
   const productUrl = `${siteUrl}/shop/produkt/${getProductSlug(product)}`;
 
   const productJsonLd: Record<string, unknown> = {
@@ -337,66 +388,84 @@ export default async function ProductDetailPage({ params }: Params) {
     description,
     image: imageUrl ? [imageUrl] : undefined,
     sku: sku || undefined,
-    gtin13: ean && ean.length === 13 ? ean : undefined,
-    gtin: ean || undefined,
-    brand: {
-      "@type": "Brand",
-      name: "Handzettel-Schulen.de",
-    },
-    offers: {
-      "@type": "Offer",
-      url: productUrl,
-      priceCurrency: "EUR",
-      price: price > 0 ? price.toFixed(2) : "0.00",
-      availability: "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingDestination: {
-          "@type": "DefinedRegion",
-          addressCountry: "DE",
-        },
-        shippingRate: {
-          "@type": "MonetaryAmount",
-          value: "5.95",
-          currency: "EUR",
-        },
-        deliveryTime: {
-          "@type": "ShippingDeliveryTime",
-          handlingTime: {
-            "@type": "QuantitativeValue",
-            minValue: 1,
-            maxValue: 2,
-            unitCode: "DAY",
+    ...(gtin
+      ? {
+          gtin,
+          ...(gtin.length === 13 ? { gtin13: gtin } : {}),
+        }
+      : {}),
+    ...(brand
+      ? {
+          brand: {
+            "@type": "Brand",
+            name: brand,
           },
-          transitTime: {
-            "@type": "QuantitativeValue",
-            minValue: 1,
-            maxValue: 3,
-            unitCode: "DAY",
-          },
-        },
-      },
-      hasMerchantReturnPolicy: {
-        "@type": "MerchantReturnPolicy",
-        applicableCountry: "DE",
-        returnPolicyCategory:
-          "https://schema.org/MerchantReturnFiniteReturnWindow",
-        merchantReturnDays: 14,
-        returnMethod: "https://schema.org/ReturnByMail",
-        returnFees: "https://schema.org/ReturnShippingFees",
-        customerRemorseReturnFees: "https://schema.org/ReturnShippingFees",
-        itemDefectReturnFees: "https://schema.org/FreeReturn",
-        returnShippingFeesAmount: {
-          "@type": "MonetaryAmount",
-          value: "5.95",
-          currency: "EUR",
-        },
-        refundType: "https://schema.org/FullRefund",
-        merchantReturnLink:
-          "https://www.handzettel-schulen.de/widerruf-rueckgabe",
-      },
-    },
+        }
+      : {}),
+    ...(brand && mpn ? { mpn } : {}),
+    offers:
+      price > 0
+        ? {
+            "@type": "Offer",
+            url: productUrl,
+            priceCurrency: "EUR",
+            price: price.toFixed(2),
+            availability: getSchemaAvailability(availability),
+            ...((availability === "preorder" ||
+              availability === "backorder") &&
+            availabilityDate
+              ? { availabilityStarts: availabilityDate }
+              : {}),
+            itemCondition: "https://schema.org/NewCondition",
+            shippingDetails: {
+              "@type": "OfferShippingDetails",
+              shippingDestination: {
+                "@type": "DefinedRegion",
+                addressCountry: "DE",
+              },
+              shippingRate: {
+                "@type": "MonetaryAmount",
+                value: "5.95",
+                currency: "EUR",
+              },
+              deliveryTime: {
+                "@type": "ShippingDeliveryTime",
+                handlingTime: {
+                  "@type": "QuantitativeValue",
+                  minValue: 1,
+                  maxValue: 2,
+                  unitCode: "DAY",
+                },
+                transitTime: {
+                  "@type": "QuantitativeValue",
+                  minValue: 1,
+                  maxValue: 3,
+                  unitCode: "DAY",
+                },
+              },
+            },
+            hasMerchantReturnPolicy: {
+              "@type": "MerchantReturnPolicy",
+              applicableCountry: "DE",
+              returnPolicyCategory:
+                "https://schema.org/MerchantReturnFiniteReturnWindow",
+              merchantReturnDays: 14,
+              returnMethod: "https://schema.org/ReturnByMail",
+              returnFees: "https://schema.org/ReturnShippingFees",
+              customerRemorseReturnFees:
+                "https://schema.org/ReturnShippingFees",
+              itemDefectReturnFees: "https://schema.org/FreeReturn",
+              returnShippingFeesAmount: {
+                "@type": "MonetaryAmount",
+                value: "5.95",
+                currency: "EUR",
+              },
+              refundType: "https://schema.org/FullRefund",
+              merchantReturnLink:
+                "https://www.handzettel-schulen.de/widerruf-rueckgabe",
+            },
+          }
+        : undefined,
   };
 
   return (
@@ -467,9 +536,15 @@ export default async function ProductDetailPage({ params }: Params) {
               </span>
             ) : null}
 
-            {ean ? (
+            {gtin ? (
               <span className="rounded-full bg-[#f7f1e8] px-3 py-1.5 text-xs font-bold text-[#4c5870]">
-                EAN: {ean}
+                GTIN/EAN: {gtin}
+              </span>
+            ) : null}
+
+            {brand ? (
+              <span className="rounded-full bg-[#f7f1e8] px-3 py-1.5 text-xs font-bold text-[#4c5870]">
+                Marke: {brand}
               </span>
             ) : null}
 
@@ -499,29 +574,98 @@ export default async function ProductDetailPage({ params }: Params) {
           </div>
 
           <div className="mt-8 rounded-[2rem] bg-[#172033] p-6 text-white">
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-white/70">
-              Preis
-            </p>
-            <p className="mt-2 text-4xl font-black">{formatPrice(price)}</p>
-            <p className="mt-2 text-sm font-semibold text-white/70">
-              Alle Angaben vorbehaltlich Verfügbarkeit und finaler Prüfung.
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.16em] text-white/70">
+                  Preis
+                </p>
+                <p className="mt-2 text-4xl font-black">{formatPrice(price)}</p>
+              </div>
+
+              <span
+                className={`inline-flex w-fit rounded-full px-4 py-2 text-xs font-black ring-1 ${getAvailabilityBadgeClass(
+                  availabilityPresentation.tone
+                )}`}
+              >
+                {availabilityPresentation.label}
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm font-semibold leading-6 text-white/75">
+              {availabilityPresentation.description}
+              {formattedAvailabilityDate &&
+              (availability === "preorder" || availability === "backorder")
+                ? ` Voraussichtlich verfügbar ab ${formattedAvailabilityDate}.`
+                : ""}
             </p>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Link
-              href="/shop"
-              className="inline-flex justify-center rounded-2xl bg-[#9b2f23] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#172033]"
-            >
-              Im Shop suchen
-            </Link>
+          <div className="mt-6 grid gap-3">
+            {canOrder ? (
+              <ShopProductAddToCartButton
+                productId={productId}
+                productName={name}
+                productSku={sku}
+                productPrice={price}
+                productImageUrl={imageUrl}
+                quantity={1}
+                category={category}
+                format={format}
+                color={color}
+                lineature={lineature}
+                buttonLabel="In den Warenkorb"
+              />
+            ) : (
+              <div className="rounded-2xl border border-[#F3C6C8] bg-[#FFF1F1] px-5 py-4 text-sm font-black text-[#B5282D]">
+                Dieser Artikel kann aktuell nicht bestellt werden.
+              </div>
+            )}
 
-            <Link
-              href="/shop/warenkorb"
-              className="inline-flex justify-center rounded-2xl bg-[#f7f1e8] px-5 py-4 text-sm font-black text-[#172033] ring-1 ring-[#eadfce] transition hover:bg-white"
-            >
-              Warenkorb ansehen
-            </Link>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link
+                href="/shop"
+                className="inline-flex justify-center rounded-2xl bg-[#9b2f23] px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-[#172033]"
+              >
+                Weiter einkaufen
+              </Link>
+
+              <Link
+                href="/shop/warenkorb"
+                className="inline-flex justify-center rounded-2xl bg-[#f7f1e8] px-5 py-4 text-sm font-black text-[#172033] ring-1 ring-[#eadfce] transition hover:bg-white"
+              >
+                Warenkorb ansehen
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[1.5rem] border border-[#eadfce] bg-[#fffaf2] p-5">
+            <p className="font-black text-[#172033]">Klare Bestellbedingungen</p>
+            <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-[#4c5870]">
+              <li>Versand pauschal 5,95 € oder Abholung vor Ort.</li>
+              <li>Alle Gesamtkosten werden vor dem Bestellabschluss angezeigt.</li>
+              <li>Für Verbraucher gilt grundsätzlich ein 14-tägiges Widerrufsrecht.</li>
+            </ul>
+
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-black">
+              <Link
+                href="/widerruf-rueckgabe"
+                className="text-[#9b2f23] underline decoration-[#9b2f23]/30 underline-offset-4"
+              >
+                Widerruf & Rückgabe
+              </Link>
+              <Link
+                href="/impressum"
+                className="text-[#9b2f23] underline decoration-[#9b2f23]/30 underline-offset-4"
+              >
+                Impressum
+              </Link>
+              <Link
+                href="/datenschutz"
+                className="text-[#9b2f23] underline decoration-[#9b2f23]/30 underline-offset-4"
+              >
+                Datenschutz
+              </Link>
+            </div>
           </div>
         </article>
       </section>
