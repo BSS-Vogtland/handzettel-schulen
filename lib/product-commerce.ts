@@ -149,13 +149,18 @@ export function getProductAvailabilityDate(
 export function getProductAvailability(
   product: ProductCommerceRow,
 ): ProductAvailability {
+  /*
+   * Nur ausdrücklich für den Shop oder Merchant Center gepflegte Felder
+   * dürfen die Bestellbarkeit blockieren.
+   *
+   * Generische Alt-Felder wie `available`, `availability`,
+   * `stock_status` oder `stock_quantity` werden bewusst nicht
+   * ausgewertet, weil sie im bestehenden Produktkatalog nicht als
+   * verbindliche Lagersteuerung eingeführt wurden.
+   */
   const explicit = normalizeAvailabilityValue(
     getFirstString(product, [
       "merchant_availability",
-      "availability",
-      "availability_status",
-      "stock_status",
-      "inventory_status",
       "shop_availability",
     ]),
   );
@@ -218,9 +223,6 @@ export function getProductAvailability(
   const availableFlag = getFirstBoolean(product, [
     "merchant_available",
     "shop_available",
-    "is_available",
-    "available",
-    "in_stock",
   ]);
 
   if (availableFlag === false) {
@@ -232,11 +234,8 @@ export function getProductAvailability(
   }
 
   const stockQuantity = getFirstNumber(product, [
-    "stock_quantity",
-    "inventory_quantity",
-    "quantity_in_stock",
-    "available_quantity",
-    "stock_count",
+    "merchant_stock_quantity",
+    "shop_stock_quantity",
   ]);
 
   if (stockQuantity !== null) {
@@ -245,9 +244,13 @@ export function getProductAvailability(
 
   /*
    * Bestehender Shop-Fallback:
-   * Aktive Produkte mit gültigem Preis werden bereits serverseitig im
-   * Checkout akzeptiert. Solange kein eigenes Lagerfeld gepflegt ist,
-   * gelten solche Produkte daher als online bestellbar.
+   *
+   * Sichtbare Produkte mit gültigem Preis werden vom bestehenden Shop
+   * und Checkout als bestellbar behandelt.
+   *
+   * Solange keine ausdrücklich gepflegte Shop- oder
+   * Merchant-Verfügbarkeit vorhanden ist, bleibt dieses Verhalten
+   * erhalten.
    */
   return "in_stock";
 }
@@ -361,6 +364,7 @@ export function getAvailabilityPresentation(
         canOrder: false,
         tone: "red",
       };
+
     case "preorder":
       return {
         label: "Vorbestellbar",
@@ -369,6 +373,7 @@ export function getAvailabilityPresentation(
         canOrder: true,
         tone: "amber",
       };
+
     case "backorder":
       return {
         label: "Bestellbar – längere Lieferzeit",
@@ -377,6 +382,7 @@ export function getAvailabilityPresentation(
         canOrder: true,
         tone: "amber",
       };
+
     default:
       return {
         label: "Online bestellbar",
