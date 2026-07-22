@@ -1363,6 +1363,14 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
                 <RefreshCw className="h-4 w-4" />
                 Aktualisieren
               </a>
+
+              <Link
+                href={`/admin/anfragen/${request.id}/paket`}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#2F7D50] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:brightness-110"
+              >
+                <PackageCheck className="h-4 w-4" />
+                Paket-Arbeitsbereich öffnen
+              </Link>
             </div>
 
             {customerOfferUrl ? (
@@ -2524,6 +2532,7 @@ const matchById = new Map(matches.map((match) => [match.id, match]));
     </main>
   );
 }
+
 
 
 

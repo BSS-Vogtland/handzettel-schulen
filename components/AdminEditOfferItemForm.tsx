@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -22,6 +22,7 @@ type AdminEditOfferItemFormProps = {
   quantity?: number | string | null;
   unit?: string | null;
   notes?: string | null;
+  buttonLabel?: string;
 };
 
 type UpdateResponse = {
@@ -70,6 +71,7 @@ export default function AdminEditOfferItemForm({
   quantity: initialQuantity,
   unit: initialUnit,
   notes: initialNotes,
+  buttonLabel = "Bearbeiten",
 }: AdminEditOfferItemFormProps) {
   const router = useRouter();
 
@@ -274,7 +276,7 @@ export default function AdminEditOfferItemForm({
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#EEF4FA] px-3 py-2 text-xs font-black text-[#12395F] transition hover:bg-[#E4EEF8]"
         >
           <Pencil className="h-3.5 w-3.5" />
-          Bearbeiten
+          {buttonLabel}
         </button>
 
         {feedback ? (
@@ -573,3 +575,4 @@ export default function AdminEditOfferItemForm({
     </form>
   );
 }
+

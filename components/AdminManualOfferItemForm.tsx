@@ -6,6 +6,7 @@ import {
   normalizeProductCategory,
 } from "@/lib/productCategories";
 
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -32,6 +33,8 @@ type AdminManualOfferItemFormProps = {
   defaultProductName?: string | null;
   defaultQuantity?: number | string | null;
   buttonLabel?: string;
+  preservePageAfterSave?: boolean;
+  successAnchorId?: string;
 };
 
 type ManualOfferItemResponse = {
@@ -104,8 +107,25 @@ export default function AdminManualOfferItemForm({
   defaultProductName,
   defaultQuantity,
   buttonLabel = "Manuell Produkt ergänzen",
+  preservePageAfterSave = false,
+  successAnchorId = "package-checklist",
 }: AdminManualOfferItemFormProps) {
+  const router = useRouter();
+
   function goToPackageChecklist() {
+    if (preservePageAfterSave) {
+      router.refresh();
+
+      window.setTimeout(() => {
+        document.getElementById(successAnchorId)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 250);
+
+      return;
+    }
+
     const url = new URL(window.location.href);
     url.searchParams.set("focus", "package-checklist");
     url.hash = "package-checklist";
@@ -1084,3 +1104,4 @@ const [unit, setUnit] = useState("");
     </form>
   );
 }
+
