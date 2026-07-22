@@ -65,8 +65,8 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
   phone_secondary: "03765/69808",
   fax: "03765/392146",
 
-  email_general: "bueroschwalmundstaffe@web.de",
-  email_privacy: "bueroschwalmundstaffe@web.de",
+  email_general: "kontakt@bss-vogtland.de",
+  email_privacy: "kontakt@bss-vogtland.de",
 
   vat_id: "DE257963936",
 
@@ -90,6 +90,24 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
 };
 
 const LEGAL_SETTINGS_ID = "default";
+const CANONICAL_CONTACT_EMAIL = "kontakt@bss-vogtland.de";
+const LEGACY_CONTACT_EMAILS = new Set([
+  "bueroschwalmundstaffe@web.de",
+]);
+
+function normalizePublicEmail(value: unknown) {
+  const cleaned = cleanNullableText(value);
+
+  if (!cleaned) {
+    return CANONICAL_CONTACT_EMAIL;
+  }
+
+  if (LEGACY_CONTACT_EMAILS.has(cleaned.toLowerCase())) {
+    return CANONICAL_CONTACT_EMAIL;
+  }
+
+  return cleaned;
+}
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -154,8 +172,8 @@ function normalizeLegalSettings(row: Partial<LegalSettings> | null): LegalSettin
     phone_secondary: cleanNullableText(row.phone_secondary),
     fax: cleanNullableText(row.fax),
 
-    email_general: cleanNullableText(row.email_general),
-    email_privacy: cleanNullableText(row.email_privacy),
+    email_general: normalizePublicEmail(row.email_general),
+    email_privacy: normalizePublicEmail(row.email_privacy),
 
     vat_id: cleanNullableText(row.vat_id),
 
@@ -228,8 +246,8 @@ export async function updateLegalSettings(input: LegalSettingsUpdateInput) {
     phone_secondary: cleanNullableText(input.phone_secondary),
     fax: cleanNullableText(input.fax),
 
-    email_general: cleanNullableText(input.email_general),
-    email_privacy: cleanNullableText(input.email_privacy),
+    email_general: normalizePublicEmail(input.email_general),
+    email_privacy: normalizePublicEmail(input.email_privacy),
 
     vat_id: cleanNullableText(input.vat_id),
 
@@ -289,4 +307,9 @@ export function getPrivacyEmail(settings: LegalSettings) {
 
 export function getGeneralEmail(settings: LegalSettings) {
   return settings.email_general || settings.email_privacy || "";
+}
+
+
+export function getCanonicalContactEmail() {
+  return CANONICAL_CONTACT_EMAIL;
 }

@@ -1,5 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Database, Mail, Server, ShieldCheck } from "lucide-react";
+import {
+  Cookie,
+  Database,
+  LockKeyhole,
+  Mail,
+  Server,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+} from "lucide-react";
+import LegalFooter from "@/components/LegalFooter";
 import {
   getGeneralEmail,
   getLegalAddress,
@@ -10,18 +21,41 @@ import {
 
 export const dynamic = "force-dynamic";
 
+export const metadata: Metadata = {
+  title: "Datenschutz | Handzettel-Schulen.de",
+  description:
+    "Informationen zur Verarbeitung personenbezogener Daten bei Handzettel-Schulen.de, im Schulmaterial-Service und im Onlineshop.",
+  alternates: {
+    canonical: "https://www.handzettel-schulen.de/datenschutz",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
 function Section({
   title,
+  icon,
   children,
 }: {
   title: string;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-7">
-      <h2 className="text-2xl font-black tracking-tight text-[#102A43]">
-        {title}
-      </h2>
+      <div className="flex items-center gap-3">
+        {icon ? (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+            {icon}
+          </div>
+        ) : null}
+        <h2 className="text-2xl font-black tracking-tight text-[#102A43]">
+          {title}
+        </h2>
+      </div>
+
       <div className="mt-4 space-y-4 text-sm font-semibold leading-7 text-[#52616F]">
         {children}
       </div>
@@ -34,7 +68,7 @@ function BulletList({ items }: { items: string[] }) {
     <ul className="space-y-2">
       {items.map((item) => (
         <li key={item} className="flex gap-2">
-          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#A75B28]" />
+          <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#A75B28]" />
           <span>{item}</span>
         </li>
       ))}
@@ -50,259 +84,321 @@ export default async function DatenschutzPage() {
   const generalEmail = getGeneralEmail(settings);
 
   return (
-    <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="inline-flex w-fit items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          ZurÃ¼ck zur Startseite
-        </Link>
+    <>
+      <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+        <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            className="inline-flex w-fit items-center gap-2 text-sm font-black text-[#12395F] transition hover:text-[#B5282D]"
+          >
+            ← Zurück zur Startseite
+          </Link>
 
-        <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-
-            <div>
-              <p className="mb-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
-                Datenschutz
-              </p>
-
-              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-                DatenschutzerklÃ¤rung
-              </h1>
-
-              <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
-                Hier informieren wir Dich darÃ¼ber, welche personenbezogenen Daten
-                bei der Nutzung von {settings.brand_name} verarbeitet werden.
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <Section title="1. Verantwortlicher">
-          <p>Verantwortlich fÃ¼r die Datenverarbeitung auf dieser Website ist:</p>
-
-          <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#102A43]">
-            <p className="font-black">{displayName}</p>
-
-            {address.length > 0 ? (
-              <div className="mt-2 space-y-1">
-                {address.map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
+          <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FBF7F0] text-[#A75B28]">
+                <ShieldCheck className="h-6 w-6" />
               </div>
-            ) : null}
 
-            {generalEmail ? <p className="mt-2">E-Mail: {generalEmail}</p> : null}
-            {settings.phone_primary ? (
-              <p>Telefon: {settings.phone_primary}</p>
-            ) : null}
-          </div>
+              <div>
+                <p className="mb-3 inline-flex rounded-full bg-[#FBF7F0] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#A75B28]">
+                  Datenschutz
+                </p>
 
-          {privacyEmail ? (
+                <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                  Datenschutzerklärung
+                </h1>
+
+                <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-[#52616F] sm:text-base">
+                  Hier informieren wir Dich darüber, welche personenbezogenen
+                  Daten bei der Nutzung von {settings.brand_name}, beim
+                  Einreichen einer Schulmaterialliste und beim Einkauf im Shop
+                  verarbeitet werden.
+                </p>
+
+                <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] text-[#8A5A2B]">
+                  Stand: 22. Juli 2026
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <Section
+            title="1. Verantwortlicher"
+            icon={<LockKeyhole className="h-5 w-5" />}
+          >
             <p>
-              FÃ¼r Datenschutzanfragen erreichst Du uns unter:{" "}
-              <a
-                href={`mailto:${privacyEmail}`}
-                className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
-              >
-                {privacyEmail}
-              </a>
+              Verantwortlich für die Datenverarbeitung auf dieser Website ist:
             </p>
-          ) : null}
-        </Section>
 
-        <Section title="2. Welche Daten wir verarbeiten">
-          <p>
-            Wenn Du Ã¼ber {settings.brand_name} eine Schulmaterialliste hochlÃ¤dst
-            oder eine Anfrage absendest, kÃ¶nnen insbesondere folgende Daten
-            verarbeitet werden:
-          </p>
+            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4 text-[#102A43]">
+              <p className="font-black">{displayName}</p>
 
-          <BulletList
-            items={[
-              "Name und Kontaktdaten, insbesondere E-Mail-Adresse und Telefonnummer",
-              "Angaben zum Kind, zur Schule und zur Klasse, soweit Du sie freiwillig eingibst",
-              "hochgeladene Schulmateriallisten als Foto, Screenshot oder PDF",
-              "erkannte Listenpositionen, ProduktvorschlÃ¤ge und ausgewÃ¤hlte Paketpositionen",
-              "technische Daten wie Zeitpunkt der Anfrage, Status der Bearbeitung und Systemereignisse",
-            ]}
-          />
-        </Section>
+              {address.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {address.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              ) : null}
 
-        <Section title="3. Zwecke der Verarbeitung">
-          <p>Wir verarbeiten die Daten, um:</p>
+              {generalEmail ? (
+                <p className="mt-2">E-Mail: {generalEmail}</p>
+              ) : null}
 
-          <BulletList
-            items={[
-              "Deine hochgeladene Schulmaterialliste auszuwerten",
-              "passende Schulmaterial-Produkte vorzubereiten oder vorzuschlagen",
-              "Deinen persÃ¶nlichen Schulmaterial-Paketwunsch zu erstellen",
-              "RÃ¼ckfragen zu Deiner Anfrage zu ermÃ¶glichen",
-              "Dir Angebotslinks, Aktualisierungen oder BestÃ¤tigungen per E-Mail zu senden",
-              "die Anfrage intern im Adminbereich nachvollziehbar zu bearbeiten",
-            ]}
-          />
-        </Section>
-
-        <Section title="4. Rechtsgrundlagen">
-          <p>
-            Die Verarbeitung erfolgt je nach Situation auf Grundlage vorvertraglicher
-            MaÃŸnahmen bzw. Vertragsabwicklung, berechtigter Interessen an einer
-            effizienten Bearbeitung Deiner Anfrage sowie Deiner freiwilligen
-            Eingaben und Uploads.
-          </p>
-
-          <p>
-            Soweit Du uns freiwillig zusÃ¤tzliche Angaben machst, nutzen wir diese
-            nur zur Bearbeitung Deiner Schulmaterial-Anfrage.
-          </p>
-        </Section>
-
-        <Section title="5. Uploads und Schulmateriallisten">
-          <p>
-            Hochgeladene Dateien kÃ¶nnen personenbezogene Informationen enthalten,
-            etwa Namen, Schule, Klasse oder handschriftliche Notizen. Bitte lade
-            nur Dateien hoch, die zur Bearbeitung Deiner Anfrage erforderlich sind.
-          </p>
-
-          <p>
-            Die Dateien werden genutzt, um daraus erkennbare Materialpositionen
-            und passende ProduktvorschlÃ¤ge abzuleiten. Eine darÃ¼ber hinausgehende
-            Nutzung zu Werbezwecken erfolgt nicht.
-          </p>
-        </Section>
-
-        <Section title="6. Eingesetzte Dienstleister">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <div className="mb-2 flex items-center gap-2 font-black text-[#102A43]">
-                <Server className="h-4 w-4 text-[#A75B28]" />
-                Hosting
-              </div>
-              <p>{settings.hosting_provider || "Hosting-Anbieter"}</p>
+              {settings.phone_primary ? (
+                <p>Telefon: {settings.phone_primary}</p>
+              ) : null}
             </div>
 
-            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <div className="mb-2 flex items-center gap-2 font-black text-[#102A43]">
-                <Database className="h-4 w-4 text-[#A75B28]" />
-                Datenbank und Storage
-              </div>
-              <p>{settings.database_provider || "Datenbank-/Storage-Anbieter"}</p>
-            </div>
+            {privacyEmail ? (
+              <p>
+                Datenschutzanfragen kannst Du an{" "}
+                <a
+                  href={`mailto:${privacyEmail}`}
+                  className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
+                >
+                  {privacyEmail}
+                </a>{" "}
+                richten.
+              </p>
+            ) : null}
+          </Section>
 
-            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <div className="mb-2 flex items-center gap-2 font-black text-[#102A43]">
-                <ShieldCheck className="h-4 w-4 text-[#A75B28]" />
-                KI-Auswertung
-              </div>
-              <p>{settings.ai_provider || "KI-Anbieter"}</p>
-            </div>
+          <Section
+            title="2. Welche Daten wir verarbeiten"
+            icon={<Database className="h-5 w-5" />}
+          >
+            <BulletList
+              items={[
+                "Stammdaten und Kontaktdaten, insbesondere Name, E-Mail-Adresse, Telefonnummer und Anschrift",
+                "Angaben zum Kind, zur Schule und zur Klasse, soweit Du sie im Schulmaterial-Service eingibst",
+                "hochgeladene Schulmateriallisten als Foto, Screenshot oder PDF",
+                "erkannte Listenpositionen, Produktvorschläge, Paketpositionen und Bearbeitungsstatus",
+                "Shop-, Warenkorb-, Bestell-, Rechnungs-, Zahlungs- und Versandinformationen",
+                "Kommunikationsinhalte, Rückfragen und freiwillige Nachrichten",
+                "technische Daten wie Zeitpunkt, aufgerufene Seite, Browserinformationen, Sicherheits- und Fehlerprotokolle",
+              ]}
+            />
+          </Section>
 
-            <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
-              <div className="mb-2 flex items-center gap-2 font-black text-[#102A43]">
-                <Mail className="h-4 w-4 text-[#A75B28]" />
-                E-Mail-Versand
-              </div>
-              <p>{settings.email_provider || "E-Mail-Anbieter"}</p>
-            </div>
-          </div>
+          <Section
+            title="3. Zwecke und Rechtsgrundlagen"
+            icon={<ShieldCheck className="h-5 w-5" />}
+          >
+            <p>Wir verarbeiten Daten insbesondere, um:</p>
 
-          <p>
-            Diese Dienstleister werden eingesetzt, um die Website bereitzustellen,
-            Dateien zu speichern, Anfragen zu bearbeiten, KI-gestÃ¼tzte
-            Auswertungen vorzunehmen und E-Mails zu versenden.
-          </p>
-        </Section>
+            <BulletList
+              items={[
+                "Schulmateriallisten auszuwerten und einen Paketwunsch vorzubereiten",
+                "Produkte im Shop bereitzustellen und Warenkörbe zu verwalten",
+                "Bestellungen, Rechnungen, Zahlungen, Abholung und Versand abzuwickeln",
+                "Rückfragen, Reklamationen, Widerrufe und Kundenservice zu bearbeiten",
+                "gesetzliche Aufbewahrungs- und Nachweispflichten zu erfüllen",
+                "die Website sicher, stabil und nachvollziehbar zu betreiben",
+              ]}
+            />
 
-        <Section title="7. KI-gestÃ¼tzte Auswertung">
-          <p>
-            FÃ¼r die automatische Analyse der hochgeladenen Schulmateriallisten
-            kann ein KI-Dienst eingesetzt werden. Dabei werden die Inhalte der
-            hochgeladenen Liste verarbeitet, um Materialpositionen wie Hefte,
-            UmschlÃ¤ge, Stifte oder Ã¤hnliche Schulartikel zu erkennen.
-          </p>
-
-          <p>
-            Die KI-Auswertung dient ausschlieÃŸlich der Vorbereitung Deines
-            Paketwunsches. Unsichere oder nicht eindeutig erkannte Positionen
-            werden durch unser Team manuell geprÃ¼ft.
-          </p>
-        </Section>
-
-        <Section title="8. Speicherdauer">
-          <p>
-            Wir speichern personenbezogene Daten und hochgeladene Dateien nur so
-            lange, wie sie fÃ¼r die Bearbeitung Deiner Anfrage, gesetzliche
-            Pflichten oder interne Nachvollziehbarkeit erforderlich sind.
-          </p>
-
-          <p>
-            Test- oder nicht mehr benÃ¶tigte Daten kÃ¶nnen im Adminbereich gelÃ¶scht
-            werden. Eine automatische LÃ¶schfrist kann spÃ¤ter technisch ergÃ¤nzt
-            werden.
-          </p>
-        </Section>
-
-        <Section title="9. Keine Marketing-Cookies und kein Tracking">
-          <p>
-            Nach aktuellem Stand verwendet {settings.brand_name} keine
-            Marketing-Cookies und kein Google Analytics. Die Google Search
-            Console kann zur technischen Verifizierung und Auffindbarkeit der
-            Website genutzt werden, setzt aber auf dieser Website keine
-            Marketing-Cookies fÃ¼r Besucher.
-          </p>
-        </Section>
-
-        <Section title="10. Deine Rechte">
-          <p>Du hast im Rahmen der gesetzlichen Vorgaben insbesondere das Recht auf:</p>
-
-          <BulletList
-            items={[
-              "Auskunft Ã¼ber die zu Deiner Person gespeicherten Daten",
-              "Berichtigung unrichtiger Daten",
-              "LÃ¶schung von Daten, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen",
-              "EinschrÃ¤nkung der Verarbeitung",
-              "Widerspruch gegen bestimmte Verarbeitungen",
-              "DatenÃ¼bertragbarkeit, soweit anwendbar",
-              "Beschwerde bei einer zustÃ¤ndigen DatenschutzaufsichtsbehÃ¶rde",
-            ]}
-          />
-
-          {privacyEmail ? (
             <p>
-              Zur AusÃ¼bung Deiner Rechte kannst Du uns unter{" "}
-              <a
-                href={`mailto:${privacyEmail}`}
-                className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
-              >
-                {privacyEmail}
-              </a>{" "}
-              kontaktieren.
+              Die Verarbeitung erfolgt je nach Vorgang insbesondere zur
+              Durchführung vorvertraglicher Maßnahmen und Verträge, zur
+              Erfüllung rechtlicher Verpflichtungen sowie auf Grundlage
+              berechtigter Interessen an einem sicheren und effizienten Betrieb.
+              Freiwillige Angaben verarbeiten wir nur für den erkennbaren Zweck.
             </p>
-          ) : null}
-        </Section>
+          </Section>
 
-        <Section title="11. Ã„nderungen dieser DatenschutzerklÃ¤rung">
-          <p>
-            Wir kÃ¶nnen diese DatenschutzerklÃ¤rung anpassen, wenn sich die
-            Website, eingesetzte Dienste oder rechtliche Anforderungen Ã¤ndern.
-            Es gilt die jeweils auf dieser Seite verÃ¶ffentlichte Fassung.
-          </p>
-        </Section>
+          <Section
+            title="4. Schulmateriallisten und KI-gestützte Auswertung"
+            icon={<Sparkles className="h-5 w-5" />}
+          >
+            <p>
+              Hochgeladene Dateien können Namen, Schule, Klasse,
+              handschriftliche Notizen oder andere personenbezogene Angaben
+              enthalten. Lade deshalb nur Inhalte hoch, die für die Bearbeitung
+              Deiner Anfrage erforderlich sind.
+            </p>
 
-        <section className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-sm font-semibold leading-6 text-[#A75B28]">
-          <p>
-            Hinweis: Diese DatenschutzerklÃ¤rung ist eine technische und
-            inhaltliche Vorlage auf Basis der aktuellen Projektfunktionen. Sie
-            ersetzt keine individuelle rechtliche PrÃ¼fung.
-          </p>
+            <p>
+              Zur automatischen Erkennung von Materialpositionen kann der in den
+              rechtlichen Einstellungen genannte KI-Dienst eingesetzt werden
+              {settings.ai_provider ? ` (${settings.ai_provider})` : ""}. Die
+              Auswertung dient ausschließlich der Vorbereitung des
+              Paketwunsches. Unsichere Treffer können durch unser Team geprüft
+              werden.
+            </p>
+          </Section>
+
+          <Section
+            title="5. Shop, Warenkorb und Bestellabwicklung"
+            icon={<ShoppingCart className="h-5 w-5" />}
+          >
+            <p>
+              Der Warenkorb wird lokal im Browser gespeichert, damit ausgewählte
+              Artikel beim Seitenwechsel erhalten bleiben. Beim Checkout
+              verarbeiten wir die von Dir eingegebenen Rechnungs-, Kontakt- und
+              gegebenenfalls Lieferdaten.
+            </p>
+
+            <p>
+              Vor dem verbindlichen Abschluss werden Artikel, Mengen,
+              Preisnachlässe, Versandkosten und Gesamtbetrag angezeigt.
+              Zahlungsbezogene Daten werden abhängig von der gewählten
+              Zahlungsart verarbeitet. Bei PayPal erfolgt die weitere
+              Zahlungsabwicklung über PayPal. Bei Überweisung verarbeiten die
+              beteiligten Banken die Zahlungsdaten.
+            </p>
+
+            <p>
+              Wir benötigen keine vollständigen Kreditkarten- oder
+              Onlinebanking-Zugangsdaten und speichern solche Daten nicht in
+              unserem Shop.
+            </p>
+          </Section>
+
+          <Section
+            title="6. Eingesetzte Dienstleister"
+            icon={<Server className="h-5 w-5" />}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <ProviderCard
+                title="Hosting"
+                value={settings.hosting_provider || "Hosting-Anbieter"}
+              />
+              <ProviderCard
+                title="Datenbank und Dateispeicher"
+                value={
+                  settings.database_provider ||
+                  "Datenbank- und Storage-Anbieter"
+                }
+              />
+              <ProviderCard
+                title="KI-Auswertung"
+                value={settings.ai_provider || "KI-Anbieter"}
+              />
+              <ProviderCard
+                title="E-Mail-Versand"
+                value={settings.email_provider || "E-Mail-Anbieter"}
+              />
+            </div>
+
+            <p>
+              Dienstleister erhalten nur die Daten, die für ihre jeweilige
+              Aufgabe erforderlich sind. Soweit gesetzlich erforderlich,
+              werden entsprechende Vereinbarungen zur Auftragsverarbeitung
+              eingesetzt.
+            </p>
+          </Section>
+
+          <Section
+            title="7. Cookies und lokale Speicherung"
+            icon={<Cookie className="h-5 w-5" />}
+          >
+            <p>
+              Wir verwenden technisch notwendige Funktionen und lokale
+              Browser-Speicherung, insbesondere für die Cookie-Auswahl und den
+              Warenkorb. Ohne diese Speicherung würden zentrale
+              Shop-Funktionen nicht zuverlässig arbeiten.
+            </p>
+
+            <p>
+              Analyse-, Marketing- oder externe Mediendienste werden nur
+              aktiviert, wenn sie tatsächlich eingebunden sind und eine
+              erforderliche Einwilligung vorliegt. Die Auswahl kannst Du über
+              den dauerhaft sichtbaren Button „Cookies“ ändern.
+            </p>
+
+            <Link
+              href="/cookies"
+              className="inline-flex font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
+            >
+              Cookie-Hinweise öffnen
+            </Link>
+          </Section>
+
+          <Section
+            title="8. Speicherdauer"
+            icon={<Database className="h-5 w-5" />}
+          >
+            <p>
+              Wir speichern personenbezogene Daten nur so lange, wie sie für
+              Anfrage, Bestellung, Vertrag, Kundenservice, Sicherheit und
+              gesetzliche Aufbewahrungspflichten erforderlich sind.
+            </p>
+
+            <p>
+              Rechnungs- und steuerlich relevante Daten können aufgrund
+              gesetzlicher Pflichten länger aufbewahrt werden. Nicht mehr
+              benötigte Test- oder Arbeitsdaten werden gelöscht oder
+              anonymisiert, soweit keine Pflicht zur weiteren Speicherung
+              besteht.
+            </p>
+          </Section>
+
+          <Section title="9. Deine Rechte">
+            <BulletList
+              items={[
+                "Auskunft über die zu Deiner Person gespeicherten Daten",
+                "Berichtigung unrichtiger oder unvollständiger Daten",
+                "Löschung, soweit keine gesetzlichen Pflichten entgegenstehen",
+                "Einschränkung der Verarbeitung",
+                "Widerspruch gegen bestimmte Verarbeitungen",
+                "Datenübertragbarkeit, soweit anwendbar",
+                "Widerruf erteilter Einwilligungen mit Wirkung für die Zukunft",
+                "Beschwerde bei einer zuständigen Datenschutzaufsichtsbehörde",
+              ]}
+            />
+
+            {privacyEmail ? (
+              <p>
+                Zur Ausübung Deiner Rechte erreichst Du uns unter{" "}
+                <a
+                  href={`mailto:${privacyEmail}`}
+                  className="font-black text-[#12395F] underline decoration-[#A75B28]/40 underline-offset-4"
+                >
+                  {privacyEmail}
+                </a>
+                .
+              </p>
+            ) : null}
+          </Section>
+
+          <Section
+            title="10. Änderungen dieser Datenschutzerklärung"
+            icon={<Mail className="h-5 w-5" />}
+          >
+            <p>
+              Wir passen diese Datenschutzerklärung an, wenn sich Funktionen,
+              Dienstleister oder rechtliche Anforderungen ändern. Es gilt die
+              jeweils auf dieser Seite veröffentlichte Fassung.
+            </p>
+          </Section>
+
+          <section className="rounded-[28px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 text-sm font-semibold leading-6 text-[#A75B28]">
+            <p>
+              Hinweis: Diese Seite bildet die aktuell bekannten technischen
+              Abläufe ab und ersetzt keine individuelle rechtliche Beratung.
+            </p>
+          </section>
         </section>
-      </section>
-    </main>
+      </main>
+
+      <LegalFooter />
+    </>
+  );
+}
+
+function ProviderCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4">
+      <p className="font-black text-[#102A43]">{title}</p>
+      <p className="mt-1">{value}</p>
+    </div>
   );
 }

@@ -1,7 +1,13 @@
-﻿import ShopWarenkorbClient from "./ShopWarenkorbClient";
+import LegalFooter from "@/components/LegalFooter";
+import ShopWarenkorbClient from "./ShopWarenkorbClient";
 
 export const dynamic = "force-dynamic";
 
 export default function Page() {
-  return <ShopWarenkorbClient />;
+  return (
+    <>
+      <ShopWarenkorbClient />
+      <LegalFooter />
+    </>
+  );
 }

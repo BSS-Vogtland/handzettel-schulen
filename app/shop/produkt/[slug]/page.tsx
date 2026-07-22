@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import LegalFooter from "@/components/LegalFooter";
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import ShopProductAddToCartButton from "@/components/ShopProductAddToCartButton";
@@ -469,7 +470,8 @@ export default async function ProductDetailPage({ params }: Params) {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f1e8] text-[#172033]">
+    <>
+      <main className="min-h-screen bg-[#f7f1e8] text-[#172033]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -648,6 +650,12 @@ export default async function ProductDetailPage({ params }: Params) {
 
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-black">
               <Link
+                href="/versand-zahlung"
+                className="text-[#9b2f23] underline decoration-[#9b2f23]/30 underline-offset-4"
+              >
+                Versand & Zahlung
+              </Link>
+              <Link
                 href="/widerruf-rueckgabe"
                 className="text-[#9b2f23] underline decoration-[#9b2f23]/30 underline-offset-4"
               >
@@ -669,6 +677,9 @@ export default async function ProductDetailPage({ params }: Params) {
           </div>
         </article>
       </section>
-    </main>
+      </main>
+
+      <LegalFooter />
+    </>
   );
 }

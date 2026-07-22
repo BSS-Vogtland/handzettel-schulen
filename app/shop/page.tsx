@@ -1,7 +1,13 @@
-﻿import ShopClient from "./ShopClient";
+import LegalFooter from "@/components/LegalFooter";
+import ShopClient from "./ShopClient";
 
 export const dynamic = "force-dynamic";
 
 export default function Page() {
-  return <ShopClient />;
+  return (
+    <>
+      <ShopClient />
+      <LegalFooter />
+    </>
+  );
 }

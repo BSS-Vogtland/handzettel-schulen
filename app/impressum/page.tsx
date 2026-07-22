@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LegalFooter from "@/components/LegalFooter";
 import { ArrowLeft, Building2, Mail, Phone, ShieldCheck } from "lucide-react";
 import {
   getGeneralEmail,
@@ -37,7 +38,8 @@ export default async function ImpressumPage() {
   const email = getGeneralEmail(settings);
 
   return (
-    <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
+    <>
+      <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -190,6 +192,9 @@ export default async function ImpressumPage() {
           </p>
         </section>
       </section>
-    </main>
+      </main>
+
+      <LegalFooter />
+    </>
   );
 }
