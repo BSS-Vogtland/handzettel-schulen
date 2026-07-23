@@ -61,7 +61,15 @@ type CheckoutBody = {
   fulfillmentMethod?: "pickup" | "shipping" | null;
   paymentMethod?: "paypal" | "bank_transfer" | null;
   customerMessage?: string | null;
+  preparedCartToken?: string | null;
   cartItems?: unknown;
+};
+
+type PreparedCartRow = {
+  id: string;
+  token: string;
+  status: string;
+  expires_at: string | null;
 };
 
 type CreatedRequestRow = {
@@ -550,6 +558,9 @@ export async function POST(request: NextRequest) {
       body.fulfillmentMethod === "shipping" ? "shipping" : "pickup";
 
     const customerMessage = cleanNullableString(body.customerMessage);
+    const preparedCartToken = cleanNullableString(
+      body.preparedCartToken
+    );
 
     const paymentMethod =
       body.paymentMethod === "bank_transfer" ? "bank_transfer" : "paypal";
@@ -656,6 +667,75 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
 
+    let preparedCart: PreparedCartRow | null = null;
+
+    if (preparedCartToken) {
+      const { data, error } = await supabase
+        .from("school_prepared_carts")
+        .select("id, token, status, expires_at")
+        .eq("token", preparedCartToken)
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Der vorbereitete Warenkorb konnte nicht geprüft werden: ${error.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      preparedCart = data as PreparedCartRow | null;
+
+      if (!preparedCart) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Der vorbereitete Warenkorb wurde nicht gefunden. Bitte öffne den ursprünglichen Kundenlink erneut.",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        ["ordered", "expired", "cancelled"].includes(
+          preparedCart.status
+        )
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Dieser vorbereitete Warenkorb kann nicht mehr bestellt werden.",
+          },
+          { status: 409 }
+        );
+      }
+
+      if (
+        preparedCart.expires_at &&
+        new Date(preparedCart.expires_at).getTime() <= Date.now()
+      ) {
+        await supabase
+          .from("school_prepared_carts")
+          .update({
+            status: "expired",
+          })
+          .eq("id", preparedCart.id);
+
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Dieser vorbereitete Warenkorb ist abgelaufen. Bitte fordere einen neuen Link an.",
+          },
+          { status: 410 }
+        );
+      }
+    }
+
     const cartItems = await buildServerCartItems({
       supabase,
       cartInputs,
@@ -708,6 +788,9 @@ export async function POST(request: NextRequest) {
         : null,
       cartItems.some((item) => item.sourceType === "reorder_from_school_list")
         ? "Enthält Nachkauf-Artikel aus früherem Paketwunsch."
+        : null,
+      preparedCart
+        ? `Bestellung aus vorbereitetem Bestandskunden-Warenkorb ${preparedCart.id}.`
         : null,
     ].filter(Boolean);
 
@@ -1073,6 +1156,45 @@ export async function POST(request: NextRequest) {
       customerMessage,
     });
 
+    if (preparedCart) {
+      const { error: preparedCartUpdateError } = await supabase
+        .from("school_prepared_carts")
+        .update({
+          status: "ordered",
+          ordered_request_id: requestId,
+          ordered_invoice_id: invoice.id,
+          ordered_invoice_token: invoice.invoice_token,
+          ordered_at: new Date().toISOString(),
+        })
+        .eq("id", preparedCart.id)
+        .neq("status", "ordered");
+
+      if (preparedCartUpdateError) {
+        console.error(
+          "Vorbereiteter Warenkorb konnte nicht als bestellt markiert werden:",
+          preparedCartUpdateError
+        );
+
+        await insertRequestEvent({
+          supabase,
+          requestId,
+          eventType: "prepared_cart_link_failed",
+          title: "Vorbereiteter Warenkorb nicht verknüpft",
+          description:
+            "Die Bestellung wurde erfolgreich erstellt, aber der vorbereitete Bestandskunden-Warenkorb konnte nicht als bestellt markiert werden.",
+        });
+      } else {
+        await insertRequestEvent({
+          supabase,
+          requestId,
+          eventType: "prepared_cart_ordered",
+          title: "Vorbereiteter Warenkorb bestellt",
+          description:
+            "Die Bestellung wurde aus einem vorbereiteten Bestandskunden-Warenkorb abgeschlossen.",
+        });
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       requestId,
@@ -1089,6 +1211,7 @@ export async function POST(request: NextRequest) {
       discountValue: appliedDiscount.discountValue,
       discountAmount,
       totalAmount,
+      preparedCartLinked: Boolean(preparedCart),
       message: appliedDiscount.discountName
         ? `Die Shop-Bestellung wurde erstellt. Rabattaktion "${appliedDiscount.discountName}" wurde angewendet.`
         : "Die Shop-Bestellung wurde erstellt.",

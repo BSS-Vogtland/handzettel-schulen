@@ -69,7 +69,7 @@ function getDiscountInfoText(preview: DiscountPreview | null) {
     )} bis zum Rabatt "${preview.discountName}".`;
   }
 
-  return `Rabattaktion "${preview.discountName}" ist aktiv, greift aber fÃ¼r diesen Warenkorb noch nicht.`;
+  return `Rabattaktion "${preview.discountName}" ist aktiv, greift aber für diesen Warenkorb noch nicht.`;
 }
 
 export default function ShopCartPage() {
@@ -180,11 +180,11 @@ export default function ShopCartPage() {
     setCartItems(nextCart);
 
     if (item.quantity <= 1) {
-      showTemporaryMessage(`â€ž${item.name}â€œ wurde aus dem Warenkorb entfernt.`);
+      showTemporaryMessage(`„${item.name}“ wurde aus dem Warenkorb entfernt.`);
       return;
     }
 
-    showTemporaryMessage(`Menge von â€ž${item.name}â€œ wurde aktualisiert.`);
+    showTemporaryMessage(`Menge von „${item.name}“ wurde aktualisiert.`);
   }
 
   function handleIncreaseQuantity(item: ShopCartItem) {
@@ -194,19 +194,19 @@ export default function ShopCartPage() {
     );
 
     setCartItems(nextCart);
-    showTemporaryMessage(`Menge von â€ž${item.name}â€œ wurde aktualisiert.`);
+    showTemporaryMessage(`Menge von „${item.name}“ wurde aktualisiert.`);
   }
 
   function handleRemoveItem(item: ShopCartItem) {
     const nextCart = removeShopCartItem(item.productId);
 
     setCartItems(nextCart);
-    showTemporaryMessage(`â€ž${item.name}â€œ wurde aus dem Warenkorb entfernt.`);
+    showTemporaryMessage(`„${item.name}“ wurde aus dem Warenkorb entfernt.`);
   }
 
   function handleClearCart() {
     const confirmed = window.confirm(
-      "MÃ¶chtest Du den gesamten Warenkorb wirklich leeren?"
+      "Möchtest Du den gesamten Warenkorb wirklich leeren?"
     );
 
     if (!confirmed) {
@@ -228,11 +228,11 @@ export default function ShopCartPage() {
               href="/shop"
               className="mb-5 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-[#172033] shadow-sm ring-1 ring-[#eadfce] transition hover:bg-[#172033] hover:text-white"
             >
-              â† ZurÃ¼ck zum Shop
+              ← Zurück zum Shop
             </Link>
 
             <p className="mb-3 inline-flex rounded-full bg-[#172033] px-4 py-2 text-sm font-semibold text-white shadow-sm">
-              Schulmaterial-Shop Â· Warenkorb
+              Schulmaterial-Shop · Warenkorb
             </p>
 
             <h1 className="text-4xl font-black tracking-tight text-[#172033] md:text-5xl">
@@ -240,8 +240,8 @@ export default function ShopCartPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[#4c5870]">
-              Hier siehst Du alle Produkte, die Du aktuell ausgewÃ¤hlt hast. Du
-              kannst Mengen Ã¤ndern oder Artikel wieder entfernen.
+              Hier siehst Du alle Produkte, die Du aktuell ausgewählt hast. Du
+              kannst Mengen ändern oder Artikel wieder entfernen.
             </p>
           </div>
 
@@ -281,8 +281,8 @@ export default function ShopCartPage() {
             ) : null}
 
             <div className="mt-5 rounded-2xl bg-[#e7f7ec] p-4 text-sm font-bold leading-6 text-[#246b3a] ring-1 ring-[#bfe7c9]">
-              Im nÃ¤chsten Schritt gibst Du Deine Daten ein. Danach lÃ¤uft alles
-              Ã¼ber die bestehende Rechnung & Zahlung.
+              Im nächsten Schritt gibst Du Deine Daten ein. Danach läuft alles
+              über die bestehende Rechnung & Zahlung.
             </div>
           </div>
         </div>
@@ -340,7 +340,7 @@ export default function ShopCartPage() {
                         ) : (
                           <div className="flex h-full min-h-[180px] w-full flex-col items-center justify-center px-6 text-center">
                             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-3xl shadow-sm">
-                              ðŸ“š
+                              📚
                             </div>
                             <p className="text-sm font-bold text-[#5b667a]">
                               Produktbild folgt
@@ -414,7 +414,7 @@ export default function ShopCartPage() {
                               className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f7f1e8] text-xl font-black text-[#172033] ring-1 ring-[#eadfce] transition hover:bg-white"
                               aria-label="Menge verringern"
                             >
-                              âˆ’
+                              −
                             </button>
 
                             <div className="min-w-[70px] rounded-2xl bg-white px-4 py-3 text-center text-lg font-black text-[#172033] ring-1 ring-[#d8cdbb]">
@@ -425,7 +425,7 @@ export default function ShopCartPage() {
                               type="button"
                               onClick={() => handleIncreaseQuantity(item)}
                               className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#172033] text-xl font-black text-white transition hover:bg-[#9b2f23]"
-                              aria-label="Menge erhÃ¶hen"
+                              aria-label="Menge erhöhen"
                             >
                               +
                             </button>
@@ -505,7 +505,7 @@ export default function ShopCartPage() {
 
                 {isLoadingDiscountPreview ? (
                   <div className="border-b border-[#eadfce] pb-4 text-sm font-bold text-[#7a8496]">
-                    Rabatt wird geprÃ¼ft...
+                    Rabatt wird geprüft...
                   </div>
                 ) : null}
 
@@ -516,9 +516,9 @@ export default function ShopCartPage() {
               </div>
 
               <div className="mt-6 rounded-2xl bg-[#f7f1e8] p-4 text-sm leading-6 text-[#5b667a]">
-                Im nÃ¤chsten Schritt gibst Du Kundendaten und Ãœbergabeart ein.
+                Im nächsten Schritt gibst Du Kundendaten und Übergabeart ein.
                 Danach wird automatisch eine Rechnung erzeugt und Du kannst
-                PayPal oder Ãœberweisung nutzen.
+                PayPal oder Überweisung nutzen.
               </div>
 
               <Link

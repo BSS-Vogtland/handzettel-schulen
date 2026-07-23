@@ -106,7 +106,7 @@ function extractLabeledValue(lines: string[], labels: string[]) {
 
     if (!line) continue;
 
-    const colonMatch = line.match(/^([^:ï¼š]{2,40})[:ï¼š](.*)$/);
+    const colonMatch = line.match(/^([^:：]{2,40})[:：](.*)$/);
 
     if (colonMatch) {
       const label = normalizeLabel(colonMatch[1]);
@@ -126,7 +126,7 @@ function extractLabeledValue(lines: string[], labels: string[]) {
 
           if (!nextLine) continue;
 
-          const nextLineLooksLikeField = /^([^:ï¼š]{2,40})[:ï¼š]/.test(nextLine);
+          const nextLineLooksLikeField = /^([^:：]{2,40})[:：]/.test(nextLine);
           if (nextLineLooksLikeField) break;
 
           if (!isProbablyPlaceholder(nextLine)) {

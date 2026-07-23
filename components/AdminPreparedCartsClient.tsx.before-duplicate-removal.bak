@@ -100,7 +100,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat("de-DE", {
     timeZone: "Europe/Berlin",
@@ -126,7 +126,7 @@ function getStatusLabel(status: string) {
     case "sent":
       return "Gesendet";
     case "opened":
-      return "Geöffnet";
+      return "GeÃ¶ffnet";
     case "edited":
       return "Bearbeitet";
     case "ordered":
@@ -134,7 +134,7 @@ function getStatusLabel(status: string) {
     case "expired":
       return "Abgelaufen";
     case "cancelled":
-      return "Zurückgezogen";
+      return "ZurÃ¼ckgezogen";
     default:
       return status;
   }
@@ -201,7 +201,7 @@ export default function AdminPreparedCartsClient() {
       if (!response.ok || !result.ok) {
         setErrorMessage(
           result.message ||
-            "Vorbereitete Warenkörbe konnten nicht geladen werden."
+            "Vorbereitete WarenkÃ¶rbe konnten nicht geladen werden."
         );
         return;
       }
@@ -222,7 +222,7 @@ export default function AdminPreparedCartsClient() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Vorbereitete Warenkörbe konnten nicht geladen werden."
+          : "Vorbereitete WarenkÃ¶rbe konnten nicht geladen werden."
       );
     } finally {
       setIsLoading(false);
@@ -259,7 +259,7 @@ export default function AdminPreparedCartsClient() {
     if (!title.trim()) {
       setTitle(
         customer.customer_name
-          ? `Warenkorb für ${customer.customer_name}`
+          ? `Warenkorb fÃ¼r ${customer.customer_name}`
           : ""
       );
     }
@@ -275,7 +275,7 @@ export default function AdminPreparedCartsClient() {
     }
 
     if (!email.trim() || !email.includes("@")) {
-      setErrorMessage("Bitte gib eine gültige E-Mail-Adresse ein.");
+      setErrorMessage("Bitte gib eine gÃ¼ltige E-Mail-Adresse ein.");
       return;
     }
 
@@ -383,7 +383,7 @@ export default function AdminPreparedCartsClient() {
 
   async function handleAddProduct(product: ProductSearchResult) {
     if (!selectedCart) {
-      setErrorMessage("Bitte wähle zuerst einen vorbereiteten Warenkorb aus.");
+      setErrorMessage("Bitte wÃ¤hle zuerst einen vorbereiteten Warenkorb aus.");
       return;
     }
 
@@ -416,13 +416,13 @@ export default function AdminPreparedCartsClient() {
 
       if (!response.ok || !result.ok) {
         setErrorMessage(
-          result.message || "Das Produkt konnte nicht hinzugefügt werden."
+          result.message || "Das Produkt konnte nicht hinzugefÃ¼gt werden."
         );
         return;
       }
 
       setSuccessMessage(
-        result.message || "Das Produkt wurde zum Warenkorb hinzugefügt."
+        result.message || "Das Produkt wurde zum Warenkorb hinzugefÃ¼gt."
       );
 
       await loadData();
@@ -431,7 +431,7 @@ export default function AdminPreparedCartsClient() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Das Produkt konnte nicht hinzugefügt werden."
+          : "Das Produkt konnte nicht hinzugefÃ¼gt werden."
       );
     } finally {
       setBusyKey(null);
@@ -514,7 +514,7 @@ export default function AdminPreparedCartsClient() {
     if (!selectedCart) return;
 
     const confirmed = window.confirm(
-      `Soll „${item.product_name_snapshot}“ aus dem vorbereiteten Warenkorb entfernt werden?`
+      `Soll â€ž${item.product_name_snapshot}â€œ aus dem vorbereiteten Warenkorb entfernt werden?`
     );
 
     if (!confirmed) return;
@@ -577,7 +577,7 @@ export default function AdminPreparedCartsClient() {
     if (cart.status === "ordered") {
       setSuccessMessage(null);
       setErrorMessage(
-        "Bereits bestellte Warenkörbe können nicht gelöscht werden."
+        "Bereits bestellte WarenkÃ¶rbe kÃ¶nnen nicht gelÃ¶scht werden."
       );
       return;
     }
@@ -588,9 +588,9 @@ export default function AdminPreparedCartsClient() {
       "diesen vorbereiteten Warenkorb";
 
     const confirmed = window.confirm(
-      `Soll „${cartLabel}“ wirklich vollständig gelöscht werden?
+      `Soll â€ž${cartLabel}â€œ wirklich vollstÃ¤ndig gelÃ¶scht werden?
 
-Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
+Dabei werden auch alle enthaltenen Warenkorbpositionen gelÃ¶scht.`
     );
 
     if (!confirmed) return;
@@ -617,7 +617,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
       if (!response.ok || !result.ok) {
         setErrorMessage(
           result.message ||
-            "Der vorbereitete Warenkorb konnte nicht gelöscht werden."
+            "Der vorbereitete Warenkorb konnte nicht gelÃ¶scht werden."
         );
         return;
       }
@@ -636,13 +636,13 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
 
       setSuccessMessage(
         result.message ||
-          "Der vorbereitete Warenkorb wurde gelöscht."
+          "Der vorbereitete Warenkorb wurde gelÃ¶scht."
       );
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Der vorbereitete Warenkorb konnte nicht gelöscht werden."
+          : "Der vorbereitete Warenkorb konnte nicht gelÃ¶scht werden."
       );
     } finally {
       setBusyKey(null);
@@ -688,7 +688,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
               Neuer Bestandskunden-Warenkorb
             </p>
             <h2 className="mt-1 text-2xl font-black text-[#102A43]">
-              Kundendaten übernehmen oder neu eingeben
+              Kundendaten Ã¼bernehmen oder neu eingeben
             </h2>
           </div>
         </div>
@@ -696,7 +696,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-black text-[#102A43]">
-              Bestehenden Kunden auswählen
+              Bestehenden Kunden auswÃ¤hlen
             </label>
 
             <select
@@ -711,9 +711,9 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.customer_name || "Ohne Namen"}
-                  {customer.email ? ` · ${customer.email}` : ""}
+                  {customer.email ? ` Â· ${customer.email}` : ""}
                   {customer.request_number
-                    ? ` · ${customer.request_number}`
+                    ? ` Â· ${customer.request_number}`
                     : ""}
                 </option>
               ))}
@@ -727,14 +727,14 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="z. B. Nachbestellung Familie Müller"
+              placeholder="z. B. Nachbestellung Familie MÃ¼ller"
               className="w-full rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-4 py-4 text-sm font-bold text-[#102A43] outline-none focus:border-[#12395F]"
             />
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-black text-[#102A43]">
-              Gültigkeit in Tagen
+              GÃ¼ltigkeit in Tagen
             </label>
             <input
               type="number"
@@ -804,7 +804,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                Vorbereitete Warenkörbe
+                Vorbereitete WarenkÃ¶rbe
               </p>
               <p className="mt-1 text-2xl font-black text-[#102A43]">
                 {carts.length}
@@ -827,7 +827,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
           <div className="mt-5 space-y-3">
             {isLoading ? (
               <div className="rounded-2xl bg-[#FBF7F0] p-4 text-sm font-bold text-[#52616F]">
-                Warenkörbe werden geladen …
+                WarenkÃ¶rbe werden geladen â€¦
               </div>
             ) : null}
 
@@ -907,7 +907,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
 
                       {cart.status === "ordered"
                         ? "Bestellter Warenkorb"
-                        : "Warenkorb löschen"}
+                        : "Warenkorb lÃ¶schen"}
                     </button>
                   </div>
                 </div>
@@ -921,10 +921,10 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
             <section className="rounded-[32px] border border-[#E8DED2] bg-white p-7 text-center shadow-sm">
               <ShoppingCart className="mx-auto h-10 w-10 text-[#A75B28]" />
               <h2 className="mt-4 text-2xl font-black text-[#102A43]">
-                Kein Warenkorb ausgewählt
+                Kein Warenkorb ausgewÃ¤hlt
               </h2>
               <p className="mt-2 text-sm font-semibold text-[#52616F]">
-                Lege einen Warenkorb an oder wähle links einen vorhandenen aus.
+                Lege einen Warenkorb an oder wÃ¤hle links einen vorhandenen aus.
               </p>
             </section>
           ) : (
@@ -942,7 +942,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                       </span>
 
                       <span className="rounded-full border border-[#D6E7EF] bg-white px-3 py-1 text-xs font-black text-[#12395F]">
-                        gültig bis {formatDateTime(selectedCart.expires_at)}
+                        gÃ¼ltig bis {formatDateTime(selectedCart.expires_at)}
                       </span>
                     </div>
 
@@ -955,10 +955,10 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                     <p className="mt-2 text-sm font-semibold text-[#52616F]">
                       {selectedCart.customer_name || "Kein Kundenname"}
                       {selectedCart.email
-                        ? ` · ${selectedCart.email}`
+                        ? ` Â· ${selectedCart.email}`
                         : ""}
                       {selectedCart.phone
-                        ? ` · ${selectedCart.phone}`
+                        ? ` Â· ${selectedCart.phone}`
                         : ""}
                     </p>
                   </div>
@@ -999,7 +999,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                         rel="noreferrer"
                         className="inline-flex items-center justify-center rounded-2xl border border-[#D6E7EF] bg-white px-4 py-3 text-sm font-black text-[#12395F]"
                       >
-                        Kundenlink öffnen
+                        Kundenlink Ã¶ffnen
                       </a>
                     </div>
                   </div>
@@ -1022,7 +1022,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
 
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
-                      Produkt hinzufügen
+                      Produkt hinzufÃ¼gen
                     </p>
                     <h2 className="mt-1 text-xl font-black text-[#102A43]">
                       Produktkatalog durchsuchen
@@ -1042,7 +1042,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                         void handleProductSearch();
                       }
                     }}
-                    placeholder="Produktname, Artikelnummer, Format, Farbe …"
+                    placeholder="Produktname, Artikelnummer, Format, Farbe â€¦"
                     className="min-h-12 flex-1 rounded-2xl border border-[#D8C8B8] bg-[#FBF7F0] px-4 py-3 text-sm font-bold text-[#102A43] outline-none focus:border-[#12395F]"
                   />
 
@@ -1157,7 +1157,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                                 ) : (
                                   <Plus className="h-4 w-4" />
                                 )}
-                                Hinzufügen
+                                HinzufÃ¼gen
                               </button>
                             </div>
                           </div>
@@ -1167,7 +1167,13 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                   </div>
                 ) : null}
 
-
+                <PreparedCartCommunicationPanel
+                  cart={selectedCart}
+                  onChanged={async () => {
+                    await loadData();
+                    setSelectedCartId(selectedCart.id);
+                  }}
+                />
               </section>
 
               <section className="rounded-[32px] border border-[#E8DED2] bg-white p-5 shadow-sm sm:p-6">
@@ -1181,7 +1187,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
 
                 {selectedCart.items.length === 0 ? (
                   <div className="mt-5 rounded-2xl bg-[#FBF7F0] p-5 text-sm font-bold text-[#52616F]">
-                    Noch keine Produkte hinzugefügt.
+                    Noch keine Produkte hinzugefÃ¼gt.
                   </div>
                 ) : (
                   <div className="mt-5 space-y-3">
@@ -1223,7 +1229,7 @@ Dabei werden auch alle enthaltenen Warenkorbpositionen gelöscht.`
                               </p>
 
                               <p className="mt-3 text-sm font-black text-[#102A43]">
-                                {formatMoney(item.unit_price_snapshot)} pro Stück
+                                {formatMoney(item.unit_price_snapshot)} pro StÃ¼ck
                               </p>
 
                               <p className="mt-1 text-lg font-black text-[#2F7D50]">

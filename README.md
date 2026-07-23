@@ -44,6 +44,11 @@ statische Standardwerte. Die Prüfung erfolgt erst zur Laufzeit beim Erzeugen od
 Lesen eines Empfehlungskontexts; Secret-Werte werden weder geloggt noch in
 Fehlermeldungen ausgegeben.
 
+Nur in der lokalen Entwicklung wird bei fehlender Variable pro Serverprozess ein
+zufälliges, flüchtiges Entwicklungssecret erzeugt. Es wird nicht gespeichert und
+niemals in Produktion verwendet. Nach einem Neustart sind damit erzeugte lokale
+Kontexte erwartungsgemäß ungültig.
+
 Die First-Party-Attribution arbeitet nach Last-Click je Partner: Ein Cookie pro
 Projekt-/Partnerkombination enthält ausschließlich den zufälligen `click_token`.
 Ein Folgeklick desselben Partners ersetzt nur dessen Attribution; Cookies anderer

@@ -139,7 +139,7 @@ function getProductImageTitle(product: ProductRow, fallbackName: string): string
       "image_title",
       "title_text",
       "seo_image_title",
-    ]) || `${fallbackName} â€“ Handzettel-Schulen.de`
+    ]) || `${fallbackName} – Handzettel-Schulen.de`
   );
 }
 
@@ -164,10 +164,10 @@ function slugify(value: unknown) {
   return String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120);
@@ -233,7 +233,7 @@ export default function ShopPage() {
       if (!supabase) {
         setProducts([]);
         setLoadError(
-          "Die Supabase-Verbindung ist noch nicht vollstÃ¤ndig konfiguriert."
+          "Die Supabase-Verbindung ist noch nicht vollständig konfiguriert."
         );
         setIsLoading(false);
         return;
@@ -247,7 +247,7 @@ export default function ShopPage() {
       if (error) {
         setProducts([]);
         setLoadError(
-          "Die Produkte konnten nicht geladen werden. PrÃ¼fe ggf. die Leserechte fÃ¼r school_products."
+          "Die Produkte konnten nicht geladen werden. Prüfe ggf. die Leserechte für school_products."
         );
         setIsLoading(false);
         return;
@@ -401,18 +401,18 @@ export default function ShopPage() {
         <div className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-xl rounded-[1.5rem] border border-[#bfe7c9] bg-white p-4 shadow-2xl md:left-auto md:right-6 md:top-6 md:w-[420px]">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#e7f7ec] text-2xl">
-              âœ“
+              ✓
             </div>
 
             <div className="min-w-0 flex-1">
               <p className="font-black text-[#246b3a]">
                 {feedback.mode === "increased"
-                  ? "Menge im Warenkorb erhÃ¶ht"
-                  : "Artikel wurde hinzugefÃ¼gt"}
+                  ? "Menge im Warenkorb erhöht"
+                  : "Artikel wurde hinzugefügt"}
               </p>
 
               <p className="mt-1 text-sm font-semibold leading-6 text-[#4c5870]">
-                â€ž{feedback.productName}â€œ liegt jetzt im Warenkorb.
+                „{feedback.productName}“ liegt jetzt im Warenkorb.
               </p>
 
               <p className="mt-1 text-xs font-bold text-[#7a8496]">
@@ -442,9 +442,9 @@ export default function ShopPage() {
               type="button"
               onClick={closeFeedback}
               className="rounded-full px-2 py-1 text-lg font-black text-[#7a8496] transition hover:bg-[#f7f1e8] hover:text-[#172033]"
-              aria-label="Hinweis schlieÃŸen"
+              aria-label="Hinweis schließen"
             >
-              Ã—
+              ×
             </button>
           </div>
         </div>
@@ -457,11 +457,11 @@ export default function ShopPage() {
               href="/"
               className="mb-5 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-[#172033] shadow-sm ring-1 ring-[#eadfce] transition hover:bg-[#172033] hover:text-white"
             >
-              â† ZurÃ¼ck zur Startseite
+              ← Zurück zur Startseite
             </Link>
 
             <p className="mb-3 inline-flex rounded-full bg-[#172033] px-4 py-2 text-sm font-semibold text-white shadow-sm">
-              Neuer Bereich Â· Schulmaterial-Shop
+              Neuer Bereich · Schulmaterial-Shop
             </p>
 
             <h1 className="text-4xl font-black tracking-tight text-[#172033] md:text-5xl">
@@ -562,15 +562,15 @@ export default function ShopPage() {
 
         <div className="mt-4 rounded-[1.5rem] border border-[#eadfce] bg-[#fffaf2] px-4 py-3 text-xs font-semibold leading-5 text-[#5b667a] shadow-sm">
           <span className="font-black text-[#172033]">Hinweis:</span>{" "}
-          Produktbilder dienen der besseren Orientierung und kÃ¶nnen KI-gestÃ¼tzt
-          optimiert worden sein. GeringfÃ¼gige optische Abweichungen sind mÃ¶glich.
-          MaÃŸgeblich sind Artikelbeschreibung und Produktmerkmale.
+          Produktbilder dienen der besseren Orientierung und können KI-gestützt
+          optimiert worden sein. Geringfügige optische Abweichungen sind möglich.
+          Maßgeblich sind Artikelbeschreibung und Produktmerkmale.
         </div>
 
         {isLoading ? (
           <div className="mt-8 rounded-[2rem] bg-white p-8 text-center shadow-sm ring-1 ring-[#eadfce]">
             <p className="text-lg font-black text-[#172033]">
-              Produkte werden geladen â€¦
+              Produkte werden geladen …
             </p>
             <p className="mt-2 text-sm text-[#5b667a]">
               Der Shop ruft gerade den aktuellen Produktbestand ab.
@@ -595,7 +595,7 @@ export default function ShopPage() {
               Keine passenden Produkte gefunden.
             </p>
             <p className="mt-2 text-sm text-[#5b667a]">
-              Versuche einen anderen Suchbegriff oder wÃ¤hle eine andere Kategorie.
+              Versuche einen anderen Suchbegriff oder wähle eine andere Kategorie.
             </p>
           </div>
         ) : null}
@@ -639,7 +639,7 @@ export default function ShopPage() {
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-3xl shadow-sm">
-                          ðŸ“š
+                          📚
                         </div>
                         <p className="text-sm font-bold text-[#5b667a]">
                           Produktbild folgt
@@ -655,7 +655,7 @@ export default function ShopPage() {
 
                     {wasRecentlyAdded ? (
                       <span className="absolute right-4 top-4 rounded-full bg-[#e7f7ec] px-3 py-1.5 text-xs font-black text-[#246b3a] shadow-sm ring-1 ring-[#bfe7c9]">
-                        âœ“ HinzugefÃ¼gt
+                        ✓ Hinzugefügt
                       </span>
                     ) : null}
                   </div>
@@ -720,7 +720,7 @@ export default function ShopPage() {
                             : "bg-[#172033] text-white hover:bg-[#9b2f23]",
                         ].join(" ")}
                       >
-                        {wasRecentlyAdded ? "HinzugefÃ¼gt âœ“" : "In den Warenkorb"}
+                        {wasRecentlyAdded ? "Hinzugefügt ✓" : "In den Warenkorb"}
                       </button>
                     </div>
                   </div>

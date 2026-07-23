@@ -31,10 +31,10 @@ export function normalizeKeywordText(value: unknown) {
     .replace(/\u00f6/g, "oe")
     .replace(/\u00fc/g, "ue")
     .replace(/\u00df/g, "ss")
-    .replace(/ÃƒÆ’Ã‚Â¤/g, "ae")
-    .replace(/ÃƒÆ’Ã‚Â¶/g, "oe")
-    .replace(/ÃƒÆ’Ã‚Â¼/g, "ue")
-    .replace(/ÃƒÆ’Ã…Â¸/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -422,10 +422,10 @@ export function buildBookSizeAliases(input: {
     `${width} x ${height}`,
     `${width} ${height}`,
     `${width}x${height}`,
-    `BuchmaÃƒÅ¸ ${sizeLabel}`,
+    `Buchmaß ${sizeLabel}`,
     `Buchmass ${sizeLabel}`,
     `Buchumschlag ${sizeLabel}`,
-    `BuchhÃƒÂ¼lle ${sizeLabel}`,
+    `Buchhülle ${sizeLabel}`,
     `Buchhuelle ${sizeLabel}`,
     `Umschlag ${sizeLabel}`,
     `${input.productName} ${sizeLabel}`,

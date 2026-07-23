@@ -90,17 +90,27 @@ test("hz_click überträgt keine internen IDs und lehnt unsichere Ziele ab", () 
 
 test("fehlendes oder zu kurzes Kontext-Secret wird kontrolliert abgelehnt", () => {
   assert.throws(
-    () => recommendationContextSecret({}),
+    () => recommendationContextSecret({ NODE_ENV: "production" }),
     /nicht sicher konfiguriert/,
   );
   assert.throws(
-    () => recommendationContextSecret({ RECOMMENDATION_CONTEXT_SECRET: "too-short" }),
+    () => recommendationContextSecret({
+      NODE_ENV: "production",
+      RECOMMENDATION_CONTEXT_SECRET: "too-short",
+    }),
     /nicht sicher konfiguriert/,
   );
   assert.equal(
     recommendationContextSecret({ RECOMMENDATION_CONTEXT_SECRET: SECRET }),
     SECRET,
   );
+});
+
+test("lokale Entwicklung erhält ein flüchtiges stabiles Prozess-Secret", () => {
+  const first = recommendationContextSecret({ NODE_ENV: "development" });
+  const second = recommendationContextSecret({ NODE_ENV: "development" });
+  assert.equal(first, second);
+  assert.ok(first.length >= 32);
 });
 
 test("manipulierter Kontext wird abgelehnt und enthält keine Personendaten", () => {

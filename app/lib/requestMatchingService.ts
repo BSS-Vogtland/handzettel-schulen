@@ -86,7 +86,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. PrÃ¼fe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 
@@ -113,10 +113,10 @@ function normalizeText(value: unknown) {
   return String(value ?? "")
     .toLowerCase()
     .trim()
-    .replace(/Ã¤/g, "ae")
-    .replace(/Ã¶/g, "oe")
-    .replace(/Ã¼/g, "ue")
-    .replace(/ÃŸ/g, "ss")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/gr?n/g, "gruen")
     .replace(/[^a-z0-9,.]+/g, " ")
     .replace(/\s+/g, " ")
@@ -463,7 +463,7 @@ function calculateRelatedProductMatch(input: {
   }
 
   let score = 58;
-  const reasonParts = ["Artverwandter Kandidat zur Admin-PrÃ¼fung"];
+  const reasonParts = ["Artverwandter Kandidat zur Admin-Prüfung"];
 
   if (sameFamily) {
     score += 14;
@@ -486,7 +486,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Format passt: ${itemFormat}`);
     } else {
       score -= 14;
-      reasonParts.push(`Format prÃ¼fen: Liste ${itemFormat}, Produkt ${productFormat}`);
+      reasonParts.push(`Format prüfen: Liste ${itemFormat}, Produkt ${productFormat}`);
     }
   }
 
@@ -497,7 +497,7 @@ function calculateRelatedProductMatch(input: {
     } else {
       score -= 16;
       reasonParts.push(
-        `Lineatur prÃ¼fen: Liste ${itemLineature}, Produkt ${productLineature}`
+        `Lineatur prüfen: Liste ${itemLineature}, Produkt ${productLineature}`
       );
     }
   }
@@ -508,7 +508,7 @@ function calculateRelatedProductMatch(input: {
       reasonParts.push(`Farbe passt: ${itemColor}`);
     } else {
       score -= 8;
-      reasonParts.push(`Farbe prÃ¼fen: Liste ${itemColor}, Produkt ${productColor}`);
+      reasonParts.push(`Farbe prüfen: Liste ${itemColor}, Produkt ${productColor}`);
     }
   }
 
@@ -525,7 +525,7 @@ function calculateRelatedProductMatch(input: {
 
   if (hasVariantConflict) {
     score = Math.min(score, 74);
-    reasonParts.push("Variantenmerkmale m?ssen geprÃ¼ft werden");
+    reasonParts.push("Variantenmerkmale m?ssen geprüft werden");
   } else {
     score = Math.min(score, 83);
   }
@@ -773,7 +773,7 @@ function calculateLearnedAliasMatch(input: {
     if (hasVariantConflict) {
       return {
         score: 84,
-        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen geprÃ¼ft werden: ${cleanedAlias}`,
+        reason: `Gelernte Zuordnung erkannt, aber Variantenmerkmale m?ssen geprüft werden: ${cleanedAlias}`,
       };
     }
 
@@ -1115,7 +1115,7 @@ function extractBookDimensionsMm(value: unknown): BookDimensions | null {
   const rawText = String(value ?? "")
     .toLowerCase()
     .replace(/,/g, ".")
-    .replace(/Ã—/g, "x")
+    .replace(/×/g, "x")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -2505,7 +2505,7 @@ function extractExplicitNumbersForScoring(value: unknown) {
 
   const numbers = Array.from(
     new Set(
-      Array.from(text.matchAll(/(?:nr\.?|nummer|pinsel|lineal|grÃ¶ÃŸe|groesse|grÃ¶ÃŸe:|groesse:)?\s*(\d{1,3})(?:\s*cm)?/gi))
+      Array.from(text.matchAll(/(?:nr\.?|nummer|pinsel|lineal|größe|groesse|größe:|groesse:)?\s*(\d{1,3})(?:\s*cm)?/gi))
         .map((match) => match[1])
         .filter(Boolean)
     )
@@ -2540,33 +2540,33 @@ function capInflatedMatchScore(input: {
 
   if (
     reason.includes("teilweise erkannt") ||
-    reason.includes("bitte prÃ¼fen") ||
-    reason.includes("bitte prÃ¼fen")
+    reason.includes("bitte prüfen") ||
+    reason.includes("bitte prüfen")
   ) {
     score = Math.min(score, 74);
-    capReasons.push("Teiltreffer nur zur PrÃ¼fung");
+    capReasons.push("Teiltreffer nur zur Prüfung");
   }
 
   if (
     reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-prÃ¼fung") ||
+    reason.includes("admin-prüfung") ||
     reason.includes("admin-pruefung")
   ) {
     score = Math.min(score, 79);
-    capReasons.push("artverwandter Kandidat nur zur Admin-PrÃ¼fung");
+    capReasons.push("artverwandter Kandidat nur zur Admin-Prüfung");
   }
 
   if (
     reason.includes("variantenmerkmale") ||
-    reason.includes("format prÃ¼fen") ||
-    reason.includes("format prÃ¼fen") ||
-    reason.includes("lineatur prÃ¼fen") ||
-    reason.includes("lineatur prÃ¼fen") ||
-    reason.includes("farbe prÃ¼fen") ||
-    reason.includes("farbe prÃ¼fen")
+    reason.includes("format prüfen") ||
+    reason.includes("format prüfen") ||
+    reason.includes("lineatur prüfen") ||
+    reason.includes("lineatur prüfen") ||
+    reason.includes("farbe prüfen") ||
+    reason.includes("farbe prüfen")
   ) {
     score = Math.min(score, 79);
-    capReasons.push("Variantenmerkmale mÃ¼ssen geprÃ¼ft werden");
+    capReasons.push("Variantenmerkmale müssen geprüft werden");
   }
 
   if (
@@ -2576,7 +2576,7 @@ function capInflatedMatchScore(input: {
     })
   ) {
     score = Math.min(score, 74);
-    capReasons.push("abweichende explizite Nummer/GrÃ¶ÃŸe");
+    capReasons.push("abweichende explizite Nummer/Größe");
   }
 
   if (capReasons.length === 0) {
@@ -2888,7 +2888,7 @@ export async function runRequestMatching(input: {
       message:
         rowsToInsert.length > 0
           ? `Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt. Pro Position werden maximal ${MAX_MATCHES_PER_ITEM} Vorschl?ge gespeichert. Mindesttrefferquote: ${MIN_VISIBLE_SCORE} %.`
-          : "Es wurden keine ausreichend sicheren PrÃ¼fung offen.",
+          : "Es wurden keine ausreichend sicheren Prüfung offen.",
     });
   } catch (error) {
     console.error("Admin product match error:", error);
