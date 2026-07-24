@@ -28,6 +28,7 @@ import CustomerOptionalOfferItemNoteForm from "@/components/CustomerOptionalOffe
 import CustomerOfferRecommendations from "@/components/CustomerOfferRecommendations";
 import CustomerPartnerRecommendations from "@/components/CustomerPartnerRecommendations";
 import CustomerProductDetailsDialog from "@/components/CustomerProductDetailsDialog";
+import CustomerBookCoverOption from "@/components/CustomerBookCoverOption";
 import CustomerWhatsappUpdatesPanel from "@/components/CustomerWhatsappUpdatesPanel";
 import LegalFooter from "@/components/LegalFooter";
 import { getCustomerPartnerRecommendations } from "@/app/lib/recommendations/customerRecommendationService";
@@ -156,6 +157,10 @@ type OfferItem = {
   notes: string | null;
   customer_note?: string | null;
   customer_note_updated_at?: string | null;
+  is_book_snapshot?: boolean | null;
+  book_isbn13_snapshot?: string | null;
+  book_cover_selected?: boolean | null;
+  book_cover_unit_price?: number | string | null;
 };
 
 type RequestItemQuestion = {
@@ -186,6 +191,8 @@ type ProductRow = Record<string, unknown> & {
   image_url?: string | null;
   image_original_url?: string | null;
   image_styled_url?: string | null;
+  is_book?: boolean | null;
+  book_isbn13?: string | null;
 };
 
 const AUTO_PRESELECT_MIN_SCORE = 85;
@@ -785,6 +792,30 @@ function getPreferredProductImageUrl(product: ProductRow) {
     null
   );
 }
+
+function isCustomerBookOfferItem(
+  item: OfferItem,
+  productById: ReadonlyMap<string, ProductRow>
+) {
+  if (
+    item.is_book_snapshot === true ||
+    Boolean(cleanText(item.book_isbn13_snapshot, ""))
+  ) {
+    return true;
+  }
+
+  if (!item.product_id) {
+    return false;
+  }
+
+  const product = productById.get(item.product_id);
+
+  return (
+    product?.is_book === true ||
+    Boolean(cleanText(product?.book_isbn13, ""))
+  );
+}
+
 function getItemFacts(item: RequestItem | null | undefined) {
   if (!item) return [];
 
@@ -1307,6 +1338,7 @@ function CustomerChildDetailedPackageSections({
   matchesByItem,
   selectedMatchIds,
   productImageById,
+  productById,
   matchById,
   partnerRecommendations,
 }: {
@@ -1321,6 +1353,7 @@ function CustomerChildDetailedPackageSections({
   matchesByItem: ReadonlyMap<string, RequestMatch[]>;
   selectedMatchIds: Set<string>;
   productImageById: Map<string, string | null>;
+  productById: ReadonlyMap<string, ProductRow>;
   matchById: Map<string, RequestMatch>;
   partnerRecommendations: CustomerPartnerRecommendation[];
 }) {
@@ -1595,6 +1628,22 @@ function CustomerChildDetailedPackageSections({
                             initialNote={item.customer_note || ""}
                             disabled={isConfirmed}
                           />
+
+                          {isCustomerBookOfferItem(item, productById) ? (
+                            <CustomerBookCoverOption
+                              token={token}
+                              itemId={item.id}
+                              productName={item.product_name}
+                              quantity={item.quantity}
+                              initialSelected={
+                                item.book_cover_selected === true
+                              }
+                              initialUnitPrice={
+                                item.book_cover_unit_price
+                              }
+                              disabled={isConfirmed}
+                            />
+                          ) : null}
                         </li>
                       );
                     })}
@@ -2417,6 +2466,21 @@ const customerOpenPositionScreenMode =
                               imageUrl={finalReviewProductImageUrl}
                               quantity={quantity}
                             />
+
+                            {isCustomerBookOfferItem(item, productById) ? (
+                              <CustomerBookCoverOption
+                                token={token}
+                                itemId={item.id}
+                                productName={item.product_name}
+                                quantity={item.quantity}
+                                initialSelected={
+                                  item.book_cover_selected === true
+                                }
+                                initialUnitPrice={
+                                  item.book_cover_unit_price
+                                }
+                              />
+                            ) : null}
                           </div>
 
                           <div className="flex flex-col items-start gap-3 sm:items-end">
@@ -2673,6 +2737,7 @@ const isFreshBeforeAnalysis =
           matchesByItem={matchesByItem}
           selectedMatchIds={selectedMatchIds}
           productImageById={productImageById}
+          productById={productById}
           matchById={matchById}
           partnerRecommendations={partnerRecommendations}
         />
@@ -3089,6 +3154,22 @@ const isFreshBeforeAnalysis =
                             initialNote={item.customer_note || ""}
                             disabled={isConfirmed}
                           />
+
+                          {isCustomerBookOfferItem(item, productById) ? (
+                            <CustomerBookCoverOption
+                              token={token}
+                              itemId={item.id}
+                              productName={item.product_name}
+                              quantity={item.quantity}
+                              initialSelected={
+                                item.book_cover_selected === true
+                              }
+                              initialUnitPrice={
+                                item.book_cover_unit_price
+                              }
+                              disabled={isConfirmed}
+                            />
+                          ) : null}
                         </article>
                       );
                     })}
@@ -3222,6 +3303,22 @@ const isFreshBeforeAnalysis =
                             initialNote={item.customer_note || ""}
                             disabled={isConfirmed}
                           />
+
+                          {isCustomerBookOfferItem(item, productById) ? (
+                            <CustomerBookCoverOption
+                              token={token}
+                              itemId={item.id}
+                              productName={item.product_name}
+                              quantity={item.quantity}
+                              initialSelected={
+                                item.book_cover_selected === true
+                              }
+                              initialUnitPrice={
+                                item.book_cover_unit_price
+                              }
+                              disabled={isConfirmed}
+                            />
+                          ) : null}
                         </article>
                       );
                     })}

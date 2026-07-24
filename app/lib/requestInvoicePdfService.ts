@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import {
   PDFDocument,
   PDFFont,
@@ -30,6 +30,9 @@ type InvoiceRow = {
 
   subtotal_amount: number | string | null;
   shipping_amount: number | string | null;
+  contains_books: boolean | null;
+  book_shipping_amount: number | string | null;
+  book_cover_amount: number | string | null;
   total_amount: number | string | null;
   currency: string | null;
 
@@ -78,6 +81,14 @@ type InvoiceItemRow = {
   unit: string | null;
   unit_price: number | string | null;
   total_price: number | string | null;
+  is_book_snapshot: boolean | null;
+  book_isbn13_snapshot: string | null;
+
+  book_cover_selected: boolean | null;
+  book_cover_name_snapshot: string | null;
+  book_cover_quantity: number | string | null;
+  book_cover_unit_price: number | string | null;
+  book_cover_total_price: number | string | null;
   source: string | null;
   notes: string | null;
   created_at: string | null;
@@ -682,8 +693,26 @@ async function createInvoicePdf(params: {
     const unitPrice = toNumber(item.unit_price, 0);
     const totalPrice = toNumber(item.total_price, quantity * unitPrice);
 
+    const hasBookIsbn =
+      item.is_book_snapshot === true &&
+      Boolean(
+        cleanOptionalText(
+          item.book_isbn13_snapshot
+        )
+      );
+
+    const hasBookCover =
+      item.book_cover_selected === true;
+
+    const additionalLineCount =
+      (hasBookIsbn ? 1 : 0) +
+      (hasBookCover ? 1 : 0) +
+      (item.notes ? 1 : 0);
+
     const rowTopY = y + 8;
-    const rowHeight = item.notes ? 48 : 34;
+
+    const rowHeight =
+      42 + additionalLineCount * 14;
 
     page.drawRectangle({
       x: tableX,
@@ -750,14 +779,78 @@ async function createInvoicePdf(params: {
       color: COLORS.text,
     });
 
+    let detailY = y - 14;
+
+    if (hasBookIsbn) {
+      page.drawText(
+        `ISBN-13: ${safeText(
+          item.book_isbn13_snapshot
+        )}`,
+        {
+          x: nameX,
+          y: detailY,
+          size: 7.5,
+          font: fontRegular,
+          color: COLORS.blue,
+        }
+      );
+
+      detailY -= 14;
+    }
+
+    if (hasBookCover) {
+      const bookCoverQuantity = toNumber(
+        item.book_cover_quantity,
+        quantity
+      );
+
+      const bookCoverUnitPrice = toNumber(
+        item.book_cover_unit_price,
+        0
+      );
+
+      const bookCoverTotalPrice = toNumber(
+        item.book_cover_total_price,
+        bookCoverQuantity *
+          bookCoverUnitPrice
+      );
+
+      const bookCoverName = safeText(
+        item.book_cover_name_snapshot,
+        "Passende Buchh\u00fclle"
+      );
+
+      page.drawText(
+        `${bookCoverName}: ${bookCoverQuantity} x ${formatMoney(
+          bookCoverUnitPrice
+        )} = ${formatMoney(
+          bookCoverTotalPrice
+        )}`,
+        {
+          x: nameX,
+          y: detailY,
+          size: 7.5,
+          font: fontBold,
+          color: COLORS.green,
+        }
+      );
+
+      detailY -= 14;
+    }
+
     if (item.notes) {
-      page.drawText(`Hinweis: ${String(item.notes).slice(0, 95)}`, {
-        x: nameX,
-        y: y - 14,
-        size: 7.5,
-        font: fontRegular,
-        color: COLORS.muted,
-      });
+      page.drawText(
+        `Hinweis: ${String(
+          item.notes
+        ).slice(0, 95)}`,
+        {
+          x: nameX,
+          y: detailY,
+          size: 7.5,
+          font: fontRegular,
+          color: COLORS.muted,
+        }
+      );
     }
 
     y = rowTopY - rowHeight - 12;
@@ -765,48 +858,108 @@ async function createInvoicePdf(params: {
 
   addPageIfNeeded(220);
 
-  const summaryX = pageWidth - marginX - 220;
+  const summaryX =
+    pageWidth - marginX - 220;
+
   y -= 10;
+
+  const bookCoverAmount = toNumber(
+    invoice.book_cover_amount,
+    0
+  );
+
+  const bookShippingAmount = toNumber(
+    invoice.book_shipping_amount,
+    0
+  );
+
+  const summaryRows: Array<
+    [string, string]
+  > = [
+    [
+      "Paketbetrag",
+      formatMoney(
+        invoice.subtotal_amount
+      ),
+    ],
+  ];
+
+  if (bookCoverAmount > 0) {
+    summaryRows.push([
+      "Buchh\u00fcllen",
+      formatMoney(bookCoverAmount),
+    ]);
+  }
+
+  summaryRows.push([
+    "Versandkosten",
+    formatMoney(
+      invoice.shipping_amount
+    ),
+  ]);
+
+  if (bookShippingAmount > 0) {
+    summaryRows.push([
+      "Buchversand",
+      formatMoney(bookShippingAmount),
+    ]);
+  }
+
+  summaryRows.push([
+    "Gesamtbetrag",
+    formatMoney(invoice.total_amount),
+  ]);
+
+  const summaryBoxHeight =
+    summaryRows.length * 20 + 28;
 
   page.drawRectangle({
     x: summaryX - 16,
-    y: y - 116,
+    y: y + 12 - summaryBoxHeight,
     width: 236,
-    height: 128,
+    height: summaryBoxHeight,
     color: COLORS.beige,
     borderColor: COLORS.border,
     borderWidth: 1,
   });
 
-  const summaryRows = [
-    ["Paketbetrag", formatMoney(invoice.subtotal_amount)],
-    ["Versandkosten", formatMoney(invoice.shipping_amount)],
-    ["Gesamtbetrag", formatMoney(invoice.total_amount)],
-  ];
-
   let summaryY = y - 18;
 
-  for (const [label, value] of summaryRows) {
+  for (
+    const [label, value] of summaryRows
+  ) {
+    const isTotal =
+      label === "Gesamtbetrag";
+
     page.drawText(label, {
       x: summaryX,
       y: summaryY,
-      size: label === "Gesamtbetrag" ? 11 : 9,
-      font: label === "Gesamtbetrag" ? fontBold : fontRegular,
-      color: label === "Gesamtbetrag" ? COLORS.text : COLORS.muted,
+      size: isTotal ? 11 : 9,
+      font: isTotal
+        ? fontBold
+        : fontRegular,
+      color: isTotal
+        ? COLORS.text
+        : COLORS.muted,
     });
 
-    page.drawText(value, {
-      x: summaryX + 120,
+    drawRightAlignedText({
+      page,
+      text: value,
+      rightX: summaryX + 204,
       y: summaryY,
-      size: label === "Gesamtbetrag" ? 13 : 9,
+      size: isTotal ? 13 : 9,
       font: fontBold,
-      color: label === "Gesamtbetrag" ? COLORS.red : COLORS.text,
+      color: isTotal
+        ? COLORS.red
+        : COLORS.text,
     });
 
-    summaryY -= label === "Gesamtbetrag" ? 24 : 18;
+    summaryY -=
+      isTotal ? 24 : 20;
   }
 
-  y -= 154;
+  y -= summaryBoxHeight + 26;
 
   addPageIfNeeded(180);
 

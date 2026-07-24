@@ -2,6 +2,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendRequestInvoiceMail } from "@/app/lib/requestInvoiceMailService";
+import {
+  calculateBookCommerceSummary,
+  calculateBookCommerceTotal,
+  getBookCommerceLineSnapshot,
+} from "@/lib/bookCommerce";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
 export const runtime = "nodejs";
@@ -69,12 +74,24 @@ type OfferItemRow = {
   unit: string | null;
   source: string | null;
   notes: string | null;
+
+  is_book_snapshot: boolean | null;
+  book_isbn13_snapshot: string | null;
+  book_cover_selected: boolean | null;
+  book_cover_unit_price: number | string | null;
 };
 
 type RequestItemRow = {
   id: string;
   status: string | null;
   admin_resolution_status: string | null;
+};
+
+type ProductBookRow = {
+  id: string;
+  is_book: boolean | null;
+  book_isbn13: string | null;
+  ean: string | null;
 };
 
 type InvoiceRow = {
@@ -413,6 +430,10 @@ export async function POST(request: Request, context: RouteContext) {
           "unit",
           "source",
           "notes",
+          "is_book_snapshot",
+          "book_isbn13_snapshot",
+          "book_cover_selected",
+          "book_cover_unit_price",
         ].join(", ")
       )
       .eq("request_id", requestId)
@@ -440,6 +461,65 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 409 }
       );
     }
+
+    const offerProductIds = Array.from(
+      new Set(
+        offerItems
+          .map((item) => item.product_id)
+          .filter((productId): productId is string => Boolean(productId))
+      )
+    );
+
+    const productBookById = new Map<string, ProductBookRow>();
+
+    if (offerProductIds.length > 0) {
+      const { data: productBookData, error: productBookError } =
+        await supabase
+          .from("school_products")
+          .select("id, is_book, book_isbn13, ean")
+          .in("id", offerProductIds);
+
+      if (productBookError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Buchinformationen konnten nicht geladen werden: ${productBookError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      for (const product of (productBookData || []) as unknown as ProductBookRow[]) {
+        productBookById.set(product.id, product);
+      }
+    }
+
+    const bookCommerceLineByOfferItemId = new Map(
+      offerItems.map((item) => {
+        const product = item.product_id
+          ? productBookById.get(item.product_id) || null
+          : null;
+
+        return [
+          item.id,
+          {
+            quantity: item.quantity,
+
+            is_book_snapshot: item.is_book_snapshot,
+            book_isbn13_snapshot: item.book_isbn13_snapshot,
+
+            is_book: product?.is_book ?? null,
+            book_isbn13:
+              product?.book_isbn13 ||
+              product?.ean ||
+              null,
+
+            book_cover_selected: item.book_cover_selected,
+            book_cover_unit_price: item.book_cover_unit_price,
+          },
+        ] as const;
+      })
+    );
 
     const { data: requestItemsData, error: requestItemsError } = await supabase
       .from("school_request_items")
@@ -543,7 +623,16 @@ export async function POST(request: Request, context: RouteContext) {
       }, 0)
     );
 
-    const totalAmount = roundMoney(subtotalAmount + shippingAmount);
+    const bookSummary = calculateBookCommerceSummary(
+      Array.from(bookCommerceLineByOfferItemId.values()),
+      fulfillmentMethod
+    );
+
+    const totalAmount = calculateBookCommerceTotal({
+      subtotalAmount,
+      regularShippingAmount: shippingAmount,
+      bookSummary,
+    });
 
     const invoiceNumber = await getInvoiceNumber(supabase);
 
@@ -560,6 +649,11 @@ export async function POST(request: Request, context: RouteContext) {
 
         subtotal_amount: subtotalAmount,
         shipping_amount: shippingAmount,
+
+        contains_books: bookSummary.containsBooks,
+        book_shipping_amount: bookSummary.bookShippingAmount,
+        book_cover_amount: bookSummary.bookCoverAmount,
+
         total_amount: totalAmount,
         currency: "EUR",
 
@@ -625,6 +719,12 @@ export async function POST(request: Request, context: RouteContext) {
       const unitPrice = toNumber(item.product_price, 0);
       const totalPrice = roundMoney(quantity * unitPrice);
 
+      const bookSnapshot = getBookCommerceLineSnapshot(
+        bookCommerceLineByOfferItemId.get(item.id) || {
+          quantity: item.quantity,
+        }
+      );
+
       return {
         invoice_id: invoice.id,
         request_id: requestId,
@@ -640,6 +740,19 @@ export async function POST(request: Request, context: RouteContext) {
 
         unit_price: unitPrice,
         total_price: totalPrice,
+
+        is_book_snapshot: bookSnapshot.isBookSnapshot,
+        book_isbn13_snapshot: bookSnapshot.bookIsbn13Snapshot,
+
+        book_cover_selected: bookSnapshot.bookCoverSelected,
+        book_cover_name_snapshot:
+          bookSnapshot.bookCoverNameSnapshot,
+        book_cover_quantity:
+          bookSnapshot.bookCoverQuantity,
+        book_cover_unit_price:
+          bookSnapshot.bookCoverUnitPrice,
+        book_cover_total_price:
+          bookSnapshot.bookCoverTotalPrice,
 
         source: item.source,
         notes: item.notes,
@@ -696,6 +809,10 @@ export async function POST(request: Request, context: RouteContext) {
             : "not_required",
         shipping_amount: shippingAmount,
 
+        contains_books: bookSummary.containsBooks,
+        book_shipping_amount: bookSummary.bookShippingAmount,
+        book_cover_amount: bookSummary.bookCoverAmount,
+
         cash_on_pickup_allowed: false,
 
         selected_payment_method: paymentMethod,
@@ -731,6 +848,20 @@ export async function POST(request: Request, context: RouteContext) {
         invoice_token: invoice.invoice_token,
         subtotal_amount: subtotalAmount,
         shipping_amount: shippingAmount,
+
+        contains_books: bookSummary.containsBooks,
+        book_position_count: bookSummary.bookPositionCount,
+        book_quantity: bookSummary.bookQuantity,
+
+        book_shipping_amount:
+          bookSummary.bookShippingAmount,
+        book_cover_position_count:
+          bookSummary.bookCoverPositionCount,
+        book_cover_quantity:
+          bookSummary.bookCoverQuantity,
+        book_cover_amount:
+          bookSummary.bookCoverAmount,
+
         total_amount: totalAmount,
         fulfillment_method: fulfillmentMethod,
         payment_method: paymentMethod,
@@ -755,6 +886,16 @@ export async function POST(request: Request, context: RouteContext) {
       invoiceNumber: invoice.invoice_number,
       invoiceToken: invoice.invoice_token,
       redirectUrl: `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
+
+      pricing: {
+        subtotalAmount,
+        shippingAmount,
+        containsBooks: bookSummary.containsBooks,
+        bookShippingAmount: bookSummary.bookShippingAmount,
+        bookCoverAmount: bookSummary.bookCoverAmount,
+        totalAmount,
+      },
+
       message: "Deine Bestellung wurde erstellt.",
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import {
   CheckCircle2,
   CreditCard,
@@ -30,6 +30,10 @@ type InvoiceRow = {
 
   subtotal_amount: number | string | null;
   shipping_amount: number | string | null;
+
+  contains_books: boolean | null;
+  book_shipping_amount: number | string | null;
+  book_cover_amount: number | string | null;
 
   discount_campaign_id: string | null;
   discount_name: string | null;
@@ -89,6 +93,15 @@ type InvoiceItemRow = {
   unit: string | null;
   unit_price: number | string | null;
   total_price: number | string | null;
+
+  is_book_snapshot: boolean | null;
+  book_isbn13_snapshot: string | null;
+
+  book_cover_selected: boolean | null;
+  book_cover_name_snapshot: string | null;
+  book_cover_quantity: number | string | null;
+  book_cover_unit_price: number | string | null;
+  book_cover_total_price: number | string | null;
 };
 
 function getSupabaseAdmin() {
@@ -298,6 +311,25 @@ export default async function InvoicePaymentPage({ params }: Params) {
   const discountAmount = toNumber(invoice.discount_amount, 0);
   const hasDiscount = discountAmount > 0;
 
+  const bookShippingAmount = toNumber(
+    invoice.book_shipping_amount,
+    0
+  );
+
+  const bookCoverAmount = toNumber(
+    invoice.book_cover_amount,
+    0
+  );
+
+  const containsBooks =
+    invoice.contains_books === true ||
+    invoiceItems.some(
+      (item) => item.is_book_snapshot === true
+    );
+
+  const hasBookShipping = bookShippingAmount > 0;
+  const hasBookCovers = bookCoverAmount > 0;
+
   const billingName =
     invoice.billing_name_snapshot?.trim() ||
     invoice.customer_name_snapshot?.trim() ||
@@ -400,8 +432,10 @@ export default async function InvoicePaymentPage({ params }: Params) {
               <p className="mt-2 text-3xl font-black text-[#102A43]">
                 {formatMoney(invoice.total_amount)}
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                Gesamtbetrag inkl. Versandkosten, falls Versand gewählt wurde
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52616F]">
+                Gesamtbetrag inklusive ausgewählter Buchhüllen,
+                Versandkosten und einmaligem Buchversand, soweit
+                diese Positionen für Deine Bestellung gelten.
               </p>
 
               {hasDiscount ? (
@@ -441,9 +475,15 @@ export default async function InvoicePaymentPage({ params }: Params) {
             </p>
             <p className="mt-1 text-xs font-semibold text-[#52616F]">
               {isShipping
-                ? "Die Versandkosten sind im Gesamtbetrag enthalten."
+                ? hasBookShipping
+                  ? `Die Versandpauschale und ${formatMoney(
+                      bookShippingAmount
+                    )} einmaliger Buchversand sind im Gesamtbetrag enthalten.`
+                  : "Die Versandkosten sind im Gesamtbetrag enthalten."
                 : isPickup
-                  ? "Du holst Dein Paket im Laden ab."
+                  ? containsBooks
+                    ? "Du holst Dein Paket im Laden ab. Für Bücher fällt bei Abholung kein Buchversand an."
+                    : "Du holst Dein Paket im Laden ab."
                   : "Die Übergabeart ist noch nicht festgelegt."}
             </p>
           </div>
@@ -567,6 +607,28 @@ export default async function InvoicePaymentPage({ params }: Params) {
                     <p className="mt-1 text-xs font-semibold text-[#52616F]">
                       {item.product_sku || "Ohne Art.-Nr."}
                     </p>
+
+                    {item.is_book_snapshot === true &&
+                    item.book_isbn13_snapshot ? (
+                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                        ISBN-13: {item.book_isbn13_snapshot}
+                      </p>
+                    ) : null}
+
+                    {item.book_cover_selected === true ? (
+                      <div className="mt-3 rounded-2xl border border-[#BFE3CD] bg-[#F0FFF6] px-3 py-2 text-xs font-semibold leading-5 text-[#2F7D50]">
+                        <p className="font-black">
+                          {item.book_cover_name_snapshot ||
+                            "Passende Buchhülle"}
+                        </p>
+
+                        <p className="mt-1">
+                          {toNumber(item.book_cover_quantity, 0)} ×{" "}
+                          {formatMoney(item.book_cover_unit_price)} ={" "}
+                          {formatMoney(item.book_cover_total_price)}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="hidden font-semibold text-[#52616F] md:block">
@@ -586,41 +648,92 @@ export default async function InvoicePaymentPage({ params }: Params) {
           )}
 
           <div className="mt-5 rounded-[28px] border border-[#E8DED2] bg-[#FBF7F0] p-4">
-            <div className="grid gap-3 sm:grid-cols-4">
-              <div>
-                <p className="text-xs font-bold text-[#52616F]">Paketbetrag</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                <p className="text-xs font-bold text-[#52616F]">
+                  Produkt-Zwischensumme
+                </p>
                 <p className="mt-1 text-xl font-black text-[#102A43]">
                   {formatMoney(invoice.subtotal_amount)}
                 </p>
               </div>
 
-              <div>
+              <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
                 <p className="text-xs font-bold text-[#52616F]">
-                  {hasDiscount ? getDiscountDescription(invoice) : "Rabatt"}
+                  Ausgewählte Buchhüllen
                 </p>
                 <p
                   className={`mt-1 text-xl font-black ${
-                    hasDiscount ? "text-[#2F7D50]" : "text-[#52616F]"
+                    hasBookCovers
+                      ? "text-[#2F7D50]"
+                      : "text-[#52616F]"
                   }`}
                 >
-                  {hasDiscount ? formatNegativeMoney(discountAmount) : "—"}
+                  {formatMoney(bookCoverAmount)}
                 </p>
               </div>
 
-              <div>
-                <p className="text-xs font-bold text-[#52616F]">Versandkosten</p>
+              <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                <p className="text-xs font-bold text-[#52616F]">
+                  {hasDiscount
+                    ? getDiscountDescription(invoice)
+                    : "Rabatt"}
+                </p>
+                <p
+                  className={`mt-1 text-xl font-black ${
+                    hasDiscount
+                      ? "text-[#2F7D50]"
+                      : "text-[#52616F]"
+                  }`}
+                >
+                  {hasDiscount
+                    ? formatNegativeMoney(discountAmount)
+                    : "—"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                <p className="text-xs font-bold text-[#52616F]">
+                  Versandpauschale
+                </p>
                 <p className="mt-1 text-xl font-black text-[#102A43]">
                   {formatMoney(invoice.shipping_amount)}
                 </p>
               </div>
 
-              <div>
-                <p className="text-xs font-bold text-[#52616F]">Gesamtbetrag</p>
+              <div className="rounded-2xl border border-[#E8DED2] bg-white p-3">
+                <p className="text-xs font-bold text-[#52616F]">
+                  Buchversand
+                </p>
+                <p
+                  className={`mt-1 text-xl font-black ${
+                    hasBookShipping
+                      ? "text-[#102A43]"
+                      : "text-[#52616F]"
+                  }`}
+                >
+                  {formatMoney(bookShippingAmount)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] p-3">
+                <p className="text-xs font-bold text-[#52616F]">
+                  Gesamtbetrag
+                </p>
                 <p className="mt-1 text-2xl font-black text-[#B5282D]">
                   {formatMoney(invoice.total_amount)}
                 </p>
               </div>
             </div>
+
+            {containsBooks ? (
+              <div className="mt-4 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-4 py-3 text-sm font-semibold leading-6 text-[#12395F]">
+                Diese Rechnung enthält mindestens ein Buch.
+                Buchhüllen werden nur berechnet, wenn sie ausdrücklich
+                ausgewählt wurden. Der Buchversand wird bei Lieferung
+                einmalig und bei Abholung nicht berechnet.
+              </div>
+            ) : null}
           </div>
         </section>
 

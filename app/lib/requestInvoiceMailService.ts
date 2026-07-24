@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { sendMail } from "@/lib/sendMail";
 import { generateRequestInvoicePdf } from "@/app/lib/requestInvoicePdfService";
 
@@ -24,6 +24,9 @@ type InvoiceRow = {
 
   subtotal_amount: number | string | null;
   shipping_amount: number | string | null;
+  contains_books: boolean | null;
+  book_shipping_amount: number | string | null;
+  book_cover_amount: number | string | null;
   total_amount: number | string | null;
   currency: string | null;
 
@@ -268,9 +271,40 @@ function buildMailContent(params: {
 
   const invoiceNumber = safeText(invoice.invoice_number, "Deine Rechnung");
 
-  const subtotal = formatMoney(invoice.subtotal_amount);
-  const shipping = formatMoney(invoice.shipping_amount);
-  const total = formatMoney(invoice.total_amount);
+  const subtotal = formatMoney(
+    invoice.subtotal_amount
+  );
+
+  const bookCoverAmount = toNumber(
+    invoice.book_cover_amount,
+    0
+  );
+
+  const bookShippingAmount = toNumber(
+    invoice.book_shipping_amount,
+    0
+  );
+
+  const containsBooks =
+    invoice.contains_books === true ||
+    bookCoverAmount > 0 ||
+    bookShippingAmount > 0;
+
+  const bookCover = formatMoney(
+    bookCoverAmount
+  );
+
+  const shipping = formatMoney(
+    invoice.shipping_amount
+  );
+
+  const bookShipping = formatMoney(
+    bookShippingAmount
+  );
+
+  const total = formatMoney(
+    invoice.total_amount
+  );
 
   const fulfillmentMethod =
     invoice.fulfillment_method_snapshot || requestRow.fulfillment_method;
@@ -291,7 +325,17 @@ function buildMailContent(params: {
     `Übergabe: ${fulfillmentLabel}`,
     "",
     `Paketbetrag: ${subtotal}`,
+
+    ...(bookCoverAmount > 0
+      ? [`Buchh\u00fcllen: ${bookCover}`]
+      : []),
+
     `Versandkosten: ${shipping}`,
+
+    ...(bookShippingAmount > 0
+      ? [`Buchversand: ${bookShipping}`]
+      : []),
+
     `Gesamtbetrag: ${total}`,
     "",
     paymentIntro,
@@ -369,10 +413,32 @@ function buildMailContent(params: {
                 <td style="padding:8px 0;color:#52616F;">Paketbetrag</td>
                 <td style="padding:8px 0;text-align:right;font-weight:800;color:#102A43;">${subtotal}</td>
               </tr>
+
+              ${
+                bookCoverAmount > 0
+                  ? `
+                    <tr>
+                      <td style="padding:8px 0;color:#52616F;">Buchh\u00fcllen</td>
+                      <td style="padding:8px 0;text-align:right;font-weight:800;color:#2F7D50;">${bookCover}</td>
+                    </tr>
+                  `
+                  : ""
+              }
               <tr>
                 <td style="padding:8px 0;color:#52616F;">Versandkosten</td>
                 <td style="padding:8px 0;text-align:right;font-weight:800;color:#102A43;">${shipping}</td>
               </tr>
+
+              ${
+                bookShippingAmount > 0
+                  ? `
+                    <tr>
+                      <td style="padding:8px 0;color:#52616F;">Buchversand</td>
+                      <td style="padding:8px 0;text-align:right;font-weight:800;color:#102A43;">${bookShipping}</td>
+                    </tr>
+                  `
+                  : ""
+              }
               <tr>
                 <td colspan="2" style="border-top:1px solid #E8DED2;padding-top:12px;"></td>
               </tr>
@@ -382,6 +448,20 @@ function buildMailContent(params: {
               </tr>
             </table>
           </div>
+
+          ${
+            containsBooks
+              ? `
+                <div style="background:#F5FAFD;border:1px solid #D6E7EF;border-radius:20px;padding:16px;margin:18px 0;">
+                  <p style="margin:0;font-size:14px;line-height:1.6;color:#12395F;font-weight:700;">
+                    Diese Bestellung enth\u00e4lt mindestens ein Buch.
+                    Buchh\u00fcllen werden nur berechnet, wenn sie ausdr\u00fccklich ausgew\u00e4hlt wurden.
+                    Der Buchversand wird bei Lieferung einmalig und bei Abholung nicht berechnet.
+                  </p>
+                </div>
+              `
+              : ""
+          }
 
           <p style="margin:20px 0 14px;font-size:15px;line-height:1.6;color:#52616F;">
             ${paymentIntro}
@@ -517,6 +597,22 @@ export async function sendRequestInvoiceMail(input: {
         invoice_sent_at: now,
         invoice_total_amount: toNumber(invoice.total_amount, 0),
         shipping_amount: toNumber(invoice.shipping_amount, 0),
+
+        contains_books:
+          invoice.contains_books === true ||
+          toNumber(invoice.book_cover_amount, 0) > 0 ||
+          toNumber(invoice.book_shipping_amount, 0) > 0,
+
+        book_shipping_amount: toNumber(
+          invoice.book_shipping_amount,
+          0
+        ),
+
+        book_cover_amount: toNumber(
+          invoice.book_cover_amount,
+          0
+        ),
+
         updated_at: now,
       })
       .eq("id", requestId);

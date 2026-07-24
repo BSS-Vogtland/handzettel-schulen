@@ -1,4 +1,11 @@
 import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
+import {
+  calculateBookCommerceSummary,
+  calculateBookCommerceTotal,
+  getBookCommerceLineSnapshot,
+  roundBookCommerceMoney,
+  toBookCommerceNumber,
+} from "@/lib/bookCommerce";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -35,14 +42,30 @@ type OfferItemRow = {
   request_id: string;
   request_item_id: string | null;
   match_id: string | null;
+
   product_id: string | null;
   product_name: string;
   product_sku: string | null;
   product_price: number | string | null;
+
   quantity: number | string | null;
   unit: string | null;
+
   source: string | null;
   notes: string | null;
+
+  is_book_snapshot: boolean | null;
+  book_isbn13_snapshot: string | null;
+
+  book_cover_selected: boolean | null;
+  book_cover_unit_price: number | string | null;
+};
+
+type ProductBookRow = {
+  id: string;
+  is_book: boolean | null;
+  book_isbn13: string | null;
+  ean: string | null;
 };
 
 type InvoiceRow = {
@@ -52,40 +75,53 @@ type InvoiceRow = {
   payment_status: string | null;
 };
 
+type RequestBody = {
+  shippingAmount?: number | string | null;
+  adminNote?: string | null;
+};
+
 function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase-Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+  return createClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
     },
-  });
+  );
 }
 
-function toNumber(value: unknown, fallback = 0) {
-  if (value === null || value === undefined || value === "") return fallback;
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : fallback;
-  }
-
-  const parsed = Number(String(value).replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : fallback;
+function toNumber(
+  value: unknown,
+  fallback = 0,
+) {
+  return toBookCommerceNumber(
+    value,
+    fallback,
+  );
 }
 
 function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return roundBookCommerceMoney(value);
 }
 
-async function readBodySafely(request: NextRequest) {
+async function readBodySafely(
+  request: NextRequest,
+): Promise<RequestBody> {
   try {
     const text = await request.text();
 
@@ -93,56 +129,98 @@ async function readBodySafely(request: NextRequest) {
       return {};
     }
 
-    return JSON.parse(text) as {
-      shippingAmount?: number | string | null;
-      adminNote?: string | null;
-    };
+    return JSON.parse(text) as RequestBody;
   } catch {
     return {};
   }
 }
 
 async function insertRequestEvent(params: {
-  supabase: ReturnType<typeof getSupabaseAdmin>;
+  supabase: ReturnType<
+    typeof getSupabaseAdmin
+  >;
+
   requestId: string;
   message: string;
+
   invoiceId?: string | null;
   invoiceNumber?: string | null;
+
+  subtotalAmount?: number;
+  shippingAmount?: number;
+
+  containsBooks?: boolean;
+  bookShippingAmount?: number;
+  bookCoverAmount?: number;
+
   totalAmount?: number;
 }) {
-  const { supabase, requestId, message, invoiceId, invoiceNumber, totalAmount } =
-    params;
+  const {
+    supabase,
+    requestId,
+    message,
+
+    invoiceId,
+    invoiceNumber,
+
+    subtotalAmount,
+    shippingAmount,
+
+    containsBooks,
+    bookShippingAmount,
+    bookCoverAmount,
+
+    totalAmount,
+  } = params;
 
   const now = new Date().toISOString();
+
+  const metadata = {
+    invoice_id: invoiceId,
+    invoice_number: invoiceNumber,
+
+    subtotal_amount: subtotalAmount,
+    shipping_amount: shippingAmount,
+
+    contains_books:
+      containsBooks === true,
+
+    book_shipping_amount:
+      bookShippingAmount || 0,
+
+    book_cover_amount:
+      bookCoverAmount || 0,
+
+    total_amount: totalAmount,
+  };
 
   const payloads = [
     {
       request_id: requestId,
-      event_type: "invoice_draft_created",
+      event_type:
+        "invoice_draft_created",
+
       title: "Rechnung vorbereitet",
       message,
       description: message,
-      metadata: {
-        invoice_id: invoiceId,
-        invoice_number: invoiceNumber,
-        total_amount: totalAmount,
-      },
+
+      metadata,
       created_at: now,
     },
     {
       request_id: requestId,
-      event_type: "invoice_draft_created",
+      event_type:
+        "invoice_draft_created",
+
       message,
-      metadata: {
-        invoice_id: invoiceId,
-        invoice_number: invoiceNumber,
-        total_amount: totalAmount,
-      },
+      metadata,
       created_at: now,
     },
     {
       request_id: requestId,
-      event_type: "invoice_draft_created",
+      event_type:
+        "invoice_draft_created",
+
       message,
       created_at: now,
     },
@@ -155,64 +233,109 @@ async function insertRequestEvent(params: {
   ];
 
   for (const payload of payloads) {
-    const { error } = await supabase.from("school_request_events").insert(payload);
+    const { error } = await supabase
+      .from("school_request_events")
+      .insert(payload);
 
-    if (!error) return;
+    if (!error) {
+      return;
+    }
   }
 }
 
 async function getInvoiceNumber(
-  supabase: ReturnType<typeof getSupabaseAdmin>
+  supabase: ReturnType<
+    typeof getSupabaseAdmin
+  >,
 ): Promise<string> {
-  const { data, error } = await supabase.rpc("generate_school_invoice_number");
+  const { data, error } =
+    await supabase.rpc(
+      "generate_school_invoice_number",
+    );
 
-  if (!error && typeof data === "string" && data.trim().length > 0) {
+  if (
+    !error &&
+    typeof data === "string" &&
+    data.trim().length > 0
+  ) {
     return data;
   }
 
-  const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 99999)
+  const year =
+    new Date().getFullYear();
+
+  const random = Math.floor(
+    Math.random() * 99999,
+  )
     .toString()
     .padStart(5, "0");
 
   return `HSR-${year}-${random}`;
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
-  const unauthorized = await requireAdminApiSession();
-  if (unauthorized) return unauthorized;
+export async function POST(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  const unauthorized =
+    await requireAdminApiSession();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
 
   try {
     const { id } = await context.params;
-    const requestId = String(id || "").trim();
+
+    const requestId = String(
+      id || "",
+    ).trim();
 
     if (!requestId) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Ungültige Anfrage-ID.",
+          message:
+            "Ungültige Anfrage-ID.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const body = await readBodySafely(request);
-    const shippingAmount = roundMoney(toNumber(body.shippingAmount, 0));
-    const adminNote = String(body.adminNote || "").trim() || null;
+    const body =
+      await readBodySafely(request);
+
+    const shippingAmount =
+      roundMoney(
+        toNumber(
+          body.shippingAmount,
+          0,
+        ),
+      );
+
+    const adminNote =
+      String(
+        body.adminNote || "",
+      ).trim() || null;
 
     if (shippingAmount < 0) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Versandkosten dürfen nicht negativ sein.",
+          message:
+            "Versandkosten dürfen nicht negativ sein.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const supabase = getSupabaseAdmin();
+    const supabase =
+      getSupabaseAdmin();
 
-    const { data: requestData, error: requestError } = await supabase
+    const {
+      data: requestData,
+      error: requestError,
+    } = await supabase
       .from("school_requests")
       .select(
         [
@@ -220,35 +343,49 @@ export async function POST(request: NextRequest, context: RouteContext) {
           "request_number",
           "status",
           "offer_status",
+
           "customer_name",
           "email",
           "phone",
+
           "child_name",
           "school_name",
           "class_name",
+
           "fulfillment_method",
           "pickup_location_label",
           "pickup_address_snapshot",
-        ].join(", ")
+        ].join(", "),
       )
       .eq("id", requestId)
       .maybeSingle();
 
-    if (requestError || !requestData) {
+    if (
+      requestError ||
+      !requestData
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          message: requestError?.message || "Die Anfrage wurde nicht gefunden.",
+          message:
+            requestError?.message ||
+            "Die Anfrage wurde nicht gefunden.",
         },
-        { status: 404 }
+        {
+          status: requestError
+            ? 500
+            : 404,
+        },
       );
     }
 
-    const requestRow = requestData as unknown as RequestRow;
+    const requestRow =
+      requestData as unknown as RequestRow;
 
     const isConfirmed =
       requestRow.status === "confirmed" ||
-      requestRow.offer_status === "confirmed";
+      requestRow.offer_status ===
+        "confirmed";
 
     if (!isConfirmed) {
       return NextResponse.json(
@@ -257,11 +394,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
           message:
             "Eine Rechnung kann erst vorbereitet werden, wenn das Angebot bestätigt wurde.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    const { data: offerItemsData, error: offerItemsError } = await supabase
+    const {
+      data: offerItemsData,
+      error: offerItemsError,
+    } = await supabase
       .from("school_offer_items")
       .select(
         [
@@ -269,30 +409,45 @@ export async function POST(request: NextRequest, context: RouteContext) {
           "request_id",
           "request_item_id",
           "match_id",
+
           "product_id",
           "product_name",
           "product_sku",
           "product_price",
+
           "quantity",
           "unit",
+
           "source",
           "notes",
-        ].join(", ")
+
+          "is_book_snapshot",
+          "book_isbn13_snapshot",
+
+          "book_cover_selected",
+          "book_cover_unit_price",
+        ].join(", "),
       )
       .eq("request_id", requestId)
-      .order("created_at", { ascending: true });
+      .order(
+        "created_at",
+        { ascending: true },
+      );
 
     if (offerItemsError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Paketpositionen konnten nicht geladen werden: ${offerItemsError.message}`,
+          message:
+            `Paketpositionen konnten nicht geladen werden: ${offerItemsError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const offerItems = (offerItemsData || []) as unknown as OfferItemRow[];
+    const offerItems =
+      (offerItemsData ||
+        []) as unknown as OfferItemRow[];
 
     if (offerItems.length === 0) {
       return NextResponse.json(
@@ -301,64 +456,254 @@ export async function POST(request: NextRequest, context: RouteContext) {
           message:
             "Es gibt noch keine Paketpositionen. Eine Rechnung kann erst mit Positionen vorbereitet werden.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    const subtotalAmount = roundMoney(
-      offerItems.reduce((sum, item) => {
-        return (
-          sum +
-          toNumber(item.quantity, 1) * toNumber(item.product_price, 0)
+    const productIds =
+      Array.from(
+        new Set(
+          offerItems
+            .map(
+              (item) =>
+                item.product_id,
+            )
+            .filter(
+              (
+                productId,
+              ): productId is string =>
+                Boolean(productId),
+            ),
+        ),
+      );
+
+    const productBookById =
+      new Map<
+        string,
+        ProductBookRow
+      >();
+
+    if (productIds.length > 0) {
+      const {
+        data: productData,
+        error: productError,
+      } = await supabase
+        .from("school_products")
+        .select(
+          "id, is_book, book_isbn13, ean",
+        )
+        .in("id", productIds);
+
+      if (productError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              `Buchinformationen konnten nicht geladen werden: ${productError.message}`,
+          },
+          { status: 500 },
         );
-      }, 0)
-    );
+      }
 
-    const totalAmount = roundMoney(subtotalAmount + shippingAmount);
+      for (
+        const product of
+          (productData ||
+            []) as unknown as ProductBookRow[]
+      ) {
+        productBookById.set(
+          product.id,
+          product,
+        );
+      }
+    }
 
-    const { data: latestDraftData } = await supabase
+    const bookCommerceLineByOfferItemId =
+      new Map(
+        offerItems.map((item) => {
+          const product =
+            item.product_id
+              ? productBookById.get(
+                  item.product_id,
+                ) || null
+              : null;
+
+          return [
+            item.id,
+            {
+              quantity: item.quantity,
+
+              is_book_snapshot:
+                item.is_book_snapshot,
+
+              book_isbn13_snapshot:
+                item.book_isbn13_snapshot,
+
+              is_book:
+                product?.is_book ??
+                null,
+
+              book_isbn13:
+                product?.book_isbn13 ||
+                product?.ean ||
+                null,
+
+              book_cover_selected:
+                item.book_cover_selected,
+
+              book_cover_unit_price:
+                item.book_cover_unit_price,
+            },
+          ] as const;
+        }),
+      );
+
+    const subtotalAmount =
+      roundMoney(
+        offerItems.reduce(
+          (sum, item) => {
+            return (
+              sum +
+              toNumber(
+                item.quantity,
+                1,
+              ) *
+                toNumber(
+                  item.product_price,
+                  0,
+                )
+            );
+          },
+          0,
+        ),
+      );
+
+    const bookSummary =
+      calculateBookCommerceSummary(
+        Array.from(
+          bookCommerceLineByOfferItemId.values(),
+        ),
+        requestRow.fulfillment_method,
+      );
+
+    const totalAmount =
+      calculateBookCommerceTotal({
+        subtotalAmount,
+
+        regularShippingAmount:
+          shippingAmount,
+
+        bookSummary,
+      });
+
+    const {
+      data: latestDraftData,
+    } = await supabase
       .from("school_request_invoices")
-      .select("id, invoice_number, invoice_status, payment_status")
+      .select(
+        [
+          "id",
+          "invoice_number",
+          "invoice_status",
+          "payment_status",
+        ].join(", "),
+      )
       .eq("request_id", requestId)
-      .eq("invoice_status", "draft")
-      .order("created_at", { ascending: false })
+      .eq(
+        "invoice_status",
+        "draft",
+      )
+      .order(
+        "created_at",
+        { ascending: false },
+      )
       .limit(1)
       .maybeSingle();
 
-    const latestDraft = latestDraftData as unknown as InvoiceRow | null;
+    const latestDraft =
+      latestDraftData as unknown as
+        | InvoiceRow
+        | null;
 
     let invoiceId: string;
-    let invoiceNumber: string | null;
+    let invoiceNumber:
+      | string
+      | null;
+
+    const invoiceSnapshot = {
+      subtotal_amount:
+        subtotalAmount,
+
+      shipping_amount:
+        shippingAmount,
+
+      contains_books:
+        bookSummary.containsBooks,
+
+      book_shipping_amount:
+        bookSummary.bookShippingAmount,
+
+      book_cover_amount:
+        bookSummary.bookCoverAmount,
+
+      total_amount: totalAmount,
+      currency: "EUR",
+
+      selected_payment_method:
+        "paypal",
+
+      payment_status:
+        "not_selected",
+
+      payment_provider:
+        "paypal",
+
+      customer_name_snapshot:
+        requestRow.customer_name,
+
+      customer_email_snapshot:
+        requestRow.email,
+
+      customer_phone_snapshot:
+        requestRow.phone,
+
+      child_name_snapshot:
+        requestRow.child_name,
+
+      school_name_snapshot:
+        requestRow.school_name,
+
+      class_name_snapshot:
+        requestRow.class_name,
+
+      fulfillment_method_snapshot:
+        requestRow.fulfillment_method,
+
+      pickup_location_label_snapshot:
+        requestRow.pickup_location_label,
+
+      pickup_address_snapshot:
+        requestRow.pickup_address_snapshot,
+
+      admin_note: adminNote,
+    };
 
     if (latestDraft?.id) {
-      invoiceId = latestDraft.id;
-      invoiceNumber = latestDraft.invoice_number;
+      invoiceId =
+        latestDraft.id;
 
-      const { error: updateInvoiceError } = await supabase
-        .from("school_request_invoices")
+      invoiceNumber =
+        latestDraft.invoice_number;
+
+      const {
+        error: updateInvoiceError,
+      } = await supabase
+        .from(
+          "school_request_invoices",
+        )
         .update({
-          subtotal_amount: subtotalAmount,
-          shipping_amount: shippingAmount,
-          total_amount: totalAmount,
-          currency: "EUR",
-
-          selected_payment_method: "paypal",
-          payment_status: "not_selected",
-          payment_provider: "paypal",
-
-          customer_name_snapshot: requestRow.customer_name,
-          customer_email_snapshot: requestRow.email,
-          customer_phone_snapshot: requestRow.phone,
-          child_name_snapshot: requestRow.child_name,
-          school_name_snapshot: requestRow.school_name,
-          class_name_snapshot: requestRow.class_name,
-
-          fulfillment_method_snapshot: requestRow.fulfillment_method,
-          pickup_location_label_snapshot: requestRow.pickup_location_label,
-          pickup_address_snapshot: requestRow.pickup_address_snapshot,
-
-          admin_note: adminNote,
-          updated_at: new Date().toISOString(),
+          ...invoiceSnapshot,
+          updated_at:
+            new Date().toISOString(),
         })
         .eq("id", invoiceId);
 
@@ -366,63 +711,72 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json(
           {
             ok: false,
-            message: `Rechnung konnte nicht aktualisiert werden: ${updateInvoiceError.message}`,
+            message:
+              `Rechnung konnte nicht aktualisiert werden: ${updateInvoiceError.message}`,
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
-      const { error: deleteItemsError } = await supabase
-        .from("school_request_invoice_items")
+      const {
+        error: deleteItemsError,
+      } = await supabase
+        .from(
+          "school_request_invoice_items",
+        )
         .delete()
-        .eq("invoice_id", invoiceId);
+        .eq(
+          "invoice_id",
+          invoiceId,
+        );
 
       if (deleteItemsError) {
         return NextResponse.json(
           {
             ok: false,
-            message: `Alte Rechnungspositionen konnten nicht ersetzt werden: ${deleteItemsError.message}`,
+            message:
+              `Alte Rechnungspositionen konnten nicht ersetzt werden: ${deleteItemsError.message}`,
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
     } else {
-      invoiceNumber = await getInvoiceNumber(supabase);
+      invoiceNumber =
+        await getInvoiceNumber(
+          supabase,
+        );
 
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from("school_request_invoices")
+      const {
+        data: invoiceData,
+        error: invoiceError,
+      } = await supabase
+        .from(
+          "school_request_invoices",
+        )
         .insert({
           request_id: requestId,
-          invoice_number: invoiceNumber,
+          invoice_number:
+            invoiceNumber,
 
-          invoice_status: "draft",
-          payment_status: "not_selected",
-          selected_payment_method: "paypal",
+          invoice_status:
+            "draft",
 
-          payment_provider: "paypal",
-
-          subtotal_amount: subtotalAmount,
-          shipping_amount: shippingAmount,
-          total_amount: totalAmount,
-          currency: "EUR",
-
-          customer_name_snapshot: requestRow.customer_name,
-          customer_email_snapshot: requestRow.email,
-          customer_phone_snapshot: requestRow.phone,
-          child_name_snapshot: requestRow.child_name,
-          school_name_snapshot: requestRow.school_name,
-          class_name_snapshot: requestRow.class_name,
-
-          fulfillment_method_snapshot: requestRow.fulfillment_method,
-          pickup_location_label_snapshot: requestRow.pickup_location_label,
-          pickup_address_snapshot: requestRow.pickup_address_snapshot,
-
-          admin_note: adminNote,
+          ...invoiceSnapshot,
         })
-        .select("id, invoice_number, invoice_status, payment_status")
+        .select(
+          [
+            "id",
+            "invoice_number",
+            "invoice_status",
+            "payment_status",
+          ].join(", "),
+        )
         .single();
 
-      if (invoiceError || !invoiceData) {
+      if (
+        invoiceError ||
+        !invoiceData
+      ) {
         return NextResponse.json(
           {
             ok: false,
@@ -430,66 +784,153 @@ export async function POST(request: NextRequest, context: RouteContext) {
               invoiceError?.message ||
               "Die Rechnung konnte nicht vorbereitet werden.",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
-      const createdInvoice = invoiceData as unknown as InvoiceRow;
-      invoiceId = createdInvoice.id;
-      invoiceNumber = createdInvoice.invoice_number;
+      const createdInvoice =
+        invoiceData as unknown as InvoiceRow;
+
+      invoiceId =
+        createdInvoice.id;
+
+      invoiceNumber =
+        createdInvoice.invoice_number;
     }
 
-    const invoiceItems = offerItems.map((item) => {
-      const quantity = toNumber(item.quantity, 1);
-      const unitPrice = toNumber(item.product_price, 0);
-      const totalPrice = roundMoney(quantity * unitPrice);
+    const invoiceItems =
+      offerItems.map((item) => {
+        const quantity =
+          toNumber(
+            item.quantity,
+            1,
+          );
 
-      return {
-        invoice_id: invoiceId,
-        request_id: requestId,
+        const unitPrice =
+          toNumber(
+            item.product_price,
+            0,
+          );
 
-        offer_item_id: item.id,
-        product_id: item.product_id,
+        const totalPrice =
+          roundMoney(
+            quantity * unitPrice,
+          );
 
-        product_name: item.product_name,
-        product_sku: item.product_sku,
+        const bookSnapshot =
+          getBookCommerceLineSnapshot(
+            bookCommerceLineByOfferItemId.get(
+              item.id,
+            ) || {
+              quantity:
+                item.quantity,
+            },
+          );
 
-        quantity,
-        unit: item.unit,
+        return {
+          invoice_id: invoiceId,
+          request_id: requestId,
 
-        unit_price: unitPrice,
-        total_price: totalPrice,
+          offer_item_id:
+            item.id,
 
-        source: item.source,
-        notes: item.notes,
-      };
-    });
+          product_id:
+            item.product_id,
 
-    const { error: insertItemsError } = await supabase
-      .from("school_request_invoice_items")
+          product_name:
+            item.product_name,
+
+          product_sku:
+            item.product_sku,
+
+          quantity,
+          unit: item.unit,
+
+          unit_price:
+            unitPrice,
+
+          total_price:
+            totalPrice,
+
+          is_book_snapshot:
+            bookSnapshot.isBookSnapshot,
+
+          book_isbn13_snapshot:
+            bookSnapshot.bookIsbn13Snapshot,
+
+          book_cover_selected:
+            bookSnapshot.bookCoverSelected,
+
+          book_cover_name_snapshot:
+            bookSnapshot.bookCoverNameSnapshot,
+
+          book_cover_quantity:
+            bookSnapshot.bookCoverQuantity,
+
+          book_cover_unit_price:
+            bookSnapshot.bookCoverUnitPrice,
+
+          book_cover_total_price:
+            bookSnapshot.bookCoverTotalPrice,
+
+          source: item.source,
+          notes: item.notes,
+        };
+      });
+
+    const {
+      error: insertItemsError,
+    } = await supabase
+      .from(
+        "school_request_invoice_items",
+      )
       .insert(invoiceItems);
 
     if (insertItemsError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Rechnungspositionen konnten nicht gespeichert werden: ${insertItemsError.message}`,
+          message:
+            `Rechnungspositionen konnten nicht gespeichert werden: ${insertItemsError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const now = new Date().toISOString();
+    const now =
+      new Date().toISOString();
 
-    const { error: updateRequestError } = await supabase
+    const {
+      error: updateRequestError,
+    } = await supabase
       .from("school_requests")
       .update({
         invoice_status: "draft",
-        payment_status: "not_selected",
-        selected_payment_method: "paypal",
-        latest_invoice_id: invoiceId,
-        shipping_amount: shippingAmount,
-        invoice_total_amount: totalAmount,
+
+        payment_status:
+          "not_selected",
+
+        selected_payment_method:
+          "paypal",
+
+        latest_invoice_id:
+          invoiceId,
+
+        shipping_amount:
+          shippingAmount,
+
+        contains_books:
+          bookSummary.containsBooks,
+
+        book_shipping_amount:
+          bookSummary.bookShippingAmount,
+
+        book_cover_amount:
+          bookSummary.bookCoverAmount,
+
+        invoice_total_amount:
+          totalAmount,
+
         updated_at: now,
       })
       .eq("id", requestId);
@@ -498,38 +939,82 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Anfrage konnte nicht mit Rechnungsstatus aktualisiert werden: ${updateRequestError.message}`,
+          message:
+            `Anfrage konnte nicht mit Rechnungsstatus aktualisiert werden: ${updateRequestError.message}`,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     await insertRequestEvent({
       supabase,
       requestId,
+
       invoiceId,
       invoiceNumber,
+
+      subtotalAmount,
+      shippingAmount,
+
+      containsBooks:
+        bookSummary.containsBooks,
+
+      bookShippingAmount:
+        bookSummary.bookShippingAmount,
+
+      bookCoverAmount:
+        bookSummary.bookCoverAmount,
+
       totalAmount,
-      message: `Rechnung ${
-        invoiceNumber || ""
-      } wurde vorbereitet. Gesamtbetrag: ${totalAmount.toFixed(2)} EUR.`,
+
+      message:
+        `Rechnung ${
+          invoiceNumber || ""
+        } wurde vorbereitet. Gesamtbetrag: ${totalAmount.toFixed(
+          2,
+        )} EUR.`,
     });
 
     return NextResponse.json({
       ok: true,
+
       invoiceId,
       invoiceNumber,
+
       invoiceStatus: "draft",
-      paymentStatus: "not_selected",
+      paymentStatus:
+        "not_selected",
+
+      pricing: {
+        subtotalAmount,
+        shippingAmount,
+
+        containsBooks:
+          bookSummary.containsBooks,
+
+        bookShippingAmount:
+          bookSummary.bookShippingAmount,
+
+        bookCoverAmount:
+          bookSummary.bookCoverAmount,
+
+        totalAmount,
+      },
+
       totalAmount,
-      message: `Rechnung ${
-        invoiceNumber || ""
-      } wurde vorbereitet. Gesamtbetrag: ${totalAmount
-        .toFixed(2)
-        .replace(".", ",")} €.`,
+
+      message:
+        `Rechnung ${
+          invoiceNumber || ""
+        } wurde vorbereitet. Gesamtbetrag: ${totalAmount
+          .toFixed(2)
+          .replace(".", ",")} €.`,
     });
   } catch (error) {
-    console.error("Invoice create error:", error);
+    console.error(
+      "Invoice create error:",
+      error,
+    );
 
     return NextResponse.json(
       {
@@ -539,20 +1024,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
             ? error.message
             : "Die Rechnung konnte nicht vorbereitet werden.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function GET() {
-  const unauthorized = await requireAdminApiSession();
-  if (unauthorized) return unauthorized;
+  const unauthorized =
+    await requireAdminApiSession();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
 
   return NextResponse.json(
     {
       ok: false,
-      message: "Diese Route kann nur per POST genutzt werden.",
+      message:
+        "Diese Route kann nur per POST genutzt werden.",
     },
-    { status: 405 }
+    { status: 405 },
   );
 }
