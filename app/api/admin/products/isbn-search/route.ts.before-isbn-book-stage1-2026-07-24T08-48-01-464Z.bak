@@ -103,11 +103,6 @@ type ExistingProductRow = {
   ean?: string | null;
   image_url?: string | null;
   image_styled_url?: string | null;
-  price?: number | string | null;
-  tax_rate?: number | string | null;
-  is_book?: boolean | null;
-  book_price_confirmation_status?: string | null;
-  book_price_source?: string | null;
 };
 
 type NormalizedBookSource = {
@@ -488,13 +483,9 @@ function parseCornelsenProduct(
     isbn10: isbn.length === 10 ? isbn : null,
     isbn13: isbn.length === 13 ? isbn : null,
     coverUrl: resolveAbsoluteUrl(image, pageUrl),
-    recommendedPrice: offer?.price || fallbackPrice,
-    priceCurrency:
-      offer?.currency || (fallbackPrice ? "EUR" : null),
-    priceSource:
-      offer?.price || fallbackPrice
-        ? "Cornelsen Verlag - Verkaufspreis"
-        : null,
+    recommendedPrice: null,
+    priceCurrency: null,
+    priceSource: null,
     coverSource: image ? "Cornelsen Verlag" : null,
     coverSourceUrl: image ? pageUrl : null,
     coverCanBeImported: false,
@@ -1123,19 +1114,6 @@ async function loadGoogleBook(
     }) || items[0];
 
   const info = exactItem.volumeInfo;
-  const saleInfo = exactItem.saleInfo;
-
-  const googlePrice =
-    saleInfo?.country === "DE" &&
-    saleInfo?.isEbook !== true &&
-    (saleInfo.retailPrice?.currencyCode === "EUR" ||
-      saleInfo.listPrice?.currencyCode === "EUR")
-      ? parsePriceNumber(
-          saleInfo.retailPrice?.amount ||
-            saleInfo.listPrice?.amount,
-        )
-      : null;
-
   if (!info?.title) {
     return null;
   }
@@ -1171,11 +1149,9 @@ async function loadGoogleBook(
         info.imageLinks?.thumbnail ||
         info.imageLinks?.smallThumbnail,
     ),
-    recommendedPrice: googlePrice,
-    priceCurrency: googlePrice ? "EUR" : null,
-    priceSource: googlePrice
-      ? "Google Books - Preisangabe Deutschland"
-      : null,
+    recommendedPrice: null,
+    priceCurrency: null,
+    priceSource: null,
     coverSource: info.imageLinks ? "Google Books" : null,
     coverSourceUrl:
       forceHttps(info.infoLink) ||
@@ -1297,16 +1273,6 @@ async function findExistingProduct(isbnValues: string[]) {
         imageUrl:
           cleanString(product.image_styled_url) ||
           cleanString(product.image_url),
-        productPrice: parsePriceNumber(product.price),
-        taxRate: Number(product.tax_rate) === 7 ? 7 : 19,
-        isBook: product.is_book === true,
-        priceConfirmationStatus:
-          cleanString(
-            product.book_price_confirmation_status,
-          ) || "not_required",
-        priceSource: cleanString(
-          product.book_price_source,
-        ),
       };
     }
   }

@@ -160,9 +160,6 @@ export function mergeIsbnBookSources(
       const priority = [
         "VLB",
         "Cornelsen Verlag",
-        "Ernst Klett Verlag",
-        "Westermann Verlag",
-        "C.C. Buchner Verlag",
         "Google Books",
       ];
 
@@ -198,9 +195,6 @@ export function mergeIsbnBookSources(
       const priority = [
         "VLB",
         "Cornelsen Verlag",
-        "Ernst Klett Verlag",
-        "Westermann Verlag",
-        "C.C. Buchner Verlag",
         "Google Books",
       ];
 
@@ -238,9 +232,6 @@ export function mergeIsbnBookSources(
       const priority = [
         "VLB",
         "Cornelsen Verlag",
-        "Ernst Klett Verlag",
-        "Westermann Verlag",
-        "C.C. Buchner Verlag",
         "Google Books",
       ];
 

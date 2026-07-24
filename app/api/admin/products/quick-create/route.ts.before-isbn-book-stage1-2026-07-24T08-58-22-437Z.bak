@@ -46,18 +46,6 @@ type ProductRow = {
   book_width_mm?: number | string | null;
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
-  is_book?: boolean | null;
-  tax_rate?: number | string | null;
-  book_isbn10?: string | null;
-  book_isbn13?: string | null;
-  book_publisher?: string | null;
-  book_authors?: string[] | null;
-  book_published_date?: string | null;
-  book_price_original_gross?: number | string | null;
-  book_price_source?: string | null;
-  book_price_confirmation_status?: string | null;
-  book_price_confirmed_at?: string | null;
-  book_price_last_checked_at?: string | null;
   seo_slug?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
@@ -133,35 +121,6 @@ function toOptionalInteger(value: unknown): number | null {
   if (!Number.isFinite(parsed)) return null;
 
   return Math.max(0, Math.floor(parsed));
-}
-
-function parseStringArray(value: unknown) {
-  const text = String(value ?? "").trim();
-
-  if (!text) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(text);
-
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((item) => String(item ?? "").trim())
-        .filter(Boolean);
-    }
-  } catch {
-    // Fall through to line and comma parsing.
-  }
-
-  return text
-    .split(/[\n,;]+/g)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function normalizeTaxRate(value: unknown): 7 | 19 {
-  return Number(value) === 7 ? 7 : 19;
 }
 
 function normalizeText(value: unknown) {
@@ -706,16 +665,6 @@ async function createProductFlexible(
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
-    isBook: boolean;
-    taxRate: 7 | 19;
-    bookIsbn10: string | null;
-    bookIsbn13: string | null;
-    bookPublisher: string | null;
-    bookAuthors: string[];
-    bookPublishedDate: string | null;
-    bookPriceOriginalGross: number | null;
-    bookPriceSource: string | null;
-    bookPriceConfirmationStatus: string;
   },
 ) {
   const seoPayload = await buildSeoPayload({
@@ -750,21 +699,6 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
-      is_book: input.isBook,
-      tax_rate: input.taxRate,
-      book_isbn10: input.bookIsbn10,
-      book_isbn13: input.bookIsbn13,
-      book_publisher: input.bookPublisher,
-      book_authors: input.bookAuthors,
-      book_published_date: input.bookPublishedDate,
-      book_price_original_gross:
-        input.bookPriceOriginalGross,
-      book_price_source: input.bookPriceSource,
-      book_price_confirmation_status:
-        input.bookPriceConfirmationStatus,
-      book_price_confirmed_at: null,
-      book_price_last_checked_at:
-        new Date().toISOString(),
       match_keywords: input.matchKeywords,
       active: true,
       ...seoPayload,
@@ -780,21 +714,6 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
-      is_book: input.isBook,
-      tax_rate: input.taxRate,
-      book_isbn10: input.bookIsbn10,
-      book_isbn13: input.bookIsbn13,
-      book_publisher: input.bookPublisher,
-      book_authors: input.bookAuthors,
-      book_published_date: input.bookPublishedDate,
-      book_price_original_gross:
-        input.bookPriceOriginalGross,
-      book_price_source: input.bookPriceSource,
-      book_price_confirmation_status:
-        input.bookPriceConfirmationStatus,
-      book_price_confirmed_at: null,
-      book_price_last_checked_at:
-        new Date().toISOString(),
       ...seoPayload,
     },
     {
@@ -812,21 +731,6 @@ async function createProductFlexible(
       book_width_mm: input.bookWidthMm,
       book_height_mm: input.bookHeightMm,
       book_size_note: input.bookSizeNote || null,
-      is_book: input.isBook,
-      tax_rate: input.taxRate,
-      book_isbn10: input.bookIsbn10,
-      book_isbn13: input.bookIsbn13,
-      book_publisher: input.bookPublisher,
-      book_authors: input.bookAuthors,
-      book_published_date: input.bookPublishedDate,
-      book_price_original_gross:
-        input.bookPriceOriginalGross,
-      book_price_source: input.bookPriceSource,
-      book_price_confirmation_status:
-        input.bookPriceConfirmationStatus,
-      book_price_confirmed_at: null,
-      book_price_last_checked_at:
-        new Date().toISOString(),
       match_keywords: input.matchKeywords,
       active: true,
     },
@@ -874,16 +778,6 @@ async function updateExistingProductFlexible(
     bookWidthMm: number | null;
     bookHeightMm: number | null;
     bookSizeNote: string;
-    isBook: boolean;
-    taxRate: 7 | 19;
-    bookIsbn10: string | null;
-    bookIsbn13: string | null;
-    bookPublisher: string | null;
-    bookAuthors: string[];
-    bookPublishedDate: string | null;
-    bookPriceOriginalGross: number | null;
-    bookPriceSource: string | null;
-    bookPriceConfirmationStatus: string;
   },
 ) {
   const now = new Date().toISOString();
@@ -949,90 +843,6 @@ async function updateExistingProductFlexible(
     product,
     "book_size_note",
     input.bookSizeNote || null,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "is_book",
-    input.isBook,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "tax_rate",
-    input.taxRate,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_isbn10",
-    input.bookIsbn10,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_isbn13",
-    input.bookIsbn13,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_publisher",
-    input.bookPublisher,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_authors",
-    input.bookAuthors,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_published_date",
-    input.bookPublishedDate,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_price_original_gross",
-    input.bookPriceOriginalGross,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_price_source",
-    input.bookPriceSource,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_price_confirmation_status",
-    input.bookPriceConfirmationStatus,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_price_confirmed_at",
-    null,
-  );
-
-  setIfColumnExists(
-    updatePayload,
-    product,
-    "book_price_last_checked_at",
-    now,
   );
 
   setIfColumnExists(
@@ -1180,57 +990,9 @@ export async function POST(request: NextRequest) {
       usageStatus: cleanString(formData.get("imageUsageStatus")),
     };
 
-    const bookWidthMm =
-      toOptionalInteger(formData.get("bookWidthMm"));
-    const bookHeightMm =
-      toOptionalInteger(formData.get("bookHeightMm"));
-    const bookSizeNote =
-      String(formData.get("bookSizeNote") || "").trim();
-
-    const isBook =
-      String(formData.get("isBook") || "") === "true";
-
-    const taxRate =
-      normalizeTaxRate(formData.get("taxRate"));
-
-    const bookIsbn10 =
-      cleanString(formData.get("bookIsbn10"));
-
-    const bookIsbn13 =
-      cleanString(formData.get("bookIsbn13"));
-
-    const bookPublisher =
-      cleanString(formData.get("bookPublisher"));
-
-    const bookAuthors =
-      parseStringArray(formData.get("bookAuthors"));
-
-    const bookPublishedDate = cleanString(
-      formData.get("bookPublishedDate"),
-    );
-
-    const bookPriceOriginalGross = isBook
-      ? toNumber(
-          formData.get("bookPriceOriginalGross"),
-          productPrice,
-        )
-      : null;
-
-    const bookPriceSource = isBook
-      ? cleanString(formData.get("bookPriceSource")) ||
-        "ISBN-Import"
-      : null;
-
-    const requestedConfirmationStatus = cleanString(
-      formData.get("bookPriceConfirmationStatus"),
-    );
-
-    const bookPriceConfirmationStatus = isBook
-      ? requestedConfirmationStatus === "confirmed" ||
-        requestedConfirmationStatus === "changed"
-        ? requestedConfirmationStatus
-        : "pending"
-      : "not_required";
+    const bookWidthMm = toOptionalInteger(formData.get("bookWidthMm"));
+    const bookHeightMm = toOptionalInteger(formData.get("bookHeightMm"));
+    const bookSizeNote = String(formData.get("bookSizeNote") || "").trim();
 
     const imageFileValue = formData.get("productImage");
     const imageFile =
@@ -1243,17 +1005,6 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           message: "Bitte gib einen Produktnamen ein.",
-        },
-        400,
-      );
-    }
-
-    if (isBook && productPrice <= 0) {
-      return jsonResponse(
-        {
-          ok: false,
-          message:
-            "Ein Buch benoetigt einen Bruttoverkaufspreis groesser als 0 Euro.",
         },
         400,
       );
@@ -1361,16 +1112,6 @@ export async function POST(request: NextRequest) {
         bookWidthMm,
         bookHeightMm,
         bookSizeNote,
-        isBook,
-        taxRate,
-        bookIsbn10,
-        bookIsbn13,
-        bookPublisher,
-        bookAuthors,
-        bookPublishedDate,
-        bookPriceOriginalGross,
-        bookPriceSource,
-        bookPriceConfirmationStatus,
       });
 
       const aliasCount = await addAliasesFlexible({
@@ -1456,16 +1197,6 @@ export async function POST(request: NextRequest) {
       bookWidthMm,
       bookHeightMm,
       bookSizeNote,
-      isBook,
-      taxRate,
-      bookIsbn10,
-      bookIsbn13,
-      bookPublisher,
-      bookAuthors,
-      bookPublishedDate,
-      bookPriceOriginalGross,
-      bookPriceSource,
-      bookPriceConfirmationStatus,
     });
 
     const aliasCount = await addAliasesFlexible({

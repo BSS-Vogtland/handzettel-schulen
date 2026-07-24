@@ -1,12 +1,10 @@
-import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
-import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+﻿import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { sendBookSupplierInquiryMail } from "@/lib/bookSupplierMail";
+import { supabaseServer } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const PARTNER_SLUG = "vogtlaendische-buchhandlung";
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
@@ -29,27 +27,93 @@ function toQuantity(value: unknown) {
   return Math.max(1, Math.min(999, parsed));
 }
 
-async function loadPartner() {
+function toPositivePrice(value: unknown) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const parsed = Number(
+    String(value).replace(",", "."),
+  );
+
+  if (
+    !Number.isFinite(parsed) ||
+    parsed <= 0 ||
+    parsed > 5000
+  ) {
+    return null;
+  }
+
+  return Math.round(parsed * 100) / 100;
+}
+
+function toTaxRate(value: unknown): 7 | 19 {
+  return Number(value) === 19 ? 19 : 7;
+}
+
+async function loadPartner(
+  requestedPartnerId: string,
+) {
+  if (requestedPartnerId) {
+    const { data, error } = await supabaseServer
+      .from("book_supplier_partners")
+      .select("*")
+      .eq("id", requestedPartnerId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(
+        `Buchhandelspartner konnte nicht geladen werden: ${error.message}`,
+      );
+    }
+
+    if (!data) {
+      throw new Error(
+        "Der ausgewÃ¤hlte Buchhandelspartner wurde nicht gefunden oder ist deaktiviert.",
+      );
+    }
+
+    return data;
+  }
+
+  /*
+   * RÃ¼ckwÃ¤rtskompatibilitÃ¤t:
+   * Existiert genau ein aktiver Partner, darf eine Ã¤ltere
+   * OberflÃ¤che noch ohne partnerId arbeiten.
+   */
   const { data, error } = await supabaseServer
     .from("book_supplier_partners")
     .select("*")
-    .eq("slug", PARTNER_SLUG)
     .eq("is_active", true)
-    .maybeSingle();
+    .order("name", {
+      ascending: true,
+    })
+    .limit(2);
 
   if (error) {
     throw new Error(
-      `Partnerdaten konnten nicht geladen werden: ${error.message}`,
+      `Buchhandelspartner konnten nicht geladen werden: ${error.message}`,
     );
   }
 
-  if (!data) {
+  if (!data || data.length === 0) {
     throw new Error(
-      "Die Vogtländische Buchhandlung ist noch nicht als aktiver Partner angelegt.",
+      "Es ist noch kein aktiver Buchhandelspartner angelegt.",
     );
   }
 
-  return data;
+  if (data.length > 1) {
+    throw new Error(
+      "WÃ¤hle den Buchhandelspartner fÃ¼r diese Sammelanfrage aus.",
+    );
+  }
+
+  return data[0];
 }
 
 async function nextInquiryNumber() {
@@ -57,16 +121,47 @@ async function nextInquiryNumber() {
     "next_book_supplier_inquiry_number",
   );
 
-  if (!error && typeof data === "string" && data.trim()) {
+  if (
+    !error &&
+    typeof data === "string" &&
+    data.trim()
+  ) {
     return data.trim();
   }
 
-  return `VB-${new Date().getFullYear()}-${Date.now().toString().slice(-8)}`;
+  return `VB-${new Date().getFullYear()}-${Date.now()
+    .toString()
+    .slice(-8)}`;
+}
+
+async function findBookProduct(isbn: string) {
+  const { data, error } = await supabaseServer
+    .from("school_products")
+    .select(
+      "id,ean,price,tax_rate,is_book,book_isbn10,book_isbn13,book_price_source,book_price_confirmation_status",
+    )
+    .or(
+      `ean.eq.${isbn},book_isbn10.eq.${isbn},book_isbn13.eq.${isbn}`,
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `ProduktverknÃ¼pfung fÃ¼r ISBN ${isbn} fehlgeschlagen: ${error.message}`,
+    );
+  }
+
+  return data || null;
 }
 
 export async function GET() {
-  const unauthorized = await requireAdminApiSession();
-  if (unauthorized) return unauthorized;
+  const unauthorized =
+    await requireAdminApiSession();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
 
   try {
     const { data, error } = await supabaseServer
@@ -96,19 +191,26 @@ export async function GET() {
             ? error.message
             : "Die Anfragen konnten nicht geladen werden.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdminApiSession();
-  if (unauthorized) return unauthorized;
+  const unauthorized =
+    await requireAdminApiSession();
+
+  if (unauthorized) {
+    return unauthorized;
+  }
 
   let createdInquiryId: string | null = null;
 
   try {
     const body = (await request.json()) as {
+      partnerId?: unknown;
       adminNote?: unknown;
       sendNow?: unknown;
       items?: Array<{
@@ -120,18 +222,27 @@ export async function POST(request: Request) {
         publishedDate?: unknown;
         coverUrl?: unknown;
         quantity?: unknown;
+        proposedPriceGross?: unknown;
+        proposedTaxRate?: unknown;
+        priceSource?: unknown;
+        linkedProductId?: unknown;
       }>;
     };
 
-    const rawItems = Array.isArray(body.items) ? body.items : [];
+    const rawItems = Array.isArray(body.items)
+      ? body.items
+      : [];
 
     if (rawItems.length === 0) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Füge zuerst mindestens ein Buch zur Sammelanfrage hinzu.",
+          message:
+            "FÃ¼ge zuerst mindestens ein Buch zur Sammelanfrage hinzu.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -139,13 +250,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Eine Sammelanfrage darf höchstens 100 ISBNs enthalten.",
+          message:
+            "Eine Sammelanfrage darf hÃ¶chstens 100 ISBNs enthalten.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const partner = await loadPartner();
+    const partner = await loadPartner(
+      clean(body.partnerId),
+    );
 
     const byIsbn = new Map<
       string,
@@ -158,6 +274,15 @@ export async function POST(request: Request) {
         published_date: string | null;
         cover_url: string | null;
         requested_quantity: number;
+        linked_product_id: string | null;
+        proposed_price_gross: number | null;
+        proposed_tax_rate: 7 | 19;
+        price_source: string | null;
+        price_confirmation_status: "pending";
+        confirmed_price_gross: null;
+        confirmed_tax_rate: null;
+        price_confirmed_at: null;
+        price_applied_to_product_at: null;
       }
     >();
 
@@ -165,53 +290,139 @@ export async function POST(request: Request) {
       const isbn = normalizeIsbn(rawItem.isbn);
       const title = clean(rawItem.title);
 
-      if ((isbn.length !== 10 && isbn.length !== 13) || !title) {
+      if (
+        (isbn.length !== 10 &&
+          isbn.length !== 13) ||
+        !title
+      ) {
         return NextResponse.json(
           {
             ok: false,
             message:
-              "Mindestens eine Buchposition enthält keine gültige ISBN oder keinen Titel.",
+              "Mindestens eine Buchposition enthÃ¤lt keine gÃ¼ltige ISBN oder keinen Titel.",
           },
-          { status: 400 },
+          {
+            status: 400,
+          },
         );
       }
 
-      const quantity = toQuantity(rawItem.quantity);
+      const quantity = toQuantity(
+        rawItem.quantity,
+      );
+
       const existing = byIsbn.get(isbn);
 
       if (existing) {
         existing.requested_quantity = Math.min(
           999,
-          existing.requested_quantity + quantity,
+          existing.requested_quantity +
+            quantity,
         );
+
         continue;
       }
+
+      const product =
+        await findBookProduct(isbn);
+
+      const productPrice = toPositivePrice(
+        product?.price,
+      );
+
+      const clientPrice = toPositivePrice(
+        rawItem.proposedPriceGross,
+      );
+
+      const proposedPrice =
+        productPrice ?? clientPrice;
+
+      const proposedTaxRate = product
+        ? toTaxRate(product.tax_rate)
+        : toTaxRate(
+            rawItem.proposedTaxRate,
+          );
 
       byIsbn.set(isbn, {
         isbn,
         title,
-        subtitle: clean(rawItem.subtitle) || null,
-        authors: Array.isArray(rawItem.authors)
-          ? rawItem.authors.map(clean).filter(Boolean)
+        subtitle:
+          clean(rawItem.subtitle) || null,
+        authors: Array.isArray(
+          rawItem.authors,
+        )
+          ? rawItem.authors
+              .map(clean)
+              .filter(Boolean)
           : [],
-        publisher: clean(rawItem.publisher) || null,
-        published_date: clean(rawItem.publishedDate) || null,
-        cover_url: clean(rawItem.coverUrl) || null,
+        publisher:
+          clean(rawItem.publisher) || null,
+        published_date:
+          clean(rawItem.publishedDate) ||
+          null,
+        cover_url:
+          clean(rawItem.coverUrl) || null,
         requested_quantity: quantity,
+        linked_product_id:
+          product?.id || null,
+        proposed_price_gross:
+          proposedPrice,
+        proposed_tax_rate:
+          proposedTaxRate,
+        price_source:
+          clean(
+            product?.book_price_source,
+          ) ||
+          clean(rawItem.priceSource) ||
+          (proposedPrice
+            ? "Admin-Vorschlag"
+            : null),
+        price_confirmation_status:
+          "pending",
+        confirmed_price_gross: null,
+        confirmed_tax_rate: null,
+        price_confirmed_at: null,
+        price_applied_to_product_at:
+          null,
       });
     }
 
-    const inquiryNumber = await nextInquiryNumber();
-    const adminNote = clean(body.adminNote);
-    const sendNow = body.sendNow === true;
+    const inquiryNumber =
+      await nextInquiryNumber();
 
-    const { data: inquiry, error: inquiryError } = await supabaseServer
+    const adminNote = clean(
+      body.adminNote,
+    );
+
+    const sendNow =
+      body.sendNow === true;
+
+    if (
+      sendNow &&
+      !clean(partner.email)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `FÃ¼r ${partner.name} ist noch keine E-Mail-Adresse hinterlegt.`,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const {
+      data: inquiry,
+      error: inquiryError,
+    } = await supabaseServer
       .from("book_supplier_inquiries")
       .insert({
         inquiry_number: inquiryNumber,
         supplier_id: partner.id,
         status: "draft",
-        admin_note: adminNote || null,
+        admin_note:
+          adminNote || null,
       })
       .select("*")
       .single();
@@ -219,22 +430,28 @@ export async function POST(request: Request) {
     if (inquiryError || !inquiry) {
       throw new Error(
         `Sammelanfrage konnte nicht angelegt werden: ${
-          inquiryError?.message || "unbekannter Fehler"
+          inquiryError?.message ||
+          "unbekannter Fehler"
         }`,
       );
     }
 
     createdInquiryId = inquiry.id;
 
-    const rows = Array.from(byIsbn.values()).map((item, index) => ({
+    const rows = Array.from(
+      byIsbn.values(),
+    ).map((item, index) => ({
       inquiry_id: inquiry.id,
       sort_order: index + 1,
       ...item,
     }));
 
-    const { error: itemsError } = await supabaseServer
-      .from("book_supplier_inquiry_items")
-      .insert(rows);
+    const { error: itemsError } =
+      await supabaseServer
+        .from(
+          "book_supplier_inquiry_items",
+        )
+        .insert(rows);
 
     if (itemsError) {
       throw new Error(
@@ -242,19 +459,38 @@ export async function POST(request: Request) {
       );
     }
 
-    await supabaseServer.from("book_supplier_events").insert({
-      inquiry_id: inquiry.id,
-      event_type: "inquiry_created",
-      title: "Sammelanfrage erstellt",
-      description: `${rows.length} ISBN-Positionen wurden erfasst.`,
-      metadata: {
-        item_count: rows.length,
-        total_quantity: rows.reduce(
-          (sum, item) => sum + item.requested_quantity,
-          0,
-        ),
-      },
-    });
+    await supabaseServer
+      .from("book_supplier_events")
+      .insert({
+        inquiry_id: inquiry.id,
+        event_type:
+          "inquiry_created",
+        title:
+          "Sammelanfrage erstellt",
+        description: `${rows.length} ISBN-Positionen fÃ¼r ${partner.name} wurden mit Preis- und SteuerprÃ¼fung erfasst.`,
+        metadata: {
+          supplier_id: partner.id,
+          supplier_name: partner.name,
+          item_count: rows.length,
+          total_quantity: rows.reduce(
+            (sum, item) =>
+              sum +
+              item.requested_quantity,
+            0,
+          ),
+          linked_product_count:
+            rows.filter(
+              (item) =>
+                item.linked_product_id,
+            ).length,
+          proposed_price_count:
+            rows.filter(
+              (item) =>
+                item.proposed_price_gross !==
+                null,
+            ).length,
+        },
+      });
 
     let sent = false;
     let warning: string | null = null;
@@ -267,27 +503,46 @@ export async function POST(request: Request) {
           items: rows,
         });
 
-        const now = new Date().toISOString();
+        const now =
+          new Date().toISOString();
+
+        const { error: updateError } =
+          await supabaseServer
+            .from(
+              "book_supplier_inquiries",
+            )
+            .update({
+              status: "sent",
+              sent_at: now,
+              sent_to_email:
+                partner.email,
+              updated_at: now,
+            })
+            .eq("id", inquiry.id);
+
+        if (updateError) {
+          throw new Error(
+            `Versandstatus konnte nicht gespeichert werden: ${updateError.message}`,
+          );
+        }
 
         await supabaseServer
-          .from("book_supplier_inquiries")
-          .update({
-            status: "sent",
-            sent_at: now,
-            sent_to_email: partner.email,
-            updated_at: now,
-          })
-          .eq("id", inquiry.id);
-
-        await supabaseServer.from("book_supplier_events").insert({
-          inquiry_id: inquiry.id,
-          event_type: "inquiry_sent",
-          title: "Verfügbarkeitsanfrage gesendet",
-          description: `Die Anfrage wurde an ${partner.email} gesendet.`,
-          metadata: {
-            recipient: partner.email,
-          },
-        });
+          .from("book_supplier_events")
+          .insert({
+            inquiry_id: inquiry.id,
+            event_type:
+              "inquiry_sent",
+            title:
+              "Buchanfrage gesendet",
+            description: `Die Anfrage wurde an ${partner.name} (${partner.email}) gesendet.`,
+            metadata: {
+              supplier_id: partner.id,
+              supplier_name:
+                partner.name,
+              recipient:
+                partner.email,
+            },
+          });
 
         sent = true;
       } catch (mailError) {
@@ -303,17 +558,21 @@ export async function POST(request: Request) {
       sent,
       warning,
       message: sent
-        ? `Die Anfrage ${inquiryNumber} wurde erstellt und versendet.`
-        : `Die Anfrage ${inquiryNumber} wurde gespeichert.`,
+        ? `Die Anfrage ${inquiryNumber} wurde fÃ¼r ${partner.name} erstellt und versendet.`
+        : `Die Anfrage ${inquiryNumber} wurde fÃ¼r ${partner.name} gespeichert.`,
       inquiry: {
         id: inquiry.id,
         inquiryNumber,
+        partnerId: partner.id,
+        partnerName: partner.name,
       },
     });
   } catch (error) {
     if (createdInquiryId) {
       await supabaseServer
-        .from("book_supplier_inquiries")
+        .from(
+          "book_supplier_inquiries",
+        )
         .delete()
         .eq("id", createdInquiryId);
     }
@@ -326,7 +585,9 @@ export async function POST(request: Request) {
             ? error.message
             : "Die Sammelanfrage konnte nicht erstellt werden.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

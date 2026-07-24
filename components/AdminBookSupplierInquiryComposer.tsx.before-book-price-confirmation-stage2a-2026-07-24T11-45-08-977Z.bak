@@ -15,7 +15,12 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type BookData = {
   requestedIsbn: string;
@@ -94,11 +99,13 @@ type CreateInquiryResponse = {
   };
 };
 
-const STORAGE_KEY = "handzettel-book-supplier-inquiry-draft-v3";
+const STORAGE_KEY =
+  "handzettel-book-supplier-inquiry-draft-v3";
 
-function clean(value: unknown) {
-  return String(value ?? "").trim();
-}
+const LEGACY_STORAGE_KEYS = [
+  "handzettel-book-supplier-inquiry-draft-v2",
+  "handzettel-book-supplier-inquiry-draft-v1",
+];
 
 function normalizeIsbn(value: string) {
   return value
@@ -107,12 +114,22 @@ function normalizeIsbn(value: string) {
     .slice(0, 13);
 }
 
+function clean(value: unknown) {
+  return String(value ?? "").trim();
+}
+
 function normalizePrice(value: unknown) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return null;
   }
 
-  const parsed = Number(String(value).replace(",", "."));
+  const parsed = Number(
+    String(value).replace(",", "."),
+  );
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return null;
@@ -138,7 +155,10 @@ function normalizeDraftItem(
   const isbn = normalizeIsbn(clean(value.isbn));
   const title = clean(value.title);
 
-  if ((isbn.length !== 10 && isbn.length !== 13) || !title) {
+  if (
+    (isbn.length !== 10 && isbn.length !== 13) ||
+    !title
+  ) {
     return null;
   }
 
@@ -150,67 +170,120 @@ function normalizeDraftItem(
       ? value.authors.map(clean).filter(Boolean)
       : [],
     publisher: clean(value.publisher) || null,
-    publishedDate: clean(value.publishedDate) || null,
+    publishedDate:
+      clean(value.publishedDate) || null,
     coverUrl: clean(value.coverUrl) || null,
     quantity: Math.max(
       1,
-      Math.min(999, Math.trunc(Number(value.quantity) || 1)),
+      Math.min(
+        999,
+        Math.trunc(Number(value.quantity) || 1),
+      ),
     ),
-    proposedPriceGross: normalizePrice(value.proposedPriceGross),
-    proposedTaxRate: Number(value.proposedTaxRate) === 19 ? 19 : 7,
+    proposedPriceGross: normalizePrice(
+      value.proposedPriceGross,
+    ),
+    proposedTaxRate:
+      Number(value.proposedTaxRate) === 19
+        ? 19
+        : 7,
     priceSource: clean(value.priceSource) || null,
-    linkedProductId: clean(value.linkedProductId) || null,
+    linkedProductId:
+      clean(value.linkedProductId) || null,
   };
 }
 
 export default function AdminBookSupplierInquiryComposer() {
-  const [partners, setPartners] = useState<SupplierPartner[]>([]);
-  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [partners, setPartners] = useState<
+    SupplierPartner[]
+  >([]);
+
+  const [
+    selectedPartnerId,
+    setSelectedPartnerId,
+  ] = useState("");
 
   const [isbn, setIsbn] = useState("");
-  const [foundBook, setFoundBook] = useState<BookData | null>(null);
-  const [foundExistingProduct, setFoundExistingProduct] =
-    useState<ExistingProduct | null>(null);
+  const [foundBook, setFoundBook] =
+    useState<BookData | null>(null);
 
-  const [items, setItems] = useState<DraftItem[]>([]);
+  const [
+    foundExistingProduct,
+    setFoundExistingProduct,
+  ] = useState<ExistingProduct | null>(null);
+
+  const [items, setItems] = useState<DraftItem[]>(
+    [],
+  );
+
   const [adminNote, setAdminNote] = useState("");
 
-  const [isLoadingPartners, setIsLoadingPartners] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [
+    isLoadingPartners,
+    setIsLoadingPartners,
+  ] = useState(true);
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSearching, setIsSearching] =
+    useState(false);
 
-  const [createdInquiry, setCreatedInquiry] = useState<{
+  const [isCreating, setIsCreating] =
+    useState(false);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState<string | null>(null);
+
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState<string | null>(null);
+
+  const [
+    createdInquiry,
+    setCreatedInquiry,
+  ] = useState<{
     id: string;
     inquiryNumber: string;
+    sent: boolean;
   } | null>(null);
 
   const activePartners = useMemo(
-    () => partners.filter((partner) => partner.is_active),
+    () =>
+      partners.filter(
+        (partner) => partner.is_active,
+      ),
     [partners],
   );
 
   const selectedPartner = useMemo(
     () =>
       activePartners.find(
-        (partner) => partner.id === selectedPartnerId,
+        (partner) =>
+          partner.id === selectedPartnerId,
       ) || null,
     [activePartners, selectedPartnerId],
   );
 
   const totalQuantity = useMemo(
-    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    () =>
+      items.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      ),
     [items],
   );
 
   const foundProposedPrice =
-    normalizePrice(foundExistingProduct?.productPrice) ??
+    normalizePrice(
+      foundExistingProduct?.productPrice,
+    ) ??
     normalizePrice(foundBook?.recommendedPrice);
 
   const foundTaxRate: 7 | 19 =
-    foundExistingProduct?.taxRate === 19 ? 19 : 7;
+    foundExistingProduct?.taxRate === 19
+      ? 19
+      : 7;
 
   const foundPriceSource =
     clean(foundExistingProduct?.priceSource) ||
@@ -219,7 +292,11 @@ export default function AdminBookSupplierInquiryComposer() {
 
   useEffect(() => {
     try {
-      const rawDraft = window.localStorage.getItem(STORAGE_KEY);
+      const rawDraft =
+        window.localStorage.getItem(STORAGE_KEY) ||
+        LEGACY_STORAGE_KEYS.map((key) =>
+          window.localStorage.getItem(key),
+        ).find(Boolean);
 
       if (!rawDraft) {
         return;
@@ -227,27 +304,42 @@ export default function AdminBookSupplierInquiryComposer() {
 
       const parsed = JSON.parse(rawDraft) as {
         selectedPartnerId?: string;
-        adminNote?: string;
         items?: Array<Partial<DraftItem>>;
+        adminNote?: string;
       };
 
-      if (typeof parsed.selectedPartnerId === "string") {
-        setSelectedPartnerId(parsed.selectedPartnerId);
-      }
-
-      if (typeof parsed.adminNote === "string") {
-        setAdminNote(parsed.adminNote);
+      if (
+        typeof parsed.selectedPartnerId ===
+        "string"
+      ) {
+        setSelectedPartnerId(
+          parsed.selectedPartnerId,
+        );
       }
 
       if (Array.isArray(parsed.items)) {
         setItems(
           parsed.items
-            .map((item) => normalizeDraftItem(item))
-            .filter((item): item is DraftItem => Boolean(item)),
+            .map((item) =>
+              normalizeDraftItem(item),
+            )
+            .filter(
+              (
+                item,
+              ): item is DraftItem =>
+                Boolean(item),
+            ),
         );
       }
+
+      if (
+        typeof parsed.adminNote === "string"
+      ) {
+        setAdminNote(parsed.adminNote);
+      }
     } catch {
-      // Ein fehlerhafter lokaler Entwurf blockiert die Seite nicht.
+      // Ein defekter lokaler Entwurf blockiert
+      // die Oberfläche nicht.
     }
   }, []);
 
@@ -257,14 +349,19 @@ export default function AdminBookSupplierInquiryComposer() {
         STORAGE_KEY,
         JSON.stringify({
           selectedPartnerId,
-          adminNote,
           items,
+          adminNote,
         }),
       );
     } catch {
-      // LocalStorage ist nur eine Komfortfunktion.
+      // LocalStorage ist nur Komfort und
+      // nicht Teil des Kernworkflows.
     }
-  }, [selectedPartnerId, adminNote, items]);
+  }, [
+    selectedPartnerId,
+    items,
+    adminNote,
+  ]);
 
   useEffect(() => {
     async function loadPartners() {
@@ -279,7 +376,8 @@ export default function AdminBookSupplierInquiryComposer() {
           },
         );
 
-        const payload = (await response.json()) as PartnersResponse;
+        const payload =
+          (await response.json()) as PartnersResponse;
 
         if (
           !response.ok ||
@@ -294,16 +392,19 @@ export default function AdminBookSupplierInquiryComposer() {
 
         setPartners(payload.partners);
 
-        const active = payload.partners.filter(
-          (partner) => partner.is_active,
-        );
-
-        setSelectedPartnerId((current) => {
-          const currentStillExists = active.some(
-            (partner) => partner.id === current,
+        const active =
+          payload.partners.filter(
+            (partner) => partner.is_active,
           );
 
-          if (currentStillExists) {
+        setSelectedPartnerId((current) => {
+          if (
+            current &&
+            active.some(
+              (partner) =>
+                partner.id === current,
+            )
+          ) {
             return current;
           }
 
@@ -327,7 +428,9 @@ export default function AdminBookSupplierInquiryComposer() {
     void loadPartners();
   }, []);
 
-  async function searchBook(event: FormEvent<HTMLFormElement>) {
+  async function searchBook(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     if (isSearching) {
@@ -342,7 +445,10 @@ export default function AdminBookSupplierInquiryComposer() {
     setFoundBook(null);
     setFoundExistingProduct(null);
 
-    if (normalized.length !== 10 && normalized.length !== 13) {
+    if (
+      normalized.length !== 10 &&
+      normalized.length !== 13
+    ) {
       setErrorMessage(
         "Bitte gib eine vollständige ISBN-10 oder ISBN-13 ein.",
       );
@@ -362,17 +468,26 @@ export default function AdminBookSupplierInquiryComposer() {
         },
       );
 
-      const payload = (await response.json()) as SearchResponse;
+      const payload =
+        (await response.json()) as SearchResponse;
 
-      if (!response.ok || !payload.ok || !payload.book) {
+      if (
+        !response.ok ||
+        !payload.ok ||
+        !payload.book
+      ) {
         throw new Error(
-          payload.message || "Zu dieser ISBN wurde kein Buch gefunden.",
+          payload.message ||
+            "Zu dieser ISBN wurde kein Buch gefunden.",
         );
       }
 
       setIsbn(normalized);
       setFoundBook(payload.book);
-      setFoundExistingProduct(payload.existingProduct || null);
+
+      setFoundExistingProduct(
+        payload.existingProduct || null,
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -390,12 +505,14 @@ export default function AdminBookSupplierInquiryComposer() {
     }
 
     const normalizedIsbn = normalizeIsbn(
-      foundBook.isbn13 || foundBook.requestedIsbn,
+      foundBook.isbn13 ||
+        foundBook.requestedIsbn,
     );
 
-    const title = clean(foundBook.title);
-
-    if (!normalizedIsbn || !title) {
+    if (
+      !normalizedIsbn ||
+      !clean(foundBook.title)
+    ) {
       setErrorMessage(
         "Das gefundene Buch enthält keine vollständige ISBN oder keinen Titel.",
       );
@@ -403,18 +520,22 @@ export default function AdminBookSupplierInquiryComposer() {
     }
 
     setItems((current) => {
-      const existingItem = current.find(
-        (item) => item.isbn === normalizedIsbn,
-      );
+      const existingIndex =
+        current.findIndex(
+          (item) =>
+            item.isbn === normalizedIsbn,
+        );
 
-      if (existingItem) {
-        return current.map((item) =>
-          item.isbn === normalizedIsbn
-            ? {
-                ...item,
-                quantity: Math.min(999, item.quantity + 1),
-              }
-            : item,
+      if (existingIndex >= 0) {
+        return current.map(
+          (item, index) =>
+            index === existingIndex
+              ? {
+                  ...item,
+                  quantity:
+                    item.quantity + 1,
+                }
+              : item,
         );
       }
 
@@ -422,25 +543,45 @@ export default function AdminBookSupplierInquiryComposer() {
         ...current,
         {
           isbn: normalizedIsbn,
-          title,
-          subtitle: clean(foundBook.subtitle) || null,
-          authors: Array.isArray(foundBook.authors)
-            ? foundBook.authors.map(clean).filter(Boolean)
+          title: clean(foundBook.title),
+          subtitle:
+            clean(foundBook.subtitle) ||
+            null,
+          authors: Array.isArray(
+            foundBook.authors,
+          )
+            ? foundBook.authors
+                .map(clean)
+                .filter(Boolean)
             : [],
-          publisher: clean(foundBook.publisher) || null,
-          publishedDate: clean(foundBook.publishedDate) || null,
-          coverUrl: clean(foundBook.coverUrl) || null,
+          publisher:
+            clean(foundBook.publisher) ||
+            null,
+          publishedDate:
+            clean(
+              foundBook.publishedDate,
+            ) || null,
+          coverUrl:
+            clean(foundBook.coverUrl) ||
+            null,
           quantity: 1,
-          proposedPriceGross: foundProposedPrice,
-          proposedTaxRate: foundTaxRate,
-          priceSource: foundPriceSource,
-          linkedProductId: foundExistingProduct?.id || null,
+          proposedPriceGross:
+            foundProposedPrice,
+          proposedTaxRate:
+            foundTaxRate,
+          priceSource:
+            foundPriceSource,
+          linkedProductId:
+            foundExistingProduct?.id ||
+            null,
         },
       ];
     });
 
     setSuccessMessage(
-      `„${title}“ wurde zur Sammelanfrage hinzugefügt.`,
+      `„${clean(
+        foundBook.title,
+      )}“ wurde mit Preis- und Steuerdaten zur Sammelanfrage hinzugefügt.`,
     );
 
     setFoundBook(null);
@@ -449,12 +590,12 @@ export default function AdminBookSupplierInquiryComposer() {
   }
 
   function updateItem(
-    itemIsbn: string,
+    isbnValue: string,
     patch: Partial<DraftItem>,
   ) {
     setItems((current) =>
       current.map((item) =>
-        item.isbn === itemIsbn
+        item.isbn === isbnValue
           ? {
               ...item,
               ...patch,
@@ -464,9 +605,14 @@ export default function AdminBookSupplierInquiryComposer() {
     );
   }
 
-  function removeItem(itemIsbn: string) {
+  function removeItem(
+    isbnValue: string,
+  ) {
     setItems((current) =>
-      current.filter((item) => item.isbn !== itemIsbn),
+      current.filter(
+        (item) =>
+          item.isbn !== isbnValue,
+      ),
     );
   }
 
@@ -477,10 +623,15 @@ export default function AdminBookSupplierInquiryComposer() {
     setFoundExistingProduct(null);
     setCreatedInquiry(null);
     setErrorMessage(null);
-    setSuccessMessage("Der Entwurf wurde geleert.");
+
+    setSuccessMessage(
+      "Der lokale Entwurf wurde geleert.",
+    );
   }
 
-  async function createInquiry(sendNow: boolean) {
+  async function createInquiry(
+    sendNow: boolean,
+  ) {
     if (isCreating) {
       return;
     }
@@ -491,7 +642,7 @@ export default function AdminBookSupplierInquiryComposer() {
 
     if (!selectedPartner) {
       setErrorMessage(
-        "Wähle zuerst einen Buchhandelspartner aus.",
+        "Wähle zuerst den Buchhandelspartner für diese Sammelanfrage aus.",
       );
       return;
     }
@@ -503,9 +654,12 @@ export default function AdminBookSupplierInquiryComposer() {
       return;
     }
 
-    if (sendNow && !selectedPartner.email) {
+    if (
+      sendNow &&
+      !selectedPartner.email?.trim()
+    ) {
       setErrorMessage(
-        `Für ${selectedPartner.name} ist keine E-Mail-Adresse hinterlegt.`,
+        `Für ${selectedPartner.name} ist noch keine E-Mail-Adresse hinterlegt.`,
       );
       return;
     }
@@ -518,10 +672,12 @@ export default function AdminBookSupplierInquiryComposer() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
-            partnerId: selectedPartner.id,
+            partnerId:
+              selectedPartner.id,
             adminNote,
             sendNow,
             items,
@@ -529,9 +685,14 @@ export default function AdminBookSupplierInquiryComposer() {
         },
       );
 
-      const payload = (await response.json()) as CreateInquiryResponse;
+      const payload =
+        (await response.json()) as CreateInquiryResponse;
 
-      if (!response.ok || !payload.ok || !payload.inquiry) {
+      if (
+        !response.ok ||
+        !payload.ok ||
+        !payload.inquiry
+      ) {
         throw new Error(
           payload.message ||
             "Die Sammelanfrage konnte nicht erstellt werden.",
@@ -540,7 +701,9 @@ export default function AdminBookSupplierInquiryComposer() {
 
       setCreatedInquiry({
         id: payload.inquiry.id,
-        inquiryNumber: payload.inquiry.inquiryNumber,
+        inquiryNumber:
+          payload.inquiry.inquiryNumber,
+        sent: Boolean(payload.sent),
       });
 
       setItems([]);
@@ -552,8 +715,8 @@ export default function AdminBookSupplierInquiryComposer() {
       setSuccessMessage(
         payload.warning ||
           (payload.sent
-            ? `Die Anfrage ${payload.inquiry.inquiryNumber} wurde an ${selectedPartner.name} versendet.`
-            : `Die Anfrage ${payload.inquiry.inquiryNumber} wurde für ${selectedPartner.name} gespeichert.`),
+            ? `Die Anfrage ${payload.inquiry.inquiryNumber} wurde für ${selectedPartner.name} erstellt und versendet.`
+            : `Die Anfrage ${payload.inquiry.inquiryNumber} wurde für ${selectedPartner.name} als Entwurf gespeichert.`),
       );
     } catch (error) {
       setErrorMessage(
@@ -572,23 +735,29 @@ export default function AdminBookSupplierInquiryComposer() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-[#12395F]">
             <Mail className="h-3.5 w-3.5" />
-            {selectedPartner?.name || "Buchhandelspartner auswählen"}
+
+            {selectedPartner?.name ||
+              "Buchhandelspartner auswählen"}
           </div>
 
           <h2 className="mt-3 text-2xl font-black text-[#102A43]">
-            Sammelanfrage zu Verfügbarkeit, Preis und Umsatzsteuer
+            Sammelanfrage zu Verfügbarkeit,
+            Preis und Umsatzsteuer
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
-            Wähle zuerst die Buchhandlung aus, die diese Sammelanfrage
-            erhalten soll.
+            Jede Anfrage wird genau einem aktiven
+            Buchhandelspartner zugeordnet. Der
+            ausgewählte Partner muss Preis,
+            Umsatzsteuer und Verfügbarkeit pro
+            Buchposition prüfen.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Link
             href="/admin/buchhandlung/partner"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] ring-1 ring-[#C8D8E8]"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#C8D8E8] transition hover:bg-[#F5FAFD]"
           >
             <UsersRound className="h-4 w-4" />
             Partner verwalten
@@ -596,7 +765,7 @@ export default function AdminBookSupplierInquiryComposer() {
 
           <Link
             href="/admin/buchhandlung/anfragen"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] ring-1 ring-[#C8D8E8]"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#12395F] shadow-sm ring-1 ring-[#C8D8E8] transition hover:bg-[#F5FAFD]"
           >
             <BookOpen className="h-4 w-4" />
             Anfragen öffnen
@@ -607,6 +776,7 @@ export default function AdminBookSupplierInquiryComposer() {
       {errorMessage ? (
         <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#F0B7BA] bg-[#FFF1F1] p-4 text-[#9F1D24]">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+
           <p className="text-sm font-bold leading-6">
             {errorMessage}
           </p>
@@ -634,20 +804,26 @@ export default function AdminBookSupplierInquiryComposer() {
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4 sm:p-5">
+      <div className="mt-5 rounded-[26px] border border-[#C8D8E8] bg-white p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <label className="min-w-0 flex-1">
             <span className="mb-2 block text-sm font-black text-[#102A43]">
-              Buchhandelspartner für diese Anfrage*
+              Buchhandelspartner für diese
+              Anfrage*
             </span>
 
             <select
               value={selectedPartnerId}
               onChange={(event) =>
-                setSelectedPartnerId(event.target.value)
+                setSelectedPartnerId(
+                  event.target.value,
+                )
               }
-              disabled={isLoadingPartners || isCreating}
-              className="min-h-12 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 font-black text-[#102A43] outline-none focus:border-[#B5282D]"
+              disabled={
+                isLoadingPartners ||
+                isCreating
+              }
+              className="min-h-13 w-full rounded-2xl border border-[#D8C8B8] bg-white px-4 font-black text-[#102A43] outline-none focus:border-[#B5282D]"
             >
               <option value="">
                 {isLoadingPartners
@@ -655,20 +831,25 @@ export default function AdminBookSupplierInquiryComposer() {
                   : "Partner auswählen"}
               </option>
 
-              {activePartners.map((partner) => (
-                <option key={partner.id} value={partner.id}>
-                  {partner.name}
-                  {partner.email
-                    ? ` · ${partner.email}`
-                    : " · E-Mail fehlt"}
-                </option>
-              ))}
+              {activePartners.map(
+                (partner) => (
+                  <option
+                    key={partner.id}
+                    value={partner.id}
+                  >
+                    {partner.name}
+                    {partner.email
+                      ? ` · ${partner.email}`
+                      : " · E-Mail fehlt"}
+                  </option>
+                ),
+              )}
             </select>
           </label>
 
           <Link
             href="/admin/buchhandlung/partner"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#C8D8E8] bg-[#F5FAFD] px-4 py-3 text-sm font-black text-[#12395F]"
+            className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl border border-[#C8D8E8] bg-[#F5FAFD] px-4 py-3 text-sm font-black text-[#12395F]"
           >
             <Building2 className="h-4 w-4" />
             Neuen Partner anlegen
@@ -676,12 +857,13 @@ export default function AdminBookSupplierInquiryComposer() {
         </div>
 
         {selectedPartner ? (
-          <div className="mt-4 grid gap-3 rounded-2xl bg-[#F5FAFD] p-4 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] p-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-black uppercase text-[#12395F]">
                 Buchhandlung
               </p>
-              <p className="mt-1 font-black">
+
+              <p className="mt-1 text-sm font-black text-[#102A43]">
                 {selectedPartner.name}
               </p>
             </div>
@@ -690,8 +872,10 @@ export default function AdminBookSupplierInquiryComposer() {
               <p className="text-xs font-black uppercase text-[#12395F]">
                 E-Mail
               </p>
+
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                {selectedPartner.email || "Nicht hinterlegt"}
+                {selectedPartner.email ||
+                  "Noch nicht hinterlegt"}
               </p>
             </div>
 
@@ -699,10 +883,19 @@ export default function AdminBookSupplierInquiryComposer() {
               <p className="text-xs font-black uppercase text-[#12395F]">
                 Ansprechpartner
               </p>
+
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                {selectedPartner.contact_person || "Nicht angegeben"}
+                {selectedPartner.contact_person ||
+                  "Nicht angegeben"}
               </p>
             </div>
+          </div>
+        ) : activePartners.length === 0 &&
+          !isLoadingPartners ? (
+          <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-sm font-semibold text-[#8A4A1F]">
+            Es ist noch kein aktiver
+            Buchhandelspartner vorhanden. Lege
+            zuerst einen Partner an.
           </div>
         ) : null}
       </div>
@@ -720,23 +913,28 @@ export default function AdminBookSupplierInquiryComposer() {
             <input
               value={isbn}
               onChange={(event) =>
-                setIsbn(normalizeIsbn(event.target.value))
+                setIsbn(
+                  normalizeIsbn(
+                    event.target.value,
+                  ),
+                )
               }
               placeholder="ISBN-10 oder ISBN-13"
               autoComplete="off"
-              className="min-h-12 rounded-2xl border border-[#D8C8B8] bg-white px-4 text-lg font-black outline-none focus:border-[#B5282D]"
+              className="min-h-13 rounded-2xl border border-[#D8C8B8] bg-white px-4 text-lg font-black tracking-[0.06em] outline-none focus:border-[#B5282D]"
             />
 
             <button
               type="submit"
               disabled={isSearching}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 font-black text-white disabled:opacity-60"
+              className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-5 py-3 font-black text-white disabled:opacity-60"
             >
               {isSearching ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <Search className="h-5 w-5" />
               )}
+
               Suchen
             </button>
           </form>
@@ -748,7 +946,10 @@ export default function AdminBookSupplierInquiryComposer() {
                   {foundBook.coverUrl ? (
                     <img
                       src={foundBook.coverUrl}
-                      alt={foundBook.title || "Buchcover"}
+                      alt={
+                        foundBook.title ||
+                        "Buchcover"
+                      }
                       className="h-full w-full object-contain p-1"
                     />
                   ) : (
@@ -760,7 +961,8 @@ export default function AdminBookSupplierInquiryComposer() {
 
                 <div className="min-w-0 flex-1">
                   <p className="font-black text-[#102A43]">
-                    {foundBook.title || "Buchtitel nicht angegeben"}
+                    {foundBook.title ||
+                      "Buchtitel nicht angegeben"}
                   </p>
 
                   {foundBook.subtitle ? (
@@ -769,13 +971,17 @@ export default function AdminBookSupplierInquiryComposer() {
                     </p>
                   ) : null}
 
-                  <p className="mt-2 text-xs font-black uppercase text-[#A75B28]">
-                    ISBN {foundBook.isbn13 || foundBook.requestedIsbn}
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.08em] text-[#A75B28]">
+                    ISBN{" "}
+                    {foundBook.isbn13 ||
+                      foundBook.requestedIsbn}
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                    {foundBook.publisher || "Verlag nicht angegeben"}
-                  </p>
+                  {foundBook.publisher ? (
+                    <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                      {foundBook.publisher}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -785,12 +991,15 @@ export default function AdminBookSupplierInquiryComposer() {
                     Vorgeschlagener Preis
                   </p>
 
-                  <p className="mt-1 text-lg font-black">
-                    {formatPrice(foundProposedPrice)}
+                  <p className="mt-1 text-lg font-black text-[#102A43]">
+                    {formatPrice(
+                      foundProposedPrice,
+                    )}
                   </p>
 
                   <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                    {foundPriceSource || "Keine Preisquelle gefunden"}
+                    {foundPriceSource ||
+                      "Keine Preisquelle gefunden"}
                   </p>
                 </div>
 
@@ -799,14 +1008,15 @@ export default function AdminBookSupplierInquiryComposer() {
                     Produktverknüpfung
                   </p>
 
-                  <p className="mt-1 font-black">
+                  <p className="mt-1 font-black text-[#102A43]">
                     {foundExistingProduct
                       ? "Produkt im Katalog gefunden"
                       : "Noch kein Produkt verknüpft"}
                   </p>
 
                   <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                    USt.-Vorschlag: {foundTaxRate} %
+                    USt.-Vorschlag:{" "}
+                    {foundTaxRate} %
                   </p>
                 </div>
               </div>
@@ -826,12 +1036,13 @@ export default function AdminBookSupplierInquiryComposer() {
         <div className="rounded-[26px] border border-[#C8D8E8] bg-white p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-lg font-black">
+              <h3 className="text-lg font-black text-[#102A43]">
                 Aktuelle Sammelanfrage
               </h3>
 
               <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                {items.length} ISBN · {totalQuantity} Exemplar(e)
+                {items.length} ISBN ·{" "}
+                {totalQuantity} Exemplar(e)
               </p>
             </div>
 
@@ -847,45 +1058,47 @@ export default function AdminBookSupplierInquiryComposer() {
             ) : null}
           </div>
 
-          {items.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-[#C8D8E8] bg-[#F5FAFD] p-8 text-center">
-              <BookOpen className="mx-auto h-7 w-7 text-[#12395F]" />
-
-              <p className="mt-2 font-black">
-                Noch keine Bücher gesammelt
-              </p>
-
-              <p className="mt-1 text-sm font-semibold text-[#52616F]">
-                Suche links eine ISBN und füge das Buch hinzu.
-              </p>
-            </div>
-          ) : (
+          {items.length > 0 ? (
             <div className="mt-4 space-y-3">
               {items.map((item) => (
                 <article
                   key={item.isbn}
-                  className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-4"
+                  className="rounded-2xl border border-[#E8DED2] bg-[#FBF7F0] p-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black">{item.title}</p>
-
-                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
-                        ISBN {item.isbn}
-                      </p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E8DED2] bg-white">
+                      {item.coverUrl ? (
+                        <img
+                          src={item.coverUrl}
+                          alt={item.title}
+                          className="h-full w-full object-contain p-1"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[#A75B28]">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                      )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.isbn)}
-                      className="text-[#B5282D]"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-black text-[#102A43]">
+                        {item.title}
+                      </p>
+
+                      <p className="mt-1 text-xs font-bold text-[#52616F]">
+                        ISBN {item.isbn}
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold text-[#52616F]">
+                        {item.linkedProductId
+                          ? "Mit aktivem Katalogprodukt verknüpft"
+                          : "Ohne Katalogprodukt – Bestätigung wird trotzdem gespeichert"}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <label>
+                    <label className="block">
                       <span className="mb-1 block text-xs font-black">
                         Menge
                       </span>
@@ -896,100 +1109,186 @@ export default function AdminBookSupplierInquiryComposer() {
                         max={999}
                         value={item.quantity}
                         onChange={(event) =>
-                          updateItem(item.isbn, {
-                            quantity: Math.max(
-                              1,
-                              Math.min(
-                                999,
-                                Math.trunc(
-                                  Number(event.target.value) || 1,
+                          updateItem(
+                            item.isbn,
+                            {
+                              quantity:
+                                Math.max(
+                                  1,
+                                  Math.min(
+                                    999,
+                                    Math.trunc(
+                                      Number(
+                                        event
+                                          .target
+                                          .value,
+                                      ) ||
+                                        1,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          })
+                            },
+                          )
                         }
                         className="h-11 w-full rounded-xl border border-[#D8C8B8] bg-white px-3 font-black"
                       />
                     </label>
 
-                    <label>
+                    <label className="block">
                       <span className="mb-1 block text-xs font-black">
                         Preis brutto
                       </span>
 
                       <input
+                        type="text"
+                        inputMode="decimal"
                         value={
-                          item.proposedPriceGross === null
+                          item.proposedPriceGross ===
+                          null
                             ? ""
                             : item.proposedPriceGross
                                 .toFixed(2)
-                                .replace(".", ",")
+                                .replace(
+                                  ".",
+                                  ",",
+                                )
                         }
                         onChange={(event) =>
-                          updateItem(item.isbn, {
-                            proposedPriceGross: normalizePrice(
-                              event.target.value,
-                            ),
-                            priceSource:
-                              item.priceSource ||
-                              "Manuelle Admin-Eingabe",
-                          })
+                          updateItem(
+                            item.isbn,
+                            {
+                              proposedPriceGross:
+                                normalizePrice(
+                                  event
+                                    .target
+                                    .value,
+                                ),
+                              priceSource:
+                                item.priceSource ||
+                                "Manuelle Admin-Eingabe",
+                            },
+                          )
                         }
+                        placeholder="z. B. 16,50"
                         className="h-11 w-full rounded-xl border border-[#D8C8B8] bg-white px-3 font-black"
                       />
                     </label>
 
-                    <label>
+                    <label className="block">
                       <span className="mb-1 block text-xs font-black">
                         Umsatzsteuer
                       </span>
 
                       <select
-                        value={item.proposedTaxRate}
+                        value={
+                          item.proposedTaxRate
+                        }
                         onChange={(event) =>
-                          updateItem(item.isbn, {
-                            proposedTaxRate:
-                              event.target.value === "19" ? 19 : 7,
-                          })
+                          updateItem(
+                            item.isbn,
+                            {
+                              proposedTaxRate:
+                                event
+                                  .target
+                                  .value ===
+                                "19"
+                                  ? 19
+                                  : 7,
+                            },
+                          )
                         }
                         className="h-11 w-full rounded-xl border border-[#D8C8B8] bg-white px-3 font-black"
                       >
-                        <option value={7}>7 %</option>
-                        <option value={19}>19 %</option>
+                        <option value={7}>
+                          7 %
+                        </option>
+
+                        <option value={19}>
+                          19 %
+                        </option>
                       </select>
                     </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-col gap-2 rounded-xl border border-[#D6E7EF] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs font-semibold leading-5 text-[#52616F]">
+                      Preisquelle:{" "}
+                      {item.priceSource ||
+                        "Nicht angegeben"}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeItem(item.isbn)
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#F0B7BA] bg-white px-3 text-xs font-black text-[#B5282D]"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Entfernen
+                    </button>
                   </div>
                 </article>
               ))}
 
               <label className="block">
-                <span className="mb-2 block text-sm font-black">
-                  Hinweis an die Buchhandlung
+                <span className="mb-2 block text-sm font-black text-[#102A43]">
+                  Hinweis an die
+                  Buchhandlung
                 </span>
 
                 <textarea
                   value={adminNote}
-                  onChange={(event) => setAdminNote(event.target.value)}
+                  onChange={(event) =>
+                    setAdminNote(
+                      event.target.value,
+                    )
+                  }
                   rows={4}
-                  className="w-full rounded-2xl border border-[#D8C8B8] bg-white p-4 font-semibold"
+                  placeholder="Optionaler Hinweis zur Sammelanfrage"
+                  className="w-full rounded-2xl border border-[#D8C8B8] bg-white p-4 font-semibold outline-none focus:border-[#B5282D]"
                 />
               </label>
+
+              <div className="rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] p-4 text-xs font-semibold leading-5 text-[#52616F]">
+                Die Buchhandlung kann die
+                Rückmeldung zwischenspeichern. Als
+                vollständig beantwortet gilt die
+                Anfrage erst, wenn zu jeder
+                Position Verfügbarkeit, Preis und
+                Umsatzsteuer geprüft wurden.
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => void createInquiry(false)}
-                  disabled={isCreating || !selectedPartner}
+                  onClick={() =>
+                    void createInquiry(false)
+                  }
+                  disabled={
+                    isCreating ||
+                    !selectedPartner
+                  }
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#C8D8E8] bg-white px-4 py-3 text-sm font-black text-[#12395F] disabled:opacity-60"
                 >
-                  <Save className="h-4 w-4" />
+                  {isCreating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+
                   Als Entwurf speichern
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => void createInquiry(true)}
-                  disabled={isCreating || !selectedPartner}
+                  onClick={() =>
+                    void createInquiry(true)
+                  }
+                  disabled={
+                    isCreating ||
+                    !selectedPartner
+                  }
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white disabled:opacity-60"
                 >
                   {isCreating ? (
@@ -997,9 +1296,23 @@ export default function AdminBookSupplierInquiryComposer() {
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
+
                   Speichern und senden
                 </button>
               </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-[#C8D8E8] bg-[#F5FAFD] p-6 text-center">
+              <BookOpen className="mx-auto h-7 w-7 text-[#12395F]" />
+
+              <p className="mt-2 font-black text-[#102A43]">
+                Noch keine Bücher gesammelt
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-[#52616F]">
+                Suche links eine ISBN und füge
+                das Buch hinzu.
+              </p>
             </div>
           )}
         </div>

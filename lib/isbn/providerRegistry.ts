@@ -1,8 +1,13 @@
-import type { IsbnBookProvider, IsbnBookSource } from "@/lib/isbn/types";
-import { wikimediaCommonsProvider } from "@/lib/isbn/providers/wikimediaCommons";
+import type {
+  IsbnBookProvider,
+  IsbnBookSource,
+} from "@/lib/isbn/types";
+import { freePublisherPriceProvider } from "@/lib/isbn/providers/freePublisherPrices";
 
 export function getOptionalIsbnProviders(): IsbnBookProvider[] {
-  return [wikimediaCommonsProvider].filter((provider) => provider.enabled);
+  return [freePublisherPriceProvider].filter(
+    (provider) => provider.enabled,
+  );
 }
 
 export async function resolveOptionalIsbnSources(
@@ -15,11 +20,16 @@ export async function resolveOptionalIsbnSources(
   }
 
   const results = await Promise.allSettled(
-    providers.map((provider) => provider.resolve(isbn)),
+    providers.map((provider) =>
+      provider.resolve(isbn),
+    ),
   );
 
   return results.flatMap((result) => {
-    if (result.status !== "fulfilled" || !result.value) {
+    if (
+      result.status !== "fulfilled" ||
+      !result.value
+    ) {
       return [];
     }
 
