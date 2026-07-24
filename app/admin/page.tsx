@@ -1,8 +1,8 @@
-import Link from "next/link";
 import AdminLogoutButton from "@/components/AdminLogoutButton";
 import {
   ArrowRight,
   BarChart3,
+  BookOpen,
   ClipboardList,
   Handshake,
   Megaphone,
@@ -14,22 +14,30 @@ import {
   Smartphone,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminHomePage() {
   return (
     <main className="min-h-screen bg-[#FBF7F0] text-[#102A43]">
-
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="rounded-[34px] border border-[#E8DED2] bg-white p-5 shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7">
           <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+            <Link
+              href="/admin/buchhandlung"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-sm font-black text-[#8A4A1F] transition hover:border-[#A75B28] hover:bg-white"
+            >
+              <BookOpen className="h-4 w-4" />
+              Buchhandlung
+            </Link>
+
             <Link
               href="/admin/bestandskunden-warenkoerbe"
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D6E7EF] bg-[#F5FAFD] px-4 py-3 text-sm font-black text-[#12395F] transition hover:border-[#12395F] hover:bg-white"
             >
               <ShoppingBasket className="h-4 w-4" />
-              Vorbereitete Warenk&ouml;rbe
+              Vorbereitete Warenkörbe
             </Link>
 
             <AdminLogoutButton />
@@ -49,8 +57,8 @@ export default function AdminHomePage() {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[#52616F] sm:text-base">
                 Hier steuerst Du Deine Schulmaterial-Anfragen, übernimmst
                 WhatsApp-Listen ins System, bearbeitest Paketwünsche, erfasst
-                Produkte und erzeugst Social-Media-Entwürfe für Deine
-                Sichtbarkeit.
+                Produkte, verwaltest Buchhandlungsanfragen und erzeugst
+                Social-Media-Entwürfe für Deine Sichtbarkeit.
               </p>
             </div>
 
@@ -64,9 +72,9 @@ export default function AdminHomePage() {
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-[#52616F]">
-                Wähle aus, ob Du Anfragen bearbeiten, WhatsApp-Listen
-                übernehmen, Produkte erfassen oder Social-Beiträge vorbereiten
-                möchtest.
+                Wähle aus, ob Du Anfragen bearbeiten, Bücher verwalten,
+                WhatsApp-Listen übernehmen, Produkte erfassen oder
+                Social-Beiträge vorbereiten möchtest.
               </p>
             </div>
           </div>
@@ -97,6 +105,33 @@ export default function AdminHomePage() {
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#B5282D] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Zu den Anfragen
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/buchhandlung"
+            className="group rounded-[32px] border border-[#F1D1A8] bg-[#FFF8EE] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
+          >
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#A75B28]">
+              <BookOpen className="h-6 w-6" />
+            </div>
+
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#A75B28]">
+              Buchhandlungsworkflow
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-[#102A43]">
+              Bücher und Partner verwalten
+            </h2>
+
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#8A4A1F]">
+              Erstelle ISBN-Sammelanfragen, wähle Buchhandelspartner aus und
+              prüfe Verfügbarkeit, Preis, Umsatzsteuer und Rückmeldungen.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#A75B28] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+              Buchhandlung öffnen
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
@@ -179,7 +214,7 @@ export default function AdminHomePage() {
               manuelle Auswahl und automatische Vorschläge bereit.
             </p>
 
-            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
               Zu den Produkten
               <ArrowRight className="h-4 w-4" />
             </div>
@@ -211,6 +246,7 @@ export default function AdminHomePage() {
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
+
           <Link
             href="/admin/empfehlungspartner/monatsberichte"
             className="group rounded-[32px] border border-[#C8D8E8] bg-[#EEF4FA] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(16,42,67,0.10)] sm:p-7"
@@ -229,8 +265,8 @@ export default function AdminHomePage() {
 
             <p className="mt-3 text-sm font-semibold leading-6 text-[#52616F]">
               Starte Dry-Runs, versende Vermittlungsberichte gezielt an
-              Empfehlungspartner und prüfe Versandstatus, Kennzahlen,
-              Umsatz und Fehlermeldungen.
+              Empfehlungspartner und prüfe Versandstatus, Kennzahlen, Umsatz
+              und Fehlermeldungen.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#12395F] px-4 py-3 text-sm font-black text-white shadow-sm transition group-hover:brightness-110">
@@ -238,7 +274,6 @@ export default function AdminHomePage() {
               <ArrowRight className="h-4 w-4" />
             </div>
           </Link>
-
 
           <Link
             href="/admin/produkte/mobile"
@@ -309,18 +344,16 @@ export default function AdminHomePage() {
               </p>
 
               <h2 className="mt-1 text-xl font-black text-[#102A43]">
-                Upload, WhatsApp, Produkte, Anfragen und Sichtbarkeit greifen
-                zusammen
+                Upload, Bücher, WhatsApp, Produkte, Anfragen und Sichtbarkeit
+                greifen zusammen
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
                 Kunden können Listen über die Website hochladen oder per
-                WhatsApp schicken. WhatsApp-Listen übernimmst Du über den
-                WhatsApp-Import ins System. Produkte, die Du erfasst, können
-                später direkt in Anfragen gefunden, manuell übernommen und durch
-                Aliase für zukünftige Listen gemerkt werden. Über den
-                SocialPilot erzeugst Du zusätzlich passende Social-Media-Entwürfe
-                für mehr Reichweite und neue Anfragen.
+                WhatsApp schicken. Schulbücher können über ISBN erfasst, bei
+                Buchhandelspartnern angefragt und anschließend in den
+                Kundenprozess übernommen werden. Produkte stehen für
+                automatische Vorschläge und manuelle Ergänzungen bereit.
               </p>
             </div>
           </div>
