@@ -40,6 +40,63 @@ type SourceDetail = {
   sourceUrl: string | null;
   coverFound: boolean;
   coverUrl: string | null;
+  priceFound?: boolean;
+  recommendedPrice?: number | null;
+  priceCurrency?: string | null;
+  priceSource?: string | null;
+  availability?: string | null;
+};
+
+type PriceSourceKind =
+  | "official_publisher"
+  | "vlb"
+  | "retailer"
+  | "platform"
+  | "library"
+  | "unknown";
+
+type PriceConfidence =
+  | "high"
+  | "medium"
+  | "low"
+  | "none";
+
+type PriceConsensusStatus =
+  | "official_publisher"
+  | "multi_source_consensus"
+  | "single_source"
+  | "conflict"
+  | "missing";
+
+type PriceCandidate = {
+  source: string;
+  sourceUrl: string | null;
+  amount: number;
+  currency: string;
+  priceSource: string;
+  availability: string | null;
+  sourceKind: PriceSourceKind;
+  isOfficialPublisher: boolean;
+  exactIsbnMatch: boolean;
+  reliabilityScore: number;
+  selected: boolean;
+};
+
+type PriceConsensus = {
+  status: PriceConsensusStatus;
+  confidence: PriceConfidence;
+  selectedAmount: number | null;
+  selectedCurrency: string | null;
+  selectedSource: string | null;
+  candidateCount: number;
+  confirmingSourceCount: number;
+  officialPublisherFound: boolean;
+  conflicting: boolean;
+  lowestAmount: number | null;
+  highestAmount: number | null;
+  priceDifference: number | null;
+  message: string;
+  candidates: PriceCandidate[];
 };
 
 type BookData = {
@@ -71,6 +128,8 @@ type BookData = {
   recommendedPrice: number | null;
   priceCurrency: string | null;
   priceSource: string | null;
+  priceCandidates?: PriceCandidate[];
+  priceConsensus?: PriceConsensus | null;
   availability: string | null;
   sources: string[];
   sourceDetails: SourceDetail[];
@@ -202,7 +261,13 @@ function getAvailabilityLabel(value: string | null) {
 }
 
 function getPriceStatus(book: BookData) {
-  if (book.recommendedPrice === null) {
+  const consensus = book.priceConsensus;
+
+  if (
+    book.recommendedPrice === null ||
+    !consensus ||
+    consensus.status === "missing"
+  ) {
     return {
       label: "Preis fehlt",
       description: "Keine belastbare Preisangabe gefunden.",
@@ -210,21 +275,160 @@ function getPriceStatus(book: BookData) {
     };
   }
 
-  const source = normalizeText(book.priceSource);
-
-  if (source.includes("offizielle produktseite") || source.includes("verlag")) {
+  if (consensus.status === "official_publisher") {
     return {
-      label: "Offizieller Verlagspreis",
-      description: "Preis wurde auf einer offiziellen Verlagsseite gefunden.",
+      label: consensus.conflicting
+        ? "Verlagspreis mit Abweichung"
+        : "Offizieller Verlagspreis",
+      description: consensus.message,
+      className: consensus.conflicting
+        ? "border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]"
+        : "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
+    };
+  }
+
+  if (consensus.status === "multi_source_consensus") {
+    return {
+      label: "Mehrfach bestätigt",
+      description: consensus.message,
       className: "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]",
     };
   }
 
+  if (consensus.status === "conflict") {
+    return {
+      label: "Preisabweichung",
+      description: consensus.message,
+      className: "border-[#F0C7C7] bg-[#FFF5F5] text-[#B5282D]",
+    };
+  }
+
   return {
-    label: "Preis gefunden",
-    description: "Preisquelle ist vorhanden und wird zur Kontrolle angezeigt.",
-    className: "border-[#D6E7EF] bg-[#F5FAFD] text-[#12395F]",
+    label: "Einzelquelle",
+    description: consensus.message,
+    className:
+      consensus.confidence === "medium"
+        ? "border-[#D6E7EF] bg-[#F5FAFD] text-[#12395F]"
+        : "border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]",
   };
+}
+
+function getPriceConfidenceLabel(
+  consensus: PriceConsensus | null | undefined,
+) {
+  if (!consensus) {
+    return "Nicht bewertet";
+  }
+
+  switch (consensus.confidence) {
+    case "high":
+      return "Hoch";
+
+    case "medium":
+      return "Mittel";
+
+    case "low":
+      return "Niedrig";
+
+    default:
+      return "Nicht vorhanden";
+  }
+}
+
+function getPriceConsensusLabel(
+  consensus: PriceConsensus | null | undefined,
+) {
+  if (!consensus) {
+    return "Keine Bewertung";
+  }
+
+  switch (consensus.status) {
+    case "official_publisher":
+      return "Offizielle Verlagsquelle";
+
+    case "multi_source_consensus":
+      return "Mehrquellen-Konsens";
+
+    case "single_source":
+      return "Einzelquelle";
+
+    case "conflict":
+      return "Preisquellen widersprechen sich";
+
+    default:
+      return "Kein Preis gefunden";
+  }
+}
+
+function getPriceConsensusClassName(
+  consensus: PriceConsensus | null | undefined,
+) {
+  if (!consensus || consensus.status === "missing") {
+    return "border-[#E8DED2] bg-[#FBF7F0] text-[#52616F]";
+  }
+
+  if (consensus.status === "conflict") {
+    return "border-[#F0C7C7] bg-[#FFF5F5] text-[#B5282D]";
+  }
+
+  if (
+    consensus.status === "official_publisher" &&
+    consensus.conflicting
+  ) {
+    return "border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]";
+  }
+
+  if (consensus.confidence === "high") {
+    return "border-[#BFE3CD] bg-[#F0FFF6] text-[#2F7D50]";
+  }
+
+  if (consensus.confidence === "medium") {
+    return "border-[#D6E7EF] bg-[#F5FAFD] text-[#12395F]";
+  }
+
+  return "border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]";
+}
+
+function getPriceSourceKindLabel(
+  value: PriceSourceKind,
+) {
+  switch (value) {
+    case "official_publisher":
+      return "Offizieller Verlag";
+
+    case "vlb":
+      return "VLB";
+
+    case "retailer":
+      return "Buchhändler";
+
+    case "platform":
+      return "Buchplattform";
+
+    case "library":
+      return "Bibliotheksquelle";
+
+    default:
+      return "Weitere Quelle";
+  }
+}
+
+function getPriceReliabilityLabel(
+  score: number,
+) {
+  if (score >= 90) {
+    return "Sehr hoch";
+  }
+
+  if (score >= 75) {
+    return "Hoch";
+  }
+
+  if (score >= 55) {
+    return "Mittel";
+  }
+
+  return "Niedrig";
 }
 
 function getLanguageLabel(language: string | null) {
@@ -1053,10 +1257,15 @@ export default function AdminIsbnImportTool() {
             />
 
             <StatusCard
-              label="Händlerbestätigung"
-              value="Nach Import ausstehend"
-              description="Preis und Umsatzsteuer werden später bestätigt oder geändert."
-              className="border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]"
+              label="Preisvertrauen"
+              value={getPriceConfidenceLabel(book.priceConsensus)}
+              description={
+                book.priceConsensus?.message ||
+                "Es liegt noch keine Preisbewertung vor."
+              }
+              className={getPriceConsensusClassName(
+                book.priceConsensus,
+              )}
             />
 
             <StatusCard
@@ -1077,6 +1286,220 @@ export default function AdminIsbnImportTool() {
                   : "border-[#F1D1A8] bg-[#FFF8EE] text-[#8A4A1F]"
               }
             />
+          </div>
+
+          <div className="mb-5 rounded-[28px] border border-[#D6E7EF] bg-[#F5FAFD] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#12395F]">
+                  Preisquellen und Konsens
+                </p>
+
+                <h3 className="mt-2 text-xl font-black text-[#102A43]">
+                  {getPriceConsensusLabel(book.priceConsensus)}
+                </h3>
+
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52616F]">
+                  {book.priceConsensus?.message ||
+                    "Für diese ISBN wurde noch keine belastbare Preisquelle gefunden."}
+                </p>
+              </div>
+
+              <div
+                className={`rounded-[22px] border px-4 py-3 ${getPriceConsensusClassName(
+                  book.priceConsensus,
+                )}`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.12em] opacity-80">
+                  Ausgewählter Preis
+                </p>
+
+                <p className="mt-1 text-xl font-black">
+                  {formatCurrency(
+                    book.priceConsensus?.selectedAmount ??
+                      book.recommendedPrice,
+                    book.priceConsensus?.selectedCurrency ||
+                      book.priceCurrency ||
+                      "EUR",
+                  )}
+                </p>
+
+                <p className="mt-1 text-xs font-semibold opacity-80">
+                  Vertrauen:{" "}
+                  {getPriceConfidenceLabel(book.priceConsensus)}
+                </p>
+              </div>
+            </div>
+
+            {book.priceConsensus?.conflicting ? (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#F0C7C7] bg-[#FFF5F5] px-4 py-3 text-sm font-semibold leading-6 text-[#B5282D]">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+
+                <div>
+                  <p className="font-black">
+                    Abweichende Preisangaben gefunden
+                  </p>
+
+                  <p className="mt-1">
+                    Niedrigster Preis:{" "}
+                    {formatCurrency(
+                      book.priceConsensus.lowestAmount,
+                      book.priceConsensus.selectedCurrency ||
+                        book.priceCurrency ||
+                        "EUR",
+                    )}
+                    {" · "}
+                    Höchster Preis:{" "}
+                    {formatCurrency(
+                      book.priceConsensus.highestAmount,
+                      book.priceConsensus.selectedCurrency ||
+                        book.priceCurrency ||
+                        "EUR",
+                    )}
+                    {" · "}
+                    Differenz:{" "}
+                    {formatCurrency(
+                      book.priceConsensus.priceDifference,
+                      book.priceConsensus.selectedCurrency ||
+                        book.priceCurrency ||
+                        "EUR",
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-2">
+              {(book.priceConsensus?.candidates ||
+                book.priceCandidates ||
+                []).map((candidate, index) => (
+                <div
+                  key={`${candidate.source}-${candidate.sourceUrl || index}-${candidate.amount}`}
+                  className={`rounded-[22px] border p-4 ${
+                    candidate.selected
+                      ? "border-[#BFE3CD] bg-[#F0FFF6]"
+                      : "border-[#E8DED2] bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-[#102A43]">
+                          {candidate.source}
+                        </p>
+
+                        {candidate.selected ? (
+                          <span className="rounded-full bg-[#2F7D50] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-white">
+                            Ausgewählt
+                          </span>
+                        ) : null}
+
+                        {candidate.isOfficialPublisher ? (
+                          <span className="rounded-full border border-[#BFE3CD] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#2F7D50]">
+                            Verlag
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-2 text-2xl font-black text-[#B5282D]">
+                        {formatCurrency(
+                          candidate.amount,
+                          candidate.currency || "EUR",
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs font-semibold leading-5 text-[#52616F]">
+                        {candidate.priceSource}
+                      </p>
+                    </div>
+
+                    {candidate.sourceUrl ? (
+                      <a
+                        href={candidate.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-[#12395F] shadow-sm ring-1 ring-[#D8C8B8] transition hover:bg-[#EEF4FA]"
+                      >
+                        Quelle öffnen
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#A75B28]">
+                        Quellentyp
+                      </p>
+                      <p className="mt-1 text-xs font-black text-[#102A43]">
+                        {getPriceSourceKindLabel(candidate.sourceKind)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#A75B28]">
+                        Zuverlässigkeit
+                      </p>
+                      <p className="mt-1 text-xs font-black text-[#102A43]">
+                        {getPriceReliabilityLabel(
+                          candidate.reliabilityScore,
+                        )}{" "}
+                        ({candidate.reliabilityScore}/100)
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#E8DED2] bg-white px-3 py-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#A75B28]">
+                        ISBN-Zuordnung
+                      </p>
+                      <p className="mt-1 text-xs font-black text-[#102A43]">
+                        {candidate.exactIsbnMatch
+                          ? "Exakte ISBN"
+                          : "Nicht eindeutig"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {candidate.availability ? (
+                    <p className="mt-3 text-xs font-semibold text-[#52616F]">
+                      Lieferstatus:{" "}
+                      <span className="font-black text-[#102A43]">
+                        {getAvailabilityLabel(candidate.availability)}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {(book.priceConsensus?.candidateCount || 0) === 0 ? (
+              <div className="mt-4 rounded-2xl border border-[#F1D1A8] bg-[#FFF8EE] px-4 py-3 text-sm font-semibold leading-6 text-[#8A4A1F]">
+                Keine Preisquelle hat für diese ISBN einen belastbaren
+                Verkaufspreis geliefert. Der Preis muss manuell eingetragen
+                und geprüft werden.
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <MetadataItem
+                label="Preisquellen"
+                value={book.priceConsensus?.candidateCount ?? 0}
+              />
+
+              <MetadataItem
+                label="Bestätigende Quellen"
+                value={book.priceConsensus?.confirmingSourceCount ?? 0}
+              />
+
+              <MetadataItem
+                label="Offizielle Verlagsquelle"
+                value={
+                  book.priceConsensus?.officialPublisherFound
+                    ? "Gefunden"
+                    : "Nicht gefunden"
+                }
+              />
+            </div>
           </div>
 
           {existingProduct ? (

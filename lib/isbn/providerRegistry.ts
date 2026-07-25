@@ -3,11 +3,13 @@ import type {
   IsbnBookSource,
 } from "@/lib/isbn/types";
 import { freePublisherPriceProvider } from "@/lib/isbn/providers/freePublisherPrices";
+import { freeRetailerPriceProviders } from "@/lib/isbn/providers/freeRetailerPrices";
 
 export function getOptionalIsbnProviders(): IsbnBookProvider[] {
-  return [freePublisherPriceProvider].filter(
-    (provider) => provider.enabled,
-  );
+  return [
+    freePublisherPriceProvider,
+    ...freeRetailerPriceProviders,
+  ].filter((provider) => provider.enabled);
 }
 
 export async function resolveOptionalIsbnSources(

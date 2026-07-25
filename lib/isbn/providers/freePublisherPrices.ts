@@ -151,6 +151,8 @@ function formatKnownIsbn13(isbnValue: string) {
     prefix: string;
     publisherLength: number;
   }> = [
+    { prefix: "9783939965", publisherLength: 6 },
+    { prefix: "978396081", publisherLength: 5 },
     { prefix: "978312", publisherLength: 2 },
     { prefix: "978306", publisherLength: 2 },
     { prefix: "9783464", publisherLength: 3 },
@@ -938,6 +940,40 @@ function getPublisherConfig(
 
   const configs: PublisherConfig[] = [
     {
+      sourceName: "Jandorfverlag",
+      publisherName: "jandorfverlag KG",
+      matchesIsbn: (value) =>
+        value.startsWith("9783939965") ||
+        value.startsWith("978396081"),
+      directUrls: () => [],
+      searchUrls: (value) => {
+        const normalizedValue =
+          normalizeIsbn(value);
+
+        const formattedValue =
+          formatKnownIsbn13(
+            normalizedValue,
+          );
+
+        return uniqueStrings([
+          `https://www.jandorfverlag.de/search?search=${encodeURIComponent(
+            normalizedValue,
+          )}`,
+          `https://www.jandorfverlag.de/search?search=${encodeURIComponent(
+            formattedValue,
+          )}`,
+          `https://www.jandorfverlag.de/search?sSearch=${encodeURIComponent(
+            normalizedValue,
+          )}`,
+          `https://www.jandorfverlag.de/search?sSearch=${encodeURIComponent(
+            formattedValue,
+          )}`,
+        ]);
+      },
+      productPathPattern:
+        /^\/Schulbuecher\/[^/]+\/\d+\/[^/?#]+\/?$/i,
+    },
+    {
       sourceName: "BVK Buch Verlag Kempen",
       publisherName: "BVK Buch Verlag Kempen GmbH",
       matchesIsbn: (value) =>
@@ -1106,6 +1142,10 @@ async function resolveOfficialPublisherPrice(
           : ""
       }`,
       availability: analysis.availability,
+      priceSourceKind: "official_publisher",
+      priceIsOfficialPublisher: true,
+      priceExactIsbnMatch: true,
+      priceReliabilityScore: 100,
     };
   }
 
@@ -1194,6 +1234,10 @@ async function resolveOfficialPublisherPrice(
         }`,
         availability:
           searchAnalysis.availability,
+        priceSourceKind: "official_publisher",
+        priceIsOfficialPublisher: true,
+        priceExactIsbnMatch: true,
+        priceReliabilityScore: 100,
       };
     }
   }

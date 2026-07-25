@@ -1,7 +1,13 @@
-export type IsbnCoverDeliveryMode = "download" | "external" | "manual";
+export type IsbnCoverDeliveryMode =
+  | "download"
+  | "external"
+  | "manual";
 
 export type IsbnCoverUsageStatus =
-  "public_domain" | "cc0" | "api_terms" | "manual_review";
+  | "public_domain"
+  | "cc0"
+  | "api_terms"
+  | "manual_review";
 
 export type IsbnCoverCandidate = {
   coverUrl: string;
@@ -20,10 +26,77 @@ export type IsbnBookSourceName =
   | "Deutsche Nationalbibliothek"
   | "Wikimedia Commons"
   | "Cornelsen Verlag"
+  | "Ernst Klett Verlag"
   | "Westermann Verlag"
+  | "C.C. Buchner Verlag"
+  | "BVK Buch Verlag Kempen"
+  | "Jandorfverlag"
+  | "VLB"
   | "Google Books"
   | "Open Library"
   | string;
+
+export type IsbnPriceSourceKind =
+  | "official_publisher"
+  | "vlb"
+  | "retailer"
+  | "platform"
+  | "library"
+  | "unknown";
+
+export type IsbnPriceConfidence =
+  | "high"
+  | "medium"
+  | "low"
+  | "none";
+
+export type IsbnPriceConsensusStatus =
+  | "official_publisher"
+  | "multi_source_consensus"
+  | "single_source"
+  | "conflict"
+  | "missing";
+
+export type IsbnPriceCandidate = {
+  source: string;
+  sourceUrl: string | null;
+
+  amount: number;
+  currency: string;
+  priceSource: string;
+
+  availability: string | null;
+
+  sourceKind: IsbnPriceSourceKind;
+  isOfficialPublisher: boolean;
+  exactIsbnMatch: boolean;
+
+  reliabilityScore: number;
+  selected: boolean;
+};
+
+export type IsbnPriceConsensus = {
+  status: IsbnPriceConsensusStatus;
+  confidence: IsbnPriceConfidence;
+
+  selectedAmount: number | null;
+  selectedCurrency: string | null;
+  selectedSource: string | null;
+
+  candidateCount: number;
+  confirmingSourceCount: number;
+
+  officialPublisherFound: boolean;
+  conflicting: boolean;
+
+  lowestAmount: number | null;
+  highestAmount: number | null;
+  priceDifference: number | null;
+
+  message: string;
+
+  candidates: IsbnPriceCandidate[];
+};
 
 export type IsbnBookSource = {
   source: IsbnBookSourceName;
@@ -62,12 +135,26 @@ export type IsbnBookSource = {
   priceSource?: string | null;
 
   availability?: string | null;
+
+  /*
+   * Optionale Vertrauensmerkmale für Preisquellen.
+   *
+   * Bestehende Provider müssen diese Felder nicht sofort setzen.
+   * Die zentrale Merge-Logik kann die Werte anhand des Quellnamens
+   * ableiten und später durch explizite Providerangaben überschreiben.
+   */
+  priceSourceKind?: IsbnPriceSourceKind | null;
+  priceIsOfficialPublisher?: boolean | null;
+  priceExactIsbnMatch?: boolean | null;
+  priceReliabilityScore?: number | null;
 };
 
 export type IsbnBookProvider = {
   name: IsbnBookSourceName;
   enabled: boolean;
-  resolve: (isbn: string) => Promise<IsbnBookSource | null>;
+  resolve: (
+    isbn: string,
+  ) => Promise<IsbnBookSource | null>;
 };
 
 export type MergedIsbnBook = {
@@ -101,18 +188,42 @@ export type MergedIsbnBook = {
   coverRightsNote: string | null;
   coverCandidates: IsbnCoverCandidate[];
 
+  /*
+   * Rückwärtskompatible ausgewählte Preisfelder.
+   *
+   * Diese bleiben bestehen, damit Produkterfassung und bestehende
+   * Schnittstellen weiterhin denselben Preis lesen können.
+   */
   recommendedPrice: number | null;
   priceCurrency: string | null;
   priceSource: string | null;
 
+  /*
+   * Neue Mehrquellen-Auswertung.
+   *
+   * Die Felder sind vorerst optional, damit die Typenerweiterung
+   * unabhängig von der anschließend folgenden Merge-Umstellung
+   * eingecheckt und verwendet werden kann.
+   */
+  priceCandidates?: IsbnPriceCandidate[];
+  priceConsensus?: IsbnPriceConsensus | null;
+
   availability: string | null;
 
   sources: string[];
+
   sourceDetails: Array<{
     name: string;
     sourceId: string | null;
     sourceUrl: string | null;
+
     coverFound: boolean;
     coverUrl: string | null;
+
+    priceFound?: boolean;
+    recommendedPrice?: number | null;
+    priceCurrency?: string | null;
+    priceSource?: string | null;
+    availability?: string | null;
   }>;
 };
