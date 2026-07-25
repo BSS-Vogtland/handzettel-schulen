@@ -938,6 +938,34 @@ function getPublisherConfig(
 
   const configs: PublisherConfig[] = [
     {
+      sourceName: "BVK Buch Verlag Kempen",
+      publisherName: "BVK Buch Verlag Kempen GmbH",
+      matchesIsbn: (value) =>
+        value.startsWith("978396520") ||
+        value.startsWith("978386740"),
+      directUrls: () => [],
+      searchUrls: (value) => {
+        const normalizedValue =
+          normalizeIsbn(value);
+
+        const formattedValue =
+          formatKnownIsbn13(
+            normalizedValue,
+          );
+
+        return uniqueStrings([
+          `https://www.buchverlagkempen.de/listview?search_stichwort=${encodeURIComponent(
+            normalizedValue,
+          )}&ssearch=1`,
+          `https://www.buchverlagkempen.de/listview?search_stichwort=${encodeURIComponent(
+            formattedValue,
+          )}&ssearch=1`,
+        ]);
+      },
+      productPathPattern:
+        /^\/detailview$/i,
+    },
+    {
       sourceName: "Ernst Klett Verlag",
       publisherName: "Ernst Klett Verlag",
       matchesIsbn: (value) =>

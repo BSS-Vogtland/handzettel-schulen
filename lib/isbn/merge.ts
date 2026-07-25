@@ -84,6 +84,7 @@ export function mergeIsbnBookSources(
     "Deutsche Nationalbibliothek",
     "Cornelsen Verlag",
     "Westermann Verlag",
+    "BVK Buch Verlag Kempen",
     "Google Books",
     "Open Library",
     "Wikimedia Commons",
@@ -92,6 +93,7 @@ export function mergeIsbnBookSources(
   const descriptionSources = sortSources(rawSources, [
     "Cornelsen Verlag",
     "Westermann Verlag",
+    "BVK Buch Verlag Kempen",
     "Google Books",
     "Deutsche Nationalbibliothek",
     "Open Library",
@@ -163,6 +165,7 @@ export function mergeIsbnBookSources(
         "Ernst Klett Verlag",
         "Westermann Verlag",
         "C.C. Buchner Verlag",
+        "BVK Buch Verlag Kempen",
         "Google Books",
       ];
 
@@ -201,6 +204,7 @@ export function mergeIsbnBookSources(
         "Ernst Klett Verlag",
         "Westermann Verlag",
         "C.C. Buchner Verlag",
+        "BVK Buch Verlag Kempen",
         "Google Books",
       ];
 
@@ -241,6 +245,7 @@ export function mergeIsbnBookSources(
         "Ernst Klett Verlag",
         "Westermann Verlag",
         "C.C. Buchner Verlag",
+        "BVK Buch Verlag Kempen",
         "Google Books",
       ];
 
