@@ -1,5 +1,10 @@
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabase/server";
+import {
+  extractIsbnCandidates,
+  getRequestItemBookIdentity,
+  stripIsbnFromBookTitle,
+} from "@/lib/requestBookIdentity";
 
 type RequestFile = {
   id: string;
@@ -29,6 +34,17 @@ type ExtractionResult = {
   items: ExtractedItem[];
 };
 
+type IsbnVisionItem = {
+  rawText: string;
+  title: string | null;
+  isbn: string;
+  confidence: number;
+};
+
+type IsbnVisionResult = {
+  items: IsbnVisionItem[];
+};
+
 type OpenAiContentPart = {
   type?: string;
   text?: string;
@@ -43,7 +59,7 @@ type OpenAiResponseLike = {
   output?: OpenAiOutputItem[];
 };
 
-const ANALYZE_VERSION = "school-material-analyze-v9a-child-scoped-files";
+const ANALYZE_VERSION = "school-material-analyze-v10-isbn-identity";
 
 export type RequestAnalysisPayload = {
   ok: boolean;
@@ -126,6 +142,49 @@ const materialSchema: Record<string, unknown> = {
           "color",
           "lineature",
           "notes",
+          "confidence",
+        ],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+const isbnVisionSchema: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          rawText: {
+            type: "string",
+            description:
+              "Die vollständige sichtbare Zeile mit Buchtitel und ISBN. Der Text muss so nah wie möglich am Dokument bleiben.",
+          },
+          title: {
+            type: ["string", "null"],
+            description:
+              "Der zur ISBN gehörende Buchtitel ohne ISBN, Verlag oder Preis. Wenn der Titel nicht sicher zugeordnet werden kann: null.",
+          },
+          isbn: {
+            type: "string",
+            description:
+              "Die vollständig sichtbare ISBN-10 oder ISBN-13 einschließlich eventuell sichtbarer Bindestriche.",
+          },
+          confidence: {
+            type: "number",
+            description:
+              "Sicherheit zwischen 0 und 1, dass ISBN und Titel zusammengehören.",
+          },
+        },
+        required: [
+          "rawText",
+          "title",
+          "isbn",
           "confidence",
         ],
       },
@@ -1954,10 +2013,186 @@ function mergeDetailFragmentsIntoPreviousItems(items: CleanedItem[]) {
 }
 
 
+function buildExtractedBookItemsFromIsbnVision(
+  entries: IsbnVisionItem[],
+): ExtractedItem[] {
+  const result: ExtractedItem[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    const isbn =
+      extractIsbnCandidates(
+        entry.isbn,
+        entry.rawText,
+      )[0] || null;
+
+    if (!isbn || seen.has(isbn)) {
+      continue;
+    }
+
+    const rawText =
+      cleanNullableString(
+        entry.rawText,
+      ) || `ISBN: ${isbn}`;
+
+    const title =
+      cleanNullableString(
+        entry.title,
+      ) ||
+      stripIsbnFromBookTitle(
+        rawText,
+      ) ||
+      "Schulbuch";
+
+    seen.add(isbn);
+
+    result.push({
+      rawText: /\\bISBN(?:-1[03])?\\b/i.test(
+        rawText,
+      )
+        ? rawText
+        : `${title} ISBN: ${isbn}`,
+      normalizedName: title,
+      quantity: 1,
+      category: "Bücher & Arbeitshefte",
+      format: null,
+      color: null,
+      lineature: null,
+      notes: [
+        `ISBN: ${isbn}`,
+        "Separater ISBN-Prüflauf",
+        `Analyse-Version: ${ANALYZE_VERSION}`,
+      ].join(" | "),
+      confidence: Math.max(
+        0.98,
+        cleanConfidence(
+          entry.confidence,
+        ),
+      ),
+    });
+  }
+
+  return result;
+}
+
+function mergeGeneralAndIsbnVisionItems(
+  generalItems: ExtractedItem[],
+  isbnItems: ExtractedItem[],
+) {
+  const result = [
+    ...generalItems,
+  ];
+
+  const knownIsbns =
+    new Set<string>();
+
+  for (const item of generalItems) {
+    const identity =
+      getRequestItemBookIdentity({
+        raw_text: item.rawText,
+        normalized_name:
+          item.normalizedName,
+        notes: item.notes,
+      });
+
+    for (
+      const candidate of
+      identity.candidates
+    ) {
+      knownIsbns.add(candidate);
+    }
+  }
+
+  for (const item of isbnItems) {
+    const identity =
+      getRequestItemBookIdentity({
+        raw_text: item.rawText,
+        normalized_name:
+          item.normalizedName,
+        notes: item.notes,
+      });
+
+    const primaryIsbn =
+      identity.primaryIsbn;
+
+    if (
+      !primaryIsbn ||
+      knownIsbns.has(primaryIsbn)
+    ) {
+      continue;
+    }
+
+    knownIsbns.add(primaryIsbn);
+    result.push(item);
+  }
+
+  return result;
+}
+
+function isProtectedBookCleanedItem(
+  item: ExtractedItem | CleanedItem,
+) {
+  return getRequestItemBookIdentity({
+    raw_text: item.rawText,
+    normalized_name:
+      item.normalizedName,
+    notes: item.notes,
+  }).isBook;
+}
+
 function cleanExtractedItem(item: ExtractedItem): CleanedItem {
   const rawText = cleanNullableString(item.rawText) || "";
   const aiName = cleanNullableString(item.normalizedName);
   const itemNotes = cleanNullableString(item.notes) || "";
+
+  const bookIdentity =
+    getRequestItemBookIdentity({
+      raw_text: rawText,
+      normalized_name: aiName,
+      notes: itemNotes,
+    });
+
+  if (
+    bookIdentity.isBook &&
+    bookIdentity.primaryIsbn
+  ) {
+    const bookTitle =
+      stripIsbnFromBookTitle(
+        rawText,
+      ) ||
+      aiName ||
+      "Schulbuch";
+
+    return {
+      rawText:
+        rawText ||
+        `${bookTitle} ISBN: ${bookIdentity.primaryIsbn}`,
+      normalizedName: bookTitle,
+      quantity: cleanQuantity(
+        item.quantity,
+      ),
+      category:
+        "Bücher & Arbeitshefte",
+      format: null,
+      color: null,
+      lineature: null,
+      notes: [
+        itemNotes,
+        `ISBN: ${bookIdentity.primaryIsbn}`,
+        "Buchposition durch ISBN vor Heft-Normalisierung geschützt.",
+        `Analyse-Version: ${ANALYZE_VERSION}`,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      confidence: Math.max(
+        0.98,
+        cleanConfidence(
+          item.confidence,
+        ),
+      ),
+      productType: "Schulbuch",
+    };
+  }
 
   const splitAsExerciseBook = itemNotes.includes(
     "Heft-mit-Umschlag-Zeile deterministisch getrennt: Heft ist eigener Artikel."
@@ -2417,7 +2652,102 @@ export async function analyzeRequestMaterials(input: {
     }
 
     const parsed = JSON.parse(outputText) as ExtractionResult;
-    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    const generalItems = Array.isArray(parsed.items)
+      ? parsed.items
+      : [];
+
+    let isbnVisionItems: ExtractedItem[] = [];
+
+    try {
+      const isbnAiRequest = {
+        model,
+        temperature: 0,
+        max_output_tokens: Number(
+          process.env
+            .OPENAI_ANALYZE_ISBN_MAX_OUTPUT_TOKENS ||
+            3000,
+        ),
+        input: [
+          {
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text:
+                  "Du prüfst deutsche Schulmateriallisten ausschließlich auf sichtbare ISBN-Zeilen. " +
+                  "Suche das gesamte Dokument von oben nach unten und von links nach rechts ab. " +
+                  "Erfasse jede vollständig sichtbare ISBN-10 oder ISBN-13 genau einmal. " +
+                  "Ordne der ISBN den Buchtitel derselben Zeile oder der unmittelbar zugehörigen Titelzeile zu. " +
+                  "Wörter wie Heft, Arbeitsheft oder Selbstlernheft sind Bestandteil eines Buchtitels und dürfen nicht zu einem normalen Schulheft umgedeutet werden. " +
+                  "Lasse keine sichtbare ISBN aus. Erfinde keine Ziffern und ergänze keine unleserlichen Nummern. " +
+                  "Preise, handschriftliche Notizen und Datumsangaben sind keine ISBN.",
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text:
+                  "Führe einen zweiten, unabhängigen Vollständigkeitscheck durch. " +
+                  "Gib jede sichtbare Zeile mit ISBN als eigenen Eintrag zurück. " +
+                  "Bei drei sichtbaren ISBN-Zeilen müssen drei Einträge ausgegeben werden.",
+              },
+              fileContentPart,
+            ],
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name:
+              "school_material_isbn_extraction",
+            strict: true,
+            schema: isbnVisionSchema,
+          },
+        },
+      } as Parameters<
+        typeof openai.responses.create
+      >[0];
+
+      const isbnResponse =
+        await openai.responses.create(
+          isbnAiRequest,
+        );
+
+      const isbnOutputText =
+        extractOutputText(
+          isbnResponse,
+        );
+
+      if (isbnOutputText) {
+        const isbnParsed =
+          JSON.parse(
+            isbnOutputText,
+          ) as IsbnVisionResult;
+
+        isbnVisionItems =
+          buildExtractedBookItemsFromIsbnVision(
+            Array.isArray(
+              isbnParsed.items,
+            )
+              ? isbnParsed.items
+              : [],
+          );
+      }
+    } catch (isbnVisionError) {
+      console.error(
+        "Separater ISBN-Prüflauf fehlgeschlagen:",
+        isbnVisionError,
+      );
+    }
+
+    const items =
+      mergeGeneralAndIsbnVisionItems(
+        generalItems,
+        isbnVisionItems,
+      );
 
     if (items.length === 0) {
       analyzedFileResults.push({
@@ -2695,6 +3025,8 @@ export async function analyzeRequestMaterials(input: {
     }
 
     function isFinalExerciseBookItem(item: CleanedItem) {
+      if (isProtectedBookCleanedItem(item)) return false;
+
       const text = normalizeDedupeText([
         item.normalizedName,
         item.category,
@@ -2714,6 +3046,24 @@ export async function analyzeRequestMaterials(input: {
     }
 
     function sanitizeFinalPurchaseItem(item: CleanedItem): CleanedItem {
+      if (isProtectedBookCleanedItem(item)) {
+        return {
+          ...item,
+          category:
+            "Bücher & Arbeitshefte",
+          productType: "Schulbuch",
+          format: null,
+          color: null,
+          lineature: null,
+          notes: [
+            item.notes,
+            "ISBN-Buch: Finalsanitizer übersprungen.",
+          ]
+            .filter(Boolean)
+            .join(" | "),
+        };
+      }
+
       const isCover = isFinalCoverItem(item);
       const isExerciseBook = isFinalExerciseBookItem(item);
 
@@ -2932,6 +3282,24 @@ export async function analyzeRequestMaterials(input: {
 
     function expandAndSanitizeFinalDbItems(items: CleanedItem[]) {
       const expanded = items.map((item) => {
+        if (isProtectedBookCleanedItem(item)) {
+          return {
+            ...item,
+            category:
+              "Bücher & Arbeitshefte",
+            productType: "Schulbuch",
+            format: null,
+            color: null,
+            lineature: null,
+            notes: [
+              item.notes,
+              "ISBN-Buch: DB-Finalsanitizer übersprungen.",
+            ]
+              .filter(Boolean)
+              .join(" | "),
+          };
+        }
+
         if (String(item.notes || "").includes("MANUAL_COMBO_NO_AUTO_ADOPT")) {
           return {
             ...item,
@@ -3045,20 +3413,59 @@ export async function analyzeRequestMaterials(input: {
       });
     }
 
-    const rows = allFinalDbItems.map((item) => ({
-      request_id: id,
-      child_id: item.childId,
-      raw_text: item.rawText,
-      normalized_name: item.normalizedName,
-      quantity: item.quantity || 1,
-      category: item.category,
-      format: item.format,
-      color: item.color,
-      lineature: item.lineature,
-      notes: item.notes,
-      confidence: item.confidence,
-      status: item.confidence >= 0.85 ? "detected" : "needs_review",
-    }));
+    const rows = allFinalDbItems.map((item) => {
+      const bookIdentity =
+        getRequestItemBookIdentity({
+          raw_text: item.rawText,
+          normalized_name:
+            item.normalizedName,
+          notes: item.notes,
+        });
+
+      return {
+        request_id: id,
+        child_id: item.childId,
+        raw_text: item.rawText,
+        normalized_name:
+          item.normalizedName,
+        quantity:
+          item.quantity || 1,
+        category: bookIdentity.isBook
+          ? "Bücher & Arbeitshefte"
+          : item.category,
+        product_type:
+          bookIdentity.isBook
+            ? "Schulbuch"
+            : item.productType,
+        format: bookIdentity.isBook
+          ? null
+          : item.format,
+        color: bookIdentity.isBook
+          ? null
+          : item.color,
+        lineature: bookIdentity.isBook
+          ? null
+          : item.lineature,
+        notes: item.notes,
+        confidence:
+          bookIdentity.isBook
+            ? Math.max(
+                0.98,
+                item.confidence,
+              )
+            : item.confidence,
+        status:
+          item.confidence >= 0.85
+            ? "detected"
+            : "needs_review",
+        is_book:
+          bookIdentity.isBook,
+        book_isbn10:
+          bookIdentity.isbn10,
+        book_isbn13:
+          bookIdentity.isbn13,
+      };
+    });
 
     const { error: insertError } = await supabaseServer
       .from("school_request_items")

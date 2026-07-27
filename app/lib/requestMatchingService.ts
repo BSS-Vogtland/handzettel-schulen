@@ -1,4 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  findExactBookIsbnMatch,
+  getRequestItemBookIdentity,
+} from "@/lib/requestBookIdentity";
 
 type RequestItem = {
   id: string;
@@ -14,6 +18,9 @@ type RequestItem = {
   notes: string | null;
   confidence: number | string | null;
   status: string | null;
+  is_book?: boolean | null;
+  book_isbn10?: string | null;
+  book_isbn13?: string | null;
 };
 
 type ProductRow = {
@@ -36,6 +43,10 @@ type ProductRow = {
   book_height_mm?: number | string | null;
   book_size_note?: string | null;
   active?: boolean | null;
+  ean?: string | null;
+  is_book?: boolean | null;
+  book_isbn10?: string | null;
+  book_isbn13?: string | null;
 };
 
 type AliasRow = {
@@ -62,6 +73,7 @@ export type RequestMatchingPayload = {
   error?: string;
   itemCount?: number;
   matchCount?: number;
+  exactBookIsbnMatchCount?: number;
   learnedAliasMatchCount?: number;
   relatedMatchCount?: number;
   maxMatchesPerItem?: number;
@@ -2733,9 +2745,151 @@ export async function runRequestMatching(input: {
       selected: boolean;
     }> = [];
 
+    let exactBookIsbnMatchCount = 0;
+
     for (const item of requestItems) {
       const seenProductIds = new Set<string>();
       const seenDuplicateKeys = new Set<string>();
+
+      /*
+       * ISBN_BOOK_MATCHING_GUARD_V1
+       *
+       * Eine explizite ISBN ist Produktidentität und kein Suchbegriff.
+       * Deshalb wird sie vor Lernregeln, Aliassen und unscharfem
+       * Artikelscoring verarbeitet.
+       */
+      const itemBookIdentity =
+        getRequestItemBookIdentity(item);
+
+      if (
+        itemBookIdentity.isBook &&
+        itemBookIdentity.candidates.length > 0
+      ) {
+        const exactBookMatches =
+          products
+            .flatMap((product) => {
+              const matchedIsbn =
+                findExactBookIsbnMatch(
+                  item,
+                  product,
+                );
+
+              return matchedIsbn
+                ? [
+                    {
+                      product,
+                      matchedIsbn,
+                    },
+                  ]
+                : [];
+            })
+            .sort((left, right) => {
+              const nameComparison =
+                getProductName(
+                  left.product,
+                ).localeCompare(
+                  getProductName(
+                    right.product,
+                  ),
+                  "de",
+                  {
+                    numeric: true,
+                    sensitivity: "base",
+                  },
+                );
+
+              if (nameComparison !== 0) {
+                return nameComparison;
+              }
+
+              return left.product.id.localeCompare(
+                right.product.id,
+                "de",
+                {
+                  numeric: true,
+                  sensitivity: "base",
+                },
+              );
+            });
+
+        if (exactBookMatches.length === 1) {
+          const exactMatch =
+            exactBookMatches[0];
+
+          rowsToInsert.push({
+            request_item_id: item.id,
+            product_id:
+              exactMatch.product.id,
+            product_name:
+              getProductName(
+                exactMatch.product,
+              ),
+            product_sku:
+              getProductSku(
+                exactMatch.product,
+              ),
+            product_price:
+              getProductPrice(
+                exactMatch.product,
+              ),
+            match_score: 100,
+            match_reason:
+              `Exakte ISBN-Identität: ${exactMatch.matchedIsbn}. Buchprodukt eindeutig über EAN, ISBN-10 oder ISBN-13 zugeordnet.`,
+            selected: false,
+          });
+
+          exactBookIsbnMatchCount += 1;
+          continue;
+        }
+
+        if (exactBookMatches.length > 1) {
+          /*
+           * Eine doppelt angelegte ISBN darf nicht willkürlich
+           * automatisch übernommen werden. Die Treffer bleiben
+           * sichtbar, werden aber durch "Admin-Prüfung" von allen
+           * automatischen Übernahmepfaden blockiert.
+           */
+          for (
+            const exactMatch of
+            exactBookMatches.slice(
+              0,
+              MAX_MATCHES_PER_ITEM,
+            )
+          ) {
+            rowsToInsert.push({
+              request_item_id:
+                item.id,
+              product_id:
+                exactMatch.product.id,
+              product_name:
+                getProductName(
+                  exactMatch.product,
+                ),
+              product_sku:
+                getProductSku(
+                  exactMatch.product,
+                ),
+              product_price:
+                getProductPrice(
+                  exactMatch.product,
+                ),
+              match_score: 99,
+              match_reason:
+                `Exakte ISBN-Identität: ${exactMatch.matchedIsbn}, aber mehrere aktive Produkte besitzen dieselbe ISBN. Admin-Prüfung erforderlich.`,
+              selected: false,
+            });
+          }
+
+          continue;
+        }
+
+        /*
+         * Für eine eindeutige ISBN ohne Katalogprodukt werden bewusst
+         * keine Heft-, Alias- oder Ähnlichkeitsvorschläge erzeugt.
+         * Die Position bleibt offen, bis das exakte Buch angelegt wird.
+         */
+        continue;
+      }
 
       const scoredProducts = products
         .map((product) => {
@@ -2866,10 +3020,11 @@ export async function runRequestMatching(input: {
       supabase,
       id,
       "product_matching_done",
-      "Produktvorschläge wurden neu berechnet. Gelernte Zuordnungen, exakte Standardartikel, Buchmaße, Heft-Unterarten, Lineaturen, Mappen und Farben werden berücksichtigt.",
+      "Produktvorschläge wurden neu berechnet. Exakte ISBN-Identitäten werden vor Lernregeln und unscharfen Produktvorschlägen verarbeitet.",
       {
         itemCount: requestItems.length,
         matchCount: rowsToInsert.length,
+        exactBookIsbnMatchCount,
         learnedAliasMatchCount,
         relatedMatchCount,
         maxMatchesPerItem: MAX_MATCHES_PER_ITEM,
