@@ -3,6 +3,7 @@ import {
   findExactBookIsbnMatch,
   getRequestItemBookIdentity,
 } from "@/lib/requestBookIdentity";
+import { classifyAutomaticMaterialType } from "@/lib/requestAutoSelection";
 
 type RequestItem = {
   id: string;
@@ -310,8 +311,12 @@ const RELATED_PRODUCT_FAMILIES = [
     words: ["heft", "hefte", "schreibheft", "rechenheft", "hausaufgabenheft", "arbeitsheft"],
   },
   {
-    key: "hefter",
-    words: ["hefter", "papphefter", "schnellhefter", "papp-hefter"],
+    key: "ringhefter",
+    words: ["ringhefter", "ring hefter", "niederhalter", "2 ringe"],
+  },
+  {
+    key: "schnellhefter",
+    words: ["schnellhefter", "papphefter", "papp-hefter"],
   },
   {
     key: "mappe",
@@ -584,8 +589,12 @@ function getStrictLearnedAliasFamily(value: unknown) {
       words: ["arbeitsheft", "arbeitshefte", "?bungsheft", "uebungsheft"],
     },
     {
-      key: "hefter",
-      words: ["hefter", "papphefter", "schnellhefter", "papp-hefter"],
+      key: "ringhefter",
+      words: ["ringhefter", "ring hefter", "niederhalter", "2 ringe"],
+    },
+    {
+      key: "schnellhefter",
+      words: ["schnellhefter", "papphefter", "papp-hefter"],
     },
     {
       key: "mappe",
@@ -1500,149 +1509,9 @@ if (
 }
 
 function classifyType(value: unknown) {
-  const text = normalizeText(value);
-
-  if (
-    text.includes("umschlag") ||
-    text.includes("umschlaege") ||
-    text.includes("hefthuelle") ||
-    text.includes("hefthuellen") ||
-    text.includes("buchhuelle") ||
-    text.includes("buchhulle") ||
-    text.includes("huelle") ||
-    text.includes("huellen")
-  ) {
-    return "umschlag";
-  }
-
-  if (
-    text.includes("hausaufgabenheft") ||
-    text.includes("hausaufgaben") ||
-    text.includes("aufgabenheft") ||
-    text.includes("ha heft") ||
-    text.includes("haheft") ||
-    text.includes("ha hft")
-  ) {
-    return "hausaufgabenheft";
-  }
-
-  if (
-    text.includes("mappe") ||
-    text.includes("mappen") ||
-    text.includes("sammelmappe") ||
-    text.includes("eckspanner") ||
-    text.includes("gummizugmappe")
-  ) {
-    return "mappe";
-  }
-
-  if (
-    text.includes("schreibblock") ||
-    text.includes("collegeblock") ||
-    text.includes("notizblock")
-  ) {
-    return "schreibblock";
-  }
-
-  if (
-    text.includes("zeichenblock") ||
-    text.includes("malblock") ||
-    text.includes("skizzenblock")
-  ) {
-    return "zeichenblock";
-  }
-
-  if (
-    text.includes("zeichenkarton") ||
-    text.includes("tonkarton") ||
-    text.includes("fotokarton")
-  ) {
-    return "zeichenkarton";
-  }
-
-  if (
-    text.includes("farbkasten") ||
-    text.includes("deckfarbkasten") ||
-    text.includes("malkasten") ||
-    text.includes("wasserfarben")
-  ) {
-    return "farbkasten";
-  }
-
-  if (text.includes("klebestift") || text.includes("kleber")) {
-    return "klebestift";
-  }
-
-  if (
-    text.includes("spitzer") ||
-    text.includes("anspitzer") ||
-    text.includes("spitzerdose") ||
-    text.includes("dosenspitzer") ||
-    text.includes("auffangbehaelter") ||
-    text.includes("auffangbehalter")
-  ) {
-    return "spitzer";
-  }
-
-  if (text.includes("schere")) {
-    return "schere";
-  }
-
-  if (
-    text.includes("buntstifte") ||
-    text.includes("buntstift") ||
-    text.includes("farbstifte") ||
-    text.includes("farbstift")
-  ) {
-    return "buntstifte";
-  }
-
-  if (
-    text.includes("filzstifte") ||
-    text.includes("filzstift") ||
-    text.includes("fasermaler")
-  ) {
-    return "filzstifte";
-  }
-
-  if (text.includes("bleistift") || text.includes(" hb ")) {
-    return "bleistift";
-  }
-
-  if (text.includes("radiergummi") || text.includes("radierer")) {
-    return "radiergummi";
-  }
-
-  if (text.includes("lineal")) {
-    return "lineal";
-  }
-
-  if (text.includes("schnellhefter") || text.includes("hefter")) {
-    return "schnellhefter";
-  }
-
-  if (
-    text.includes("rechenheft") ||
-    text.includes("rechenh") ||
-    text.includes("matheheft") ||
-    text.includes("mathe heft") ||
-    text.includes("math heft")
-  ) {
-    return "heft";
-  }
-
-  if (
-    text.includes("schreibheft") ||
-    text.includes("schreibh") ||
-    text.includes("schulheft") ||
-    text.includes("heft")
-  ) {
-    return "heft";
-  }
-
-  return null;
+  // AUTO_SELECTION_RINGHEFTER_CLASSIFICATION_V1
+  return classifyAutomaticMaterialType(value);
 }
-
 function hasSpecificLineature(value: unknown) {
   const text = normalizeText(value);
 
@@ -1792,6 +1661,7 @@ function isFormatSensitiveType(type: string | null) {
     "umschlag",
     "mappe",
     "schnellhefter",
+    "ringhefter",
     "schreibblock",
     "zeichenblock",
     "zeichenkarton",
@@ -1799,7 +1669,9 @@ function isFormatSensitiveType(type: string | null) {
 }
 
 function isColorSensitiveType(type: string | null) {
-  return ["umschlag", "mappe", "schnellhefter"].includes(type || "");
+  return ["umschlag", "mappe", "schnellhefter", "ringhefter"].includes(
+    type || "",
+  );
 }
 
 function isBookDimensionRelevant(params: {

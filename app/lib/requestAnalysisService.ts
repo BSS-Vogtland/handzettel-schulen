@@ -1,3 +1,4 @@
+import { classifyAutomaticMaterialType } from "@/lib/requestAutoSelection";
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
@@ -648,7 +649,24 @@ function classifyType(value: unknown) {
     return "Lineal";
   }
 
-  if (text.includes("schnellhefter") || text.includes("hefter")) {
+  // ANALYSIS_RINGHEFTER_CLASSIFICATION_V1
+  const centralHefterType =
+    classifyAutomaticMaterialType(text);
+
+  if (
+    centralHefterType ===
+    "ringhefter"
+  ) {
+    return "Ringhefter";
+  }
+
+  if (
+    centralHefterType ===
+      "schnellhefter" ||
+    text
+      .split(" ")
+      .includes("hefter")
+  ) {
     return "Schnellhefter";
   }
 
@@ -2331,30 +2349,86 @@ function getHefterCorrection(
   category: unknown,
   color: unknown
 ): HefterCorrection | null {
-  const combined = normalizeAnalyzerText(`${rawText || ""} ${aiName || ""} ${category || ""}`);
-  const hasExplicitHefter =
-    combined.includes("schnellhefter") ||
-    combined.split(" ").includes("hefter");
+  // ANALYSIS_HEFTER_CORRECTION_V2
+  const combined =
+    normalizeAnalyzerText(
+      `${rawText || ""} ${aiName || ""} ${category || ""}`,
+    );
 
-  if (!hasExplicitHefter) return null;
+  const centralHefterType =
+    classifyAutomaticMaterialType(
+      combined,
+    );
 
-  const subject = getHefterSubjectFromRawText(rawText);
-  const explicitColor = String(color || "").trim();
+  const isRingHefter =
+    centralHefterType ===
+    "ringhefter";
+
+  const isSchnellHefter =
+    centralHefterType ===
+      "schnellhefter" ||
+    (
+      !isRingHefter &&
+      combined
+        .split(" ")
+        .includes("hefter")
+    );
+
+  if (
+    !isRingHefter &&
+    !isSchnellHefter
+  ) {
+    return null;
+  }
+
+  const productLabel =
+    isRingHefter
+      ? "Ringhefter"
+      : "Schnellhefter";
+
+  const subject =
+    getHefterSubjectFromRawText(
+      rawText,
+    );
+
+  const explicitColor =
+    String(color || "").trim();
+
   const detectedColor =
-    explicitColor || getAnalyzerColor(`${rawText || ""} ${aiName || ""}`);
-  const normalizedName = ["Schnellhefter", subject, detectedColor]
+    explicitColor ||
+    getAnalyzerColor(
+      `${rawText || ""} ${aiName || ""}`,
+    );
+
+  const normalizedName = [
+    productLabel,
+    subject,
+    detectedColor,
+  ]
     .filter(Boolean)
     .join(" ");
 
   return {
-    normalizedName: normalizedName || "Schnellhefter",
-    category: "Schnellhefter",
-    productType: "Schnellhefter",
-    color: detectedColor,
+    normalizedName:
+      normalizedName ||
+      productLabel,
+
+    category:
+      productLabel,
+
+    productType:
+      productLabel,
+
+    color:
+      detectedColor,
+
     note:
-      "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext überschreibt den Hauptartikel nicht.",
+      isRingHefter
+        ? "Ringhefter wurde deterministisch als eigener Produkttyp geschützt und nicht als Schnellhefter normalisiert."
+        : "Hefter wurde deterministisch als Schnellhefter normalisiert; Mappe-/Einsteckfolie-Kontext überschreibt den Hauptartikel nicht.",
   };
 }
+
 function getFriendlyOpenAiError(error: unknown) {
   if (error instanceof Error) {
     const message = error.message;

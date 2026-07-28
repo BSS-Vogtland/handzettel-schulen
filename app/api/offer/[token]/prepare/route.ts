@@ -2,6 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { scheduleOfferAccessMail } from "@/lib/offerAccessMail";
 import { analyzeRequestMaterials } from "@/app/lib/requestAnalysisService";
 import { runRequestMatching } from "@/app/lib/requestMatchingService";
+import { adoptSafeRequestMatches } from "@/app/lib/requestSafeMatchAdoptionService";
+import {
+  AUTO_SELECTION_GUARD_VERSION,
+  AUTO_SELECTION_MIN_GENERIC_SCORE,
+} from "@/lib/requestAutoSelection";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -50,105 +55,8 @@ type OfferItemRow = {
   product_id: string | null;
 };
 
-const AUTO_PRESELECT_MIN_SCORE = 80;
-
-function isUnsafeAutoPreselectMatchReason(match: { match_reason?: string | null }) {
-  const reason = String(match.match_reason || "").toLowerCase();
-
-  if (
-    reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-pr") ||
-    reason.includes("variantenmerkmale") ||
-    reason.includes("bitte pr") ||
-    reason.includes("teilweise erkannt") ||
-    reason.includes("score begrenzt") ||
-    reason.includes("abweichende explizite nummer")
-  ) {
-    return true;
-  }
-
-  // S0: Alias-Lernen ist noch nicht sauber von Suchaliasen getrennt.
-  if (reason.includes("gelernte zuordnung")) {
-    return true;
-  }
-
-  return false;
-}
-
-
-function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
-  const reason = String(match.match_reason || "").toLowerCase();
-
-  if (
-    reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-pr") ||
-    reason.includes("variantenmerkmale") ||
-    reason.includes("bitte pr") ||
-    reason.includes("teilweise erkannt") ||
-    reason.includes("score begrenzt") ||
-    reason.includes("abweichende explizite nummer")
-  ) {
-    return true;
-  }
-
-  // S0: learned aliases are not separated from normal search aliases yet.
-  if (reason.includes("gelernte zuordnung")) {
-    return true;
-  }
-
-  return false;
-}
-
-
-function normalizeAutoAdoptGuardText(value: unknown) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isManualComboNoAutoAdoptItem(item: {
-  raw_text?: string | null;
-  normalized_name?: string | null;
-  category?: string | null;
-  notes?: string | null;
-}) {
-  const text = normalizeAutoAdoptGuardText([
-    item.raw_text,
-    item.normalized_name,
-    item.category,
-    item.notes,
-  ].filter(Boolean).join(" "));
-
-  if (!text) return false;
-
-  if (text.includes("manual_combo_no_auto_adopt")) {
-    return true;
-  }
-
-  const isCombo = text.includes("kombiposition");
-  const hasCover = text.includes("umschlag");
-  const hasExerciseBook =
-    text.includes("heft") ||
-    text.includes("rechenheft") ||
-    text.includes("schreibheft") ||
-    text.includes("deutschheft") ||
-    text.includes("matheheft") ||
-    text.includes("mathematikheft");
-
-  return isCombo && hasCover && hasExerciseBook;
-}
+const AUTO_PRESELECT_MIN_SCORE =
+  AUTO_SELECTION_MIN_GENERIC_SCORE;
 
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -351,76 +259,21 @@ async function markRequestAsManualReview(params: {
   });
 }
 
-function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
-  const scoreDifference =
-    toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
-  if (scoreDifference !== 0) return scoreDifference;
 
-  const nameComparison = String(a.product_name || "").localeCompare(
-    String(b.product_name || ""),
-    "de",
-    {
-      numeric: true,
-      sensitivity: "base",
-    }
-  );
 
-  if (nameComparison !== 0) return nameComparison;
-
-  const skuComparison = String(a.product_sku || "").localeCompare(
-    String(b.product_sku || ""),
-    "de",
-    {
-      numeric: true,
-      sensitivity: "base",
-    }
-  );
-
-  if (skuComparison !== 0) return skuComparison;
-
-  return String(a.id).localeCompare(String(b.id), "de", {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
-function getBestAutoPreselectMatches(matches: RequestMatchRow[]) {
-  const matchesByRequestItem = new Map<string, RequestMatchRow[]>();
-
-  for (const match of matches) {
-    if (!match.request_item_id) continue;
-    if (!match.product_id) continue;
-
-    const score = toNumber(match.match_score, 0);
-    if (score < AUTO_PRESELECT_MIN_SCORE) continue;
-    if (isUnsafeAutoPreselectMatchReason(match)) continue;
-    if (isAutoPreselectBlockedMatch(match)) continue;
-
-    const current = matchesByRequestItem.get(match.request_item_id) || [];
-    current.push(match);
-    matchesByRequestItem.set(match.request_item_id, current);
-  }
-
-  const bestMatches: RequestMatchRow[] = [];
-
-  for (const itemMatches of matchesByRequestItem.values()) {
-    const bestMatch = itemMatches.sort(compareMatches)[0];
-
-    if (bestMatch) {
-      bestMatches.push(bestMatch);
-    }
-  }
-
-  return bestMatches.sort(compareMatches);
-}
 
 async function autoPreselectSafeMatches(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   requestItemIds: string[];
 }) {
-  const { supabase, requestId, requestItemIds } = params;
+  // CENTRAL_CUSTOMER_PREPARE_AUTO_SELECTION_V1
+  const {
+    supabase,
+    requestId,
+    requestItemIds,
+  } = params;
 
   if (requestItemIds.length === 0) {
     return {
@@ -430,219 +283,97 @@ async function autoPreselectSafeMatches(params: {
     };
   }
 
-  const { data: matchesData, error: matchesError } = await supabase
-    .from("school_request_matches")
-    .select("*")
-    .in("request_item_id", requestItemIds)
-    .order("request_item_id", { ascending: true })
-    .order("match_score", { ascending: false })
-    .order("product_name", { ascending: true })
-    .order("product_sku", { ascending: true })
-    .order("id", { ascending: true });
+  const {
+    count: existingBefore,
+    error: existingBeforeError,
+  } = await supabase
+    .from("school_offer_items")
+    .select(
+      "id",
+      {
+        count: "exact",
+        head: true,
+      },
+    )
+    .eq(
+      "request_id",
+      requestId,
+    );
 
-  if (matchesError) {
+  if (existingBeforeError) {
     throw new Error(
-      `Sichere Treffer konnten nicht geladen werden: ${matchesError.message}`
+      `Bestehende Paketpositionen konnten nicht gezählt werden: ${existingBeforeError.message}`,
     );
   }
 
-  const matches = (matchesData || []) as RequestMatchRow[];
-  let candidates = getBestAutoPreselectMatches(matches);
-
-  if (candidates.length === 0) {
-    return {
-      preselectedCount: 0,
-      alreadyExistingCount: 0,
-      candidateCount: 0,
-    };
-  }
-
-  const { data: requestItemsData, error: requestItemsError } = await supabase
-    .from("school_request_items")
-    .select("id, quantity, raw_text, normalized_name, category, notes, status, admin_resolution_status")
-    .in("id", requestItemIds);
-
-  if (requestItemsError) {
-    throw new Error(
-      `Erkannte Positionen konnten nicht fuer Mengen geladen werden: ${requestItemsError.message}`
-    );
-  }
-
-  const requestItems = (requestItemsData || []) as RequestItemRow[];
-
-  const manualComboRequestItemIds = new Set(
-    requestItems
-      .filter((item) => isManualComboNoAutoAdoptItem(item))
-      .map((item) => item.id)
-  );
-  const resolvedRequestItemIds = new Set(
-    requestItems
-      .filter((item) => {
-        const resolution = item as RequestItemRow & {
-          status?: string | null;
-          admin_resolution_status?: string | null;
-        };
-        const itemStatus = String(resolution.status || "")
-          .trim()
-          .toLowerCase();
-        const itemAdminResolutionStatus = String(
-          resolution.admin_resolution_status || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        return (
-          itemStatus === "not_needed" ||
-          itemStatus === "customer_supplies_self" ||
-          itemStatus === "covered_by_alternative" ||
-          itemStatus === "resolved" ||
-          itemStatus === "done" ||
-          itemStatus === "ignored" ||
-          itemAdminResolutionStatus === "not_needed" ||
-          itemAdminResolutionStatus === "customer_supplies_self" ||
-          itemAdminResolutionStatus === "covered_by_alternative" ||
-          itemAdminResolutionStatus === "resolved" ||
-          itemAdminResolutionStatus === "done" ||
-          itemAdminResolutionStatus === "ignored"
-        );
-      })
-      .map((item) => item.id)
-  );
-
-  candidates = candidates.filter(
-    (match) =>
-      !manualComboRequestItemIds.has(match.request_item_id) &&
-      !resolvedRequestItemIds.has(match.request_item_id)
-  );
-
-  if (candidates.length === 0) {
-    return {
-      preselectedCount: 0,
-      alreadyExistingCount: 0,
-      candidateCount: 0,
-    };
-  }
-
-  const requestItemQuantityById = new Map(
-    requestItems.map((item) => [
-      item.id,
-      Math.max(1, Math.min(99, Math.floor(toNumber(item.quantity, 1)))),
-    ])
-  );
-
-  const { data: existingOfferItemsData, error: existingOfferItemsError } =
-    await supabase
-      .from("school_offer_items")
-      .select("id, request_id, request_item_id, match_id, product_id")
-      .eq("request_id", requestId);
-
-  if (existingOfferItemsError) {
-    throw new Error(
-      `Bestehende Paketpositionen konnten nicht geprüft werden: ${existingOfferItemsError.message}`
-    );
-  }
-
-  const existingOfferItems = (existingOfferItemsData || []) as OfferItemRow[];
-
-
-
-  const existingProductIds = new Set(
-    existingOfferItems
-      .map((item) => item.product_id)
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const selectedProductIdsInThisRun = new Set<string>();
-const existingRequestItemIds = new Set(
-    existingOfferItems
-      .map((item) => item.request_item_id)
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const existingMatchIds = new Set(
-    existingOfferItems
-      .map((item) => item.match_id)
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const existingProductKeys = new Set(
-    existingOfferItems
-      .map((item) => {
-        if (!item.request_item_id || !item.product_id) return null;
-        return `${item.request_item_id}::${item.product_id}`;
-      })
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const rowsToInsert = candidates
-    .filter((match) => {
-      const productKey = `${match.request_item_id}::${match.product_id}`;
-
-      if (existingRequestItemIds.has(match.request_item_id)) return false;
-      if (existingMatchIds.has(match.id)) return false;
-      if (existingProductKeys.has(productKey)) return false;
-
-      return true;
-    })
-    .map((match) => {
-      const productPrice = toNumber(match.product_price, 0);
-
-      return {
-        request_id: requestId,
-        request_item_id: match.request_item_id,
-        match_id: match.id,
-        product_id: match.product_id,
-        product_name: cleanText(match.product_name, "Produkt"),
-        product_sku: cleanText(match.product_sku, "") || null,
-        product_price: productPrice,
-        quantity: requestItemQuantityById.get(match.request_item_id) || 1,
-        unit: "Stk.",
-        source: "auto_preselected",
-        status: "preselected",
-        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
-          match.match_score,
-          0
-        )} % Übereinstimmung erreicht hat.`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+  const adoptionResult =
+    await adoptSafeRequestMatches({
+      requestId,
+      auditMode: "none",
     });
 
-  if (rowsToInsert.length === 0) {
-    return {
-      preselectedCount: 0,
-      alreadyExistingCount: candidates.length,
-      candidateCount: candidates.length,
-    };
-  }
-
-  const { error: insertError } = await supabase
-    .from("school_offer_items")
-    .insert(rowsToInsert);
-
-  if (insertError) {
+  if (!adoptionResult.data.ok) {
     throw new Error(
-      `Sichere Treffer konnten nicht automatisch in den Paketwunsch gelegt werden: ${insertError.message}`
+      adoptionResult.data.message ||
+        "Sichere Treffer konnten nicht zentral übernommen werden.",
     );
   }
 
-  await createRequestEvent(
-    supabase,
-    requestId,
-    "customer_auto_preselected_items",
-    `${rowsToInsert.length} sichere Treffer wurden automatisch in den Paketwunsch gelegt.`,
-    {
-      threshold: AUTO_PRESELECT_MIN_SCORE,
-      preselectedCount: rowsToInsert.length,
-      candidateCount: candidates.length,
-      matchIds: rowsToInsert.map((row) => row.match_id),
-    }
-  );
+  const adoptedCount =
+    adoptionResult.data.adoptedCount || 0;
+
+  const correctedCount =
+    adoptionResult.data.correctedCount || 0;
+
+  const refreshedCount =
+    adoptionResult.data.refreshedCount || 0;
+
+  const changedCount =
+    adoptedCount +
+    correctedCount +
+    refreshedCount;
+
+  const {
+    count: existingAfter,
+    error: existingAfterError,
+  } = await supabase
+    .from("school_offer_items")
+    .select(
+      "id",
+      {
+        count: "exact",
+        head: true,
+      },
+    )
+    .eq(
+      "request_id",
+      requestId,
+    );
+
+  if (existingAfterError) {
+    throw new Error(
+      `Paketpositionen konnten nach der Übernahme nicht gezählt werden: ${existingAfterError.message}`,
+    );
+  }
+
+  const beforeCount =
+    existingBefore || 0;
+
+  const afterCount =
+    existingAfter || 0;
 
   return {
-    preselectedCount: rowsToInsert.length,
-    alreadyExistingCount: candidates.length - rowsToInsert.length,
-    candidateCount: candidates.length,
+    preselectedCount:
+      changedCount,
+
+    alreadyExistingCount:
+      Math.max(
+        beforeCount,
+        afterCount - adoptedCount,
+      ),
+
+    candidateCount:
+      afterCount,
   };
 }
 
@@ -778,6 +509,7 @@ export async function POST(_request: NextRequest, context: Params) {
         usedLookup: requestLookup.usedLookup,
         usedToken: requestLookup.usedToken,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
+        autoSelectionGuardVersion: AUTO_SELECTION_GUARD_VERSION,
       }
     );
 
@@ -975,6 +707,7 @@ export async function POST(_request: NextRequest, context: Params) {
         preselectedCount: autoPreselectResult.preselectedCount,
         alreadyExistingCount: autoPreselectResult.alreadyExistingCount,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
+        autoSelectionGuardVersion: AUTO_SELECTION_GUARD_VERSION,
       }
     );
 
@@ -985,6 +718,7 @@ export async function POST(_request: NextRequest, context: Params) {
       preselectedCount: autoPreselectResult.preselectedCount,
       alreadyExistingCount: autoPreselectResult.alreadyExistingCount,
       autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
+        autoSelectionGuardVersion: AUTO_SELECTION_GUARD_VERSION,
       message:
         autoPreselectResult.preselectedCount > 0
           ? `${autoPreselectResult.preselectedCount} sichere Treffer wurden bereits für Dich in den Paketwunsch gelegt. Du kannst sie bei Bedarf entfernen und die offenen Positionen ergänzen.`

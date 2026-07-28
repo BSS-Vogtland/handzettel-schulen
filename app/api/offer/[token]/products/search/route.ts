@@ -1,3 +1,4 @@
+import { classifyAutomaticMaterialType } from "@/lib/requestAutoSelection";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -539,7 +540,24 @@ function classifyType(value: unknown) {
     return "lineal";
   }
 
-  if (text.includes("schnellhefter") || text.includes("hefter")) {
+  // PRODUCT_SEARCH_RINGHEFTER_CLASSIFICATION_V1
+  const centralHefterType =
+    classifyAutomaticMaterialType(text);
+
+  if (
+    centralHefterType ===
+    "ringhefter"
+  ) {
+    return "ringhefter";
+  }
+
+  if (
+    centralHefterType ===
+      "schnellhefter" ||
+    text
+      .split(" ")
+      .includes("hefter")
+  ) {
     return "schnellhefter";
   }
 
@@ -560,6 +578,7 @@ function isFormatSensitiveType(type: string | null) {
     "hausaufgabenheft",
     "umschlag",
     "schnellhefter",
+    "ringhefter",
     "schreibblock",
     "zeichenblock",
     "zeichenkarton",
@@ -567,7 +586,11 @@ function isFormatSensitiveType(type: string | null) {
 }
 
 function isColorSensitiveType(type: string | null) {
-  return ["umschlag", "schnellhefter"].includes(type || "");
+  return [
+    "umschlag",
+    "schnellhefter",
+    "ringhefter",
+  ].includes(type || "");
 }
 
 function isHeftText(value: unknown) {

@@ -1,4 +1,9 @@
 import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
+import { adoptSafeRequestMatches } from "@/app/lib/requestSafeMatchAdoptionService";
+import {
+  AUTO_SELECTION_GUARD_VERSION,
+  AUTO_SELECTION_MIN_GENERIC_SCORE,
+} from "@/lib/requestAutoSelection";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -67,105 +72,8 @@ type OfferItem = {
   status: string | null;
 };
 
-const AUTO_PRESELECT_MIN_SCORE = 85;
-
-function isUnsafeAutoPreselectMatchReason(match: { match_reason?: string | null }) {
-  const reason = String(match.match_reason || "").toLowerCase();
-
-  if (
-    reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-pr") ||
-    reason.includes("variantenmerkmale") ||
-    reason.includes("bitte pr") ||
-    reason.includes("teilweise erkannt") ||
-    reason.includes("score begrenzt") ||
-    reason.includes("abweichende explizite nummer")
-  ) {
-    return true;
-  }
-
-  // S0: Alias-Lernen ist noch nicht sauber von Suchaliasen getrennt.
-  if (reason.includes("gelernte zuordnung")) {
-    return true;
-  }
-
-  return false;
-}
-
-
-function isAutoPreselectBlockedMatch(match: { match_reason?: string | null }) {
-  const reason = String(match.match_reason || "").toLowerCase();
-
-  if (
-    reason.includes("artverwandter kandidat") ||
-    reason.includes("admin-pr") ||
-    reason.includes("variantenmerkmale") ||
-    reason.includes("bitte pr") ||
-    reason.includes("teilweise erkannt") ||
-    reason.includes("score begrenzt") ||
-    reason.includes("abweichende explizite nummer")
-  ) {
-    return true;
-  }
-
-  // S0: learned aliases are not separated from normal search aliases yet.
-  if (reason.includes("gelernte zuordnung")) {
-    return true;
-  }
-
-  return false;
-}
-
-
-function normalizeAutoAdoptGuardText(value: unknown) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isManualComboNoAutoAdoptItem(item: {
-  raw_text?: string | null;
-  normalized_name?: string | null;
-  category?: string | null;
-  notes?: string | null;
-}) {
-  const text = normalizeAutoAdoptGuardText([
-    item.raw_text,
-    item.normalized_name,
-    item.category,
-    item.notes,
-  ].filter(Boolean).join(" "));
-
-  if (!text) return false;
-
-  if (text.includes("manual_combo_no_auto_adopt")) {
-    return true;
-  }
-
-  const isCombo = text.includes("kombiposition");
-  const hasCover = text.includes("umschlag");
-  const hasExerciseBook =
-    text.includes("heft") ||
-    text.includes("rechenheft") ||
-    text.includes("schreibheft") ||
-    text.includes("deutschheft") ||
-    text.includes("matheheft") ||
-    text.includes("mathematikheft");
-
-  return isCombo && hasCover && hasExerciseBook;
-}
+const AUTO_PRESELECT_MIN_SCORE =
+  AUTO_SELECTION_MIN_GENERIC_SCORE;
 
 function jsonResponse(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -225,39 +133,7 @@ function isSupportedAnalyzableFile(file: RequestFile) {
   );
 }
 
-function compareMatchesStable(a: RequestMatch, b: RequestMatch) {
-  const scoreDifference =
-    toNumber(b.match_score, 0) - toNumber(a.match_score, 0);
 
-  if (scoreDifference !== 0) return scoreDifference;
-
-  const productNameComparison = String(a.product_name || "").localeCompare(
-    String(b.product_name || ""),
-    "de",
-    {
-      numeric: true,
-      sensitivity: "base",
-    }
-  );
-
-  if (productNameComparison !== 0) return productNameComparison;
-
-  const skuComparison = String(a.product_sku || "").localeCompare(
-    String(b.product_sku || ""),
-    "de",
-    {
-      numeric: true,
-      sensitivity: "base",
-    }
-  );
-
-  if (skuComparison !== 0) return skuComparison;
-
-  return String(a.id).localeCompare(String(b.id), "de", {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
 
 async function createRequestEvent(input: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
@@ -407,164 +283,93 @@ async function insertSafeMatchesIntoOffer(input: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
 }) {
-  const { supabase, requestId } = input;
+  // CENTRAL_WHATSAPP_AUTO_SELECTION_V1
+  const {
+    supabase,
+    requestId,
+  } = input;
 
-  const { data: itemsData, error: itemsError } = await supabase
+  const {
+    data: itemRows,
+    error: itemRowsError,
+  } = await supabase
     .from("school_request_items")
-    .select("*")
-    .eq("request_id", requestId)
-    .order("created_at", { ascending: true });
+    .select("id")
+    .eq(
+      "request_id",
+      requestId,
+    );
 
-  if (itemsError) {
+  if (itemRowsError) {
     throw new Error(
-      `Positionen konnten nicht geladen werden: ${itemsError.message}`
+      `Positionen konnten nicht geladen werden: ${itemRowsError.message}`,
     );
   }
 
-  const items = (itemsData || []) as RequestItem[];
-  const itemIds = items.map((item) => item.id);
+  const itemIds =
+    (itemRows || []).map(
+      (item) =>
+        String(item.id),
+    );
 
-  if (itemIds.length === 0) {
-    return {
-      insertedCount: 0,
-      safeMatchCount: 0,
-      itemCount: 0,
-      matchCount: 0,
-    };
-  }
+  let matchCount = 0;
 
-  const [
-    { data: matchesData, error: matchesError },
-    { data: existingOfferItemsData, error: existingOfferItemsError },
-  ] = await Promise.all([
-    supabase
+  if (itemIds.length > 0) {
+    const {
+      count,
+      error: matchCountError,
+    } = await supabase
       .from("school_request_matches")
-      .select("*")
-      .in("request_item_id", itemIds)
-      .order("request_item_id", { ascending: true })
-      .order("match_score", { ascending: false }),
+      .select(
+        "id",
+        {
+          count: "exact",
+          head: true,
+        },
+      )
+      .in(
+        "request_item_id",
+        itemIds,
+      );
 
-    supabase.from("school_offer_items").select("*").eq("request_id", requestId),
-  ]);
-
-  if (matchesError) {
-    throw new Error(
-      `Produktvorschläge konnten nicht geladen werden: ${matchesError.message}`
-    );
-  }
-
-  if (existingOfferItemsError) {
-    throw new Error(
-      `Bestehende Paketpositionen konnten nicht geladen werden: ${existingOfferItemsError.message}`
-    );
-  }
-
-  const matches = (matchesData || []) as RequestMatch[];
-  const existingOfferItems = (existingOfferItemsData || []) as OfferItem[];
-
-  
-
-  const existingProductIds = new Set(
-    existingOfferItems
-      .map((item) => item.product_id)
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const selectedProductIdsInThisRun = new Set<string>();
-const existingByRequestItem = new Map<string, OfferItem[]>();
-
-  for (const offerItem of existingOfferItems) {
-    if (!offerItem.request_item_id) continue;
-
-    const current = existingByRequestItem.get(offerItem.request_item_id) || [];
-    current.push(offerItem);
-    existingByRequestItem.set(offerItem.request_item_id, current);
-  }
-
-  const matchesByItem = new Map<string, RequestMatch[]>();
-
-  for (const item of items) {
-    const itemMatches = matches
-      .filter((match) => match.request_item_id === item.id)
-      .sort(compareMatchesStable);
-
-    matchesByItem.set(item.id, itemMatches);
-  }
-
-  const autoAdoptableItemIds = new Set(
-    items
-      .filter((item) => !isManualComboNoAutoAdoptItem(item))
-      .map((item) => item.id)
-  );
-
-  const rowsToInsert = items
-    .map((item) => {
-      if (!autoAdoptableItemIds.has(item.id)) return null;
-
-      const existingForItem = existingByRequestItem.get(item.id) || [];
-
-      if (existingForItem.length > 0) return null;
-
-      const bestSafeMatch = (matchesByItem.get(item.id) || [])
-        .filter((match) => {
-          return (
-            Boolean(match.product_id) &&
-            ((toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE && !isUnsafeAutoPreselectMatchReason(match)) && !isAutoPreselectBlockedMatch(match))
-          );
-        })
-        .sort(compareMatchesStable)[0];
-
-      if (!bestSafeMatch) return null;
-
-      const productPrice = toNumber(bestSafeMatch.product_price, 0);
-      const quantity = toNumber(item.quantity, 1) || 1;
-
-      return {
-        request_id: requestId,
-        request_item_id: bestSafeMatch.request_item_id,
-        match_id: bestSafeMatch.id,
-        product_id: bestSafeMatch.product_id,
-        product_name: cleanText(bestSafeMatch.product_name, "Produkt"),
-        product_sku: cleanText(bestSafeMatch.product_sku, "") || null,
-        product_price: productPrice,
-        quantity,
-        unit: "Stk.",
-        source: "auto_preselected",
-        status: "preselected",
-        notes: `Automatisch vorausgewählt, da der Produkttreffer ${toNumber(
-          bestSafeMatch.match_score,
-          0
-        )} % Übereinstimmung erreicht hat.`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => Boolean(row));
-
-  if (rowsToInsert.length > 0) {
-    const { error: insertError } = await supabase
-      .from("school_offer_items")
-      .insert(rowsToInsert);
-
-    if (insertError) {
+    if (matchCountError) {
       throw new Error(
-        `Sichere Treffer konnten nicht in den Paketwunsch übernommen werden: ${insertError.message}`
+        `Produktvorschläge konnten nicht gezählt werden: ${matchCountError.message}`,
       );
     }
+
+    matchCount =
+      count || 0;
   }
 
-  const safeMatchCount = matches.filter(
-    (match) =>
-      Boolean(match.product_id) &&
-      autoAdoptableItemIds.has(match.request_item_id) &&
-      ((toNumber(match.match_score, 0) >= AUTO_PRESELECT_MIN_SCORE && !isUnsafeAutoPreselectMatchReason(match)) && !isAutoPreselectBlockedMatch(match))
-  ).length;
+  const adoptionResult =
+    await adoptSafeRequestMatches({
+      requestId,
+      auditMode: "none",
+    });
+
+  if (!adoptionResult.data.ok) {
+    throw new Error(
+      adoptionResult.data.message ||
+        "Sichere Treffer konnten nicht zentral übernommen werden.",
+    );
+  }
+
+  const insertedCount =
+    (adoptionResult.data.adoptedCount || 0) +
+    (adoptionResult.data.correctedCount || 0) +
+    (adoptionResult.data.refreshedCount || 0);
 
   return {
-    insertedCount: rowsToInsert.length,
-    safeMatchCount,
-    itemCount: items.length,
-    matchCount: matches.length,
+    insertedCount,
+
+    safeMatchCount:
+      insertedCount,
+
+    itemCount:
+      itemIds.length,
+
+    matchCount,
   };
 }
 
@@ -743,6 +548,7 @@ export async function POST(request: NextRequest, context: Params) {
         safeMatchCount: autoPreselectResult.safeMatchCount,
         autoPreselectedCount: autoPreselectResult.insertedCount,
         autoPreselectMinScore: AUTO_PRESELECT_MIN_SCORE,
+        autoSelectionGuardVersion: AUTO_SELECTION_GUARD_VERSION,
       },
     });
 

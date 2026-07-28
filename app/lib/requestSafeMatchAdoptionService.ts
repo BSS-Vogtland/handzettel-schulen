@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { getRequestItemBookIdentity } from "@/lib/requestBookIdentity";
+import {
+  AUTO_SELECTION_GUARD_VERSION,
+  AUTO_SELECTION_MIN_GENERIC_SCORE,
+  selectSafeAutomaticMatch,
+  type AutomaticSelectionProductLike,
+} from "@/lib/requestAutoSelection";
 
 type RequestRow = {
   id: string;
@@ -16,6 +22,10 @@ type RequestItemRow = {
   normalized_name: string | null;
   quantity: number | string | null;
   category?: string | null;
+  product_type?: string | null;
+  format?: string | null;
+  color?: string | null;
+  lineature?: string | null;
   notes?: string | null;
   status?: string | null;
   admin_resolution_status?: string | null;
@@ -34,6 +44,9 @@ type RequestMatchRow = {
   match_score: number | string | null;
   match_reason: string | null;
 };
+
+type ProductRow =
+  AutomaticSelectionProductLike;
 
 type OfferItemRow = {
   id: string;
@@ -81,7 +94,14 @@ type PlannedOfferUpdate = {
   mode: "corrected" | "refreshed";
 };
 
-const SAFE_MATCH_SCORE = 80;
+/*
+ * CENTRAL_AUTO_SELECTION_GUARD_V1
+ *
+ * Admin-Übernahme und customer refresh-products verwenden ab
+ * hier dieselbe strenge Produktidentitäts- und Abstandskontrolle.
+ */
+const SAFE_MATCH_SCORE =
+  AUTO_SELECTION_MIN_GENERIC_SCORE;
 const AUTO_ISBN_IDENTITY_MARKER = "auto_isbn_identity";
 const AUTO_OFFER_SOURCES = new Set(["auto_safe_match", "auto_preselected"]);
 const UNTOUCHED_TIMESTAMP_TOLERANCE_MS = 10_000;
@@ -262,61 +282,6 @@ function compareMatches(a: RequestMatchRow, b: RequestMatchRow) {
     numeric: true,
     sensitivity: "base",
   });
-}
-
-function isExactIsbnIdentityMatch(match: RequestMatchRow) {
-  const score = toNumber(match.match_score, 0);
-  const reason = normalizeGuardText(match.match_reason);
-
-  if (!match.request_item_id || !match.product_id || !match.product_name) {
-    return false;
-  }
-
-  if (score !== 100) {
-    return false;
-  }
-
-  if (!reason.includes("exakte isbn identitat")) {
-    return false;
-  }
-
-  if (
-    reason.includes("admin prufung") ||
-    reason.includes("mehrere aktive produkte")
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function isSafeGenericAutoAdoptMatch(match: RequestMatchRow) {
-  const score = toNumber(match.match_score, 0);
-  const reason = normalizeGuardText(match.match_reason);
-
-  if (!match.request_item_id || !match.product_id || !match.product_name) {
-    return false;
-  }
-
-  if (score < SAFE_MATCH_SCORE) {
-    return false;
-  }
-
-  if (
-    reason.includes("artverwandter kandidat") ||
-    reason.includes("admin pr") ||
-    reason.includes("variantenmerkmale") ||
-    reason.includes("bitte pr") ||
-    reason.includes("teilweise erkannt") ||
-    reason.includes("score begrenzt") ||
-    reason.includes("abweichende explizite nummer") ||
-    reason.includes("gelernte zuordnung") ||
-    reason.includes("mehrere aktive produkte")
-  ) {
-    return false;
-  }
-
-  return true;
 }
 
 function isExpectedAutomaticStatus(item: OfferItemRow) {
@@ -519,32 +484,6 @@ function getOfferItemsByRequestItem(offerItems: OfferItemRow[]) {
   }
 
   return result;
-}
-
-function getUniqueExactIsbnMatches(matches: RequestMatchRow[]) {
-  const uniqueByProductId = new Map<string, RequestMatchRow>();
-
-  for (const match of matches) {
-    if (!isExactIsbnIdentityMatch(match) || !match.product_id) {
-      continue;
-    }
-
-    const existing = uniqueByProductId.get(match.product_id);
-
-    if (!existing || compareMatches(match, existing) < 0) {
-      uniqueByProductId.set(match.product_id, match);
-    }
-  }
-
-  return Array.from(uniqueByProductId.values()).sort(compareMatches);
-}
-
-function getBestSafeGenericMatch(matches: RequestMatchRow[]) {
-  return (
-    matches
-      .filter(isSafeGenericAutoAdoptMatch)
-      .sort(compareMatches)[0] || null
-  );
 }
 
 function buildExactIsbnNotes(params: {
@@ -771,9 +710,11 @@ async function insertRequestEvent(params: {
 
 export async function adoptSafeRequestMatches(input: {
   requestId: string;
+  auditMode?: "always" | "changes_only" | "none";
 }): Promise<SafeMatchAdoptionResult> {
   try {
     const requestId = cleanText(input.requestId);
+    const auditMode = input.auditMode ?? "always";
 
     if (!requestId) {
       return serviceResponse(
@@ -841,6 +782,10 @@ export async function adoptSafeRequestMatches(input: {
           "normalized_name",
           "quantity",
           "category",
+          "product_type",
+          "format",
+          "color",
+          "lineature",
           "notes",
           "status",
           "admin_resolution_status",
@@ -958,7 +903,6 @@ export async function adoptSafeRequestMatches(input: {
         ].join(", "),
       )
       .in("request_item_id", eligibleItemIds)
-      .gte("match_score", SAFE_MATCH_SCORE)
       .order("request_item_id", { ascending: true })
       .order("match_score", { ascending: false })
       .order("product_name", { ascending: true })
@@ -978,6 +922,50 @@ export async function adoptSafeRequestMatches(input: {
     const matches =
       (matchesData || []) as unknown as RequestMatchRow[];
 
+    const productIds = Array.from(
+      new Set(
+        matches
+          .map((match) =>
+            cleanText(match.product_id),
+          )
+          .filter(Boolean),
+      ),
+    );
+
+    const productById =
+      new Map<string, ProductRow>();
+
+    if (productIds.length > 0) {
+      const {
+        data: productsData,
+        error: productsError,
+      } = await supabase
+        .from("school_products")
+        .select("*")
+        .in("id", productIds);
+
+      if (productsError) {
+        return serviceResponse(
+          {
+            ok: false,
+            message:
+              productsError.message,
+          },
+          { status: 500 },
+        );
+      }
+
+      for (
+        const product of
+        (productsData || []) as unknown as ProductRow[]
+      ) {
+        productById.set(
+          product.id,
+          product,
+        );
+      }
+    }
+
     const matchesByRequestItem = getMatchesByRequestItem(matches);
     const offerItemsByRequestItem =
       getOfferItemsByRequestItem(offerItems);
@@ -995,12 +983,23 @@ export async function adoptSafeRequestMatches(input: {
       const existingOfferItems =
         offerItemsByRequestItem.get(item.id) || [];
 
+      const selectionDecision =
+        selectSafeAutomaticMatch({
+          item,
+          matches: itemMatches,
+          productById,
+        });
+
       const bookIdentity = getRequestItemBookIdentity(item);
 
       if (bookIdentity.isBook) {
-        const exactMatches = getUniqueExactIsbnMatches(itemMatches);
+        const exactMatch =
+          selectionDecision.kind ===
+          "exact_isbn"
+            ? selectionDecision.match
+            : null;
 
-        if (exactMatches.length !== 1) {
+        if (!exactMatch) {
           if (existingOfferItems.length > 0) {
             protectedCount += 1;
           }
@@ -1008,7 +1007,6 @@ export async function adoptSafeRequestMatches(input: {
           continue;
         }
 
-        const exactMatch = exactMatches[0];
         exactIsbnCount += 1;
 
         if (existingOfferItems.length === 0) {
@@ -1107,7 +1105,11 @@ export async function adoptSafeRequestMatches(input: {
         continue;
       }
 
-      const bestMatch = getBestSafeGenericMatch(itemMatches);
+      const bestMatch =
+        selectionDecision.kind ===
+        "generic"
+          ? selectionDecision.match
+          : null;
 
       if (!bestMatch) {
         continue;
@@ -1281,20 +1283,30 @@ export async function adoptSafeRequestMatches(input: {
       protectedCount,
     });
 
-    await insertRequestEvent({
-      supabase,
-      requestId,
-      eventType: "safe_matches_adopted",
-      title:
-        insertedCount + correctedCount + refreshedCount > 0
-          ? "Sichere Treffer übernommen"
-          : "Keine sicheren Treffer übernommen",
-      description: [
-        message,
-        `Mindestscore für normale automatische Treffer: ${SAFE_MATCH_SCORE} %.`,
-        `Eindeutige ISBN-Zuordnungen verarbeitet: ${exactIsbnCount}.`,
-      ].join(" "),
-    });
+    // AUTO_SELECTION_AUDIT_MODE_V1
+    if (
+      auditMode === "always" ||
+      (
+        auditMode === "changes_only" &&
+        handledItemCount > 0
+      )
+    ) {
+      await insertRequestEvent({
+        supabase,
+        requestId,
+        eventType: "safe_matches_adopted",
+        title:
+          insertedCount + correctedCount + refreshedCount > 0
+            ? "Sichere Treffer übernommen"
+            : "Keine sicheren Treffer übernommen",
+        description: [
+          message,
+          `Mindestscore für normale automatische Treffer: ${SAFE_MATCH_SCORE} %.`,
+          `Eindeutige ISBN-Zuordnungen verarbeitet: ${exactIsbnCount}.`,
+          `Zentrale Auswahlregel: ${AUTO_SELECTION_GUARD_VERSION}.`,
+        ].join(" "),
+      });
+    }
 
     return serviceResponse({
       ok: true,
