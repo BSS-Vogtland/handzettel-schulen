@@ -597,6 +597,7 @@ export async function POST(
 
     const {
       data: latestDraftData,
+      error: latestActiveInvoiceError,
     } = await supabase
       .from("school_request_invoices")
       .select(
@@ -608,9 +609,9 @@ export async function POST(
         ].join(", "),
       )
       .eq("request_id", requestId)
-      .eq(
+      .in(
         "invoice_status",
-        "draft",
+        ["draft", "sent"],
       )
       .order(
         "created_at",
@@ -618,6 +619,20 @@ export async function POST(
       )
       .limit(1)
       .maybeSingle();
+
+    if (latestActiveInvoiceError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code:
+            "ACTIVE_INVOICE_LOOKUP_FAILED",
+          message:
+            "Bestehende Rechnung konnte nicht geprüft werden: " +
+              latestActiveInvoiceError.message,
+        },
+        { status: 500 },
+      );
+    }
 
     const latestDraft =
       latestDraftData as unknown as
@@ -686,6 +701,54 @@ export async function POST(
 
       admin_note: adminNote,
     };
+
+    /*
+     * ADMIN_INVOICE_DUPLICATE_GUARD_V3
+     *
+     * Nur ein echter, noch nicht verwendeter Entwurf darf
+     * aktualisiert werden. Versandte Rechnungen und Rechnungen
+     * mit begonnenem oder abgeschlossenem Zahlungsvorgang sind
+     * unveränderlich.
+     */
+    const existingInvoicePaymentStatus =
+      String(
+        latestDraft?.payment_status || "",
+      ).trim();
+
+    const existingInvoiceCanBeUpdated =
+      latestDraft?.invoice_status ===
+        "draft" &&
+      (
+        existingInvoicePaymentStatus ===
+          "" ||
+        existingInvoicePaymentStatus ===
+          "not_selected"
+      );
+
+    if (
+      latestDraft?.id &&
+      !existingInvoiceCanBeUpdated
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code:
+            "ACTIVE_INVOICE_ALREADY_EXISTS",
+          message:
+            "Für diese Anfrage existiert bereits eine aktive, versandte oder im Zahlungsvorgang befindliche Rechnung. Sie darf nicht durch einen neuen Rechnungsentwurf ersetzt werden.",
+          invoice: {
+            id: latestDraft.id,
+            invoiceNumber:
+              latestDraft.invoice_number,
+            invoiceStatus:
+              latestDraft.invoice_status,
+            paymentStatus:
+              latestDraft.payment_status,
+          },
+        },
+        { status: 409 },
+      );
+    }
 
     if (latestDraft?.id) {
       invoiceId =
@@ -772,6 +835,25 @@ export async function POST(
           ].join(", "),
         )
         .single();
+
+      /*
+       * ADMIN_INVOICE_UNIQUE_CONFLICT_GUARD_V3
+       *
+       * Der partielle Unique-Index verhindert parallele aktive
+       * Rechnungen. Eine Kollision wird als kontrollierter
+       * Konflikt statt als allgemeiner Serverfehler beantwortet.
+       */
+      if (invoiceError?.code === "23505") {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "INVOICE_CONFLICT",
+            message:
+              "Für diese Anfrage existiert bereits eine aktive Rechnung oder die Rechnungsnummer wurde zwischenzeitlich vergeben. Bitte lade die Anfrage neu.",
+          },
+          { status: 409 },
+        );
+      }
 
       if (
         invoiceError ||
