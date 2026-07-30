@@ -1,4 +1,3 @@
-
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendRequestInvoiceMail } from "@/app/lib/requestInvoiceMailService";
@@ -7,6 +6,16 @@ import {
   calculateBookCommerceTotal,
   getBookCommerceLineSnapshot,
 } from "@/lib/bookCommerce";
+import {
+  buildCheckoutInvoiceTaxSnapshot,
+} from "@/lib/invoiceTaxCheckoutAdapter";
+import {
+  resolveInvoiceTaxCutover,
+} from "@/lib/invoiceTaxCutover";
+import {
+  buildInvoiceTaxSnapshotV2,
+  type InvoiceTaxSnapshotV2EntryInput,
+} from "@/lib/tax-v2";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
 export const runtime = "nodejs";
@@ -89,6 +98,7 @@ type RequestItemRow = {
 
 type ProductBookRow = {
   id: string;
+  tax_rate: number | string | null;
   is_book: boolean | null;
   book_isbn13: string | null;
   ean: string | null;
@@ -102,7 +112,27 @@ type InvoiceRow = {
   payment_status: string | null;
 };
 
+type InvoiceCutoverSettingsRow = {
+  timezone_name: string;
+  invoice_cutover_at: string;
+  invoice_provider_before: string;
+  invoice_provider_after: string;
+  invoice_cutover_version: string;
+};
+
 const SHIPPING_AMOUNT = 5.95;
+
+/*
+ * Separat berechnete Buchhüllen sind keine Bücher.
+ *
+ * Bis eine eigene Katalog- oder Konfigurationsquelle besteht,
+ * werden sie ausdrücklich mit dem deutschen Regelsteuersatz
+ * behandelt.
+ *
+ * Diese Policy entspricht der bereits im Checkout-Preview
+ * verwendeten und validierten Steuerregel.
+ */
+const BOOK_COVER_TAX_RATE = 19 as const;
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -110,7 +140,7 @@ function getSupabaseAdmin() {
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
+      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
@@ -137,43 +167,74 @@ async function readBodySafely(request: Request): Promise<CheckoutBody> {
 }
 
 function cleanString(value: unknown, fallback = "") {
-  if (value === null || value === undefined) return fallback;
+  if (value === null || value === undefined) {
+    return fallback;
+  }
 
   const text = String(value).trim();
+
   return text.length > 0 ? text : fallback;
 }
 
 function cleanNullableString(value: unknown) {
   const text = cleanString(value);
+
   return text.length > 0 ? text : null;
 }
 
 function toNumber(value: unknown, fallback = 0) {
-  if (value === null || value === undefined || value === "") return fallback;
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : fallback;
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
   }
 
-  const parsed = Number(String(value).replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : fallback;
+  if (typeof value === "number") {
+    return Number.isFinite(value)
+      ? value
+      : fallback;
+  }
+
+  const parsed = Number(
+    String(value).replace(",", "."),
+  );
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : fallback;
 }
 
 function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return (
+    Math.round(
+      (value + Number.EPSILON) * 100,
+    ) / 100
+  );
 }
 
 async function getInvoiceNumber(
-  supabase: ReturnType<typeof getSupabaseAdmin>
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  checkoutNowDate: Date,
 ): Promise<string> {
-  const { data, error } = await supabase.rpc("generate_school_invoice_number");
+  const { data, error } = await supabase.rpc(
+    "generate_school_invoice_number",
+  );
 
-  if (!error && typeof data === "string" && data.trim().length > 0) {
+  if (
+    !error &&
+    typeof data === "string" &&
+    data.trim().length > 0
+  ) {
     return data;
   }
 
-  const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 99999)
+  const year = checkoutNowDate.getFullYear();
+
+  const random = Math.floor(
+    Math.random() * 99999,
+  )
     .toString()
     .padStart(5, "0");
 
@@ -187,9 +248,22 @@ async function insertRequestEvent(params: {
   title: string;
   description: string;
   metadata?: Record<string, unknown>;
+  createdAt?: string;
 }) {
-  const { supabase, requestId, eventType, title, description, metadata } = params;
-  const createdAt = new Date().toISOString();
+  const {
+    supabase,
+    requestId,
+    eventType,
+    title,
+    description,
+    metadata,
+    createdAt:
+      providedCreatedAt,
+  } = params;
+
+  const createdAt =
+    providedCreatedAt ||
+    new Date().toISOString();
 
   const payloads = [
     {
@@ -217,8 +291,13 @@ async function insertRequestEvent(params: {
   ];
 
   for (const payload of payloads) {
-    const { error } = await supabase.from("school_request_events").insert(payload);
-    if (!error) return;
+    const { error } = await supabase
+      .from("school_request_events")
+      .insert(payload);
+
+    if (!error) {
+      return;
+    }
   }
 }
 
@@ -226,21 +305,33 @@ async function sendCustomerInvoiceMailSafely(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   invoiceNumber: string | null;
+  createdAt: string;
 }) {
-  const { supabase, requestId, invoiceNumber } = params;
+  const {
+    supabase,
+    requestId,
+    invoiceNumber,
+    createdAt,
+  } = params;
 
   try {
-    const result = await sendRequestInvoiceMail({ requestId });
+    const result =
+      await sendRequestInvoiceMail({
+        requestId,
+      });
 
     if (!result.data.ok) {
       await insertRequestEvent({
         supabase,
         requestId,
-        eventType: "customer_invoice_mail_failed",
-        title: "Rechnungsmail an Kunde fehlgeschlagen",
+        eventType:
+          "customer_invoice_mail_failed",
+        title:
+          "Rechnungsmail an Kunde fehlgeschlagen",
         description:
           result.data.message ||
           "Die Rechnungsmail an den Kunden konnte nach dem Handzettel-Checkout nicht automatisch versendet werden.",
+        createdAt,
       });
 
       return;
@@ -249,136 +340,329 @@ async function sendCustomerInvoiceMailSafely(params: {
     await insertRequestEvent({
       supabase,
       requestId,
-      eventType: "customer_invoice_mail_sent_after_handzettel_checkout",
-      title: "Rechnungsmail an Kunde versendet",
-      description: `Die Rechnung ${invoiceNumber || ""} wurde nach dem Handzettel-Checkout automatisch an den Kunden versendet.`,
+      eventType:
+        "customer_invoice_mail_sent_after_handzettel_checkout",
+      title:
+        "Rechnungsmail an Kunde versendet",
+      description:
+        `Die Rechnung ${invoiceNumber || ""} wurde nach dem Handzettel-Checkout automatisch an den Kunden versendet.`,
+      createdAt,
     });
   } catch (error) {
-    console.error("Kunden-Rechnungsmail nach Handzettel-Checkout fehlgeschlagen:", error);
+    console.error(
+      "Kunden-Rechnungsmail nach Handzettel-Checkout fehlgeschlagen:",
+      error,
+    );
 
     await insertRequestEvent({
       supabase,
       requestId,
-      eventType: "customer_invoice_mail_failed",
-      title: "Rechnungsmail an Kunde fehlgeschlagen",
+      eventType:
+        "customer_invoice_mail_failed",
+      title:
+        "Rechnungsmail an Kunde fehlgeschlagen",
       description:
         error instanceof Error
           ? error.message
           : "Die Rechnungsmail an den Kunden konnte nach dem Handzettel-Checkout nicht automatisch versendet werden.",
+      createdAt,
     });
   }
 }
 
-export async function POST(request: Request, context: RouteContext) {
+async function loadInvoiceCutoverSettings(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+) {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from(
+      "business_runtime_settings",
+    )
+    .select(
+      [
+        "timezone_name",
+        "invoice_cutover_at",
+        "invoice_provider_before",
+        "invoice_provider_after",
+        "invoice_cutover_version",
+      ].join(", "),
+    )
+    .eq(
+      "id",
+      "default",
+    )
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Rechnungs-Cutover-Konfiguration konnte nicht geladen werden: ${error.message}`,
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      "business_runtime_settings/default fehlt.",
+    );
+  }
+
+  return data as unknown as
+    InvoiceCutoverSettingsRow;
+}
+
+export async function POST(
+  request: Request,
+  context: RouteContext,
+) {
+  const checkoutNowDate = new Date();
+  const now = checkoutNowDate.toISOString();
+
   try {
-    const { token } = await context.params;
-    const offerToken = String(token || "").trim();
+    const { token } =
+      await context.params;
+
+    const offerToken =
+      String(token || "").trim();
 
     if (!offerToken) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Kein Paketwunsch-Token übergeben.",
+          message:
+            "Kein Paketwunsch-Token übergeben.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    const body = await readBodySafely(request);
+    const body =
+      await readBodySafely(request);
 
-    const customerName = cleanString(body.customerName);
-    const email = cleanString(body.email).toLowerCase();
-    const phone = cleanNullableString(body.phone);
+    const customerName =
+      cleanString(body.customerName);
 
-    const billingName = cleanString(body.billingName || customerName);
-    const billingEmail = cleanString(body.billingEmail || email).toLowerCase();
-    const billingPhone = cleanNullableString(body.billingPhone || phone);
-    const billingStreet = cleanString(body.billingStreet);
-    const billingPostalCode = cleanString(body.billingPostalCode);
-    const billingCity = cleanString(body.billingCity);
+    const email =
+      cleanString(body.email)
+        .toLowerCase();
 
-    const shippingAddressDiffers = Boolean(body.shippingAddressDiffers);
-    const shippingName = shippingAddressDiffers
-      ? cleanString(body.shippingName)
-      : null;
-    const shippingStreet = shippingAddressDiffers
-      ? cleanString(body.shippingStreet)
-      : null;
-    const shippingPostalCode = shippingAddressDiffers
-      ? cleanString(body.shippingPostalCode)
-      : null;
-    const shippingCity = shippingAddressDiffers
-      ? cleanString(body.shippingCity)
-      : null;
+    const phone =
+      cleanNullableString(body.phone);
 
-    const fulfillmentMethod: FulfillmentMethod =
-      body.fulfillmentMethod === "shipping" ? "shipping" : "pickup";
+    const billingName =
+      cleanString(
+        body.billingName ||
+          customerName,
+      );
 
-    const paymentMethod: PaymentMethod =
-      body.paymentMethod === "bank_transfer" ? "bank_transfer" : "paypal";
+    const billingEmail =
+      cleanString(
+        body.billingEmail ||
+          email,
+      ).toLowerCase();
+
+    const billingPhone =
+      cleanNullableString(
+        body.billingPhone ||
+          phone,
+      );
+
+    const billingStreet =
+      cleanString(
+        body.billingStreet,
+      );
+
+    const billingPostalCode =
+      cleanString(
+        body.billingPostalCode,
+      );
+
+    const billingCity =
+      cleanString(
+        body.billingCity,
+      );
+
+    const shippingAddressDiffers =
+      Boolean(
+        body.shippingAddressDiffers,
+      );
+
+    const shippingName =
+      shippingAddressDiffers
+        ? cleanString(
+            body.shippingName,
+          )
+        : null;
+
+    const shippingStreet =
+      shippingAddressDiffers
+        ? cleanString(
+            body.shippingStreet,
+          )
+        : null;
+
+    const shippingPostalCode =
+      shippingAddressDiffers
+        ? cleanString(
+            body.shippingPostalCode,
+          )
+        : null;
+
+    const shippingCity =
+      shippingAddressDiffers
+        ? cleanString(
+            body.shippingCity,
+          )
+        : null;
+
+    const fulfillmentMethod:
+      FulfillmentMethod =
+        body.fulfillmentMethod ===
+        "shipping"
+          ? "shipping"
+          : "pickup";
+
+    const paymentMethod:
+      PaymentMethod =
+        body.paymentMethod ===
+        "bank_transfer"
+          ? "bank_transfer"
+          : "paypal";
 
     const paymentProvider =
-      paymentMethod === "paypal" ? "paypal" : "bank_transfer";
+      paymentMethod === "paypal"
+        ? "paypal"
+        : "bank_transfer";
 
-    const customerMessage = cleanNullableString(body.customerMessage);
+    const customerMessage =
+      cleanNullableString(
+        body.customerMessage,
+      );
 
     if (!customerName) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib Deinen Namen ein.",
+          message:
+            "Bitte gib Deinen Namen ein.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    if (!email || !email.includes("@")) {
+    if (
+      !email ||
+      !email.includes("@")
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib eine gültige E-Mail-Adresse ein.",
+          message:
+            "Bitte gib eine gültige E-Mail-Adresse ein.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    if (!billingName || !billingEmail || !billingEmail.includes("@")) {
+    if (
+      !billingName ||
+      !billingEmail ||
+      !billingEmail.includes("@")
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib gültige Rechnungsdaten ein.",
+          message:
+            "Bitte gib gültige Rechnungsdaten ein.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    if (!billingStreet || !billingPostalCode || !billingCity) {
+    if (
+      !billingStreet ||
+      !billingPostalCode ||
+      !billingCity
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib Deine vollständige Rechnungsadresse ein.",
+          message:
+            "Bitte gib Deine vollständige Rechnungsadresse ein.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
     if (
       shippingAddressDiffers &&
-      (!shippingName || !shippingStreet || !shippingPostalCode || !shippingCity)
+      (
+        !shippingName ||
+        !shippingStreet ||
+        !shippingPostalCode ||
+        !shippingCity
+      )
     ) {
       return NextResponse.json(
         {
           ok: false,
-          message: "Bitte gib die vollständige abweichende Lieferadresse ein.",
+          message:
+            "Bitte gib die vollständige abweichende Lieferadresse ein.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    const supabase = getSupabaseAdmin();
-    const now = new Date().toISOString();
+    const supabase =
+      getSupabaseAdmin();
 
-    const { data: requestData, error: requestError } = await supabase
+    const invoiceCutoverSettings =
+      await loadInvoiceCutoverSettings(
+        supabase,
+      );
+
+    const cutoverDecision =
+      resolveInvoiceTaxCutover({
+        now:
+          checkoutNowDate,
+
+        invoiceCutoverAt:
+          invoiceCutoverSettings
+            .invoice_cutover_at,
+
+        timezoneName:
+          invoiceCutoverSettings
+            .timezone_name,
+
+        invoiceProviderBefore:
+          invoiceCutoverSettings
+            .invoice_provider_before,
+
+        invoiceProviderAfter:
+          invoiceCutoverSettings
+            .invoice_provider_after,
+
+        invoiceCutoverVersion:
+          invoiceCutoverSettings
+            .invoice_cutover_version,
+      });
+
+    const {
+      data: requestData,
+      error: requestError,
+    } = await supabase
       .from("school_requests")
       .select(
         [
@@ -396,25 +680,42 @@ export async function POST(request: Request, context: RouteContext) {
           "checkout_override_at",
           "checkout_override_note",
           "checkout_override_by",
-        ].join(", ")
+        ].join(", "),
       )
-      .eq("offer_token", offerToken)
+      .eq(
+        "offer_token",
+        offerToken,
+      )
       .maybeSingle();
 
-    if (requestError || !requestData) {
+    if (
+      requestError ||
+      !requestData
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          message: requestError?.message || "Der Paketwunsch wurde nicht gefunden.",
+          message:
+            requestError?.message ||
+            "Der Paketwunsch wurde nicht gefunden.",
         },
-        { status: 404 }
+        {
+          status: 404,
+        },
       );
     }
 
-    const requestRow = requestData as unknown as RequestRow;
-    const requestId = requestRow.id;
+    const requestRow =
+      requestData as unknown as
+        RequestRow;
 
-    const { data: offerItemsData, error: offerItemsError } = await supabase
+    const requestId =
+      requestRow.id;
+
+    const {
+      data: offerItemsData,
+      error: offerItemsError,
+    } = await supabase
       .from("school_offer_items")
       .select(
         [
@@ -434,153 +735,291 @@ export async function POST(request: Request, context: RouteContext) {
           "book_isbn13_snapshot",
           "book_cover_selected",
           "book_cover_unit_price",
-        ].join(", ")
+        ].join(", "),
       )
-      .eq("request_id", requestId)
-      .order("created_at", { ascending: true });
+      .eq(
+        "request_id",
+        requestId,
+      )
+      .order(
+        "created_at",
+        {
+          ascending: true,
+        },
+      );
 
     if (offerItemsError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Paketpositionen konnten nicht geladen werden: ${offerItemsError.message}`,
+          message:
+            `Paketpositionen konnten nicht geladen werden: ${offerItemsError.message}`,
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
-    const offerItems = (offerItemsData || []) as unknown as OfferItemRow[];
+    const offerItems =
+      (
+        offerItemsData || []
+      ) as unknown as
+        OfferItemRow[];
 
-    if (offerItems.length === 0) {
+    if (
+      offerItems.length === 0
+    ) {
       return NextResponse.json(
         {
           ok: false,
           message:
             "Dein Paketwunsch enthält noch keine Produkte und kann noch nicht bestellt werden.",
         },
-        { status: 409 }
+        {
+          status: 409,
+        },
       );
     }
 
-    const offerProductIds = Array.from(
-      new Set(
-        offerItems
-          .map((item) => item.product_id)
-          .filter((productId): productId is string => Boolean(productId))
-      )
-    );
+    const offerProductIds =
+      Array.from(
+        new Set(
+          offerItems
+            .map(
+              (item) =>
+                item.product_id,
+            )
+            .filter(
+              (
+                productId,
+              ): productId is string =>
+                Boolean(productId),
+            ),
+        ),
+      );
 
-    const productBookById = new Map<string, ProductBookRow>();
+    const productBookById =
+      new Map<
+        string,
+        ProductBookRow
+      >();
 
-    if (offerProductIds.length > 0) {
-      const { data: productBookData, error: productBookError } =
-        await supabase
-          .from("school_products")
-          .select("id, is_book, book_isbn13, ean")
-          .in("id", offerProductIds);
+    if (
+      offerProductIds.length > 0
+    ) {
+      const {
+        data: productBookData,
+        error: productBookError,
+      } = await supabase
+        .from("school_products")
+        .select(
+          [
+            "id",
+            "tax_rate",
+            "is_book",
+            "book_isbn13",
+            "ean",
+          ].join(", "),
+        )
+        .in(
+          "id",
+          offerProductIds,
+        );
 
       if (productBookError) {
         return NextResponse.json(
           {
             ok: false,
-            message: `Buchinformationen konnten nicht geladen werden: ${productBookError.message}`,
+            message:
+              `Produkt- und Steuerinformationen konnten nicht geladen werden: ${productBookError.message}`,
           },
-          { status: 500 }
+          {
+            status: 500,
+          },
         );
       }
 
-      for (const product of (productBookData || []) as unknown as ProductBookRow[]) {
-        productBookById.set(product.id, product);
+      for (
+        const product of
+        (
+          productBookData || []
+        ) as unknown as
+          ProductBookRow[]
+      ) {
+        productBookById.set(
+          product.id,
+          product,
+        );
       }
     }
 
-    const bookCommerceLineByOfferItemId = new Map(
-      offerItems.map((item) => {
-        const product = item.product_id
-          ? productBookById.get(item.product_id) || null
-          : null;
+    const bookCommerceLineByOfferItemId =
+      new Map(
+        offerItems.map(
+          (item) => {
+            const product =
+              item.product_id
+                ? productBookById.get(
+                    item.product_id,
+                  ) || null
+                : null;
 
-        return [
-          item.id,
-          {
-            quantity: item.quantity,
+            return [
+              item.id,
+              {
+                quantity:
+                  item.quantity,
 
-            is_book_snapshot: item.is_book_snapshot,
-            book_isbn13_snapshot: item.book_isbn13_snapshot,
+                is_book_snapshot:
+                  item.is_book_snapshot,
 
-            is_book: product?.is_book ?? null,
-            book_isbn13:
-              product?.book_isbn13 ||
-              product?.ean ||
-              null,
+                book_isbn13_snapshot:
+                  item.book_isbn13_snapshot,
 
-            book_cover_selected: item.book_cover_selected,
-            book_cover_unit_price: item.book_cover_unit_price,
+                is_book:
+                  product?.is_book ??
+                  null,
+
+                book_isbn13:
+                  product?.book_isbn13 ||
+                  product?.ean ||
+                  null,
+
+                book_cover_selected:
+                  item.book_cover_selected,
+
+                book_cover_unit_price:
+                  item.book_cover_unit_price,
+              },
+            ] as const;
           },
-        ] as const;
-      })
-    );
+        ),
+      );
 
-    const { data: requestItemsData, error: requestItemsError } = await supabase
+    const {
+      data: requestItemsData,
+      error: requestItemsError,
+    } = await supabase
       .from("school_request_items")
       .select(
         [
           "id",
           "status",
           "admin_resolution_status",
-        ].join(", ")
+        ].join(", "),
       )
-      .eq("request_id", requestId);
+      .eq(
+        "request_id",
+        requestId,
+      );
 
     if (requestItemsError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
+          message:
+            `Listenpositionen konnten nicht geprüft werden: ${requestItemsError.message}`,
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
-    const requestItems = ((requestItemsData || []) as unknown) as RequestItemRow[];
-    const blockingState = getRequestBlockingState(
-      requestItems,
-      offerItems,
-      requestRow.checkout_override_enabled === true
-    );
-    const coveredRequestItemIds = blockingState.coveredRequestItemIds;
-    const checkoutBlockingRequestItems = blockingState.effectiveBlockingItems;
+    const requestItems =
+      (
+        (
+          requestItemsData || []
+        ) as unknown
+      ) as RequestItemRow[];
 
-    if (checkoutBlockingRequestItems.length > 0) {
+    const blockingState =
+      getRequestBlockingState(
+        requestItems,
+        offerItems,
+        requestRow
+          .checkout_override_enabled ===
+          true,
+      );
+
+    const coveredRequestItemIds =
+      blockingState
+        .coveredRequestItemIds;
+
+    const checkoutBlockingRequestItems =
+      blockingState
+        .effectiveBlockingItems;
+
+    if (
+      checkoutBlockingRequestItems.length >
+      0
+    ) {
       await supabase
         .from("school_requests")
         .update({
-          status: "manual_review",
-          offer_status: "customer_selection",
-          updated_at: now,
+          status:
+            "manual_review",
+
+          offer_status:
+            "customer_selection",
+
+          updated_at:
+            now,
         })
-        .eq("id", requestId);
+        .eq(
+          "id",
+          requestId,
+        );
 
       await insertRequestEvent({
         supabase,
         requestId,
-        eventType: "customer_package_submitted_manual_review",
-        title: "Paketwunsch benötigt Prüfung",
+        eventType:
+          "customer_package_submitted_manual_review",
+        title:
+          "Paketwunsch benötigt Prüfung",
         description:
           "Der Kunde wollte den Paketwunsch bestellen, aber es gibt noch offene Listenpositionen. Das Team muss den Paketwunsch prüfen.",
         metadata: {
-          open_request_items_count: checkoutBlockingRequestItems.length,
-          covered_request_item_ids: Array.from(coveredRequestItemIds),
-          checkout_blocking_items: checkoutBlockingRequestItems.map((item) => ({
-            id: item.id,
-            status: item.status,
-            admin_resolution_status: item.admin_resolution_status,
-            is_covered_by_offer_item: coveredRequestItemIds.has(item.id),
-            is_resolved_for_checkout: false,
-          })),
-          offer_items_count: offerItems.length,
-          request_items_count: requestItems.length,
+          open_request_items_count:
+            checkoutBlockingRequestItems.length,
+
+          covered_request_item_ids:
+            Array.from(
+              coveredRequestItemIds,
+            ),
+
+          checkout_blocking_items:
+            checkoutBlockingRequestItems.map(
+              (item) => ({
+                id:
+                  item.id,
+
+                status:
+                  item.status,
+
+                admin_resolution_status:
+                  item.admin_resolution_status,
+
+                is_covered_by_offer_item:
+                  coveredRequestItemIds.has(
+                    item.id,
+                  ),
+
+                is_resolved_for_checkout:
+                  false,
+              }),
+            ),
+
+          offer_items_count:
+            offerItems.length,
+
+          request_items_count:
+            requestItems.length,
         },
+        createdAt:
+          now,
       });
 
       return NextResponse.json(
@@ -589,107 +1028,850 @@ export async function POST(request: Request, context: RouteContext) {
           message:
             "In Deinem Paketwunsch sind noch offene Positionen. Das Team von Handzettel-Schulen.de prüft diese zuerst. Danach bekommst Du den fertigen Paketwunsch zur finalen Bestellung.",
         },
-        { status: 409 }
+        {
+          status: 409,
+        },
       );
     }
 
-    if (coveredRequestItemIds.size > 0) {
-      const { error: syncSelectedRequestItemsError } = await supabase
+    if (
+      coveredRequestItemIds.size >
+      0
+    ) {
+      const {
+        error:
+          syncSelectedRequestItemsError,
+      } = await supabase
         .from("school_request_items")
         .update({
-          status: "selected",
-          updated_at: now,
-        })
-        .eq("request_id", requestId)
-        .in("id", Array.from(coveredRequestItemIds));
+          status:
+            "selected",
 
-      if (syncSelectedRequestItemsError) {
+          updated_at:
+            now,
+        })
+        .eq(
+          "request_id",
+          requestId,
+        )
+        .in(
+          "id",
+          Array.from(
+            coveredRequestItemIds,
+          ),
+        );
+
+      if (
+        syncSelectedRequestItemsError
+      ) {
         console.error(
           "Checkout request item selected sync failed:",
-          syncSelectedRequestItemsError
+          syncSelectedRequestItemsError,
         );
       }
     }
 
     const shippingAmount =
-      fulfillmentMethod === "shipping" ? SHIPPING_AMOUNT : 0;
+      fulfillmentMethod ===
+      "shipping"
+        ? SHIPPING_AMOUNT
+        : 0;
 
-    const subtotalAmount = roundMoney(
-      offerItems.reduce((sum, item) => {
-        return (
-          sum +
-          toNumber(item.quantity, 1) * toNumber(item.product_price, 0)
+    const subtotalAmount =
+      roundMoney(
+        offerItems.reduce(
+          (
+            sum,
+            item,
+          ) => {
+            return (
+              sum +
+              toNumber(
+                item.quantity,
+                1,
+              ) *
+                toNumber(
+                  item.product_price,
+                  0,
+                )
+            );
+          },
+          0,
+        ),
+      );
+
+    const bookSummary =
+      calculateBookCommerceSummary(
+        Array.from(
+          bookCommerceLineByOfferItemId
+            .values(),
+        ),
+        fulfillmentMethod,
+      );
+
+    const totalAmount =
+      calculateBookCommerceTotal({
+        subtotalAmount,
+        regularShippingAmount:
+          shippingAmount,
+        bookSummary,
+      });
+
+    /*
+     * INVOICE_TAX_SNAPSHOT_CHECKOUT_PERSISTENCE_V1
+     *
+     * Der Steuer-Snapshot wird unmittelbar vor der verbindlichen
+     * Rechnungserstellung aus den bestellten Positionen und den
+     * zu diesem Zeitpunkt gültigen Katalog-Steuersätzen erzeugt.
+     *
+     * Die bisherige Bruttoberechnung bleibt unverändert führend.
+     * Der neue Adapter muss sämtliche Bruttokomponenten centgenau
+     * bestätigen. Bei einer Abweichung wird der Checkout vor dem
+     * Rechnungsinsert abgebrochen.
+     */
+    const checkoutTaxSnapshot =
+      buildCheckoutInvoiceTaxSnapshot({
+        currency:
+          "EUR",
+
+        snapshotAt:
+          now,
+
+        lines:
+          offerItems.map(
+            (item) => ({
+              key:
+                item.id,
+
+              productId:
+                item.product_id,
+
+              productName:
+                item.product_name,
+
+              quantity:
+                item.quantity,
+
+              unitPriceGross:
+                item.product_price,
+
+              isBookSnapshot:
+                item.is_book_snapshot,
+
+              bookCoverSelected:
+                item.book_cover_selected,
+
+              bookCoverUnitPriceGross:
+                item.book_cover_unit_price,
+            }),
+          ),
+
+        products:
+          Array.from(
+            productBookById.values(),
+          ).map(
+            (product) => ({
+              id:
+                product.id,
+
+              taxRate:
+                product.tax_rate,
+
+              isBook:
+                product.is_book ===
+                true,
+
+              /*
+               * school_products besitzt derzeit keine einheitliche
+               * is_active-Spalte. Erfolgreich geladene Produkte,
+               * die bereits im Paketwunsch enthalten sind, werden
+               * für den verbindlichen Snapshot als aktiv behandelt.
+               */
+              active:
+                true,
+            }),
+          ),
+
+        regularShippingGrossAmount:
+          shippingAmount,
+
+        bookShippingGrossAmount:
+          bookSummary
+            .bookShippingAmount,
+
+        discountGrossAmount:
+          0,
+
+        bookCoverTaxRate:
+          BOOK_COVER_TAX_RATE,
+
+        bookShippingAllocationScope:
+          "book_products_only",
+
+        discountAllocationScope:
+          "products_only",
+
+        expectedGrossAmounts: {
+          subtotal:
+            subtotalAmount,
+
+          regular_shipping:
+            shippingAmount,
+
+          book_shipping:
+            bookSummary
+              .bookShippingAmount,
+
+          book_covers:
+            bookSummary
+              .bookCoverAmount,
+
+          discount:
+            0,
+
+          total:
+            totalAmount,
+        },
+
+        requireExpectedGrossAmountsMatch:
+          true,
+      });
+
+    const v2Entries:
+      InvoiceTaxSnapshotV2EntryInput[] =
+        [];
+
+    if (
+      cutoverDecision
+        .cutoverReached
+    ) {
+      for (const item of offerItems) {
+        const product =
+          item.product_id
+            ? productBookById.get(
+                item.product_id,
+              )
+            : null;
+
+        if (!product) {
+          throw new Error(
+            `Für die Rechnungsposition ${item.product_name} fehlen die verbindlichen Produkt- und Steuerinformationen.`,
+          );
+        }
+
+        const quantity =
+          toNumber(
+            item.quantity,
+            1,
+          );
+
+        v2Entries.push({
+          key:
+            `product:${item.id}`,
+
+          component:
+            "product",
+
+          itemKey:
+            item.id,
+
+          productId:
+            product.id,
+
+          productName:
+            item.product_name,
+
+          quantity,
+
+          taxRatePercentage:
+            toNumber(
+              product.tax_rate,
+            ) as 7 | 19,
+
+          grossAmount:
+            roundMoney(
+              quantity *
+                toNumber(
+                  item.product_price,
+                ),
+            ),
+
+          isBook:
+            item.is_book_snapshot ??
+            product.is_book ===
+              true,
+        });
+
+        const bookLine =
+          getBookCommerceLineSnapshot(
+            bookCommerceLineByOfferItemId.get(
+              item.id,
+            ) || {
+              quantity:
+                item.quantity,
+            },
+          );
+
+        if (
+          bookLine
+            .bookCoverTotalPrice >
+          0
+        ) {
+          v2Entries.push({
+            key:
+              `book-cover:${item.id}`,
+
+            component:
+              "book_cover",
+
+            itemKey:
+              item.id,
+
+            taxRatePercentage:
+              BOOK_COVER_TAX_RATE,
+
+            grossAmount:
+              bookLine
+                .bookCoverTotalPrice,
+          });
+        }
+      }
+
+      for (
+        const rate of
+        checkoutTaxSnapshot
+          .taxSnapshot
+          .breakdown
+          .rates
+      ) {
+        if (
+          rate
+            .regular_shipping
+            .gross >
+          0
+        ) {
+          v2Entries.push({
+            key:
+              `regular-shipping:${rate.tax_rate}`,
+
+            component:
+              "regular_shipping",
+
+            taxRatePercentage:
+              rate.tax_rate,
+
+            grossAmount:
+              rate
+                .regular_shipping
+                .gross,
+          });
+        }
+
+        if (
+          rate
+            .book_shipping
+            .gross >
+          0
+        ) {
+          v2Entries.push({
+            key:
+              `book-shipping:${rate.tax_rate}`,
+
+            component:
+              "book_shipping",
+
+            taxRatePercentage:
+              rate.tax_rate,
+
+            grossAmount:
+              rate
+                .book_shipping
+                .gross,
+          });
+        }
+
+        if (
+          rate
+            .discount
+            .gross >
+          0
+        ) {
+          v2Entries.push({
+            key:
+              `discount:${rate.tax_rate}`,
+
+            component:
+              "discount",
+
+            taxRatePercentage:
+              rate.tax_rate,
+
+            grossAmount:
+              -rate
+                .discount
+                .gross,
+          });
+        }
+      }
+    }
+
+    const v2TaxSnapshot =
+      cutoverDecision
+        .cutoverReached
+        ? buildInvoiceTaxSnapshotV2({
+            currency:
+              "EUR",
+
+            snapshotAt:
+              now,
+
+            entries:
+              v2Entries,
+          })
+        : null;
+
+    const selectedTaxSnapshot =
+      v2TaxSnapshot ||
+      checkoutTaxSnapshot
+        .taxSnapshot;
+
+    const invoiceTaxSnapshotPayload =
+      selectedTaxSnapshot
+        .invoiceSnapshotPayload;
+
+    const selectedItemSnapshotByOfferItemId =
+      new Map(
+        selectedTaxSnapshot
+          .items
+          .map(
+            (item) => [
+              item.key,
+              item.snapshotPayload,
+            ] as const,
+          ),
+      );
+
+    const expectedComponentGross = {
+      total:
+        totalAmount,
+
+      subtotal:
+        subtotalAmount,
+
+      regularShipping:
+        shippingAmount,
+
+      bookShipping:
+        bookSummary
+          .bookShippingAmount,
+
+      bookCovers:
+        bookSummary
+          .bookCoverAmount,
+
+      discount:
+        0,
+    };
+
+    const selectedComponentGross = {
+      total:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .total
+          .gross,
+
+      subtotal:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .subtotal
+          .gross,
+
+      regularShipping:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .regular_shipping
+          .gross,
+
+      bookShipping:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .book_shipping
+          .gross,
+
+      bookCovers:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .book_covers
+          .gross,
+
+      discount:
+        selectedTaxSnapshot
+          .breakdown
+          .totals
+          .discount
+          .gross,
+    };
+
+    const snapshotValidation = {
+      totalGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .total,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .total,
+        ),
+
+      subtotalGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .subtotal,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .subtotal,
+        ),
+
+      regularShippingGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .regularShipping,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .regularShipping,
+        ),
+
+      bookShippingGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .bookShipping,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .bookShipping,
+        ),
+
+      bookCoverGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .bookCovers,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .bookCovers,
+        ),
+
+      discountGrossMatches:
+        roundMoney(
+          selectedComponentGross
+            .discount,
+        ) ===
+        roundMoney(
+          expectedComponentGross
+            .discount,
+        ),
+
+      totalMoneyIdentityValid:
+        Math.round(
+          invoiceTaxSnapshotPayload
+            .total_net_amount_snapshot *
+            100,
+        ) +
+          Math.round(
+            invoiceTaxSnapshotPayload
+              .total_tax_amount_snapshot *
+              100,
+          ) ===
+        Math.round(
+          selectedComponentGross
+            .total *
+            100,
+        ),
+
+      allV2InvariantsPassed:
+        v2TaxSnapshot
+          ?.diagnostics
+          .allInvariantsPassed ??
+        true,
+
+      productItemCountMatches:
+        selectedTaxSnapshot
+          .items
+          .length ===
+        offerItems.length,
+    };
+
+    const failedSnapshotValidations =
+      Object.entries(
+        snapshotValidation,
+      )
+        .filter(
+          (
+            [
+              ,
+              passed,
+            ],
+          ) =>
+            passed !==
+            true,
+        )
+        .map(
+          (
+            [
+              name,
+            ],
+          ) =>
+            name,
         );
-      }, 0)
-    );
 
-    const bookSummary = calculateBookCommerceSummary(
-      Array.from(bookCommerceLineByOfferItemId.values()),
-      fulfillmentMethod
-    );
+    if (
+      failedSnapshotValidations
+        .length >
+      0
+    ) {
+      console.error(
+        "Handzettel checkout invoice tax snapshot validation failed:",
+        {
+          failedSnapshotValidations,
+          expectedComponentGross,
+          selectedComponentGross,
+          snapshotValidation,
+          cutoverDecision,
+        },
+      );
 
-    const totalAmount = calculateBookCommerceTotal({
-      subtotalAmount,
-      regularShippingAmount: shippingAmount,
-      bookSummary,
-    });
+      throw new Error(
+        `Der verbindliche Steuer-Snapshot ist inkonsistent (${failedSnapshotValidations.join(", ")}). Die Rechnung wurde nicht gespeichert.`,
+      );
+    }
 
-    const invoiceNumber = await getInvoiceNumber(supabase);
+    const invoiceNumber =
+      await getInvoiceNumber(
+        supabase,
+        checkoutNowDate,
+      );
 
-    const { data: invoiceData, error: invoiceInsertError } = await supabase
-      .from("school_request_invoices")
+    const {
+      data: invoiceData,
+      error: invoiceInsertError,
+    } = await supabase
+      .from(
+        "school_request_invoices",
+      )
       .insert({
-        request_id: requestId,
-        invoice_number: invoiceNumber,
+        request_id:
+          requestId,
 
-        invoice_status: "draft",
-        payment_status: "waiting_for_payment",
-        selected_payment_method: paymentMethod,
-        payment_provider: paymentProvider,
+        invoice_number:
+          invoiceNumber,
 
-        subtotal_amount: subtotalAmount,
-        shipping_amount: shippingAmount,
+        invoice_status:
+          "draft",
 
-        contains_books: bookSummary.containsBooks,
-        book_shipping_amount: bookSummary.bookShippingAmount,
-        book_cover_amount: bookSummary.bookCoverAmount,
+        payment_status:
+          "waiting_for_payment",
 
-        total_amount: totalAmount,
-        currency: "EUR",
+        selected_payment_method:
+          paymentMethod,
 
-        customer_name_snapshot: customerName,
-        customer_email_snapshot: email,
-        customer_phone_snapshot: phone,
+        payment_provider:
+          paymentProvider,
 
-        billing_name_snapshot: billingName,
-        billing_email_snapshot: billingEmail,
-        billing_phone_snapshot: billingPhone,
-        billing_street_snapshot: billingStreet,
-        billing_postal_code_snapshot: billingPostalCode,
-        billing_city_snapshot: billingCity,
+        subtotal_amount:
+          subtotalAmount,
 
-        shipping_address_differs_snapshot: shippingAddressDiffers,
-        shipping_name_snapshot: shippingAddressDiffers ? shippingName : null,
-        shipping_street_snapshot: shippingAddressDiffers ? shippingStreet : null,
-        shipping_postal_code_snapshot: shippingAddressDiffers
-          ? shippingPostalCode
-          : null,
-        shipping_city_snapshot: shippingAddressDiffers ? shippingCity : null,
+        shipping_amount:
+          shippingAmount,
 
-        child_name_snapshot: requestRow.child_name,
-        school_name_snapshot: requestRow.school_name,
-        class_name_snapshot: requestRow.class_name,
+        contains_books:
+          bookSummary
+            .containsBooks,
 
-        fulfillment_method_snapshot: fulfillmentMethod,
+        book_shipping_amount:
+          bookSummary
+            .bookShippingAmount,
 
-        admin_note: customerMessage
-          ? `Kundenhinweis aus Checkout: ${customerMessage}`
-          : null,
+        book_cover_amount:
+          bookSummary
+            .bookCoverAmount,
+
+        discount_amount:
+          0,
+
+        total_amount:
+          totalAmount,
+
+        currency:
+          "EUR",
+
+        invoice_provider:
+          cutoverDecision
+            .selectedInvoiceProvider,
+
+        invoice_provider_assigned_at:
+          now,
+
+        invoice_cutover_version:
+          cutoverDecision
+            .cutoverVersion,
+
+        tax_snapshot_status:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_status,
+
+        tax_snapshot_source:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_source,
+
+        tax_snapshot_version:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_version,
+
+        tax_snapshot_at:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_at,
+
+        tax_breakdown_snapshot:
+          invoiceTaxSnapshotPayload
+            .tax_breakdown_snapshot,
+
+        subtotal_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .subtotal_net_amount_snapshot,
+
+        subtotal_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .subtotal_tax_amount_snapshot,
+
+        shipping_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .shipping_net_amount_snapshot,
+
+        shipping_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .shipping_tax_amount_snapshot,
+
+        book_shipping_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .book_shipping_net_amount_snapshot,
+
+        book_shipping_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .book_shipping_tax_amount_snapshot,
+
+        book_cover_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .book_cover_net_amount_snapshot,
+
+        book_cover_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .book_cover_tax_amount_snapshot,
+
+        discount_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .discount_net_amount_snapshot,
+
+        discount_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .discount_tax_amount_snapshot,
+
+        total_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .total_net_amount_snapshot,
+
+        total_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .total_tax_amount_snapshot,
+
+        customer_name_snapshot:
+          customerName,
+
+        customer_email_snapshot:
+          email,
+
+        customer_phone_snapshot:
+          phone,
+
+        billing_name_snapshot:
+          billingName,
+
+        billing_email_snapshot:
+          billingEmail,
+
+        billing_phone_snapshot:
+          billingPhone,
+
+        billing_street_snapshot:
+          billingStreet,
+
+        billing_postal_code_snapshot:
+          billingPostalCode,
+
+        billing_city_snapshot:
+          billingCity,
+
+        shipping_address_differs_snapshot:
+          shippingAddressDiffers,
+
+        shipping_name_snapshot:
+          shippingAddressDiffers
+            ? shippingName
+            : null,
+
+        shipping_street_snapshot:
+          shippingAddressDiffers
+            ? shippingStreet
+            : null,
+
+        shipping_postal_code_snapshot:
+          shippingAddressDiffers
+            ? shippingPostalCode
+            : null,
+
+        shipping_city_snapshot:
+          shippingAddressDiffers
+            ? shippingCity
+            : null,
+
+        child_name_snapshot:
+          requestRow.child_name,
+
+        school_name_snapshot:
+          requestRow.school_name,
+
+        class_name_snapshot:
+          requestRow.class_name,
+
+        fulfillment_method_snapshot:
+          fulfillmentMethod,
+
+        admin_note:
+          customerMessage
+            ? `Kundenhinweis aus Checkout: ${customerMessage}`
+            : null,
       })
-      .select("id, invoice_number, invoice_token, invoice_status, payment_status")
+      .select(
+        [
+          "id",
+          "invoice_number",
+          "invoice_token",
+          "invoice_status",
+          "payment_status",
+        ].join(", "),
+      )
       .single();
 
-    if (invoiceInsertError || !invoiceData) {
+    if (
+      invoiceInsertError ||
+      !invoiceData
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -697,11 +1879,15 @@ export async function POST(request: Request, context: RouteContext) {
             invoiceInsertError?.message ||
             "Die Rechnung konnte nicht erzeugt werden.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
-    const invoice = invoiceData as unknown as InvoiceRow;
+    const invoice =
+      invoiceData as unknown as
+        InvoiceRow;
 
     if (!invoice.invoice_token) {
       return NextResponse.json(
@@ -710,196 +1896,592 @@ export async function POST(request: Request, context: RouteContext) {
           message:
             "Die Rechnung wurde erzeugt, aber es wurde kein Rechnungstoken zurückgegeben.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
-    const invoiceItems = offerItems.map((item) => {
-      const quantity = toNumber(item.quantity, 1);
-      const unitPrice = toNumber(item.product_price, 0);
-      const totalPrice = roundMoney(quantity * unitPrice);
+    const invoiceItems =
+      offerItems.map(
+        (item) => {
+          const quantity =
+            toNumber(
+              item.quantity,
+              1,
+            );
 
-      const bookSnapshot = getBookCommerceLineSnapshot(
-        bookCommerceLineByOfferItemId.get(item.id) || {
-          quantity: item.quantity,
-        }
+          const unitPrice =
+            toNumber(
+              item.product_price,
+              0,
+            );
+
+          const totalPrice =
+            roundMoney(
+              quantity *
+                unitPrice,
+            );
+
+          const bookSnapshot =
+            getBookCommerceLineSnapshot(
+              bookCommerceLineByOfferItemId.get(
+                item.id,
+              ) || {
+                quantity:
+                  item.quantity,
+              },
+            );
+
+          const itemTaxSnapshot =
+            selectedItemSnapshotByOfferItemId.get(
+              item.id,
+            );
+
+          if (!itemTaxSnapshot) {
+            throw new Error(
+              `Für die Rechnungsposition ${item.product_name} fehlt der verbindliche Steuer-Snapshot.`,
+            );
+          }
+
+          return {
+            invoice_id:
+              invoice.id,
+
+            request_id:
+              requestId,
+
+            offer_item_id:
+              item.id,
+
+            product_id:
+              item.product_id,
+
+            product_name:
+              item.product_name,
+
+            product_sku:
+              item.product_sku,
+
+            quantity,
+
+            unit:
+              item.unit,
+
+            unit_price:
+              unitPrice,
+
+            total_price:
+              totalPrice,
+
+            tax_rate_snapshot:
+              itemTaxSnapshot
+                .tax_rate_snapshot,
+
+            product_gross_amount_snapshot:
+              itemTaxSnapshot
+                .product_gross_amount_snapshot,
+
+            product_net_amount_snapshot:
+              itemTaxSnapshot
+                .product_net_amount_snapshot,
+
+            product_tax_amount_snapshot:
+              itemTaxSnapshot
+                .product_tax_amount_snapshot,
+
+            tax_snapshot_source:
+              itemTaxSnapshot
+                .tax_snapshot_source,
+
+            tax_snapshot_version:
+              itemTaxSnapshot
+                .tax_snapshot_version,
+
+            tax_snapshot_at:
+              itemTaxSnapshot
+                .tax_snapshot_at,
+
+            book_cover_tax_rate_snapshot:
+              itemTaxSnapshot
+                .book_cover_tax_rate_snapshot,
+
+            book_cover_net_amount_snapshot:
+              itemTaxSnapshot
+                .book_cover_net_amount_snapshot,
+
+            book_cover_tax_amount_snapshot:
+              itemTaxSnapshot
+                .book_cover_tax_amount_snapshot,
+
+            is_book_snapshot:
+              bookSnapshot
+                .isBookSnapshot,
+
+            book_isbn13_snapshot:
+              bookSnapshot
+                .bookIsbn13Snapshot,
+
+            book_cover_selected:
+              bookSnapshot
+                .bookCoverSelected,
+
+            book_cover_name_snapshot:
+              bookSnapshot
+                .bookCoverNameSnapshot,
+
+            book_cover_quantity:
+              bookSnapshot
+                .bookCoverQuantity,
+
+            book_cover_unit_price:
+              bookSnapshot
+                .bookCoverUnitPrice,
+
+            book_cover_total_price:
+              bookSnapshot
+                .bookCoverTotalPrice,
+
+            source:
+              item.source,
+
+            notes:
+              item.notes,
+          };
+        },
       );
 
-      return {
-        invoice_id: invoice.id,
-        request_id: requestId,
-
-        offer_item_id: item.id,
-        product_id: item.product_id,
-
-        product_name: item.product_name,
-        product_sku: item.product_sku,
-
-        quantity,
-        unit: item.unit,
-
-        unit_price: unitPrice,
-        total_price: totalPrice,
-
-        is_book_snapshot: bookSnapshot.isBookSnapshot,
-        book_isbn13_snapshot: bookSnapshot.bookIsbn13Snapshot,
-
-        book_cover_selected: bookSnapshot.bookCoverSelected,
-        book_cover_name_snapshot:
-          bookSnapshot.bookCoverNameSnapshot,
-        book_cover_quantity:
-          bookSnapshot.bookCoverQuantity,
-        book_cover_unit_price:
-          bookSnapshot.bookCoverUnitPrice,
-        book_cover_total_price:
-          bookSnapshot.bookCoverTotalPrice,
-
-        source: item.source,
-        notes: item.notes,
-      };
-    });
-
-    const { error: invoiceItemsError } = await supabase
-      .from("school_request_invoice_items")
-      .insert(invoiceItems);
+    const {
+      error: invoiceItemsError,
+    } = await supabase
+      .from(
+        "school_request_invoice_items",
+      )
+      .insert(
+        invoiceItems,
+      );
 
     if (invoiceItemsError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Rechnungspositionen konnten nicht gespeichert werden: ${invoiceItemsError.message}`,
+          message:
+            `Rechnungspositionen konnten nicht gespeichert werden: ${invoiceItemsError.message}`,
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
-    const { error: updateRequestError } = await supabase
+    const {
+      error: updateRequestError,
+    } = await supabase
       .from("school_requests")
       .update({
-        status: "confirmed",
-        offer_status: "confirmed",
+        status:
+          "confirmed",
 
-        customer_name: customerName,
+        offer_status:
+          "confirmed",
+
+        customer_name:
+          customerName,
+
         email,
+
         phone,
 
-        billing_name: billingName,
-        billing_email: billingEmail,
-        billing_phone: billingPhone,
-        billing_street: billingStreet,
-        billing_postal_code: billingPostalCode,
-        billing_city: billingCity,
+        billing_name:
+          billingName,
 
-        shipping_address_differs: shippingAddressDiffers,
-        shipping_name: shippingAddressDiffers ? shippingName : null,
-        shipping_street: shippingAddressDiffers ? shippingStreet : null,
-        shipping_postal_code: shippingAddressDiffers
-          ? shippingPostalCode
-          : null,
-        shipping_city: shippingAddressDiffers ? shippingCity : null,
+        billing_email:
+          billingEmail,
 
-        fulfillment_method: fulfillmentMethod,
+        billing_phone:
+          billingPhone,
+
+        billing_street:
+          billingStreet,
+
+        billing_postal_code:
+          billingPostalCode,
+
+        billing_city:
+          billingCity,
+
+        shipping_address_differs:
+          shippingAddressDiffers,
+
+        shipping_name:
+          shippingAddressDiffers
+            ? shippingName
+            : null,
+
+        shipping_street:
+          shippingAddressDiffers
+            ? shippingStreet
+            : null,
+
+        shipping_postal_code:
+          shippingAddressDiffers
+            ? shippingPostalCode
+            : null,
+
+        shipping_city:
+          shippingAddressDiffers
+            ? shippingCity
+            : null,
+
+        fulfillment_method:
+          fulfillmentMethod,
+
         fulfillment_status:
-          fulfillmentMethod === "shipping"
+          fulfillmentMethod ===
+          "shipping"
             ? "shipping_requested"
             : "pickup_requested",
+
         shipping_cost_status:
-          fulfillmentMethod === "shipping"
+          fulfillmentMethod ===
+          "shipping"
             ? "flat_rate_applied"
             : "not_required",
-        shipping_amount: shippingAmount,
 
-        contains_books: bookSummary.containsBooks,
-        book_shipping_amount: bookSummary.bookShippingAmount,
-        book_cover_amount: bookSummary.bookCoverAmount,
+        shipping_amount:
+          shippingAmount,
 
-        cash_on_pickup_allowed: false,
+        contains_books:
+          bookSummary
+            .containsBooks,
 
-        selected_payment_method: paymentMethod,
-        payment_status: "waiting_for_payment",
-        invoice_status: "draft",
-        latest_invoice_id: invoice.id,
-        invoice_total_amount: totalAmount,
+        book_shipping_amount:
+          bookSummary
+            .bookShippingAmount,
 
-        confirmed_at: now,
-        updated_at: now,
+        book_cover_amount:
+          bookSummary
+            .bookCoverAmount,
+
+        cash_on_pickup_allowed:
+          false,
+
+        selected_payment_method:
+          paymentMethod,
+
+        payment_status:
+          "waiting_for_payment",
+
+        invoice_status:
+          "draft",
+
+        latest_invoice_id:
+          invoice.id,
+
+        invoice_total_amount:
+          totalAmount,
+
+        confirmed_at:
+          now,
+
+        updated_at:
+          now,
       })
-      .eq("id", requestId);
+      .eq(
+        "id",
+        requestId,
+      );
 
     if (updateRequestError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `Bestellung wurde erzeugt, aber die Anfrage konnte nicht aktualisiert werden: ${updateRequestError.message}`,
+          message:
+            `Bestellung wurde erzeugt, aber die Anfrage konnte nicht aktualisiert werden: ${updateRequestError.message}`,
         },
-        { status: 500 }
+        {
+          status: 500,
+        },
       );
     }
 
     await insertRequestEvent({
       supabase,
       requestId,
-      eventType: "handzettel_checkout_ordered",
-      title: "Paketwunsch verbindlich bestellt",
-      description: `Der Paketwunsch wurde verbindlich bestellt. Rechnung ${invoice.invoice_number || ""}, Gesamtbetrag: ${totalAmount.toFixed(2)} EUR.`,
+      eventType:
+        "handzettel_checkout_ordered",
+      title:
+        "Paketwunsch verbindlich bestellt",
+      description:
+        `Der Paketwunsch wurde verbindlich bestellt. Rechnung ${invoice.invoice_number || ""}, Gesamtbetrag: ${totalAmount.toFixed(2)} EUR.`,
       metadata: {
-        invoice_id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        invoice_token: invoice.invoice_token,
-        subtotal_amount: subtotalAmount,
-        shipping_amount: shippingAmount,
+        invoice_id:
+          invoice.id,
 
-        contains_books: bookSummary.containsBooks,
-        book_position_count: bookSummary.bookPositionCount,
-        book_quantity: bookSummary.bookQuantity,
+        invoice_number:
+          invoice.invoice_number,
+
+        invoice_token:
+          invoice.invoice_token,
+
+        subtotal_amount:
+          subtotalAmount,
+
+        shipping_amount:
+          shippingAmount,
+
+        contains_books:
+          bookSummary
+            .containsBooks,
+
+        book_position_count:
+          bookSummary
+            .bookPositionCount,
+
+        book_quantity:
+          bookSummary
+            .bookQuantity,
 
         book_shipping_amount:
-          bookSummary.bookShippingAmount,
+          bookSummary
+            .bookShippingAmount,
+
         book_cover_position_count:
-          bookSummary.bookCoverPositionCount,
+          bookSummary
+            .bookCoverPositionCount,
+
         book_cover_quantity:
-          bookSummary.bookCoverQuantity,
+          bookSummary
+            .bookCoverQuantity,
+
         book_cover_amount:
-          bookSummary.bookCoverAmount,
+          bookSummary
+            .bookCoverAmount,
 
-        total_amount: totalAmount,
-        fulfillment_method: fulfillmentMethod,
-        payment_method: paymentMethod,
+        total_amount:
+          totalAmount,
+
+        tax_snapshot_status:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_status,
+
+        tax_snapshot_source:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_source,
+
+        tax_snapshot_version:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_version,
+
+        tax_snapshot_at:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_at,
+
+        total_net_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .total_net_amount_snapshot,
+
+        total_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload
+            .total_tax_amount_snapshot,
+
+        tax_gross_amounts_match:
+          failedSnapshotValidations
+            .length ===
+          0,
+
+        invoice_provider:
+          cutoverDecision
+            .selectedInvoiceProvider,
+
+        invoice_cutover_version:
+          cutoverDecision
+            .cutoverVersion,
+
+        cutover_reached:
+          cutoverDecision
+            .cutoverReached,
+
+        cutover_at:
+          cutoverDecision
+            .cutoverAt,
+
+        selected_tax_snapshot_version:
+          cutoverDecision
+            .selectedTaxSnapshotVersion,
+
+        selected_invoice_provider:
+          cutoverDecision
+            .selectedInvoiceProvider,
+
+        fulfillment_method:
+          fulfillmentMethod,
+
+        payment_method:
+          paymentMethod,
+
         checkout_override_used:
-          requestRow.checkout_override_enabled === true &&
-          blockingState.rawBlockingCount > 0,
+          requestRow
+            .checkout_override_enabled ===
+            true &&
+          blockingState
+            .rawBlockingCount >
+            0,
+
         checkout_override_raw_blocking_count:
-          blockingState.rawBlockingCount,
+          blockingState
+            .rawBlockingCount,
       },
+      createdAt:
+        now,
     });
 
-    await sendCustomerInvoiceMailSafely({
-      supabase,
-      requestId,
-      invoiceNumber: invoice.invoice_number,
-    });
+    if (
+      cutoverDecision
+        .cutoverReached
+    ) {
+      await insertRequestEvent({
+        supabase,
+        requestId,
+        eventType:
+          "lexware_invoice_pending",
+        title:
+          "Lexware-Rechnung vorgemerkt",
+        description:
+          "Die Bestellung wurde nach dem Cutover mit V2-Snapshot gespeichert. Die Lexware-Rechnung wird erst über den separaten freigegebenen Lexware-Workflow erzeugt.",
+        metadata: {
+          invoice_id:
+            invoice.id,
+
+          invoice_number:
+            invoice.invoice_number,
+
+          invoice_provider:
+            cutoverDecision
+              .selectedInvoiceProvider,
+
+          invoice_cutover_version:
+            cutoverDecision
+              .cutoverVersion,
+
+          tax_snapshot_version:
+            cutoverDecision
+              .selectedTaxSnapshotVersion,
+        },
+        createdAt:
+          now,
+      });
+    } else {
+      await sendCustomerInvoiceMailSafely({
+        supabase,
+        requestId,
+        invoiceNumber:
+          invoice.invoice_number,
+        createdAt:
+          now,
+      });
+    }
 
     return NextResponse.json({
-      ok: true,
+      ok:
+        true,
+
       requestId,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoice_number,
-      invoiceToken: invoice.invoice_token,
-      redirectUrl: `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
+
+      invoiceId:
+        invoice.id,
+
+      invoiceNumber:
+        invoice.invoice_number,
+
+      invoiceToken:
+        invoice.invoice_token,
+
+      redirectUrl:
+        `/rechnung/${encodeURIComponent(
+          invoice.invoice_token,
+        )}`,
 
       pricing: {
         subtotalAmount,
         shippingAmount,
-        containsBooks: bookSummary.containsBooks,
-        bookShippingAmount: bookSummary.bookShippingAmount,
-        bookCoverAmount: bookSummary.bookCoverAmount,
+
+        containsBooks:
+          bookSummary
+            .containsBooks,
+
+        bookShippingAmount:
+          bookSummary
+            .bookShippingAmount,
+
+        bookCoverAmount:
+          bookSummary
+            .bookCoverAmount,
+
         totalAmount,
       },
 
-      message: "Deine Bestellung wurde erstellt.",
+      taxSnapshot: {
+        status:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_status,
+
+        source:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_source,
+
+        version:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_version,
+
+        snapshotAt:
+          invoiceTaxSnapshotPayload
+            .tax_snapshot_at,
+
+        totalNetAmount:
+          invoiceTaxSnapshotPayload
+            .total_net_amount_snapshot,
+
+        totalTaxAmount:
+          invoiceTaxSnapshotPayload
+            .total_tax_amount_snapshot,
+
+        grossAmountsMatch:
+          failedSnapshotValidations
+            .length ===
+          0,
+      },
+
+      cutover: {
+        reached:
+          cutoverDecision
+            .cutoverReached,
+
+        cutoverAt:
+          cutoverDecision
+            .cutoverAt,
+
+        version:
+          cutoverDecision
+            .cutoverVersion,
+
+        selectedTaxSnapshotVersion:
+          cutoverDecision
+            .selectedTaxSnapshotVersion,
+
+        selectedInvoiceProvider:
+          cutoverDecision
+            .selectedInvoiceProvider,
+      },
+
+      message:
+        "Deine Bestellung wurde erstellt.",
     });
   } catch (error) {
-    console.error("Handzettel checkout error:", error);
+    console.error(
+      "Handzettel checkout error:",
+      error,
+    );
 
     return NextResponse.json(
       {
@@ -909,7 +2491,9 @@ export async function POST(request: Request, context: RouteContext) {
             ? error.message
             : "Die Bestellung konnte nicht abgeschlossen werden.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -918,10 +2502,11 @@ export async function GET() {
   return NextResponse.json(
     {
       ok: false,
-      message: "Diese Route kann nur per POST genutzt werden.",
+      message:
+        "Diese Route kann nur per POST genutzt werden.",
     },
-    { status: 405 }
+    {
+      status: 405,
+    },
   );
 }
-
-
