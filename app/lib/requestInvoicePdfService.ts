@@ -7,6 +7,16 @@ import {
   StandardFonts,
   rgb,
 } from "pdf-lib";
+import type {
+  InvoiceTaxBreakdownSnapshot,
+} from "@/lib/invoiceTaxSnapshot";
+import type {
+  InvoiceTaxBreakdownSnapshotV2,
+} from "@/lib/tax-v2";
+
+type SupportedInvoiceTaxSnapshotVersion =
+  | "invoice-tax-snapshot-v1"
+  | "invoice-tax-snapshot-v2";
 
 type RequestRow = {
   id: string;
@@ -35,6 +45,76 @@ type InvoiceRow = {
   book_cover_amount: number | string | null;
   total_amount: number | string | null;
   currency: string | null;
+
+  tax_snapshot_status: string | null;
+  tax_snapshot_source: string | null;
+  tax_snapshot_version: string | null;
+  tax_snapshot_at: string | null;
+
+  tax_breakdown_snapshot:
+    | InvoiceTaxBreakdownSnapshot
+    | InvoiceTaxBreakdownSnapshotV2
+    | null;
+
+  subtotal_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  subtotal_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  shipping_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  shipping_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  book_shipping_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  book_shipping_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  book_cover_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  book_cover_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  discount_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  discount_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  total_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  total_tax_amount_snapshot:
+    | number
+    | string
+    | null;
 
   customer_name_snapshot: string | null;
   customer_email_snapshot: string | null;
@@ -81,6 +161,54 @@ type InvoiceItemRow = {
   unit: string | null;
   unit_price: number | string | null;
   total_price: number | string | null;
+
+  tax_rate_snapshot:
+    | number
+    | string
+    | null;
+
+  product_gross_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  product_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  product_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  tax_snapshot_source:
+    | string
+    | null;
+
+  tax_snapshot_version:
+    | string
+    | null;
+
+  tax_snapshot_at:
+    | string
+    | null;
+
+  book_cover_tax_rate_snapshot:
+    | number
+    | string
+    | null;
+
+  book_cover_net_amount_snapshot:
+    | number
+    | string
+    | null;
+
+  book_cover_tax_amount_snapshot:
+    | number
+    | string
+    | null;
+
   is_book_snapshot: boolean | null;
   book_isbn13_snapshot: string | null;
 
@@ -154,6 +282,521 @@ function formatMoney(value: unknown) {
     style: "currency",
     currency: "EUR",
   }).format(toNumber(value, 0));
+}
+
+function formatNegativeMoney(
+  value: unknown,
+) {
+  return `-${formatMoney(
+    Math.abs(
+      toNumber(value, 0),
+    ),
+  )}`;
+}
+
+function toMoneyCents(
+  value: unknown,
+) {
+  return Math.round(
+    (
+      toNumber(value, 0) +
+      Number.EPSILON
+    ) * 100,
+  );
+}
+
+function assertMoneyIdentity(params: {
+  gross: unknown;
+  net: unknown;
+  tax: unknown;
+  label: string;
+}) {
+  const grossCents =
+    toMoneyCents(params.gross);
+
+  const netCents =
+    toMoneyCents(params.net);
+
+  const taxCents =
+    toMoneyCents(params.tax);
+
+  if (
+    netCents + taxCents !==
+    grossCents
+  ) {
+    throw new Error(
+      `${params.label}: Netto plus Umsatzsteuer entspricht nicht Brutto.`,
+    );
+  }
+}
+
+function isSupportedInvoiceTaxSnapshotVersion(
+  value: unknown,
+): value is SupportedInvoiceTaxSnapshotVersion {
+  return (
+    value === "invoice-tax-snapshot-v1" ||
+    value === "invoice-tax-snapshot-v2"
+  );
+}
+
+function validateInvoiceTaxSnapshot(
+  invoice: InvoiceRow,
+  invoiceItems: InvoiceItemRow[],
+) {
+  /*
+   * INVOICE_PDF_TAX_SNAPSHOT_READ_MODEL_V1
+   *
+   * Die PDF ist ausschließlich ein read-only Verbraucher
+   * des beim Checkout gespeicherten Steuer-Snapshots.
+   *
+   * Keine aktuellen Produktdaten.
+   * Keine erneute Steuerberechnung.
+   * Keine stillen Standardwerte.
+   */
+  if (
+    invoice.tax_snapshot_status !==
+    "complete"
+  ) {
+    throw new Error(
+      `Die Rechnung ${
+        invoice.invoice_number || invoice.id
+      } besitzt keinen vollständigen Steuer-Snapshot und darf nicht als PDF erzeugt werden.`,
+    );
+  }
+
+  if (
+    invoice.tax_snapshot_source !==
+    "product_catalog_at_checkout"
+  ) {
+    throw new Error(
+      "Die Steuer-Snapshot-Quelle der Rechnung ist ungültig.",
+    );
+  }
+
+  const taxSnapshotVersion =
+    invoice.tax_snapshot_version;
+
+  if (
+    !isSupportedInvoiceTaxSnapshotVersion(
+      taxSnapshotVersion,
+    )
+  ) {
+    throw new Error(
+      "Die Steuer-Snapshot-Version der Rechnung wird von der PDF-Erzeugung nicht unterstützt.",
+    );
+  }
+
+  if (
+    !invoice.tax_snapshot_at
+  ) {
+    throw new Error(
+      "Der Zeitpunkt des Steuer-Snapshots fehlt.",
+    );
+  }
+
+  const breakdown =
+    invoice.tax_breakdown_snapshot;
+
+  if (
+    !breakdown ||
+    breakdown.version !==
+      taxSnapshotVersion ||
+    breakdown.source !==
+      invoice.tax_snapshot_source ||
+    breakdown.generated_at !==
+      invoice.tax_snapshot_at ||
+    breakdown.currency !== "EUR" ||
+    !Array.isArray(
+      breakdown.rates,
+    )
+  ) {
+    throw new Error(
+      "Die gespeicherte Steueraufschlüsselung ist unvollständig oder widersprüchlich.",
+    );
+  }
+
+  if (
+    taxSnapshotVersion ===
+    "invoice-tax-snapshot-v2"
+  ) {
+    const v2Breakdown =
+      breakdown as InvoiceTaxBreakdownSnapshotV2;
+
+    if (
+      v2Breakdown.rounding_method !==
+        "gross_tax_rate_total_with_deterministic_line_allocation_v1" ||
+      v2Breakdown.allocation_methods
+        ?.regular_shipping !==
+        "preallocated_by_checkout_adapter_v2" ||
+      v2Breakdown.allocation_methods
+        ?.book_shipping !==
+        "preallocated_by_checkout_adapter_v2" ||
+      v2Breakdown.allocation_methods
+        ?.discount !==
+        "preallocated_by_checkout_adapter_v2"
+    ) {
+      throw new Error(
+        "Die V2-Rundungs- oder Allokationsmetadaten der Rechnung sind ungültig.",
+      );
+    }
+  }
+
+  const supportedRates =
+    new Set([7, 19]);
+
+  for (
+    const rate of
+    breakdown.rates
+  ) {
+    if (
+      !supportedRates.has(
+        rate.tax_rate,
+      )
+    ) {
+      throw new Error(
+        `Nicht unterstützter Umsatzsteuersatz im Rechnungssnapshot: ${rate.tax_rate} %.`,
+      );
+    }
+
+    assertMoneyIdentity({
+      gross:
+        rate.total.gross,
+
+      net:
+        rate.total.net,
+
+      tax:
+        rate.total.tax,
+
+      label:
+        `Steuerbereich ${rate.tax_rate} %`,
+    });
+  }
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals.subtotal.gross,
+
+    net:
+      breakdown.totals.subtotal.net,
+
+    tax:
+      breakdown.totals.subtotal.tax,
+
+    label:
+      "Produkt-Zwischensumme",
+  });
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals
+        .regular_shipping
+        .gross,
+
+    net:
+      breakdown.totals
+        .regular_shipping
+        .net,
+
+    tax:
+      breakdown.totals
+        .regular_shipping
+        .tax,
+
+    label:
+      "Versandpauschale",
+  });
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals
+        .book_shipping
+        .gross,
+
+    net:
+      breakdown.totals
+        .book_shipping
+        .net,
+
+    tax:
+      breakdown.totals
+        .book_shipping
+        .tax,
+
+    label:
+      "Buchversand",
+  });
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals
+        .book_covers
+        .gross,
+
+    net:
+      breakdown.totals
+        .book_covers
+        .net,
+
+    tax:
+      breakdown.totals
+        .book_covers
+        .tax,
+
+    label:
+      "Buchhüllen",
+  });
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals
+        .discount
+        .gross,
+
+    net:
+      breakdown.totals
+        .discount
+        .net,
+
+    tax:
+      breakdown.totals
+        .discount
+        .tax,
+
+    label:
+      "Rabatt",
+  });
+
+  assertMoneyIdentity({
+    gross:
+      breakdown.totals.total.gross,
+
+    net:
+      breakdown.totals.total.net,
+
+    tax:
+      breakdown.totals.total.tax,
+
+    label:
+      "Rechnungsgesamtbetrag",
+  });
+
+  if (
+    toMoneyCents(
+      breakdown.totals.total.gross,
+    ) !==
+    toMoneyCents(
+      invoice.total_amount,
+    )
+  ) {
+    throw new Error(
+      "Der Gesamtbruttobetrag des Steuer-Snapshots stimmt nicht mit der Rechnung überein.",
+    );
+  }
+
+  if (
+    toMoneyCents(
+      breakdown.totals.total.net,
+    ) !==
+    toMoneyCents(
+      invoice.total_net_amount_snapshot,
+    ) ||
+    toMoneyCents(
+      breakdown.totals.total.tax,
+    ) !==
+    toMoneyCents(
+      invoice.total_tax_amount_snapshot,
+    )
+  ) {
+    throw new Error(
+      "Die Gesamtnetto- oder Umsatzsteuerwerte widersprechen der gespeicherten Steueraufschlüsselung.",
+    );
+  }
+
+  if (
+    invoiceItems.length === 0
+  ) {
+    throw new Error(
+      "Die Rechnung besitzt keine Rechnungspositionen.",
+    );
+  }
+
+  let productGrossCents = 0;
+  let productNetCents = 0;
+  let productTaxCents = 0;
+
+  let coverGrossCents = 0;
+  let coverNetCents = 0;
+  let coverTaxCents = 0;
+
+  for (
+    const item of
+    invoiceItems
+  ) {
+    const itemLabel =
+      item.product_name ||
+      item.id;
+
+    const taxRate =
+      Number(
+        item.tax_rate_snapshot,
+      );
+
+    if (
+      taxRate !== 7 &&
+      taxRate !== 19
+    ) {
+      throw new Error(
+        `Für die Rechnungsposition ${itemLabel} fehlt ein gültiger Steuersatz.`,
+      );
+    }
+
+    if (
+      item.tax_snapshot_source !==
+        invoice.tax_snapshot_source ||
+      item.tax_snapshot_version !==
+        invoice.tax_snapshot_version ||
+      item.tax_snapshot_at !==
+        invoice.tax_snapshot_at
+    ) {
+      throw new Error(
+        `Die Snapshot-Metadaten der Rechnungsposition ${itemLabel} stimmen nicht mit der Rechnung überein.`,
+      );
+    }
+
+    assertMoneyIdentity({
+      gross:
+        item.product_gross_amount_snapshot,
+
+      net:
+        item.product_net_amount_snapshot,
+
+      tax:
+        item.product_tax_amount_snapshot,
+
+      label:
+        `Rechnungsposition ${itemLabel}`,
+    });
+
+    productGrossCents +=
+      toMoneyCents(
+        item.product_gross_amount_snapshot,
+      );
+
+    productNetCents +=
+      toMoneyCents(
+        item.product_net_amount_snapshot,
+      );
+
+    productTaxCents +=
+      toMoneyCents(
+        item.product_tax_amount_snapshot,
+      );
+
+    const coverGross =
+      toMoneyCents(
+        item.book_cover_total_price,
+      );
+
+    const coverNet =
+      toMoneyCents(
+        item.book_cover_net_amount_snapshot,
+      );
+
+    const coverTax =
+      toMoneyCents(
+        item.book_cover_tax_amount_snapshot,
+      );
+
+    if (coverGross > 0) {
+      if (
+        Number(
+          item.book_cover_tax_rate_snapshot,
+        ) !== 19
+      ) {
+        throw new Error(
+          `Die Buchhülle zu ${itemLabel} besitzt keinen gültigen Steuersatz von 19 %.`,
+        );
+      }
+
+      if (
+        coverNet + coverTax !==
+        coverGross
+      ) {
+        throw new Error(
+          `Buchhülle zu ${itemLabel}: Netto plus Umsatzsteuer entspricht nicht Brutto.`,
+        );
+      }
+    } else if (
+      coverNet !== 0 ||
+      coverTax !== 0
+    ) {
+      throw new Error(
+        `Die nicht berechnete Buchhülle zu ${itemLabel} besitzt unerwartete Steuerwerte.`,
+      );
+    }
+
+    coverGrossCents +=
+      coverGross;
+
+    coverNetCents +=
+      coverNet;
+
+    coverTaxCents +=
+      coverTax;
+  }
+
+  if (
+    productGrossCents !==
+      toMoneyCents(
+        breakdown.totals
+          .subtotal
+          .gross,
+      ) ||
+    productNetCents !==
+      toMoneyCents(
+        breakdown.totals
+          .subtotal
+          .net,
+      ) ||
+    productTaxCents !==
+      toMoneyCents(
+        breakdown.totals
+          .subtotal
+          .tax,
+      )
+  ) {
+    throw new Error(
+      "Die Summe der Produkt-Positionssnapshots stimmt nicht mit dem Rechnungssnapshot überein.",
+    );
+  }
+
+  if (
+    coverGrossCents !==
+      toMoneyCents(
+        breakdown.totals
+          .book_covers
+          .gross,
+      ) ||
+    coverNetCents !==
+      toMoneyCents(
+        breakdown.totals
+          .book_covers
+          .net,
+      ) ||
+    coverTaxCents !==
+      toMoneyCents(
+        breakdown.totals
+          .book_covers
+          .tax,
+      )
+  ) {
+    throw new Error(
+      "Die Summe der Buchhüllen-Snapshots stimmt nicht mit dem Rechnungssnapshot überein.",
+    );
+  }
+
+  return breakdown;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -380,6 +1023,12 @@ async function createInvoicePdf(params: {
   invoiceItems: InvoiceItemRow[];
 }) {
   const { requestRow, invoice, invoiceItems } = params;
+
+  const taxBreakdown =
+    validateInvoiceTaxSnapshot(
+      invoice,
+      invoiceItems,
+    );
 
   const isShopInvoice =
     String(invoice.admin_note || "").toLowerCase().includes("shop") ||
@@ -691,7 +1340,10 @@ async function createInvoicePdf(params: {
 
     const quantity = toNumber(item.quantity, 1);
     const unitPrice = toNumber(item.unit_price, 0);
-    const totalPrice = toNumber(item.total_price, quantity * unitPrice);
+    const totalPrice = toNumber(
+      item.product_gross_amount_snapshot,
+      0,
+    );
 
     const hasBookIsbn =
       item.is_book_snapshot === true &&
@@ -704,8 +1356,17 @@ async function createInvoicePdf(params: {
     const hasBookCover =
       item.book_cover_selected === true;
 
+    const hasTaxRate =
+      Number(
+        item.tax_rate_snapshot,
+      ) === 7 ||
+      Number(
+        item.tax_rate_snapshot,
+      ) === 19;
+
     const additionalLineCount =
       (hasBookIsbn ? 1 : 0) +
+      (hasTaxRate ? 1 : 0) +
       (hasBookCover ? 1 : 0) +
       (item.notes ? 1 : 0);
 
@@ -798,6 +1459,23 @@ async function createInvoicePdf(params: {
       detailY -= 14;
     }
 
+    if (hasTaxRate) {
+      page.drawText(
+        `inkl. ${Number(
+          item.tax_rate_snapshot,
+        )} % USt.`,
+        {
+          x: nameX,
+          y: detailY,
+          size: 7.5,
+          font: fontRegular,
+          color: COLORS.muted,
+        },
+      );
+
+      detailY -= 14;
+    }
+
     if (hasBookCover) {
       const bookCoverQuantity = toNumber(
         item.book_cover_quantity,
@@ -856,22 +1534,48 @@ async function createInvoicePdf(params: {
     y = rowTopY - rowHeight - 12;
   }
 
-  addPageIfNeeded(220);
+  addPageIfNeeded(300);
 
   const summaryX =
     pageWidth - marginX - 220;
 
   y -= 10;
 
-  const bookCoverAmount = toNumber(
-    invoice.book_cover_amount,
-    0
-  );
+  const bookCoverAmount =
+    taxBreakdown
+      .totals
+      .book_covers
+      .gross;
 
-  const bookShippingAmount = toNumber(
-    invoice.book_shipping_amount,
-    0
-  );
+  const bookShippingAmount =
+    taxBreakdown
+      .totals
+      .book_shipping
+      .gross;
+
+  const regularShippingAmount =
+    taxBreakdown
+      .totals
+      .regular_shipping
+      .gross;
+
+  const discountAmount =
+    taxBreakdown
+      .totals
+      .discount
+      .gross;
+
+  const totalNetAmount =
+    taxBreakdown
+      .totals
+      .total
+      .net;
+
+  const totalGrossAmount =
+    taxBreakdown
+      .totals
+      .total
+      .gross;
 
   const summaryRows: Array<
     [string, string]
@@ -879,35 +1583,78 @@ async function createInvoicePdf(params: {
     [
       "Paketbetrag",
       formatMoney(
-        invoice.subtotal_amount
+        taxBreakdown
+          .totals
+          .subtotal
+          .gross,
       ),
     ],
   ];
 
   if (bookCoverAmount > 0) {
     summaryRows.push([
-      "Buchh\u00fcllen",
-      formatMoney(bookCoverAmount),
+      "Buchhüllen",
+      formatMoney(
+        bookCoverAmount,
+      ),
     ]);
   }
 
-  summaryRows.push([
-    "Versandkosten",
-    formatMoney(
-      invoice.shipping_amount
-    ),
-  ]);
+  if (regularShippingAmount > 0) {
+    summaryRows.push([
+      "Versandkosten",
+      formatMoney(
+        regularShippingAmount,
+      ),
+    ]);
+  }
 
   if (bookShippingAmount > 0) {
     summaryRows.push([
       "Buchversand",
-      formatMoney(bookShippingAmount),
+      formatMoney(
+        bookShippingAmount,
+      ),
+    ]);
+  }
+
+  if (discountAmount > 0) {
+    summaryRows.push([
+      "Rabatt",
+      formatNegativeMoney(
+        discountAmount,
+      ),
     ]);
   }
 
   summaryRows.push([
+    "Nettobetrag",
+    formatMoney(
+      totalNetAmount,
+    ),
+  ]);
+
+  for (
+    const rate of
+    taxBreakdown.rates
+  ) {
+    if (
+      rate.total.tax > 0
+    ) {
+      summaryRows.push([
+        `zzgl. ${rate.tax_rate} % USt.`,
+        formatMoney(
+          rate.total.tax,
+        ),
+      ]);
+    }
+  }
+
+  summaryRows.push([
     "Gesamtbetrag",
-    formatMoney(invoice.total_amount),
+    formatMoney(
+      totalGrossAmount,
+    ),
   ]);
 
   const summaryBoxHeight =
@@ -1077,4 +1824,3 @@ export async function generateRequestInvoicePdf(input: {
     filename: cleanFileName(`${invoiceNumber}.pdf`),
   };
 }
-
