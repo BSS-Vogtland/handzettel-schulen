@@ -17,6 +17,7 @@ import {
   findActiveDiscountCampaign,
   roundMoney,
 } from "../../../lib/discountCampaigns";
+import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -619,6 +620,25 @@ async function sendShopOrderAdminNotificationSafely(params: {
 }
 
 export async function POST(request: NextRequest) {
+  const checkoutMaintenance = getCheckoutMaintenanceDecision();
+
+  if (checkoutMaintenance.active) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: checkoutMaintenance.code,
+        maintenance: true,
+        message: checkoutMaintenance.message,
+      },
+      {
+        status: checkoutMaintenance.httpStatus,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  }
+
   const checkoutNowDate = new Date();
   const now = checkoutNowDate.toISOString();
 

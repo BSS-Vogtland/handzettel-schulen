@@ -8,6 +8,18 @@ import { useEffect, useState } from "react";
 type FulfillmentMethod = "pickup" | "shipping";
 type PaymentMethod = "paypal" | "bank_transfer";
 
+const CHECKOUT_MAINTENANCE_NOTICE = `Wartungshinweis
+
+Wir führen derzeit Wartungsarbeiten an unserem Bestellsystem durch.
+
+Bestellungen können voraussichtlich ab Sonntagabend wieder abgeschlossen werden.
+
+Vielen Dank für Ihr Verständnis.`;
+
+function isCheckoutCompletionDisabled() {
+  return true;
+}
+
 type CheckoutResponse = {
   ok?: boolean;
   message?: string;
@@ -402,6 +414,15 @@ export default function HandzettelCheckoutPage() {
       return;
     }
 
+    if (isCheckoutCompletionDisabled()) {
+      setFormError(CHECKOUT_MAINTENANCE_NOTICE);
+      event.currentTarget.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -600,7 +621,7 @@ export default function HandzettelCheckoutPage() {
 
           {formError ? (
             <div
-              className="mb-5 rounded-2xl bg-[#fff0f0] px-5 py-4 text-sm font-bold text-[#9b2f23] ring-1 ring-[#f0c2c2]"
+              className="mb-5 whitespace-pre-line rounded-2xl bg-[#fff0f0] px-5 py-4 text-sm font-bold text-[#9b2f23] ring-1 ring-[#f0c2c2]"
               aria-live="polite"
             >
               {formError}

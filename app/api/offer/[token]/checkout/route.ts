@@ -16,6 +16,7 @@ import {
   buildInvoiceTaxSnapshotV2,
   type InvoiceTaxSnapshotV2EntryInput,
 } from "@/lib/tax-v2";
+import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
 export const runtime = "nodejs";
@@ -415,6 +416,26 @@ export async function POST(
   request: Request,
   context: RouteContext,
 ) {
+  const checkoutMaintenance =
+    getCheckoutMaintenanceDecision();
+
+  if (checkoutMaintenance.active) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: checkoutMaintenance.code,
+        maintenance: true,
+        message: checkoutMaintenance.message,
+      },
+      {
+        status: checkoutMaintenance.httpStatus,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   const checkoutNowDate = new Date();
   const now = checkoutNowDate.toISOString();
 
