@@ -4,6 +4,16 @@ import { buildShopLeadSource, LEAD_SOURCE_COOKIE_NAME } from "@/lib/lead-source"
 import { sendAdminShopOrderNotification } from "../../../lib/adminNotifications";
 import { sendRequestInvoiceMail } from "@/app/lib/requestInvoiceMailService";
 import {
+  buildCheckoutInvoiceTaxSnapshot,
+} from "@/lib/invoiceTaxCheckoutAdapter";
+import {
+  resolveInvoiceTaxCutover,
+} from "@/lib/invoiceTaxCutover";
+import {
+  buildInvoiceTaxSnapshotV2,
+  type InvoiceTaxSnapshotV2EntryInput,
+} from "@/lib/tax-v2";
+import {
   findActiveDiscountCampaign,
   roundMoney,
 } from "../../../lib/discountCampaigns";
@@ -26,6 +36,8 @@ type CheckoutCartItem = {
   sourceRequestId?: string | null;
   sourceOfferItemId?: string | null;
   sourceRequestItemId?: string | null;
+  taxRate: number | string | null;
+  isBook: boolean;
 };
 
 type CheckoutCartInputItem = {
@@ -96,6 +108,15 @@ type CreatedOfferItemRow = {
   unit: string | null;
   source: string | null;
   notes: string | null;
+  is_book_snapshot: boolean | null;
+};
+
+type InvoiceCutoverSettingsRow = {
+  timezone_name: string;
+  invoice_cutover_at: string;
+  invoice_provider_before: string;
+  invoice_provider_after: string;
+  invoice_cutover_version: string;
 };
 
 type ProductRow = Record<string, unknown> & {
@@ -164,7 +185,8 @@ async function readBodySafely(request: NextRequest): Promise<CheckoutBody> {
 }
 
 async function getInvoiceNumber(
-  supabase: ReturnType<typeof getSupabaseAdmin>
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  checkoutNowDate: Date
 ): Promise<string> {
   const { data, error } = await supabase.rpc("generate_school_invoice_number");
 
@@ -172,7 +194,7 @@ async function getInvoiceNumber(
     return data;
   }
 
-  const year = new Date().getFullYear();
+  const year = checkoutNowDate.getFullYear();
   const random = Math.floor(Math.random() * 99999)
     .toString()
     .padStart(5, "0");
@@ -186,20 +208,61 @@ async function insertRequestEvent(params: {
   eventType: string;
   title: string;
   description: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 }) {
-  const { supabase, requestId, eventType, title, description } = params;
+  const {
+    supabase,
+    requestId,
+    eventType,
+    title,
+    description,
+    metadata,
+    createdAt,
+  } = params;
 
   const { error } = await supabase.from("school_request_events").insert({
     request_id: requestId,
     event_type: eventType,
     title,
     description,
-    created_at: new Date().toISOString(),
+    metadata: metadata || {},
+    created_at: createdAt,
   });
 
   if (error) {
     console.error("Shop event konnte nicht gespeichert werden:", error);
   }
+}
+
+async function loadInvoiceCutoverSettings(
+  supabase: ReturnType<typeof getSupabaseAdmin>
+) {
+  const { data, error } = await supabase
+    .from("business_runtime_settings")
+    .select(
+      [
+        "timezone_name",
+        "invoice_cutover_at",
+        "invoice_provider_before",
+        "invoice_provider_after",
+        "invoice_cutover_version",
+      ].join(", ")
+    )
+    .eq("id", "default")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Rechnungs-Cutover-Konfiguration konnte nicht geladen werden: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    throw new Error("business_runtime_settings/default fehlt.");
+  }
+
+  return data as unknown as InvoiceCutoverSettingsRow;
 }
 
 function validateCartInputs(items: unknown): CheckoutCartInputItem[] {
@@ -400,6 +463,12 @@ async function buildServerCartItems(params: {
       sourceRequestId: input.sourceRequestId || null,
       sourceOfferItemId: input.sourceOfferItemId || null,
       sourceRequestItemId: input.sourceRequestItemId || null,
+      taxRate:
+        product.tax_rate === null ||
+        product.tax_rate === undefined
+          ? null
+          : (product.tax_rate as number | string),
+      isBook: product.is_book === true,
     });
   }
 
@@ -427,8 +496,9 @@ async function sendCustomerInvoiceMailSafely(params: {
   supabase: ReturnType<typeof getSupabaseAdmin>;
   requestId: string;
   invoiceNumber: string | null;
+  createdAt: string;
 }) {
-  const { supabase, requestId, invoiceNumber } = params;
+  const { supabase, requestId, invoiceNumber, createdAt } = params;
 
   try {
     const result = await sendRequestInvoiceMail({ requestId });
@@ -442,6 +512,7 @@ async function sendCustomerInvoiceMailSafely(params: {
         description:
           result.data.message ||
           "Die Rechnungsmail an den Kunden konnte nach der Shop-Bestellung nicht automatisch versendet werden.",
+        createdAt,
       });
 
       return;
@@ -453,6 +524,7 @@ async function sendCustomerInvoiceMailSafely(params: {
       eventType: "customer_invoice_mail_sent_after_shop_checkout",
       title: "Rechnungsmail an Kunde versendet",
       description: `Die Rechnung ${invoiceNumber || ""} wurde nach der Shop-Bestellung automatisch an den Kunden versendet.`,
+      createdAt,
     });
   } catch (error) {
     console.error("Kunden-Rechnungsmail zur Shop-Bestellung konnte nicht versendet werden:", error);
@@ -466,6 +538,7 @@ async function sendCustomerInvoiceMailSafely(params: {
         error instanceof Error
           ? error.message
           : "Die Rechnungsmail an den Kunden konnte nach der Shop-Bestellung nicht automatisch versendet werden.",
+      createdAt,
     });
   }
 }
@@ -490,6 +563,7 @@ async function sendShopOrderAdminNotificationSafely(params: {
   discountAmount: number;
   totalAmount: number;
   customerMessage: string | null;
+  createdAt: string;
 }) {
   try {
     const result = await sendAdminShopOrderNotification({
@@ -525,6 +599,7 @@ async function sendShopOrderAdminNotificationSafely(params: {
       description: result.ok
         ? "Die Admin-Benachrichtigung zur Shop-Bestellung wurde versendet."
         : result.message || "Die Admin-Benachrichtigung wurde nicht versendet.",
+      createdAt: params.createdAt,
     });
   } catch (error) {
     console.error("Admin-Mail zur Shop-Bestellung konnte nicht versendet werden:", error);
@@ -538,11 +613,15 @@ async function sendShopOrderAdminNotificationSafely(params: {
         error instanceof Error
           ? error.message
           : "Die Admin-Benachrichtigung zur Shop-Bestellung konnte nicht versendet werden.",
+      createdAt: params.createdAt,
     });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const checkoutNowDate = new Date();
+  const now = checkoutNowDate.toISOString();
+
   try {
     const body = await readBodySafely(request);
 
@@ -665,7 +744,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
-    const now = new Date().toISOString();
+    const invoiceCutoverSettings =
+      await loadInvoiceCutoverSettings(supabase);
+    const cutoverDecision = resolveInvoiceTaxCutover({
+      now: checkoutNowDate,
+      invoiceCutoverAt:
+        invoiceCutoverSettings.invoice_cutover_at,
+      timezoneName:
+        invoiceCutoverSettings.timezone_name,
+      invoiceProviderBefore:
+        invoiceCutoverSettings.invoice_provider_before,
+      invoiceProviderAfter:
+        invoiceCutoverSettings.invoice_provider_after,
+      invoiceCutoverVersion:
+        invoiceCutoverSettings.invoice_cutover_version,
+    });
 
     let preparedCart: PreparedCartRow | null = null;
 
@@ -834,6 +927,13 @@ export async function POST(request: NextRequest) {
           discount_campaign_id: appliedDiscount.campaignId,
           discount_amount: discountAmount,
 
+          checkout_committed_at: now,
+          invoice_provider:
+            cutoverDecision.selectedInvoiceProvider,
+          invoice_provider_assigned_at: now,
+          invoice_cutover_version:
+            cutoverDecision.cutoverVersion,
+
           confirmed_at: now,
           updated_at: now,
         })
@@ -895,6 +995,7 @@ export async function POST(request: NextRequest) {
         source,
         status: "confirmed",
         notes: notes || null,
+        is_book_snapshot: item.isBook,
 
         created_at: now,
         updated_at: now,
@@ -917,6 +1018,7 @@ export async function POST(request: NextRequest) {
             "unit",
             "source",
             "notes",
+            "is_book_snapshot",
           ].join(", ")
         );
 
@@ -935,7 +1037,171 @@ export async function POST(request: NextRequest) {
     const createdOfferItems =
       createdOfferItemsData as unknown as CreatedOfferItemRow[];
 
-    const invoiceNumber = await getInvoiceNumber(supabase);
+    const cartItemByProductId = new Map(
+      cartItems.map((item) => [item.productId, item] as const)
+    );
+
+    const checkoutTaxSnapshot = buildCheckoutInvoiceTaxSnapshot({
+      currency: "EUR",
+      snapshotAt: now,
+      lines: createdOfferItems.map((offerItem) => {
+        const productId = String(offerItem.product_id || "").trim();
+        const cartItem = cartItemByProductId.get(productId);
+
+        if (!cartItem) {
+          throw new Error(
+            `Für die Shop-Position ${offerItem.id} fehlen die verbindlichen Katalogdaten.`
+          );
+        }
+
+        return {
+          key: offerItem.id,
+          productId,
+          productName: offerItem.product_name,
+          quantity: offerItem.quantity,
+          unitPriceGross: offerItem.product_price,
+          isBookSnapshot: offerItem.is_book_snapshot,
+          bookCoverSelected: false,
+          bookCoverUnitPriceGross: 0,
+        };
+      }),
+      products: cartItems.map((item) => ({
+        id: item.productId,
+        taxRate: item.taxRate,
+        isBook: item.isBook,
+        active: true,
+      })),
+      regularShippingGrossAmount: shippingAmount,
+      bookShippingGrossAmount: 0,
+      discountGrossAmount: discountAmount,
+      bookShippingAllocationScope: "book_products_only",
+      discountAllocationScope: "products_only",
+      expectedGrossAmounts: {
+        subtotal: subtotalAmount,
+        regular_shipping: shippingAmount,
+        book_shipping: 0,
+        book_covers: 0,
+        discount: discountAmount,
+        total: totalAmount,
+      },
+      requireExpectedGrossAmountsMatch: true,
+    });
+
+    const v1LineByOfferItemId = new Map(
+      checkoutTaxSnapshot.lines.map((line) => [line.key, line] as const)
+    );
+    const v2Entries: InvoiceTaxSnapshotV2EntryInput[] = [];
+
+    if (cutoverDecision.cutoverReached) {
+      for (const offerItem of createdOfferItems) {
+        const line = v1LineByOfferItemId.get(offerItem.id);
+
+        if (!line) {
+          throw new Error(
+            `Für die Shop-Position ${offerItem.id} fehlt die validierte V1-Steuerzeile.`
+          );
+        }
+
+        v2Entries.push({
+          key: `product:${offerItem.id}`,
+          component: "product",
+          itemKey: offerItem.id,
+          productId: line.productId,
+          productName: line.productName,
+          quantity: line.quantity,
+          taxRatePercentage: line.catalogTaxRate,
+          grossAmount: line.productGrossAmount,
+          isBook: line.catalogIsBook,
+        });
+      }
+
+      for (const rate of checkoutTaxSnapshot.taxSnapshot.breakdown.rates) {
+        if (rate.regular_shipping.gross > 0) {
+          v2Entries.push({
+            key: `regular-shipping:${rate.tax_rate}`,
+            component: "regular_shipping",
+            taxRatePercentage: rate.tax_rate,
+            grossAmount: rate.regular_shipping.gross,
+          });
+        }
+
+        if (rate.discount.gross > 0) {
+          v2Entries.push({
+            key: `discount:${rate.tax_rate}`,
+            component: "discount",
+            taxRatePercentage: rate.tax_rate,
+            grossAmount: -rate.discount.gross,
+          });
+        }
+      }
+    }
+
+    const v2TaxSnapshot = cutoverDecision.cutoverReached
+      ? buildInvoiceTaxSnapshotV2({
+          currency: "EUR",
+          snapshotAt: now,
+          entries: v2Entries,
+        })
+      : null;
+    const selectedTaxSnapshot =
+      v2TaxSnapshot || checkoutTaxSnapshot.taxSnapshot;
+    const invoiceTaxSnapshotPayload =
+      selectedTaxSnapshot.invoiceSnapshotPayload;
+    const selectedItemSnapshotByOfferItemId = new Map(
+      selectedTaxSnapshot.items.map(
+        (item) => [item.key, item.snapshotPayload] as const
+      )
+    );
+    const selectedTotals = selectedTaxSnapshot.breakdown.totals;
+    const snapshotValidation = {
+      statusComplete:
+        invoiceTaxSnapshotPayload.tax_snapshot_status === "complete",
+      selectedVersionMatches:
+        invoiceTaxSnapshotPayload.tax_snapshot_version ===
+        cutoverDecision.selectedTaxSnapshotVersion,
+      subtotalGrossMatches:
+        roundMoney(selectedTotals.subtotal.gross) === subtotalAmount,
+      regularShippingGrossMatches:
+        roundMoney(selectedTotals.regular_shipping.gross) === shippingAmount,
+      bookShippingGrossMatches:
+        roundMoney(selectedTotals.book_shipping.gross) === 0,
+      bookCoverGrossMatches:
+        roundMoney(selectedTotals.book_covers.gross) === 0,
+      discountGrossMatches:
+        roundMoney(selectedTotals.discount.gross) === discountAmount,
+      totalGrossMatches:
+        roundMoney(selectedTotals.total.gross) === totalAmount,
+      totalMoneyIdentityValid:
+        Math.round(
+          invoiceTaxSnapshotPayload.total_net_amount_snapshot * 100
+        ) +
+          Math.round(
+            invoiceTaxSnapshotPayload.total_tax_amount_snapshot * 100
+          ) ===
+        Math.round(selectedTotals.total.gross * 100),
+      allV2InvariantsPassed:
+        v2TaxSnapshot?.diagnostics.allInvariantsPassed ?? true,
+      productItemCountMatches:
+        selectedTaxSnapshot.items.length === createdOfferItems.length,
+      itemSnapshotsComplete:
+        createdOfferItems.every((item) =>
+          selectedItemSnapshotByOfferItemId.has(item.id)
+        ),
+    };
+    const failedSnapshotValidations = Object.entries(snapshotValidation)
+      .filter(([, passed]) => passed !== true)
+      .map(([name]) => name);
+
+    if (failedSnapshotValidations.length > 0) {
+      throw new Error(
+        `Der verbindliche Shop-Steuer-Snapshot ist inkonsistent (${failedSnapshotValidations.join(", ")}). Die Rechnung wurde nicht gespeichert.`
+      );
+    }
+
+    const invoiceNumber = await getInvoiceNumber(
+      supabase,
+      checkoutNowDate
+    );
 
     const { data: invoiceData, error: invoiceInsertError } = await supabase
       .from("school_request_invoices")
@@ -957,6 +1223,47 @@ export async function POST(request: NextRequest) {
         discount_amount: discountAmount,
         total_amount: totalAmount,
         currency: "EUR",
+
+        invoice_provider:
+          cutoverDecision.selectedInvoiceProvider,
+        invoice_provider_assigned_at: now,
+        invoice_cutover_version:
+          cutoverDecision.cutoverVersion,
+
+        tax_snapshot_status:
+          invoiceTaxSnapshotPayload.tax_snapshot_status,
+        tax_snapshot_source:
+          invoiceTaxSnapshotPayload.tax_snapshot_source,
+        tax_snapshot_version:
+          invoiceTaxSnapshotPayload.tax_snapshot_version,
+        tax_snapshot_at:
+          invoiceTaxSnapshotPayload.tax_snapshot_at,
+        tax_breakdown_snapshot:
+          invoiceTaxSnapshotPayload.tax_breakdown_snapshot,
+        subtotal_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.subtotal_net_amount_snapshot,
+        subtotal_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.subtotal_tax_amount_snapshot,
+        shipping_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.shipping_net_amount_snapshot,
+        shipping_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.shipping_tax_amount_snapshot,
+        book_shipping_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.book_shipping_net_amount_snapshot,
+        book_shipping_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.book_shipping_tax_amount_snapshot,
+        book_cover_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.book_cover_net_amount_snapshot,
+        book_cover_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.book_cover_tax_amount_snapshot,
+        discount_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.discount_net_amount_snapshot,
+        discount_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.discount_tax_amount_snapshot,
+        total_net_amount_snapshot:
+          invoiceTaxSnapshotPayload.total_net_amount_snapshot,
+        total_tax_amount_snapshot:
+          invoiceTaxSnapshotPayload.total_tax_amount_snapshot,
 
         customer_name_snapshot: customerName,
         customer_email_snapshot: email,
@@ -1027,6 +1334,14 @@ export async function POST(request: NextRequest) {
       const quantity = normalizeQuantity(offerItem.quantity);
       const unitPrice = roundMoney(toNumber(offerItem.product_price, 0));
       const itemTotalPrice = roundMoney(quantity * unitPrice);
+      const itemTaxSnapshot =
+        selectedItemSnapshotByOfferItemId.get(offerItem.id);
+
+      if (!itemTaxSnapshot) {
+        throw new Error(
+          `Für die Shop-Rechnungsposition ${offerItem.id} fehlt der ausgewählte Steuer-Snapshot.`
+        );
+      }
 
       return {
         invoice_id: invoice.id,
@@ -1043,6 +1358,29 @@ export async function POST(request: NextRequest) {
 
         unit_price: unitPrice,
         total_price: itemTotalPrice,
+
+        tax_rate_snapshot:
+          itemTaxSnapshot.tax_rate_snapshot,
+        product_gross_amount_snapshot:
+          itemTaxSnapshot.product_gross_amount_snapshot,
+        product_net_amount_snapshot:
+          itemTaxSnapshot.product_net_amount_snapshot,
+        product_tax_amount_snapshot:
+          itemTaxSnapshot.product_tax_amount_snapshot,
+        tax_snapshot_source:
+          itemTaxSnapshot.tax_snapshot_source,
+        tax_snapshot_version:
+          itemTaxSnapshot.tax_snapshot_version,
+        tax_snapshot_at:
+          itemTaxSnapshot.tax_snapshot_at,
+        book_cover_tax_rate_snapshot:
+          itemTaxSnapshot.book_cover_tax_rate_snapshot,
+        book_cover_net_amount_snapshot:
+          itemTaxSnapshot.book_cover_net_amount_snapshot,
+        book_cover_tax_amount_snapshot:
+          itemTaxSnapshot.book_cover_tax_amount_snapshot,
+
+        is_book_snapshot: offerItem.is_book_snapshot,
 
         source: offerItem.source,
         notes: offerItem.notes,
@@ -1074,7 +1412,7 @@ export async function POST(request: NextRequest) {
         discount_campaign_id: appliedDiscount.campaignId,
         discount_amount: discountAmount,
         invoice_total_amount: totalAmount,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", requestId);
 
@@ -1087,6 +1425,18 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    const cutoverEventMetadata = {
+      invoice_id: invoice.id,
+      invoice_number: invoice.invoice_number,
+      invoice_provider: cutoverDecision.selectedInvoiceProvider,
+      invoice_cutover_version: cutoverDecision.cutoverVersion,
+      selected_tax_snapshot_version:
+        cutoverDecision.selectedTaxSnapshotVersion,
+      cutover_reached: cutoverDecision.cutoverReached,
+      cutover_at: cutoverDecision.cutoverAt,
+      source: "shop_checkout",
+    };
 
     await insertRequestEvent({
       supabase,
@@ -1108,6 +1458,8 @@ export async function POST(request: NextRequest) {
           } Positionen wurde erstellt. Gesamtbetrag: ${formatEuroForEvent(
             totalAmount
           )} EUR.`,
+      metadata: cutoverEventMetadata,
+      createdAt: now,
     });
 
     await insertRequestEvent({
@@ -1126,13 +1478,29 @@ export async function POST(request: NextRequest) {
           } wurde für die Shop-Bestellung vorbereitet. Gesamtbetrag: ${formatEuroForEvent(
             totalAmount
           )} EUR.`,
+      metadata: cutoverEventMetadata,
+      createdAt: now,
     });
 
-    await sendCustomerInvoiceMailSafely({
-      supabase,
-      requestId,
-      invoiceNumber: invoice.invoice_number,
-    });
+    if (cutoverDecision.cutoverReached) {
+      await insertRequestEvent({
+        supabase,
+        requestId,
+        eventType: "lexware_invoice_pending",
+        title: "Lexware-Rechnung vorgemerkt",
+        description:
+          "Die Shop-Bestellung wurde nach dem Cutover mit V2-Steuersnapshot gespeichert. Die Lexware-Rechnung wird über den separaten freigegebenen Lexware-Workflow erzeugt.",
+        metadata: cutoverEventMetadata,
+        createdAt: now,
+      });
+    } else {
+      await sendCustomerInvoiceMailSafely({
+        supabase,
+        requestId,
+        invoiceNumber: invoice.invoice_number,
+        createdAt: now,
+      });
+    }
 
     await sendShopOrderAdminNotificationSafely({
       supabase,
@@ -1154,6 +1522,7 @@ export async function POST(request: NextRequest) {
       discountAmount,
       totalAmount,
       customerMessage,
+      createdAt: now,
     });
 
     if (preparedCart) {
@@ -1164,7 +1533,7 @@ export async function POST(request: NextRequest) {
           ordered_request_id: requestId,
           ordered_invoice_id: invoice.id,
           ordered_invoice_token: invoice.invoice_token,
-          ordered_at: new Date().toISOString(),
+          ordered_at: now,
         })
         .eq("id", preparedCart.id)
         .neq("status", "ordered");
@@ -1182,6 +1551,7 @@ export async function POST(request: NextRequest) {
           title: "Vorbereiteter Warenkorb nicht verknüpft",
           description:
             "Die Bestellung wurde erfolgreich erstellt, aber der vorbereitete Bestandskunden-Warenkorb konnte nicht als bestellt markiert werden.",
+          createdAt: now,
         });
       } else {
         await insertRequestEvent({
@@ -1191,6 +1561,7 @@ export async function POST(request: NextRequest) {
           title: "Vorbereiteter Warenkorb bestellt",
           description:
             "Die Bestellung wurde aus einem vorbereiteten Bestandskunden-Warenkorb abgeschlossen.",
+          createdAt: now,
         });
       }
     }
@@ -1202,7 +1573,12 @@ export async function POST(request: NextRequest) {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number,
       invoiceToken: invoice.invoice_token,
-      redirectUrl: `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
+      invoicePending: cutoverDecision.cutoverReached,
+      invoiceProvider: cutoverDecision.selectedInvoiceProvider,
+      invoiceAvailable: !cutoverDecision.cutoverReached,
+      redirectUrl: cutoverDecision.cutoverReached
+        ? "/shop/bestaetigung"
+        : `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
       subtotalAmount,
       shippingAmount,
       discountCampaignId: appliedDiscount.campaignId,
@@ -1212,7 +1588,18 @@ export async function POST(request: NextRequest) {
       discountAmount,
       totalAmount,
       preparedCartLinked: Boolean(preparedCart),
-      message: appliedDiscount.discountName
+      cutover: {
+        reached: cutoverDecision.cutoverReached,
+        cutoverAt: cutoverDecision.cutoverAt,
+        version: cutoverDecision.cutoverVersion,
+        selectedTaxSnapshotVersion:
+          cutoverDecision.selectedTaxSnapshotVersion,
+        selectedInvoiceProvider:
+          cutoverDecision.selectedInvoiceProvider,
+      },
+      message: cutoverDecision.cutoverReached
+        ? "Deine Bestellung ist eingegangen. Die Rechnung wird separat erstellt und Dir anschließend bereitgestellt."
+        : appliedDiscount.discountName
         ? `Die Shop-Bestellung wurde erstellt. Rabattaktion "${appliedDiscount.discountName}" wurde angewendet.`
         : "Die Shop-Bestellung wurde erstellt.",
     });
