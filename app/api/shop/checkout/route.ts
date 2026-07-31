@@ -1482,25 +1482,12 @@ export async function POST(request: NextRequest) {
       createdAt: now,
     });
 
-    if (cutoverDecision.cutoverReached) {
-      await insertRequestEvent({
-        supabase,
-        requestId,
-        eventType: "lexware_invoice_pending",
-        title: "Lexware-Rechnung vorgemerkt",
-        description:
-          "Die Shop-Bestellung wurde nach dem Cutover mit V2-Steuersnapshot gespeichert. Die Lexware-Rechnung wird über den separaten freigegebenen Lexware-Workflow erzeugt.",
-        metadata: cutoverEventMetadata,
-        createdAt: now,
-      });
-    } else {
-      await sendCustomerInvoiceMailSafely({
-        supabase,
-        requestId,
-        invoiceNumber: invoice.invoice_number,
-        createdAt: now,
-      });
-    }
+    await sendCustomerInvoiceMailSafely({
+      supabase,
+      requestId,
+      invoiceNumber: invoice.invoice_number,
+      createdAt: now,
+    });
 
     await sendShopOrderAdminNotificationSafely({
       supabase,
@@ -1573,12 +1560,10 @@ export async function POST(request: NextRequest) {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number,
       invoiceToken: invoice.invoice_token,
-      invoicePending: cutoverDecision.cutoverReached,
+      invoicePending: false,
       invoiceProvider: cutoverDecision.selectedInvoiceProvider,
-      invoiceAvailable: !cutoverDecision.cutoverReached,
-      redirectUrl: cutoverDecision.cutoverReached
-        ? "/shop/bestaetigung"
-        : `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
+      invoiceAvailable: true,
+      redirectUrl: `/rechnung/${encodeURIComponent(invoice.invoice_token)}`,
       subtotalAmount,
       shippingAmount,
       discountCampaignId: appliedDiscount.campaignId,
@@ -1597,9 +1582,7 @@ export async function POST(request: NextRequest) {
         selectedInvoiceProvider:
           cutoverDecision.selectedInvoiceProvider,
       },
-      message: cutoverDecision.cutoverReached
-        ? "Deine Bestellung ist eingegangen. Die Rechnung wird separat erstellt und Dir anschließend bereitgestellt."
-        : appliedDiscount.discountName
+      message: appliedDiscount.discountName
         ? `Die Shop-Bestellung wurde erstellt. Rabattaktion "${appliedDiscount.discountName}" wurde angewendet.`
         : "Die Shop-Bestellung wurde erstellt.",
     });

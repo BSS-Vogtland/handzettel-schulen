@@ -16,7 +16,7 @@
  * Ab dem Cutover-Zeitpunkt:
  *
  * - invoice-tax-snapshot-v2
- * - lexware
+ * - legacy_internal
  *
  * Diese Datei:
  *
@@ -104,6 +104,9 @@ export type InvoiceTaxCutoverResult = {
   selectedInvoiceProvider:
     InvoiceProvider;
 
+  providerCutoverDeferred:
+    boolean;
+
   beforeCutover: {
     taxSnapshotVersion:
       "invoice-tax-snapshot-v1";
@@ -117,7 +120,7 @@ export type InvoiceTaxCutoverResult = {
       "invoice-tax-snapshot-v2";
 
     invoiceProvider:
-      "lexware";
+      "legacy_internal";
   };
 };
 
@@ -251,7 +254,9 @@ function requireExactConfiguration(
 
     providerAfterMatches:
       invoiceProviderAfter ===
-      "lexware",
+        "legacy_internal" ||
+      invoiceProviderAfter ===
+        "lexware",
 
     cutoverVersionMatches:
       invoiceCutoverVersion ===
@@ -302,7 +307,7 @@ function requireExactConfiguration(
             "legacy_internal",
 
           invoiceProviderAfter:
-            "lexware",
+            "legacy_internal",
 
           invoiceCutoverVersion:
             EXPECTED_INVOICE_CUTOVER_VERSION,
@@ -335,7 +340,7 @@ function requireExactConfiguration(
       "legacy_internal" as const,
 
     invoiceProviderAfter:
-      "lexware" as const,
+      "legacy_internal" as const,
 
     invoiceCutoverVersion:
       EXPECTED_INVOICE_CUTOVER_VERSION,
@@ -420,9 +425,10 @@ export function resolveInvoiceTaxCutover(
         : "invoice-tax-snapshot-v1",
 
     selectedInvoiceProvider:
-      cutoverReached
-        ? "lexware"
-        : "legacy_internal",
+      "legacy_internal",
+
+    providerCutoverDeferred:
+      true,
 
     beforeCutover: {
       taxSnapshotVersion:
@@ -437,7 +443,7 @@ export function resolveInvoiceTaxCutover(
         "invoice-tax-snapshot-v2",
 
       invoiceProvider:
-        "lexware",
+        "legacy_internal",
     },
   };
 }

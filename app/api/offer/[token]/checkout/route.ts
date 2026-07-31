@@ -2336,51 +2336,14 @@ export async function POST(
         now,
     });
 
-    if (
-      cutoverDecision
-        .cutoverReached
-    ) {
-      await insertRequestEvent({
-        supabase,
-        requestId,
-        eventType:
-          "lexware_invoice_pending",
-        title:
-          "Lexware-Rechnung vorgemerkt",
-        description:
-          "Die Bestellung wurde nach dem Cutover mit V2-Snapshot gespeichert. Die Lexware-Rechnung wird erst über den separaten freigegebenen Lexware-Workflow erzeugt.",
-        metadata: {
-          invoice_id:
-            invoice.id,
-
-          invoice_number:
-            invoice.invoice_number,
-
-          invoice_provider:
-            cutoverDecision
-              .selectedInvoiceProvider,
-
-          invoice_cutover_version:
-            cutoverDecision
-              .cutoverVersion,
-
-          tax_snapshot_version:
-            cutoverDecision
-              .selectedTaxSnapshotVersion,
-        },
-        createdAt:
-          now,
-      });
-    } else {
-      await sendCustomerInvoiceMailSafely({
-        supabase,
-        requestId,
-        invoiceNumber:
-          invoice.invoice_number,
-        createdAt:
-          now,
-      });
-    }
+    await sendCustomerInvoiceMailSafely({
+      supabase,
+      requestId,
+      invoiceNumber:
+        invoice.invoice_number,
+      createdAt:
+        now,
+    });
 
     return NextResponse.json({
       ok:

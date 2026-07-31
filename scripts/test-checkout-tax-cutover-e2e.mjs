@@ -53,7 +53,7 @@ const cutoverConfiguration = {
   invoiceCutoverAt: EXPECTED_INVOICE_CUTOVER_AT,
   timezoneName: EXPECTED_INVOICE_TIMEZONE,
   invoiceProviderBefore: "legacy_internal",
-  invoiceProviderAfter: "lexware",
+  invoiceProviderAfter: "legacy_internal",
   invoiceCutoverVersion: EXPECTED_INVOICE_CUTOVER_VERSION,
 };
 
@@ -70,17 +70,17 @@ const cutoverCases = [
     now: "2026-07-31T22:00:00.000Z",
     reached: true,
     snapshotVersion: "invoice-tax-snapshot-v2",
-    provider: "lexware",
-    internalMailSelected: false,
-    pendingEventSelected: true,
+    provider: "legacy_internal",
+    internalMailSelected: true,
+    pendingEventSelected: false,
   },
   {
     now: "2026-07-31T22:00:00.001Z",
     reached: true,
     snapshotVersion: "invoice-tax-snapshot-v2",
-    provider: "lexware",
-    internalMailSelected: false,
-    pendingEventSelected: true,
+    provider: "legacy_internal",
+    internalMailSelected: true,
+    pendingEventSelected: false,
   },
 ];
 
@@ -89,12 +89,15 @@ const cutoverResults = cutoverCases.map((expected) => {
     ...cutoverConfiguration,
     now: expected.now,
   });
-  const internalMailSelected = !decision.cutoverReached;
-  const pendingEventSelected = decision.cutoverReached;
+  const internalMailSelected =
+    decision.selectedInvoiceProvider === "legacy_internal";
+  const pendingEventSelected =
+    decision.selectedInvoiceProvider === "lexware";
 
   assert.equal(decision.cutoverReached, expected.reached);
   assert.equal(decision.selectedTaxSnapshotVersion, expected.snapshotVersion);
   assert.equal(decision.selectedInvoiceProvider, expected.provider);
+  assert.equal(decision.providerCutoverDeferred, true);
   assert.equal(internalMailSelected, expected.internalMailSelected);
   assert.equal(pendingEventSelected, expected.pendingEventSelected);
 
@@ -109,6 +112,24 @@ const cutoverResults = cutoverCases.map((expected) => {
     lexwareWriteSelected: false,
   };
 });
+
+const rolloutCompatibilityDecision = resolveInvoiceTaxCutover({
+  ...cutoverConfiguration,
+  invoiceProviderAfter: "lexware",
+  now: "2026-07-31T22:00:00.000Z",
+});
+assert.equal(
+  rolloutCompatibilityDecision.selectedTaxSnapshotVersion,
+  "invoice-tax-snapshot-v2",
+);
+assert.equal(
+  rolloutCompatibilityDecision.selectedInvoiceProvider,
+  "legacy_internal",
+);
+assert.equal(
+  rolloutCompatibilityDecision.providerCutoverDeferred,
+  true,
+);
 
 const snapshotAt = "2026-07-31T22:00:00.000Z";
 const lines = [
@@ -343,6 +364,47 @@ assert.doesNotMatch(
   checkoutRoute,
   /lexwareInvoiceWriteClient|createLexwareInvoice|fetch\s*\([^)]*lexware/i,
 );
+assert.doesNotMatch(
+  checkoutRoute,
+  /eventType:\s*[\r\n\s]*"lexware_invoice_pending"/,
+);
+assert.match(
+  checkoutRoute,
+  /await sendCustomerInvoiceMailSafely\(/,
+);
+
+const shopCheckoutRoute = fs.readFileSync(
+  path.join(projectRoot, "app/api/shop/checkout/route.ts"),
+  "utf8",
+);
+assert.doesNotMatch(
+  shopCheckoutRoute,
+  /eventType:\s*"lexware_invoice_pending"/,
+);
+assert.doesNotMatch(
+  shopCheckoutRoute,
+  /lexwareInvoiceWriteClient|createLexwareInvoice|fetch\s*\([^)]*lexware/i,
+);
+assert.match(
+  shopCheckoutRoute,
+  /await sendCustomerInvoiceMailSafely\(/,
+);
+assert.match(
+  shopCheckoutRoute,
+  /invoicePending:\s*false/,
+);
+assert.match(
+  shopCheckoutRoute,
+  /invoiceAvailable:\s*true/,
+);
+assert.match(
+  shopCheckoutRoute,
+  /redirectUrl:\s*`\/rechnung\/\$\{encodeURIComponent\(invoice\.invoice_token\)\}`/,
+);
+assert.doesNotMatch(
+  shopCheckoutRoute,
+  /redirectUrl:[\s\S]{0,100}\/shop\/bestaetigung/,
+);
 
 const result = {
   status: "PASS",
@@ -354,6 +416,13 @@ const result = {
     environmentChanged: false,
   },
   cutover: cutoverResults,
+  rolloutCompatibility: {
+    legacyDatabaseProviderAfterAccepted: true,
+    selectedTaxSnapshotVersion:
+      rolloutCompatibilityDecision.selectedTaxSnapshotVersion,
+    selectedInvoiceProvider:
+      rolloutCompatibilityDecision.selectedInvoiceProvider,
+  },
   dataset: {
     productCount: lines.length,
     product19PercentCount: 2,
@@ -380,6 +449,13 @@ const result = {
   intentionalMismatch,
   checkoutAbortBeforeInvoiceInsertConfirmed:
     invoiceInsertPosition > validationPosition,
+  checkoutRoutes: {
+    offerInternalMailSelected: true,
+    shopInternalMailSelected: true,
+    lexwareInvoicePendingSelected: false,
+    shopInternalInvoiceRedirectSelected: true,
+    lexwareWriteSelected: false,
+  },
 };
 
 console.log(JSON.stringify(result, null, 2));
