@@ -37,7 +37,7 @@ export const dynamic =
   "force-dynamic";
 
 const LEXWARE_READ_ONLY_STATUS_VERSION =
-  "lexware-read-only-admin-status-v1";
+  "lexware-read-only-admin-status-v2";
 
 const NO_STORE_HEADERS = {
   "Cache-Control":
@@ -126,6 +126,15 @@ type ConnectionFailure = {
   retryAfterSeconds:
     | number
     | null;
+};
+
+type PublicLexwareProfile = {
+  organizationId: string;
+  companyName: string;
+  businessFeatures: string[];
+  taxType: string | null;
+  smallBusiness: boolean | null;
+  retrievedAt: string;
 };
 
 function cleanText(
@@ -523,6 +532,29 @@ function getProfileChecks(
   };
 }
 
+function toPublicLexwareProfile(
+  profile: LexwareProfile | null,
+  retrievedAt: string | null,
+): PublicLexwareProfile | null {
+  if (!profile || !retrievedAt) {
+    return null;
+  }
+
+  return {
+    organizationId:
+      profile.organizationId,
+    companyName:
+      profile.companyName,
+    businessFeatures:
+      profile.businessFeatures,
+    taxType:
+      profile.taxType,
+    smallBusiness:
+      profile.smallBusiness,
+    retrievedAt,
+  };
+}
+
 export async function GET(
   request: Request,
 ) {
@@ -532,6 +564,12 @@ export async function GET(
   if (unauthorized) {
     return unauthorized;
   }
+
+  let lexwareReadRequestsPerformed =
+    0;
+
+  let databaseReadsPerformed =
+    0;
 
   try {
     /*
@@ -561,6 +599,15 @@ export async function GET(
           writeOperationsPerformed:
             false,
 
+          lexwareReadRequestsPerformed,
+          lexwareWriteRequestsPerformed:
+            0,
+          databaseReadsPerformed,
+          databaseWritesPerformed:
+            0,
+          mailOperationsPerformed:
+            0,
+
           version:
             LEXWARE_READ_ONLY_STATUS_VERSION,
 
@@ -579,6 +626,35 @@ export async function GET(
 
     const selectedMode =
       requestedMode.mode;
+
+    const environmentMode =
+      environment.modes[
+        selectedMode
+      ];
+
+    const selectedCredentials = {
+      mode:
+        selectedMode,
+
+      apiKeyConfigured:
+        environmentMode
+          .apiKeyConfigured,
+
+      organizationIdConfigured:
+        environmentMode
+          .organizationIdConfigured,
+
+      organizationIdValid:
+        environmentMode
+          .organizationIdValid,
+    };
+
+    /*
+     * Ein Statuslauf liest genau eine Settings-Zeile und
+     * führt fünf Head-Counts aus. Es gibt keine DB-Writes.
+     */
+    databaseReadsPerformed =
+      6;
 
     const [
       settings,
@@ -599,22 +675,68 @@ export async function GET(
       | null =
         null;
 
-    try {
-      profile =
-        await getLexwareProfile(
-          selectedMode,
-        );
-    } catch (error) {
-      connectionError =
-        toConnectionFailure(
-          error,
-        );
-    }
+    let profileRetrievedAt:
+      | string
+      | null =
+        null;
 
-    const environmentMode =
-      environment.modes[
-        selectedMode
-      ];
+    const selectedModeConfigurationSafe =
+      environment.apiBaseUrlValid ===
+        true &&
+      environment.integrationFlagValid ===
+        true &&
+      environment
+        .credentialSeparation
+        .safe ===
+        true &&
+      selectedCredentials
+        .apiKeyConfigured ===
+        true &&
+      selectedCredentials
+        .organizationIdConfigured ===
+        true &&
+      selectedCredentials
+        .organizationIdValid ===
+        true;
+
+    if (
+      selectedModeConfigurationSafe
+    ) {
+      try {
+        lexwareReadRequestsPerformed =
+          1;
+
+        profile =
+          await getLexwareProfile(
+            selectedMode,
+          );
+
+        profileRetrievedAt =
+          new Date().toISOString();
+      } catch (error) {
+        connectionError =
+          toConnectionFailure(
+            error,
+          );
+      }
+    } else {
+      connectionError = {
+        kind:
+          "configuration",
+
+        code:
+          "LEXWARE_SELECTED_MODE_CONFIGURATION_UNSAFE",
+
+        message:
+          "Die Zugangskonfiguration des ausgewählten Lexware-Modus ist unvollständig, ungültig oder nicht sicher getrennt.",
+
+        httpStatus:
+          null,
+
+        retryAfterSeconds:
+          null,
+      };
+    }
 
     const databaseOrganizationId =
       getDatabaseOrganizationId(
@@ -632,6 +754,12 @@ export async function GET(
         profile,
       );
 
+    const publicProfile =
+      toPublicLexwareProfile(
+        profile,
+        profileRetrievedAt,
+      );
+
     const cutoverTimestamp =
       Date.parse(
         settings
@@ -647,6 +775,48 @@ export async function GET(
       cutoverTimestampValid &&
       Date.now() >=
         cutoverTimestamp;
+
+    const providerTransitionMode =
+      settings
+        .invoice_provider_before ===
+          "legacy_internal" &&
+      settings
+        .invoice_provider_after ===
+          "lexware"
+        ? "lexware_cutover_configured"
+        : settings
+              .invoice_provider_before ===
+                "legacy_internal" &&
+            settings
+              .invoice_provider_after ===
+                "legacy_internal"
+          ? "lexware_cutover_deferred"
+          : null;
+
+    const providerCutoverDeferred =
+      providerTransitionMode ===
+      "lexware_cutover_deferred";
+
+    const deferredProviderTransitionSafelyDisabled =
+      !providerCutoverDeferred ||
+      (
+        environment.integrationEnabled ===
+          false &&
+        settings
+          .lexware_production_write_enabled ===
+          false &&
+        settings
+          .lexware_automatic_mail_enabled ===
+          false
+      );
+
+    const providerTransitionIsCorrect =
+      providerTransitionMode ===
+        "lexware_cutover_configured" ||
+      (
+        providerCutoverDeferred &&
+        deferredProviderTransitionSafelyDisabled
+      );
 
     const checks = {
       apiBaseUrlValid:
@@ -738,12 +908,9 @@ export async function GET(
       cutoverTimestampValid,
 
       providerTransitionIsCorrect:
-        settings
-          .invoice_provider_before ===
-          "legacy_internal" &&
-        settings
-          .invoice_provider_after ===
-          "lexware",
+        providerTransitionIsCorrect,
+
+      deferredProviderTransitionSafelyDisabled,
 
       outboxSchemaVersionIsCorrect:
         settings
@@ -798,6 +965,8 @@ export async function GET(
         .cutoverTimestampValid &&
       checks
         .providerTransitionIsCorrect &&
+      checks
+        .deferredProviderTransitionSafelyDisabled &&
       checks
         .outboxSchemaVersionIsCorrect &&
       checks
@@ -856,6 +1025,15 @@ export async function GET(
         writeOperationsPerformed:
           false,
 
+        lexwareReadRequestsPerformed,
+        lexwareWriteRequestsPerformed:
+          0,
+        databaseReadsPerformed,
+        databaseWritesPerformed:
+          0,
+        mailOperationsPerformed:
+          0,
+
         version:
           LEXWARE_READ_ONLY_STATUS_VERSION,
 
@@ -875,6 +1053,8 @@ export async function GET(
 
           selectedModeIsActive,
         },
+
+        selectedCredentials,
 
         environment,
 
@@ -967,12 +1147,27 @@ export async function GET(
         },
 
         lexware: {
-          profile,
+          profile:
+            publicProfile,
           error:
             connectionError,
         },
 
         checks,
+
+        providerTransition: {
+          providerTransitionMode:
+            providerTransitionMode,
+
+          providerCutoverDeferred,
+
+          transitionRecognized:
+            providerTransitionMode !==
+            null,
+
+          deferredTransitionSafelyDisabled:
+            deferredProviderTransitionSafelyDisabled,
+        },
 
         gates: {
           cutoverReached,
@@ -1025,6 +1220,15 @@ export async function GET(
         writeOperationsPerformed:
           false,
 
+        lexwareReadRequestsPerformed,
+        lexwareWriteRequestsPerformed:
+          0,
+        databaseReadsPerformed,
+        databaseWritesPerformed:
+          0,
+        mailOperationsPerformed:
+          0,
+
         version:
           LEXWARE_READ_ONLY_STATUS_VERSION,
 
@@ -1058,6 +1262,17 @@ export async function POST() {
 
       writeOperationsPerformed:
         false,
+
+      lexwareReadRequestsPerformed:
+        0,
+      lexwareWriteRequestsPerformed:
+        0,
+      databaseReadsPerformed:
+        0,
+      databaseWritesPerformed:
+        0,
+      mailOperationsPerformed:
+        0,
 
       message:
         "Dieser Endpunkt ist ausschließlich read-only und kann nur per GET verwendet werden.",
