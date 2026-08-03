@@ -23,7 +23,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ in
     if (itemError || !items?.length) throw new Error("Rechnungspositionen nicht gefunden.");
     const { data: settings, error: settingsError } = await supabaseServer.from("business_runtime_settings").select("invoice_provider_after, lexware_production_write_enabled, lexware_production_organization_id").eq("id", "default").single();
     if (settingsError || !settings) throw new Error("Runtime-Einstellungen nicht gefunden.");
-    const { data: job } = await supabaseServer.from("school_lexware_invoice_jobs").select("status, creation_state, payload_sha256, lexware_invoice_id, lock_expires_at").eq("local_invoice_id", invoiceId).maybeSingle();
+    const { data: job } = await supabaseServer.from("school_lexware_invoice_jobs").select("id, status, creation_state, payload_sha256, idempotency_key, lexware_invoice_id, lock_expires_at").eq("local_invoice_id", invoiceId).maybeSingle();
     const built = buildLexwareInvoicePayload({ invoice: invoice as unknown as LocalLexwareInvoiceSnapshot, items: items as unknown as LocalLexwareInvoiceItemSnapshot[], paymentTermDays: 7 });
     const validation = validateLexwareInvoicePayload(built);
     const environment = getLexwareRuntimeConfigurationSummary();
@@ -44,13 +44,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ in
     const creationState = (job?.creation_state ?? "not_attempted") as LexwareInvoiceCreationState;
     const hasExternalId = Boolean(job?.lexware_invoice_id);
     const activeLock = status === "processing" && Boolean(job?.lock_expires_at && Date.parse(job.lock_expires_at) > Date.now());
-    const hashMatches = !job || job.payload_sha256 === payloadHash;
-    const idempotencyDecision = hasExternalId ? "read_back_existing" : creationState === "creation_state_unknown" ? "manual_review" : activeLock ? "blocked_by_active_lock" : !hashMatches ? "manual_review_payload_changed" : canAttemptExternalWrite(status, creationState) ? "exactly_one_finalize_allowed_if_gates_pass" : "job_state_blocked";
+    const hashMatches = job ? job.payload_sha256 === payloadHash : null;
+    const idempotencyDecision = !job ? "no_persisted_job_state" : hasExternalId ? "read_back_existing" : creationState === "creation_state_unknown" ? "manual_review" : activeLock ? "blocked_by_active_lock" : !hashMatches ? "manual_review_payload_changed" : canAttemptExternalWrite(status, creationState) ? "exactly_one_finalize_allowed_if_gates_pass" : "job_state_blocked";
     const wouldFinalizeInvoice = validation.valid && gates.allowed && idempotencyDecision === "exactly_one_finalize_allowed_if_gates_pass";
     return NextResponse.json({
       ok: true, dryRun: true, writeOperationsPerformed: false, wouldFinalizeInvoice, wouldCreateExactlyOneInvoice: wouldFinalizeInvoice,
       wouldBlockReason: wouldFinalizeInvoice ? null : [...gates.failedChecks, ...(validation.valid ? [] : ["payload_invalid"]), idempotencyDecision],
-      creationStateDecision: creationState, idempotencyDecision, payloadValid: validation.valid,
+      invoiceJobId: job?.id ?? null, jobStatus: job?.status ?? null,
+      creationState: job?.creation_state ?? null, payloadHashMatches: hashMatches,
+      creationStateDecision: job ? creationState : null, idempotencyDecision, payloadValid: validation.valid,
+      recommendation: job ? null : "Zuerst den lokalen Rechnungsjob über die Admin-Enqueue-Route anlegen.",
       gates: { ...gates.checks, allPassed: gates.allowed, failedChecks: gates.failedChecks },
       expectedTotals: built.expected, lexwareReadRequestsPerformed: 0, lexwareWriteRequestsPerformed: 0,
       databaseWritesPerformed: 0, pdfRequestsPerformed: 0, mailOperationsPerformed: 0,
