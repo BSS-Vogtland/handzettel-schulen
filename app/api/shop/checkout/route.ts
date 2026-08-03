@@ -18,6 +18,7 @@ import {
   roundMoney,
 } from "../../../lib/discountCampaigns";
 import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
+import { createSellerSnapshot } from "@/app/lib/sellerSettings";
 import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 
 export const runtime = "nodejs";
@@ -1245,6 +1246,7 @@ export async function POST(request: NextRequest) {
         total_amount: totalAmount,
         currency: "EUR",
         ...createBankTransferSnapshot(),
+        ...createSellerSnapshot(),
         bank_payment_purpose_snapshot: invoiceNumber,
 
         invoice_provider:
@@ -1316,7 +1318,7 @@ export async function POST(request: NextRequest) {
           fulfillmentMethod === "pickup" ? "Abholung im Laden" : null,
         pickup_address_snapshot:
           fulfillmentMethod === "pickup"
-            ? "Bürotechnik Schwalm & Staffe"
+            ? "BSS Vogtland"
             : null,
 
         admin_note: appliedDiscount.discountName

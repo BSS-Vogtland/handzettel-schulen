@@ -12,6 +12,10 @@ import {
   createBankTransferSnapshot,
   getBankTransferSnapshotState,
 } from "@/app/lib/paymentSettings";
+import {
+  createSellerSnapshot,
+  getSellerSnapshotState,
+} from "@/app/lib/sellerSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +85,19 @@ type InvoiceRow = {
   bank_name_snapshot: string | null;
   bank_iban_snapshot: string | null;
   bank_bic_snapshot: string | null;
+  seller_snapshot_version: string | null;
+  seller_legal_name_snapshot: string | null;
+  seller_trade_name_snapshot: string | null;
+  seller_owner_name_snapshot: string | null;
+  seller_street_snapshot: string | null;
+  seller_postal_code_snapshot: string | null;
+  seller_city_snapshot: string | null;
+  seller_country_snapshot: string | null;
+  seller_tax_number_snapshot: string | null;
+  seller_vat_id_snapshot: string | null;
+  seller_email_snapshot: string | null;
+  seller_phone_snapshot: string | null;
+  seller_website_snapshot: string | null;
 };
 
 type RequestBody = {
@@ -618,6 +635,19 @@ export async function POST(
           "bank_name_snapshot",
           "bank_iban_snapshot",
           "bank_bic_snapshot",
+          "seller_snapshot_version",
+          "seller_legal_name_snapshot",
+          "seller_trade_name_snapshot",
+          "seller_owner_name_snapshot",
+          "seller_street_snapshot",
+          "seller_postal_code_snapshot",
+          "seller_city_snapshot",
+          "seller_country_snapshot",
+          "seller_tax_number_snapshot",
+          "seller_vat_id_snapshot",
+          "seller_email_snapshot",
+          "seller_phone_snapshot",
+          "seller_website_snapshot",
         ].join(", "),
       )
       .eq("request_id", requestId)
@@ -776,6 +806,19 @@ export async function POST(
           { status: 409 },
         );
       }
+      const sellerSnapshotState = getSellerSnapshotState(latestDraft);
+      if (sellerSnapshotState !== "complete") {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: sellerSnapshotState === "incomplete"
+              ? "SELLER_SNAPSHOT_INCOMPLETE"
+              : "SELLER_SNAPSHOT_MISSING",
+            message: "Der bestehende Rechnungsentwurf besitzt keinen vollständigen Verkäufer-Snapshot und wird nicht automatisch nachgerüstet.",
+          },
+          { status: 409 },
+        );
+      }
       invoiceId =
         latestDraft.id;
 
@@ -851,6 +894,7 @@ export async function POST(
 
           ...invoiceSnapshot,
           ...createBankTransferSnapshot(),
+          ...createSellerSnapshot(),
           bank_payment_purpose_snapshot:
             invoiceNumber,
         })
