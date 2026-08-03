@@ -17,6 +17,7 @@ import {
   findActiveDiscountCampaign,
   roundMoney,
 } from "../../../lib/discountCampaigns";
+import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
 import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 
 export const runtime = "nodejs";
@@ -1243,6 +1244,8 @@ export async function POST(request: NextRequest) {
         discount_amount: discountAmount,
         total_amount: totalAmount,
         currency: "EUR",
+        ...createBankTransferSnapshot(),
+        bank_payment_purpose_snapshot: invoiceNumber,
 
         invoice_provider:
           cutoverDecision.selectedInvoiceProvider,

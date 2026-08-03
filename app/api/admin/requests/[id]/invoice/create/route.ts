@@ -8,6 +8,10 @@ import {
 } from "@/lib/bookCommerce";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createBankTransferSnapshot,
+  getBankTransferSnapshotState,
+} from "@/app/lib/paymentSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +77,10 @@ type InvoiceRow = {
   invoice_number: string | null;
   invoice_status: string | null;
   payment_status: string | null;
+  bank_account_holder_snapshot: string | null;
+  bank_name_snapshot: string | null;
+  bank_iban_snapshot: string | null;
+  bank_bic_snapshot: string | null;
 };
 
 type RequestBody = {
@@ -606,6 +614,10 @@ export async function POST(
           "invoice_number",
           "invoice_status",
           "payment_status",
+          "bank_account_holder_snapshot",
+          "bank_name_snapshot",
+          "bank_iban_snapshot",
+          "bank_bic_snapshot",
         ].join(", "),
       )
       .eq("request_id", requestId)
@@ -751,6 +763,19 @@ export async function POST(
     }
 
     if (latestDraft?.id) {
+      const bankSnapshotState = getBankTransferSnapshotState(latestDraft);
+      if (bankSnapshotState !== "complete") {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: bankSnapshotState === "incomplete"
+              ? "BANK_TRANSFER_SNAPSHOT_INCOMPLETE"
+              : "BANK_TRANSFER_SNAPSHOT_MISSING",
+            message: "Der bestehende Rechnungsentwurf besitzt keinen vollständigen Bankverbindungs-Snapshot und wird nicht automatisch nachgerüstet.",
+          },
+          { status: 409 },
+        );
+      }
       invoiceId =
         latestDraft.id;
 
@@ -825,6 +850,9 @@ export async function POST(
             "draft",
 
           ...invoiceSnapshot,
+          ...createBankTransferSnapshot(),
+          bank_payment_purpose_snapshot:
+            invoiceNumber,
         })
         .select(
           [

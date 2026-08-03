@@ -16,6 +16,7 @@ import {
   buildInvoiceTaxSnapshotV2,
   type InvoiceTaxSnapshotV2EntryInput,
 } from "@/lib/tax-v2";
+import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
 import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
@@ -1731,6 +1732,11 @@ export async function POST(
 
         currency:
           "EUR",
+
+        ...createBankTransferSnapshot(),
+
+        bank_payment_purpose_snapshot:
+          invoiceNumber,
 
         invoice_provider:
           cutoverDecision
