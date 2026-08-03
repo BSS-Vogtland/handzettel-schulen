@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { evaluateLexwareProductionGates, isValidJobCreationStateCombination } from "../app/lib/lexware/lexwareProductionInvoiceJob";
 import { processLexwareProductionInvoice } from "../app/lib/lexware/lexwareProductionInvoiceProcessor";
 import { executeLexwareProductionInvoiceWrite, LEXWARE_PRODUCTION_FINALIZE_CONFIRMATION, LexwareProductionInvoiceWriteError } from "../app/lib/lexware/lexwareProductionInvoiceWriteClient";
+import { buildLexwareInvoicePayload } from "../app/lib/lexware/lexwareInvoicePayloadBuilder";
+import { validateLexwareInvoicePayload } from "../app/lib/lexware/lexwareInvoicePayloadValidator";
+import { buildLexwareProductionFixtureSnapshots, runLexwareProductionFixtureDryRun } from "../app/lib/lexware/lexwareProductionFixtureDryRun";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const baseGates = {
@@ -93,6 +96,82 @@ function fixture(overrides: Record<string, unknown> = {}) {
 
 async function run() {
   await runClientTests();
+  const fixtureSnapshots = buildLexwareProductionFixtureSnapshots();
+  const buildFixture = (invoice: any = fixtureSnapshots.invoice, items: any = fixtureSnapshots.items) =>
+    buildLexwareInvoicePayload({ invoice, items, paymentTermDays: 7 });
+  const expectBuilderError = (code: string, invoice: any, items: any = fixtureSnapshots.items) => {
+    assert.throws(() => buildFixture(invoice, items), (error: any) => error?.code === code, code);
+  };
+  const v2Built = buildFixture();
+  assert.equal(validateLexwareInvoicePayload(v2Built).valid, true, "V2 positive");
+  assert.equal(v2Built.metadata.taxSnapshotVersion, "invoice-tax-snapshot-v2", "V2 metadata");
+  const v1Invoice = {
+    ...fixtureSnapshots.invoice,
+    tax_snapshot_version: "invoice-tax-snapshot-v1",
+    tax_breakdown_snapshot: {
+      ...fixtureSnapshots.invoice.tax_breakdown_snapshot,
+      version: "invoice-tax-snapshot-v1",
+      rounding_method: "integer_cent_half_up_with_scoped_reduction_balance_v1",
+      allocation_methods: {
+        regular_shipping: "net_value_all_goods_v1",
+        book_shipping: "net_value_book_products_only_v1",
+        discount: "gross_value_products_only_v1",
+      },
+    },
+  };
+  const v1Items = fixtureSnapshots.items.map((item) => ({ ...item, tax_snapshot_version: "invoice-tax-snapshot-v1" }));
+  const v1Built = buildFixture(v1Invoice, v1Items);
+  assert.equal(validateLexwareInvoicePayload(v1Built).valid, true, "V1 regression positive");
+  assert.equal(v1Built.metadata.taxSnapshotVersion, "invoice-tax-snapshot-v1", "V1 metadata");
+  expectBuilderError("TAX_BREAKDOWN_V2_METADATA_INVALID", {
+    ...fixtureSnapshots.invoice,
+    tax_breakdown_snapshot: { ...fixtureSnapshots.invoice.tax_breakdown_snapshot, rounding_method: undefined },
+  });
+  expectBuilderError("TAX_BREAKDOWN_V2_METADATA_INVALID", {
+    ...fixtureSnapshots.invoice,
+    tax_breakdown_snapshot: {
+      ...fixtureSnapshots.invoice.tax_breakdown_snapshot,
+      allocation_methods: { ...fixtureSnapshots.invoice.tax_breakdown_snapshot?.allocation_methods, discount: "wrong" },
+    },
+  });
+  expectBuilderError("TAX_SNAPSHOT_VERSION_INVALID", { ...fixtureSnapshots.invoice, tax_snapshot_version: "invoice-tax-snapshot-v3" });
+  expectBuilderError("INVOICE_ITEM_SNAPSHOT_MISMATCH", fixtureSnapshots.invoice, v1Items);
+  expectBuilderError("INVOICE_ITEM_SNAPSHOT_MISMATCH", v1Invoice, fixtureSnapshots.items);
+  const fixtureDryRun = runLexwareProductionFixtureDryRun({
+    databaseReadsPerformed: 1,
+    gates: {
+      ...baseGates,
+      activeMode: "test",
+      integrationEnabled: false,
+      productionWriteEnabled: false,
+      providerAfterCutover: "legacy_internal",
+    },
+  });
+  assert.equal(fixtureDryRun.payloadValid, true, "Fixture A payload valid");
+  assert.equal(fixtureDryRun.wouldFinalizeInvoice, true, "Fixture A finalize payload");
+  assert.equal(fixtureDryRun.wouldCreateExactlyOneInvoice, false, "Fixture E no creation without gates and job");
+  assert.deepEqual(fixtureDryRun.expected.taxRates.map((rate) => rate.taxRatePercentage), [7, 19], "Fixture B tax buckets");
+  assert.deepEqual(fixtureDryRun.expected.taxRates.map((rate) => [rate.taxRatePercentage, Math.round(rate.grossAmount * 100)]), [[7, 4584], [19, 1249]], "Fixture B tax bucket cents");
+  assert.equal(Math.round(fixtureDryRun.expected.totalGrossAmount * 100), 5833, "Fixture B total gross cents");
+  assert.equal(Math.round(fixtureDryRun.expected.totalNetAmount * 100), 5334, "Fixture B total net cents");
+  assert.equal(Math.round(fixtureDryRun.expected.totalTaxAmount * 100), 499, "Fixture B total tax cents");
+  assert.equal(Math.round((fixtureDryRun.expected.totalNetAmount + fixtureDryRun.expected.totalTaxAmount) * 100), Math.round(fixtureDryRun.expected.totalGrossAmount * 100), "Fixture C money identity");
+  assert.equal(Object.keys(fixtureDryRun.gates).length, 11, "Fixture D complete gates");
+  assert.equal(fixtureDryRun.gates.allPassed, false, "Fixture E blocked");
+  for (const reason of ["activeModeIsProduction", "integrationEnabled", "productionWriteEnabled", "providerCutoverConfiguredForLexware"]) assert.ok(fixtureDryRun.wouldBlockReason?.includes(reason), `Fixture E ${reason}`);
+  assert.equal(fixtureDryRun.lexwareWriteRequestsPerformed, 0, "Fixture F no Lexware writes");
+  assert.equal(fixtureDryRun.databaseWritesPerformed, 0, "Fixture G no database writes");
+  assert.equal(fixtureDryRun.mailOperationsPerformed, 0, "Fixture H no mail");
+  assert.equal(fixtureDryRun.fixtureCustomerIsSynthetic, true, "Fixture I synthetic customer");
+  assert.equal(fixtureDryRun.fixtureContainsRealCustomerData, false, "Fixture I no real customer data");
+  assert.equal(fixtureDryRun.checkoutMaintenanceActive, true, "Fixture maintenance active");
+  const fixtureRouteSource = readFileSync("app/api/admin/lexware/production-fixture-dry-run/route.ts", "utf8");
+  const fixtureHelperSource = readFileSync("app/lib/lexware/lexwareProductionFixtureDryRun.ts", "utf8");
+  for (const source of [fixtureRouteSource, fixtureHelperSource]) {
+    assert.doesNotMatch(source, /createLexwareProductionFinalInvoice|executeLexwareProductionInvoiceWrite/, "Fixture J no production write function");
+    assert.doesNotMatch(source, /\.(insert|update|upsert|delete|rpc)\s*\(/, "Fixture no database mutation");
+  }
+  assert.doesNotMatch(fixtureRouteSource, /requestInvoicePdf|MailService|send.*Mail/i, "Fixture no PDF or mail module");
   const succeeded = { status: "succeeded", creationState: "definitely_created", lexwareInvoiceId: UUID, lexwareInvoiceNumber: "RE-1", completedAt: "2026-08-03T00:00:00.000Z" } as const;
   assert.equal(isValidJobCreationStateCombination(succeeded), true, "succeeded complete");
   assert.equal(isValidJobCreationStateCombination({ ...succeeded, lexwareInvoiceId: null }), false, "succeeded missing id");
