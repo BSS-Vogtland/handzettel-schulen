@@ -52,30 +52,30 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
   site_name: "Handzettel-Schulen.de",
   brand_name: "Handzettel-Schulen.de",
 
-  company_name: "BÜROTECHNIK SCHWALM UND STAFFE",
-  owner_name: "Heike Leopold",
+  company_name: "BSS Vogtland",
+  owner_name: "Marius Röthig",
   legal_form: "Einzelunternehmen",
 
-  street: "Zwickauer Str. 167",
-  postal_code: "08468",
-  city: "Reichenbach",
+  street: "Heinrich-Heine-Str. 2",
+  postal_code: "08547",
+  city: "Jößnitz",
   country: "Deutschland",
 
-  phone_primary: "03765/16175",
-  phone_secondary: "03765/69808",
-  fax: "03765/392146",
+  phone_primary: "03765 16175",
+  phone_secondary: null,
+  fax: null,
 
   email_general: "kontakt@bss-vogtland.de",
   email_privacy: "kontakt@bss-vogtland.de",
 
-  vat_id: "DE257963936",
+  vat_id: "DE346183832",
 
   register_court: null,
   register_number: null,
   supervisory_authority: null,
 
-  responsible_person: "Heike Leopold",
-  privacy_contact: "Heike Leopold",
+  responsible_person: "Marius Röthig",
+  privacy_contact: "Marius Röthig",
 
   dispute_resolution_text:
     "Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",

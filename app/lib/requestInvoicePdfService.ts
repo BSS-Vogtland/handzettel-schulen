@@ -14,6 +14,7 @@ import type {
   InvoiceTaxBreakdownSnapshotV2,
 } from "@/lib/tax-v2";
 import { formatIban, resolveBankTransferDetails } from "@/app/lib/paymentSettings";
+import { resolveSellerDetails } from "@/app/lib/sellerSettings";
 
 type SupportedInvoiceTaxSnapshotVersion =
   | "invoice-tax-snapshot-v1"
@@ -152,6 +153,19 @@ type InvoiceRow = {
   bank_name_snapshot: string | null;
   bank_iban_snapshot: string | null;
   bank_bic_snapshot: string | null;
+  seller_snapshot_version: string | null;
+  seller_legal_name_snapshot: string | null;
+  seller_trade_name_snapshot: string | null;
+  seller_owner_name_snapshot: string | null;
+  seller_street_snapshot: string | null;
+  seller_postal_code_snapshot: string | null;
+  seller_city_snapshot: string | null;
+  seller_country_snapshot: string | null;
+  seller_tax_number_snapshot: string | null;
+  seller_vat_id_snapshot: string | null;
+  seller_email_snapshot: string | null;
+  seller_phone_snapshot: string | null;
+  seller_website_snapshot: string | null;
 };
 
 type InvoiceItemRow = {
@@ -227,16 +241,7 @@ type InvoiceItemRow = {
   created_at: string | null;
 };
 
-const COMPANY = {
-  name: "Handzettel-Schulen.de",
-  legalName: "Bürotechnik Schwalm & Staffe",
-  ownerLine: "Inh. Heike Leopold",
-  street: "Zwickauer Str. 167",
-  city: "08468 Reichenbach",
-  phoneLine: "Tel.: 03765 / 16175 · 03765 / 69808",
-  email: "kontakt@bss-vogtland.de",
-  website: "www.handzettel-schulen.de",
-  taxLine: "Steuernummer: 223/244/09843 · USt-IdNr.: DE257963936",
+const COMPANY_COPY = {
   paypalLine: "PayPal-Zahlung über den Zahlungslink in der Rechnungs-Mail.",
 };
 
@@ -1026,6 +1031,7 @@ async function createInvoicePdf(params: {
   invoiceItems: InvoiceItemRow[];
 }) {
   const { requestRow, invoice, invoiceItems } = params;
+  const sellerDetails = resolveSellerDetails(invoice);
 
   const taxBreakdown =
     validateInvoiceTaxSnapshot(
@@ -1055,7 +1061,7 @@ async function createInvoicePdf(params: {
     page = pdfDoc.addPage([595.28, 841.89]);
     y = pageHeight - 48;
 
-    page.drawText(COMPANY.name, {
+    page.drawText(sellerDetails.tradeName, {
       x: marginX,
       y,
       size: 11,
@@ -1082,7 +1088,7 @@ async function createInvoicePdf(params: {
     color: COLORS.beige,
   });
 
-  page.drawText(COMPANY.name, {
+  page.drawText(sellerDetails.tradeName, {
     x: marginX,
     y,
     size: 24,
@@ -1092,7 +1098,7 @@ async function createInvoicePdf(params: {
 
   y -= 24;
 
-  page.drawText(COMPANY.legalName, {
+  page.drawText(sellerDetails.legalName, {
     x: marginX,
     y,
     size: 10,
@@ -1102,7 +1108,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(COMPANY.ownerLine, {
+  page.drawText(`Inhaber: ${sellerDetails.ownerName}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -1112,7 +1118,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.street} · ${COMPANY.city}`, {
+  page.drawText(`${sellerDetails.street} · ${sellerDetails.postalCode} ${sellerDetails.city}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -1122,7 +1128,7 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(COMPANY.phoneLine, {
+  page.drawText(sellerDetails.country, {
     x: marginX,
     y,
     size: 8.5,
@@ -1132,7 +1138,17 @@ async function createInvoicePdf(params: {
 
   y -= 13;
 
-  page.drawText(`${COMPANY.email} · ${COMPANY.website}`, {
+  page.drawText(`Tel.: ${sellerDetails.phone}`, {
+    x: marginX,
+    y,
+    size: 8.5,
+    font: fontRegular,
+    color: COLORS.muted,
+  });
+
+  y -= 13;
+
+  page.drawText(`${sellerDetails.email} · ${sellerDetails.website}`, {
     x: marginX,
     y,
     size: 8.5,
@@ -1766,7 +1782,7 @@ async function createInvoicePdf(params: {
       color: COLORS.muted,
     });
   } else if (invoice.selected_payment_method === "paypal") {
-    page.drawText(COMPANY.paypalLine, {
+    page.drawText(COMPANY_COPY.paypalLine, {
       x: marginX,
       y,
       size: 8.5,
@@ -1785,13 +1801,16 @@ async function createInvoicePdf(params: {
       color: COLORS.border,
     });
 
-    pdfPage.drawText(`${COMPANY.legalName} · ${COMPANY.taxLine}`, {
+    pdfPage.drawText(
+      `${sellerDetails.legalName} · Steuernummer: ${sellerDetails.taxNumber} · USt-IdNr.: ${sellerDetails.vatId}`,
+      {
       x: marginX,
       y: footerY,
       size: 7.5,
       font: fontRegular,
       color: COLORS.muted,
-    });
+      },
+    );
   }
 
   return await pdfDoc.save();
