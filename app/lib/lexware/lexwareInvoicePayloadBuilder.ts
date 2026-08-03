@@ -6,6 +6,11 @@ import {
   type InvoiceTaxBreakdownSnapshot,
   type SupportedInvoiceTaxRate,
 } from "@/lib/invoiceTaxSnapshot";
+import {
+  INVOICE_TAX_SNAPSHOT_V2_ROUNDING_METHOD,
+  INVOICE_TAX_SNAPSHOT_V2_VERSION,
+  type InvoiceTaxBreakdownSnapshotV2,
+} from "@/lib/tax-v2";
 
 /*
  * LEXWARE_INVOICE_PAYLOAD_BUILDER_V1
@@ -23,6 +28,10 @@ import {
 
 export const LEXWARE_INVOICE_PAYLOAD_BUILDER_VERSION =
   "lexware-invoice-payload-builder-v1" as const;
+
+type SupportedLexwareTaxSnapshotVersion =
+  | typeof INVOICE_TAX_SNAPSHOT_VERSION
+  | typeof INVOICE_TAX_SNAPSHOT_V2_VERSION;
 
 const MAX_LEXWARE_LINE_ITEMS = 300;
 const MAX_TEXT_LENGTH = 1_000;
@@ -195,6 +204,7 @@ export type LocalLexwareInvoiceSnapshot = {
 
   tax_breakdown_snapshot:
     | InvoiceTaxBreakdownSnapshot
+    | InvoiceTaxBreakdownSnapshotV2
     | null;
 
   total_net_amount_snapshot:
@@ -370,7 +380,7 @@ export type LexwareInvoicePayloadBuildResult = {
       typeof INVOICE_TAX_SNAPSHOT_SOURCE;
 
     taxSnapshotVersion:
-      typeof INVOICE_TAX_SNAPSHOT_VERSION;
+      SupportedLexwareTaxSnapshotVersion;
 
     taxSnapshotAt: string;
 
@@ -928,9 +938,14 @@ function validateSnapshot(
     );
   }
 
+  const snapshotVersion =
+    invoice.tax_snapshot_version;
+
   if (
-    invoice.tax_snapshot_version !==
-    INVOICE_TAX_SNAPSHOT_VERSION
+    snapshotVersion !==
+      INVOICE_TAX_SNAPSHOT_VERSION &&
+    snapshotVersion !==
+      INVOICE_TAX_SNAPSHOT_V2_VERSION
   ) {
     fail(
       "TAX_SNAPSHOT_VERSION_INVALID",
@@ -970,7 +985,7 @@ function validateSnapshot(
   if (
     !breakdown ||
     breakdown.version !==
-      INVOICE_TAX_SNAPSHOT_VERSION ||
+      snapshotVersion ||
     breakdown.source !==
       INVOICE_TAX_SNAPSHOT_SOURCE ||
     !timestampsEqual(
@@ -1017,6 +1032,50 @@ function validateSnapshot(
             breakdown?.rates,
           ),
       },
+    );
+  }
+
+  if (
+    snapshotVersion ===
+      INVOICE_TAX_SNAPSHOT_V2_VERSION &&
+    (
+      breakdown.rounding_method !==
+        INVOICE_TAX_SNAPSHOT_V2_ROUNDING_METHOD ||
+      breakdown.allocation_methods.regular_shipping !==
+        "preallocated_by_checkout_adapter_v2" ||
+      breakdown.allocation_methods.book_shipping !==
+        "preallocated_by_checkout_adapter_v2" ||
+      breakdown.allocation_methods.discount !==
+        "preallocated_by_checkout_adapter_v2"
+    )
+  ) {
+    fail(
+      "TAX_BREAKDOWN_V2_METADATA_INVALID",
+      "Die V2-Steueraufschlüsselung besitzt ungültige Rundungs- oder Allokationsmetadaten.",
+    );
+  }
+
+  if (
+    snapshotVersion ===
+      INVOICE_TAX_SNAPSHOT_VERSION &&
+    (
+      breakdown.rounding_method !==
+        "integer_cent_half_up_with_scoped_reduction_balance_v1" ||
+      breakdown.allocation_methods.regular_shipping !==
+        "net_value_all_goods_v1" ||
+      ![
+        "net_value_book_products_only_v1",
+        "net_value_book_products_and_covers_v1",
+      ].includes(breakdown.allocation_methods.book_shipping) ||
+      ![
+        "gross_value_products_only_v1",
+        "gross_value_products_and_book_covers_v1",
+      ].includes(breakdown.allocation_methods.discount)
+    )
+  ) {
+    fail(
+      "TAX_BREAKDOWN_V1_METADATA_INVALID",
+      "Die V1-Steueraufschlüsselung besitzt ungültige Rundungs- oder Allokationsmetadaten.",
     );
   }
 
@@ -1872,7 +1931,8 @@ export function buildLexwareInvoicePayload(
         INVOICE_TAX_SNAPSHOT_SOURCE,
 
       taxSnapshotVersion:
-        INVOICE_TAX_SNAPSHOT_VERSION,
+        invoice.tax_snapshot_version as
+          SupportedLexwareTaxSnapshotVersion,
 
       taxSnapshotAt:
         invoice.tax_snapshot_at!,
