@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
+const sellerModuleUrl = new URL("../app/lib/sellerSettings.ts", import.meta.url).href;
+const sellerSettings = await import(sellerModuleUrl);
+const {
   SELLER_DETAILS,
   createSellerSnapshot,
   getSellerSnapshotState,
   resolveSellerDetails,
   validateSellerDetails,
-} from "../app/lib/sellerSettings.ts";
-import { BANK_TRANSFER_DETAILS, validateBankTransferDetails } from "../app/lib/paymentSettings.ts";
+} = sellerSettings;
+const paymentModuleUrl = new URL("../app/lib/paymentSettings.ts", import.meta.url).href;
+const paymentSettings = await import(paymentModuleUrl);
+const { BANK_TRANSFER_DETAILS, validateBankTransferDetails } = paymentSettings;
 
 const current = validateSellerDetails(SELLER_DETAILS);
 assert.equal(current.legalName, "BSS Vogtland");
