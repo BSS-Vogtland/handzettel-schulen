@@ -12,6 +12,7 @@ declare
   request_cutover_version text;
   provider_was_missing boolean := new.invoice_provider is null;
   bank_snapshot_field_count integer;
+  seller_snapshot_field_count integer;
 begin
   if new.invoice_provider is null then
     select invoice_provider, invoice_provider_assigned_at, invoice_cutover_version
@@ -51,20 +52,40 @@ begin
   end if;
   new.bank_payment_purpose_snapshot := coalesce(new.bank_payment_purpose_snapshot, new.invoice_number);
 
+  seller_snapshot_field_count :=
+    (case when nullif(btrim(new.seller_snapshot_version), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_legal_name_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_trade_name_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_owner_name_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_street_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_postal_code_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_city_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_country_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_tax_number_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_vat_id_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_email_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_phone_snapshot), '') is not null then 1 else 0 end) +
+    (case when nullif(btrim(new.seller_website_snapshot), '') is not null then 1 else 0 end);
+
+  if seller_snapshot_field_count = 0 then
+    new.seller_snapshot_version := 'business-profile-2026-08-v1';
+    new.seller_legal_name_snapshot := 'BSS Vogtland';
+    new.seller_trade_name_snapshot := 'Handzettel-Schulen.de';
+    new.seller_owner_name_snapshot := 'Marius Röthig';
+    new.seller_street_snapshot := 'Heinrich-Heine-Str. 2';
+    new.seller_postal_code_snapshot := '08547';
+    new.seller_city_snapshot := 'Jößnitz';
+    new.seller_country_snapshot := 'Deutschland';
+    new.seller_tax_number_snapshot := '223/263/09459';
+    new.seller_vat_id_snapshot := 'DE346183832';
+    new.seller_email_snapshot := 'kontakt@bss-vogtland.de';
+    new.seller_phone_snapshot := '03765 16175';
+    new.seller_website_snapshot := 'www.handzettel-schulen.de';
+  elsif seller_snapshot_field_count <> 13 then
+    raise exception 'SELLER_SNAPSHOT_INCOMPLETE';
+  end if;
+
   if new.invoice_provider = 'legacy_internal' then
-    new.seller_snapshot_version := coalesce(new.seller_snapshot_version, 'legacy-business-profile-v1');
-    new.seller_legal_name_snapshot := coalesce(new.seller_legal_name_snapshot, 'Bürotechnik Schwalm & Staffe');
-    new.seller_trade_name_snapshot := coalesce(new.seller_trade_name_snapshot, 'Handzettel-Schulen.de');
-    new.seller_owner_name_snapshot := coalesce(new.seller_owner_name_snapshot, 'Heike Leopold');
-    new.seller_street_snapshot := coalesce(new.seller_street_snapshot, 'Zwickauer Str. 167');
-    new.seller_postal_code_snapshot := coalesce(new.seller_postal_code_snapshot, '08468');
-    new.seller_city_snapshot := coalesce(new.seller_city_snapshot, 'Reichenbach');
-    new.seller_country_snapshot := coalesce(new.seller_country_snapshot, 'Deutschland');
-    new.seller_tax_number_snapshot := coalesce(new.seller_tax_number_snapshot, '223/244/09843');
-    new.seller_vat_id_snapshot := coalesce(new.seller_vat_id_snapshot, 'DE257963936');
-    new.seller_email_snapshot := coalesce(new.seller_email_snapshot, 'kontakt@bss-vogtland.de');
-    new.seller_phone_snapshot := coalesce(new.seller_phone_snapshot, '03765 / 16175 · 03765 / 69808');
-    new.seller_website_snapshot := coalesce(new.seller_website_snapshot, 'www.handzettel-schulen.de');
 
     new.payment_credential_alias_snapshot := coalesce(
       new.payment_credential_alias_snapshot,
@@ -90,4 +111,4 @@ end;
 $$;
 
 comment on function public.set_school_request_invoice_provider_on_insert() is
-  'Assigns the invoice provider and immutable seller/payment snapshots. Bank fallback applies only when all four bank fields are missing; partial snapshots are rejected.';
+  'Assigns the invoice provider and immutable seller/payment snapshots. Bank and seller fallbacks apply only when their complete snapshot is missing; partial snapshots are rejected.';
