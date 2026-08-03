@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import CopyPaymentValueButton from "@/components/CopyPaymentValueButton";
 import {
-  BANK_TRANSFER_DETAILS,
+  formatIban,
   PAYMENT_COPY,
+  resolveBankTransferDetails,
+  type BankTransferDetails,
 } from "@/app/lib/paymentSettings";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +52,10 @@ type InvoiceRow = {
   created_at: string | null;
   sent_at: string | null;
   paid_at: string | null;
+  bank_account_holder_snapshot: string | null;
+  bank_name_snapshot: string | null;
+  bank_iban_snapshot: string | null;
+  bank_bic_snapshot: string | null;
 };
 
 function getSupabaseAdmin() {
@@ -99,10 +105,6 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
-function normalizeIban(value: string) {
-  return value.replace(/\s+/g, "").trim();
-}
-
 function normalizePaymentMethod(value: string | string[] | undefined) {
   const method = Array.isArray(value) ? value[0] : value;
 
@@ -129,7 +131,7 @@ function sanitizeEpcText(value: string, maxLength: number) {
     .slice(0, maxLength);
 }
 
-function createEpcQrPayload(invoice: InvoiceRow) {
+function createEpcQrPayload(invoice: InvoiceRow, bankDetails: BankTransferDetails) {
   const amount = toNumber(invoice.total_amount, 0).toFixed(2);
   const purpose = getPurpose(invoice);
 
@@ -138,9 +140,9 @@ function createEpcQrPayload(invoice: InvoiceRow) {
     "002",
     "1",
     "SCT",
-    sanitizeEpcText(BANK_TRANSFER_DETAILS.bic, 11),
-    sanitizeEpcText(BANK_TRANSFER_DETAILS.accountHolder, 70),
-    normalizeIban(BANK_TRANSFER_DETAILS.iban),
+    sanitizeEpcText(bankDetails.bic, 11),
+    sanitizeEpcText(bankDetails.accountHolder, 70),
+    bankDetails.iban,
     `EUR${amount}`,
     "",
     "",
@@ -149,8 +151,8 @@ function createEpcQrPayload(invoice: InvoiceRow) {
   ].join("\n");
 }
 
-async function createQrCodeDataUrl(invoice: InvoiceRow) {
-  const payload = createEpcQrPayload(invoice);
+async function createQrCodeDataUrl(invoice: InvoiceRow, bankDetails: BankTransferDetails) {
+  const payload = createEpcQrPayload(invoice, bankDetails);
 
   return QRCode.toDataURL(payload, {
     errorCorrectionLevel: "M",
@@ -197,8 +199,11 @@ export default async function InvoiceCompletionPage({
   const invoice = invoiceData as InvoiceRow;
   const amount = formatMoney(invoice.total_amount);
   const purpose = getPurpose(invoice);
+  const bankDetails = resolveBankTransferDetails(invoice);
   const qrCodeDataUrl =
-    selectedMethod === "bank_transfer" ? await createQrCodeDataUrl(invoice) : "";
+    selectedMethod === "bank_transfer"
+      ? await createQrCodeDataUrl(invoice, bankDetails)
+      : "";
 
   const isBankTransfer = selectedMethod === "bank_transfer";
   const isCashOnPickup = selectedMethod === "cash_on_pickup";
@@ -365,10 +370,10 @@ export default async function InvoiceCompletionPage({
                   </p>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="font-black text-[#102A43]">
-                      {BANK_TRANSFER_DETAILS.accountHolder}
+                      {bankDetails.accountHolder}
                     </p>
                     <CopyPaymentValueButton
-                      value={BANK_TRANSFER_DETAILS.accountHolder}
+                      value={bankDetails.accountHolder}
                     />
                   </div>
                 </div>
@@ -379,10 +384,10 @@ export default async function InvoiceCompletionPage({
                   </p>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="font-black text-[#102A43]">
-                      {BANK_TRANSFER_DETAILS.bankName}
+                      {bankDetails.bankName}
                     </p>
                     <CopyPaymentValueButton
-                      value={BANK_TRANSFER_DETAILS.bankName}
+                      value={bankDetails.bankName}
                     />
                   </div>
                 </div>
@@ -393,10 +398,10 @@ export default async function InvoiceCompletionPage({
                   </p>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="break-all font-black text-[#102A43]">
-                      {BANK_TRANSFER_DETAILS.iban}
+                      {formatIban(bankDetails.iban)}
                     </p>
                     <CopyPaymentValueButton
-                      value={BANK_TRANSFER_DETAILS.iban}
+                      value={bankDetails.iban}
                     />
                   </div>
                 </div>
@@ -407,9 +412,9 @@ export default async function InvoiceCompletionPage({
                   </p>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="font-black text-[#102A43]">
-                      {BANK_TRANSFER_DETAILS.bic}
+                      {bankDetails.bic}
                     </p>
-                    <CopyPaymentValueButton value={BANK_TRANSFER_DETAILS.bic} />
+                    <CopyPaymentValueButton value={bankDetails.bic} />
                   </div>
                 </div>
 

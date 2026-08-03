@@ -13,6 +13,7 @@ import type {
 import type {
   InvoiceTaxBreakdownSnapshotV2,
 } from "@/lib/tax-v2";
+import { formatIban, resolveBankTransferDetails } from "@/app/lib/paymentSettings";
 
 type SupportedInvoiceTaxSnapshotVersion =
   | "invoice-tax-snapshot-v1"
@@ -147,6 +148,10 @@ type InvoiceRow = {
 
   created_at: string | null;
   updated_at: string | null;
+  bank_account_holder_snapshot: string | null;
+  bank_name_snapshot: string | null;
+  bank_iban_snapshot: string | null;
+  bank_bic_snapshot: string | null;
 };
 
 type InvoiceItemRow = {
@@ -232,8 +237,6 @@ const COMPANY = {
   email: "kontakt@bss-vogtland.de",
   website: "www.handzettel-schulen.de",
   taxLine: "Steuernummer: 223/244/09843 · USt-IdNr.: DE257963936",
-  bankLine1: "Bank: Sparkasse Vogtland",
-  bankLine2: "IBAN: DE56 8705 8000 3812 0058 82 · BIC: WELADED1PLX",
   paypalLine: "PayPal-Zahlung über den Zahlungslink in der Rechnungs-Mail.",
 };
 
@@ -1744,7 +1747,8 @@ async function createInvoicePdf(params: {
   y -= 12;
 
   if (invoice.selected_payment_method === "bank_transfer") {
-    page.drawText(COMPANY.bankLine1, {
+    const bankDetails = resolveBankTransferDetails(invoice);
+    page.drawText(`Bank: ${bankDetails.bankName} · Kontoinhaber: ${bankDetails.accountHolder}`, {
       x: marginX,
       y,
       size: 8.5,
@@ -1754,7 +1758,7 @@ async function createInvoicePdf(params: {
 
     y -= 13;
 
-    page.drawText(COMPANY.bankLine2, {
+    page.drawText(`IBAN: ${formatIban(bankDetails.iban)} · BIC: ${bankDetails.bic}`, {
       x: marginX,
       y,
       size: 8.5,
