@@ -16,9 +16,21 @@ import {
   buildInvoiceTaxSnapshotV2,
   type InvoiceTaxSnapshotV2EntryInput,
 } from "@/lib/tax-v2";
+import {
+  getCheckoutMaintenanceDecision,
+  resolveCheckoutMaintenanceAccess,
+} from "@/lib/checkoutMaintenance";
+import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
 import { createSellerSnapshot } from "@/app/lib/sellerSettings";
-import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
+import {
+  CHECKOUT_MAINTENANCE_TEST_CONFIRMATION,
+  CHECKOUT_MAINTENANCE_TEST_HEADER,
+  CHECKOUT_TEST_PERMIT_HEADER,
+  consumeCheckoutTestPermit,
+  isCheckoutTestRequestSameOrigin,
+  readCheckoutMaintenanceTestInput,
+} from "@/lib/checkoutTestPermits";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 
 export const runtime = "nodejs";
@@ -421,7 +433,46 @@ export async function POST(
   const checkoutMaintenance =
     getCheckoutMaintenanceDecision();
 
-  if (checkoutMaintenance.active) {
+  const unauthorized = checkoutMaintenance.active
+    ? await requireAdminApiSession()
+    : null;
+  const { token } = await context.params;
+  const routeOfferToken = String(token || "");
+  const offerToken = routeOfferToken.trim();
+  const sameOrigin =
+    checkoutMaintenance.active && isCheckoutTestRequestSameOrigin(request);
+  const maintenanceTestHeader = checkoutMaintenance.active
+    ? request.headers.get(CHECKOUT_MAINTENANCE_TEST_HEADER)
+    : null;
+  const permitToken = checkoutMaintenance.active
+    ? request.headers.get(CHECKOUT_TEST_PERMIT_HEADER)
+    : null;
+  const shouldReadConfirmation =
+    checkoutMaintenance.active &&
+    unauthorized === null &&
+    sameOrigin &&
+    maintenanceTestHeader === "true" &&
+    Boolean(permitToken);
+  const testInput = shouldReadConfirmation
+    ? await readCheckoutMaintenanceTestInput(request)
+    : { confirmation: null };
+  const maintenanceAccess = await resolveCheckoutMaintenanceAccess({
+    adminAuthenticated: checkoutMaintenance.active && unauthorized === null,
+    sameOrigin,
+    maintenanceTestHeader,
+    confirmation: testInput.confirmation,
+    permitToken,
+    expectedConfirmation: CHECKOUT_MAINTENANCE_TEST_CONFIRMATION,
+    consumePermit: () =>
+      consumeCheckoutTestPermit({
+        permitToken: permitToken || "",
+        checkoutType: "offer",
+        targetReference: routeOfferToken,
+      }),
+    maintenanceActive: checkoutMaintenance.active,
+  });
+
+  if (checkoutMaintenance.active && !maintenanceAccess.bypassAllowed) {
     return NextResponse.json(
       {
         ok: false,
@@ -440,14 +491,17 @@ export async function POST(
 
   const checkoutNowDate = new Date();
   const now = checkoutNowDate.toISOString();
+  const maintenanceTestEventMetadata = maintenanceAccess.isAdminTest
+    ? {
+        maintenance_test_bypass: true,
+        maintenance_test_permit_id: maintenanceAccess.permitId,
+        maintenance_test_actor: "admin",
+        maintenance_test_at: now,
+        maintenance_test_checkout_type: "offer",
+      }
+    : {};
 
   try {
-    const { token } =
-      await context.params;
-
-    const offerToken =
-      String(token || "").trim();
-
     if (!offerToken) {
       return NextResponse.json(
         {
@@ -1040,6 +1094,8 @@ export async function POST(
 
           request_items_count:
             requestItems.length,
+
+          ...maintenanceTestEventMetadata,
         },
         createdAt:
           now,
@@ -2361,6 +2417,8 @@ export async function POST(
         checkout_override_raw_blocking_count:
           blockingState
             .rawBlockingCount,
+
+        ...maintenanceTestEventMetadata,
       },
       createdAt:
         now,
