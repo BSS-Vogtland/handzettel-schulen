@@ -1,5 +1,14 @@
 begin;
 
+drop function if exists public.enqueue_existing_v2_lexware_invoice_job(
+  uuid,
+  text,
+  jsonb,
+  text,
+  timestamptz,
+  integer
+);
+
 create or replace function public.audit_school_lexware_invoice_job_status()
 returns trigger
 language plpgsql
@@ -107,8 +116,8 @@ begin
   if btrim(coalesce(p_idempotency_key, '')) = '' then raise exception 'IDEMPOTENCY_KEY_REQUIRED'; end if;
   if p_idempotency_key <> 'lexware:local-invoice:' || p_local_invoice_id::text || ':v1' then raise exception 'IDEMPOTENCY_KEY_INVALID'; end if;
   if p_payload_snapshot is null or jsonb_typeof(p_payload_snapshot) <> 'object' then raise exception 'PAYLOAD_SNAPSHOT_INVALID'; end if;
-  if p_payload_sha256 !~ '^[a-f0-9]{64}$' then raise exception 'PAYLOAD_SHA256_INVALID'; end if;
   if p_payload_hash_version is distinct from 'lexware-payload-canonical-v2' then raise exception 'PAYLOAD_HASH_VERSION_INVALID'; end if;
+  if p_payload_sha256 !~ '^[a-f0-9]{64}$' then raise exception 'PAYLOAD_SHA256_INVALID'; end if;
   if p_expected_snapshot_at is null then raise exception 'SNAPSHOT_TIMESTAMP_REQUIRED'; end if;
   if p_expected_item_count is null or p_expected_item_count < 1 then raise exception 'ITEM_COUNT_INVALID'; end if;
 
