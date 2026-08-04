@@ -37,7 +37,8 @@ export type LexwareRuntimeReadiness = {
     credentialAliasConfigured: boolean;
   };
   safety: {
-    checkoutMaintenance: boolean;
+    checkoutMaintenanceKnown: boolean;
+    checkoutMaintenance: boolean | null;
     externalReadsPerformed: 0;
     externalWritesPerformed: 0;
     databaseWritesPerformed: 0;
@@ -47,23 +48,9 @@ export type LexwareRuntimeReadiness = {
   };
 };
 
-export class LexwareRuntimeReadinessError extends Error {
-  readonly code: "CHECKOUT_MAINTENANCE_UNKNOWN";
-
-  constructor() {
-    super("CHECKOUT_MAINTENANCE_UNKNOWN");
-    this.name = "LexwareRuntimeReadinessError";
-    this.code = "CHECKOUT_MAINTENANCE_UNKNOWN";
-  }
-}
-
 export function buildLexwareRuntimeReadiness(
   input: LexwareRuntimeReadinessInput,
 ): LexwareRuntimeReadiness {
-  if (!input.checkoutMaintenance.known) {
-    throw new LexwareRuntimeReadinessError();
-  }
-
   const activeModeKnown =
     input.runtimeSummary.activeModeConfigured &&
     input.runtimeSummary.activeModeValid &&
@@ -101,7 +88,10 @@ export function buildLexwareRuntimeReadiness(
         input.databaseSettings.credentialAliasConfigured,
     },
     safety: {
-      checkoutMaintenance: input.checkoutMaintenance.value,
+      checkoutMaintenanceKnown: input.checkoutMaintenance.known,
+      checkoutMaintenance: input.checkoutMaintenance.known
+        ? input.checkoutMaintenance.value
+        : null,
       externalReadsPerformed: 0,
       externalWritesPerformed: 0,
       databaseWritesPerformed: 0,

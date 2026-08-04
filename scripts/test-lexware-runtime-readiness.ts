@@ -69,9 +69,18 @@ pass("D central admin authentication");
 
 assert.match(
   routeSource,
-  /unauthorized\.headers\.set\("Cache-Control", "no-store"\)/,
+  /return withNoStore\(unauthorized\)/,
 );
 pass("E no-store on 401");
+
+assert.match(
+  routeSource,
+  /"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"/,
+);
+assert.match(routeSource, /"CDN-Cache-Control": "no-store"/);
+assert.match(routeSource, /"Vercel-CDN-Cache-Control": "no-store"/);
+assert.equal((routeSource.match(/return withNoStore\(/g) ?? []).length, 3);
+pass("E2 no-store on every response");
 
 assert.doesNotMatch(routeSource, /lexwareClient/);
 pass("F no Lexware client import");
@@ -246,6 +255,16 @@ assert.match(routeSource, /status: 503/);
 pass("AA missing runtime settings controlled without default");
 
 const safety = readinessCore.buildLexwareRuntimeReadiness(baseInput).safety;
+assert.equal(safety.checkoutMaintenanceKnown, true);
+assert.equal(safety.checkoutMaintenance, true);
+const unknownMaintenanceSafety = readinessCore.buildLexwareRuntimeReadiness({
+  ...baseInput,
+  checkoutMaintenance: { known: false },
+}).safety;
+assert.equal(unknownMaintenanceSafety.checkoutMaintenanceKnown, false);
+assert.equal(unknownMaintenanceSafety.checkoutMaintenance, null);
+pass("AB1 checkout maintenance known semantics");
+
 const safetyCounterFields = [
   "externalReadsPerformed",
   "externalWritesPerformed",
@@ -275,6 +294,7 @@ const allowedResponseFields = [
   "targetOrganizationConfigured",
   "credentialAliasConfigured",
   "safety",
+  "checkoutMaintenanceKnown",
   "checkoutMaintenance",
   "externalReadsPerformed",
   "externalWritesPerformed",

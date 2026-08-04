@@ -10,8 +10,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const NO_STORE_HEADERS = {
-  "Cache-Control": "no-store",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
 };
+
+function withNoStore(response: Response): Response {
+  const headers = new Headers(response.headers);
+
+  for (const [name, value] of Object.entries(NO_STORE_HEADERS)) {
+    headers.set(name, value);
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 type RuntimeSettingsRow = {
   lexware_production_write_enabled: boolean;
@@ -58,8 +74,7 @@ export async function GET() {
   const unauthorized = await requireAdminApiSession();
 
   if (unauthorized) {
-    unauthorized.headers.set("Cache-Control", "no-store");
-    return unauthorized;
+    return withNoStore(unauthorized);
   }
 
   const runtimeConfiguration =
@@ -81,16 +96,15 @@ export async function GET() {
   const settings = parseRuntimeSettings(data);
 
   if (error || !settings) {
-    return NextResponse.json(
+    return withNoStore(NextResponse.json(
       { ok: false },
       {
         status: 503,
-        headers: NO_STORE_HEADERS,
       },
-    );
+    ));
   }
 
-  return NextResponse.json(
+  return withNoStore(NextResponse.json(
     buildLexwareRuntimeReadiness({
       runtimeSummary: {
         activeModeConfigured:
@@ -129,8 +143,5 @@ export async function GET() {
         value: CHECKOUT_MAINTENANCE_ACTIVE,
       },
     }),
-    {
-      headers: NO_STORE_HEADERS,
-    },
-  );
+  ));
 }
