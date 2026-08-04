@@ -1,110 +1,78 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import {
   buildLexwareInvoicePayload,
-  type LexwareInvoicePayloadBuildResult,
   type LocalLexwareInvoiceItemSnapshot,
   type LocalLexwareInvoiceSnapshot,
 } from "@/app/lib/lexware/lexwareInvoicePayloadBuilder";
 import { validateLexwareInvoicePayload } from "@/app/lib/lexware/lexwareInvoicePayloadValidator";
-import type {
-  LexwareInvoiceCreationState,
-  LexwareInvoiceJobStatus,
-} from "@/app/lib/lexware/lexwareProductionInvoiceJob";
+import { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion } from "@/app/lib/lexware/lexwarePayloadHash";
+import { parseLexwareProductionClaim } from "@/app/lib/lexware/lexwareProductionClaimCore";
+import {
+  buildEligibleLocalInvoice as buildEligibleCore,
+  buildLexwareInvoiceJobIdempotencyKey,
+  enqueueLexwareProductionInvoiceJob as enqueueCore,
+  LEXWARE_MANUAL_ENQUEUE_CONFIRMATION,
+  LexwareProductionInvoiceJobRepositoryError,
+  validateEnqueueInvoiceJobResult,
+  type EligibleLocalInvoice,
+  type EnqueueInvoiceJobResult,
+  type LexwareInvoiceJobRepositoryDependencies,
+  type PersistedLexwareInvoiceJob,
+} from "@/app/lib/lexware/lexwareProductionEnqueueCore";
 
-export const LEXWARE_MANUAL_ENQUEUE_CONFIRMATION =
-  "ENQUEUE_LEXWARE_INVOICE_JOB" as const;
-
-export type PersistedLexwareInvoiceJob = {
-  id: string;
-  request_id: string;
-  local_invoice_id: string | null;
-  idempotency_key: string;
-  status: LexwareInvoiceJobStatus;
-  creation_state: LexwareInvoiceCreationState;
-  payload_sha256: string;
+export {
+  buildLexwareInvoiceJobIdempotencyKey,
+  LEXWARE_MANUAL_ENQUEUE_CONFIRMATION,
+  LexwareProductionInvoiceJobRepositoryError,
+  validateEnqueueInvoiceJobResult,
 };
-
-export type EligibleLocalInvoice = {
-  invoice: LocalLexwareInvoiceSnapshot & {
-    invoice_status?: string | null;
-    payment_status?: string | null;
-    lexware_invoice_job_id?: string | null;
-  };
-  items: LocalLexwareInvoiceItemSnapshot[];
-  built: LexwareInvoicePayloadBuildResult;
-  payloadSha256: string;
-  idempotencyKey: string;
+export type {
+  EligibleLocalInvoice,
+  EnqueueInvoiceJobResult,
+  LexwareInvoiceJobRepositoryDependencies,
+  PersistedLexwareInvoiceJob,
 };
-
-export type EnqueueInvoiceJobResult = {
-  invoiceJobId: string;
-  jobStatus: LexwareInvoiceJobStatus;
-  creationState: LexwareInvoiceCreationState;
-  payloadSha256: string;
-  idempotencyKey: string;
-  createdNewJob: boolean;
-  linkedInvoice: boolean;
-};
-
-export class LexwareProductionInvoiceJobRepositoryError extends Error {
-  constructor(readonly code: string, message: string) {
-    super(message);
-    this.name = "LexwareProductionInvoiceJobRepositoryError";
-  }
-}
 
 const fail = (code: string, message: string): never => {
   throw new LexwareProductionInvoiceJobRepositoryError(code, message);
 };
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const JOB_STATUSES = new Set<LexwareInvoiceJobStatus>([
-  "waiting_for_activation", "pending", "processing", "retry", "succeeded",
-  "failed", "manual_review", "cancelled",
-]);
-const CREATION_STATES = new Set<LexwareInvoiceCreationState>([
-  "not_attempted", "definite_not_created", "definitely_created", "creation_state_unknown",
-]);
 
 async function getSupabaseServer() {
   const { supabaseServer } = await import("@/lib/supabase/server");
   return supabaseServer;
 }
 
-export function buildLexwareInvoiceJobIdempotencyKey(invoiceId: string) {
-  return `lexware:local-invoice:${invoiceId}:v1`;
-}
-
-export function buildLexwarePayloadSha256(built: LexwareInvoicePayloadBuildResult) {
-  return createHash("sha256").update(JSON.stringify(built.payload)).digest("hex");
-}
+const payloadDependencies = {
+  buildPayload: ({ invoice, items, paymentTermDays }: {
+    invoice: Record<string, unknown>;
+    items: Array<Record<string, unknown>>;
+    paymentTermDays: number;
+  }) => buildLexwareInvoicePayload({
+    invoice: invoice as LocalLexwareInvoiceSnapshot,
+    items: items as LocalLexwareInvoiceItemSnapshot[],
+    paymentTermDays,
+  }),
+  validatePayload: validateLexwareInvoicePayload,
+  buildPayloadSha256: buildLexwarePayloadSha256,
+  parsePayloadHashVersion: parseLexwarePayloadHashVersion,
+};
 
 export function buildEligibleLocalInvoice(input: {
-  invoice: EligibleLocalInvoice["invoice"];
+  invoice: LocalLexwareInvoiceSnapshot & {
+    invoice_status?: string | null;
+    payment_status?: string | null;
+    lexware_invoice_job_id?: string | null;
+  };
   items: LocalLexwareInvoiceItemSnapshot[];
 }): EligibleLocalInvoice {
-  const { invoice, items } = input;
-  if (!invoice.id || !invoice.request_id) fail("LOCAL_INVOICE_IDENTITY_INVALID", "Rechnungs- oder Anfrage-ID fehlt.");
-  if (invoice.invoice_status && !["draft", "sent"].includes(invoice.invoice_status)) fail("LOCAL_INVOICE_NOT_ELIGIBLE", "Die lokale Rechnung ist storniert oder fachlich ungeeignet.");
-  if (invoice.payment_status === "cancelled") fail("LOCAL_INVOICE_NOT_ELIGIBLE", "Die lokale Rechnung ist zahlungsseitig storniert.");
-  if (invoice.tax_snapshot_status !== "complete") fail("LOCAL_INVOICE_SNAPSHOT_INCOMPLETE", "Der Steuer-Snapshot ist nicht vollständig.");
-  if (invoice.tax_snapshot_version !== "invoice-tax-snapshot-v2") fail("LOCAL_INVOICE_SNAPSHOT_NOT_V2", "Nur vollständige V2-Rechnungen können vorbereitet werden.");
-  if (invoice.tax_snapshot_source !== "product_catalog_at_checkout") fail("LOCAL_INVOICE_SNAPSHOT_SOURCE_INVALID", "Die Snapshotquelle ist nicht zulässig.");
-  if (!items.length) fail("LOCAL_INVOICE_ITEMS_MISSING", "Die Rechnungspositionen fehlen.");
-
-  const built = buildLexwareInvoicePayload({ invoice, items, paymentTermDays: 7 });
-  const validation = validateLexwareInvoicePayload(built);
-  if (!validation.valid) fail("LEXWARE_PAYLOAD_INVALID", "Der Lexware-Payload ist nicht valide.");
-
-  return {
-    invoice,
-    items,
-    built,
-    payloadSha256: buildLexwarePayloadSha256(built),
-    idempotencyKey: buildLexwareInvoiceJobIdempotencyKey(invoice.id),
-  };
+  return buildEligibleCore(
+    {
+      invoice: input.invoice,
+      items: input.items,
+    },
+    payloadDependencies,
+  );
 }
 
 export async function loadEligibleLocalInvoice(invoiceId: string): Promise<EligibleLocalInvoice> {
@@ -116,7 +84,11 @@ export async function loadEligibleLocalInvoice(invoiceId: string): Promise<Eligi
     .from("school_request_invoice_items").select("*").eq("invoice_id", invoiceId).order("created_at");
   if (itemsError) fail("LOCAL_INVOICE_ITEMS_LOAD_FAILED", "Rechnungspositionen konnten nicht geladen werden.");
   return buildEligibleLocalInvoice({
-    invoice: invoice as unknown as EligibleLocalInvoice["invoice"],
+    invoice: invoice as unknown as LocalLexwareInvoiceSnapshot & {
+      invoice_status?: string | null;
+      payment_status?: string | null;
+      lexware_invoice_job_id?: string | null;
+    },
     items: (items ?? []) as unknown as LocalLexwareInvoiceItemSnapshot[],
   });
 }
@@ -125,7 +97,7 @@ async function loadJobBy(column: string, value: string | null | undefined) {
   if (!value) return null;
   const supabaseServer = await getSupabaseServer();
   const { data, error } = await supabaseServer.from("school_lexware_invoice_jobs")
-    .select("id,request_id,local_invoice_id,idempotency_key,status,creation_state,payload_sha256")
+    .select("id,request_id,local_invoice_id,idempotency_key,status,creation_state,payload_sha256,payload_hash_version")
     .eq(column, value).maybeSingle();
   if (error) fail("INVOICE_JOB_LOAD_FAILED", "Lexware-Rechnungsjob konnte nicht geladen werden.");
   return data as PersistedLexwareInvoiceJob | null;
@@ -133,7 +105,7 @@ async function loadJobBy(column: string, value: string | null | undefined) {
 
 export async function loadExistingInvoiceJob(prepared: EligibleLocalInvoice) {
   const candidates = await Promise.all([
-    loadJobBy("id", prepared.invoice.lexware_invoice_job_id),
+    loadJobBy("id", String(prepared.invoice.lexware_invoice_job_id ?? "") || null),
     loadJobBy("local_invoice_id", prepared.invoice.id),
     loadJobBy("idempotency_key", prepared.idempotencyKey),
     loadJobBy("request_id", prepared.invoice.request_id),
@@ -145,41 +117,9 @@ export async function loadExistingInvoiceJob(prepared: EligibleLocalInvoice) {
   if (job.request_id !== prepared.invoice.request_id || job.local_invoice_id !== prepared.invoice.id || job.idempotency_key !== prepared.idempotencyKey) {
     fail("EXISTING_INVOICE_JOB_IDENTITY_CONFLICT", "Der vorhandene Job gehört nicht eindeutig zu dieser Rechnung.");
   }
-  if (job.payload_sha256 !== prepared.payloadSha256) fail("EXISTING_INVOICE_JOB_PAYLOAD_CONFLICT", "Der vorhandene Job besitzt einen abweichenden Payload-Hash.");
+  if (job.payload_hash_version !== prepared.payloadHashVersion) fail("HASH_VERSION_CONFLICT", "Der vorhandene Job besitzt eine abweichende Payload-Hashversion.");
+  if (job.payload_sha256 !== prepared.payloadSha256) fail("PAYLOAD_HASH_CONFLICT", "Der vorhandene Job besitzt einen abweichenden Payload-Hash.");
   return job;
-}
-
-export function validateEnqueueInvoiceJobResult(
-  raw: unknown,
-  prepared: EligibleLocalInvoice,
-): EnqueueInvoiceJobResult {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    fail("INVOICE_JOB_RPC_RESULT_INVALID", "Die atomare Jobanlage lieferte kein gültiges Objekt.");
-  }
-  const row = raw as Record<string, unknown>;
-  const result = {
-    invoiceJobId: row.invoice_job_id as string,
-    jobStatus: row.job_status as LexwareInvoiceJobStatus,
-    creationState: row.job_creation_state as LexwareInvoiceCreationState,
-    payloadSha256: row.payload_sha256 as string,
-    idempotencyKey: row.idempotency_key as string,
-    createdNewJob: row.created_new_job as boolean,
-    linkedInvoice: row.linked_invoice as boolean,
-  };
-  if (!UUID_PATTERN.test(String(result.invoiceJobId ?? ""))
-      || !JOB_STATUSES.has(result.jobStatus)
-      || !CREATION_STATES.has(result.creationState)
-      || result.payloadSha256 !== prepared.payloadSha256
-      || result.idempotencyKey !== prepared.idempotencyKey
-      || typeof result.createdNewJob !== "boolean"
-      || typeof result.linkedInvoice !== "boolean") {
-    fail("INVOICE_JOB_RPC_RESULT_INVALID", "Die atomare Jobanlage lieferte ein ungültiges oder widersprüchliches Ergebnis.");
-  }
-  if (result.createdNewJob
-      && (result.jobStatus !== "waiting_for_activation" || result.creationState !== "not_attempted" || !result.linkedInvoice)) {
-    fail("INVOICE_JOB_RPC_NEW_STATE_INVALID", "Ein neuer Rechnungsjob besitzt nicht den sicheren Initialzustand.");
-  }
-  return result;
 }
 
 export async function createOrReuseInvoiceJob(prepared: EligibleLocalInvoice): Promise<EnqueueInvoiceJobResult> {
@@ -189,6 +129,7 @@ export async function createOrReuseInvoiceJob(prepared: EligibleLocalInvoice): P
     p_idempotency_key: prepared.idempotencyKey,
     p_payload_snapshot: prepared.built,
     p_payload_sha256: prepared.payloadSha256,
+    p_payload_hash_version: prepared.payloadHashVersion,
     p_expected_snapshot_at: prepared.invoice.tax_snapshot_at,
     p_expected_item_count: prepared.items.length,
   });
@@ -222,13 +163,6 @@ export function buildJobPreview(prepared: EligibleLocalInvoice, existingJob: Per
   };
 }
 
-export type LexwareInvoiceJobRepositoryDependencies = {
-  loadEligibleLocalInvoice(invoiceId: string): Promise<EligibleLocalInvoice>;
-  loadExistingInvoiceJob(prepared: EligibleLocalInvoice): Promise<PersistedLexwareInvoiceJob | null>;
-  createOrReuseInvoiceJob(prepared: EligibleLocalInvoice): Promise<EnqueueInvoiceJobResult>;
-  linkInvoiceToJob(prepared: EligibleLocalInvoice, result: EnqueueInvoiceJobResult): string;
-};
-
 const defaultDependencies: LexwareInvoiceJobRepositoryDependencies = {
   loadEligibleLocalInvoice,
   loadExistingInvoiceJob,
@@ -236,17 +170,32 @@ const defaultDependencies: LexwareInvoiceJobRepositoryDependencies = {
   linkInvoiceToJob,
 };
 
-export async function enqueueLexwareProductionInvoiceJob(
+export function enqueueLexwareProductionInvoiceJob(
   invoiceId: string,
   dependencies: LexwareInvoiceJobRepositoryDependencies = defaultDependencies,
 ) {
-  const prepared = await dependencies.loadEligibleLocalInvoice(invoiceId);
-  const existing = await dependencies.loadExistingInvoiceJob(prepared);
-  const result = await dependencies.createOrReuseInvoiceJob(prepared);
-  dependencies.linkInvoiceToJob(prepared, result);
-  return {
-    ...result,
-    reusedExistingJob: !result.createdNewJob,
-    existingJobStatusBeforeEnqueue: existing?.status ?? null,
-  };
+  return enqueueCore(invoiceId, dependencies);
+}
+
+export async function claimInvoiceJobForProcessing(input: {
+  localInvoiceId: string;
+  expectedPayloadSha256: string;
+  expectedPayloadHashVersion: EligibleLocalInvoice["payloadHashVersion"];
+  expectedTargetOrganizationId: string;
+  lockedBy: string;
+  lockDurationSeconds: number;
+}) {
+  const supabaseServer = await getSupabaseServer();
+  const { data, error } = await supabaseServer.rpc("claim_school_lexware_invoice_job_for_processing", {
+    p_local_invoice_id: input.localInvoiceId,
+    p_expected_payload_sha256: input.expectedPayloadSha256,
+    p_expected_payload_hash_version: input.expectedPayloadHashVersion,
+    p_expected_target_organization_id: input.expectedTargetOrganizationId,
+    p_locked_by: input.lockedBy,
+    p_lock_duration_seconds: input.lockDurationSeconds,
+  });
+  if (error) fail("INVOICE_JOB_CLAIM_FAILED", error.message || "Lexware-Rechnungsjob konnte nicht beansprucht werden.");
+  const row = Array.isArray(data) ? data[0] : data;
+  try { return parseLexwareProductionClaim(row); }
+  catch { return fail("INVOICE_JOB_CLAIM_RESULT_INVALID", "Die Claim-RPC lieferte kein gültiges Ergebnis."); }
 }

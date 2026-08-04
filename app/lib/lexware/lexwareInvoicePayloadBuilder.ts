@@ -1,16 +1,16 @@
-import "server-only";
-
-import {
-  INVOICE_TAX_SNAPSHOT_SOURCE,
-  INVOICE_TAX_SNAPSHOT_VERSION,
-  type InvoiceTaxBreakdownSnapshot,
-  type SupportedInvoiceTaxRate,
+import type {
+  InvoiceTaxBreakdownSnapshot,
+  SupportedInvoiceTaxRate,
 } from "@/lib/invoiceTaxSnapshot";
-import {
-  INVOICE_TAX_SNAPSHOT_V2_ROUNDING_METHOD,
-  INVOICE_TAX_SNAPSHOT_V2_VERSION,
-  type InvoiceTaxBreakdownSnapshotV2,
+import type {
+  InvoiceTaxBreakdownSnapshotV2,
 } from "@/lib/tax-v2";
+
+const INVOICE_TAX_SNAPSHOT_SOURCE = "product_catalog_at_checkout" as const;
+const INVOICE_TAX_SNAPSHOT_VERSION = "invoice-tax-snapshot-v1" as const;
+const INVOICE_TAX_SNAPSHOT_V2_VERSION = "invoice-tax-snapshot-v2" as const;
+const INVOICE_TAX_SNAPSHOT_V2_ROUNDING_METHOD =
+  "gross_tax_rate_total_with_deterministic_line_allocation_v1" as const;
 
 /*
  * LEXWARE_INVOICE_PAYLOAD_BUILDER_V1

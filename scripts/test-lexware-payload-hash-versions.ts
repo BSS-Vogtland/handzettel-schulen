@@ -1,0 +1,86 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
+const moduleUrl = new URL("../app/lib/lexware/lexwarePayloadHash.ts", import.meta.url).href;
+const hashModule = await import(moduleUrl);
+const { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion, LEXWARE_PAYLOAD_HASH_V1, LEXWARE_PAYLOAD_HASH_V2 } = hashModule;
+const hash = (payload: unknown, version: typeof LEXWARE_PAYLOAD_HASH_V1 | typeof LEXWARE_PAYLOAD_HASH_V2) =>
+  buildLexwarePayloadSha256({ payload, version });
+
+const ordered = { b: 2, a: 1, nested: { z: null, a: "Röthig" } };
+const reordered = { nested: { a: "Röthig", z: null }, a: 1, b: 2 };
+assert.equal(hash(ordered, LEXWARE_PAYLOAD_HASH_V1), createHash("sha256").update(JSON.stringify(ordered)).digest("hex")); console.log("A PASS");
+assert.equal(hash(ordered, LEXWARE_PAYLOAD_HASH_V2), hash(reordered, LEXWARE_PAYLOAD_HASH_V2)); console.log("B PASS");
+assert.notEqual(hash(ordered, LEXWARE_PAYLOAD_HASH_V1), hash(reordered, LEXWARE_PAYLOAD_HASH_V1)); console.log("C PASS");
+assert.notEqual(hash([1, 2], LEXWARE_PAYLOAD_HASH_V2), hash([2, 1], LEXWARE_PAYLOAD_HASH_V2)); console.log("D PASS");
+assert.equal(hash({ z: { b: 2, a: 1 } }, LEXWARE_PAYLOAD_HASH_V2), hash({ z: { a: 1, b: 2 } }, LEXWARE_PAYLOAD_HASH_V2)); console.log("E PASS");
+assert.notEqual(hash({ a: 1 }, LEXWARE_PAYLOAD_HASH_V2), hash({ a: 2 }, LEXWARE_PAYLOAD_HASH_V2)); console.log("F PASS");
+assert.notEqual(hash(null, LEXWARE_PAYLOAD_HASH_V2), hash({}, LEXWARE_PAYLOAD_HASH_V2)); console.log("G PASS");
+assert.notEqual(hash({}, LEXWARE_PAYLOAD_HASH_V2), hash([], LEXWARE_PAYLOAD_HASH_V2)); console.log("H PASS");
+assert.equal(hash({ text: "ä€" }, LEXWARE_PAYLOAD_HASH_V2), hash({ text: "ä€" }, LEXWARE_PAYLOAD_HASH_V2)); console.log("I PASS");
+assert.match(hash(ordered, LEXWARE_PAYLOAD_HASH_V2), /^[a-f0-9]{64}$/); assert.throws(() => parseLexwarePayloadHashVersion("unknown")); console.log("J PASS");
+
+const verifyPersisted = (payload: unknown, payloadSha256: string | null, version: unknown) => {
+  const parsedVersion = parseLexwarePayloadHashVersion(version);
+  assert.equal(typeof payloadSha256, "string");
+  return hash(payload, parsedVersion) === payloadSha256;
+};
+assert.equal(verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V1), LEXWARE_PAYLOAD_HASH_V1), true); console.log("K PASS");
+assert.equal(verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V2), LEXWARE_PAYLOAD_HASH_V2), true); console.log("L PASS");
+assert.equal(verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V1), LEXWARE_PAYLOAD_HASH_V2), false); console.log("M PASS");
+assert.equal(verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V2), LEXWARE_PAYLOAD_HASH_V1), false); console.log("N PASS");
+assert.throws(() => verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V2), "lexware-payload-v3")); console.log("O PASS");
+assert.throws(() => verifyPersisted(ordered, hash(ordered, LEXWARE_PAYLOAD_HASH_V2), null)); console.log("P PASS");
+assert.throws(() => verifyPersisted(ordered, null, LEXWARE_PAYLOAD_HASH_V2)); console.log("Q PASS");
+assert.throws(() => verifyPersisted(ordered, null, null)); console.log("R PASS");
+
+const processSource = readFileSync("app/lib/lexware/lexwareProductionInvoiceProcessorCore.ts", "utf8");
+const processRouteSource = readFileSync("app/api/admin/lexware/invoices/[invoiceId]/process/route.ts", "utf8");
+const processServiceSource = readFileSync("app/lib/lexware/lexwareProductionInvoiceProcessService.ts", "utf8");
+assert.doesNotMatch(processSource, /payloadHashMatches:\s*true/); console.log("S PASS");
+assert.match(processServiceSource, /parseLexwarePayloadHashVersion/);
+assert.match(processServiceSource, /parsePayloadHashVersion\s*:\s*parseLexwarePayloadHashVersion/);
+assert.match(processSource, /payloadHashVersion\s*=\s*deps\.parsePayloadHashVersion\(job\.payload_hash_version\)/);
+assert.equal((processSource.match(/deps\.parsePayloadHashVersion\(job\.payload_hash_version\)/g) ?? []).length, 1);
+assert.doesNotMatch(processSource, /hashPayload\([^,]+,\s*job\.payload_hash_version\s*\)/); console.log("T PASS");
+const validatedVersionHashCalls = [...processSource.matchAll(/deps\.hashPayload\((persistedPayload|payload),\s*payloadHashVersion\)/g)];
+assert.deepEqual(validatedVersionHashCalls.map((match) => match[1]), ["persistedPayload", "payload"]);
+const fixedVersion = String.raw`(?:LEXWARE_PAYLOAD_HASH_V[12]|["']lexware-payload-(?:json-v1|canonical-v2)["'])`;
+assert.doesNotMatch(processSource, new RegExp(String.raw`payloadHashVersion\s*=\s*${fixedVersion}`));
+assert.doesNotMatch(processSource, new RegExp(String.raw`(?:job\.payload_hash_version|payloadHashVersion)\s*\?\?\s*${fixedVersion}`));
+assert.doesNotMatch(processSource, new RegExp(String.raw`deps\.hashPayload\([^,]+,\s*${fixedVersion}`));
+assert.doesNotMatch(processSource, new RegExp(String.raw`claimForWrite\(\{[\s\S]*?payloadHashVersion\s*:\s*${fixedVersion}`));
+console.log("U PASS");
+assert.equal((processRouteSource.match(/processLexwareProductionInvoiceById\(invoiceId\)/g) ?? []).length, 1);
+assert.doesNotMatch(processRouteSource, /buildLexwarePayloadSha256|createHash|JSON\.stringify\(payload\)|payloadHashMatches\s*:\s*true|claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice|organizationId/);
+assert.match(processServiceSource, /buildLexwarePayloadSha256/);
+assert.match(processServiceSource, /from\s+["']\.\/lexwarePayloadHash["']/);
+assert.match(processServiceSource, /payload_hash_version/);
+assert.match(processServiceSource, /hashPayload\s*:\s*\([^)]*version[^)]*\)\s*=>\s*buildLexwarePayloadSha256\(\{\s*payload:\s*payload\.payload,\s*version\s*\}\)/);
+assert.doesNotMatch(processServiceSource, /createHash|JSON\.stringify\(payload\)|payloadHashMatches\s*:\s*true/);
+assert.match(processSource, /storedPayloadHash\s*===\s*job\.payload_sha256/);
+assert.match(processSource, /currentPayloadHash\s*===\s*job\.payload_sha256/);
+assert.match(processSource, /claimForWrite\(\{[\s\S]*?payloadHashVersion,[\s\S]*?targetOrganizationId:\s*organizationId/);
+assert.match(processSource, /claim\.payloadHashVersion\s*===\s*payloadHashVersion/);
+const storedHashIndex = processSource.indexOf("deps.hashPayload(persistedPayload, payloadHashVersion)");
+const storedHashBlockIndex = processSource.indexOf("storedPayloadHash !== job.payload_sha256");
+const currentBuildIndex = processSource.indexOf("deps.buildPayload(invoice)");
+const validationIndex = processSource.indexOf("deps.validatePayload(payload)");
+const currentHashIndex = processSource.indexOf("deps.hashPayload(payload, payloadHashVersion)");
+const currentHashBlockIndex = processSource.indexOf("currentPayloadHash !== job.payload_sha256");
+const organizationIndex = processSource.indexOf("deps.validateOrganization()", currentHashBlockIndex);
+const claimInvocationMatches = [...processSource.matchAll(/deps\.claimForWrite\s*\(/g)];
+assert.equal(claimInvocationMatches.length, 1, "expected exactly one production claim invocation");
+assert.ok(storedHashIndex >= 0 && storedHashIndex < storedHashBlockIndex, "stored hash is not checked first");
+assert.ok(storedHashBlockIndex < currentBuildIndex && currentBuildIndex < validationIndex, "current payload is built before stored hash acceptance");
+assert.ok(validationIndex < currentHashIndex && currentHashIndex < currentHashBlockIndex, "current payload hash order invalid");
+assert.ok(currentHashBlockIndex < organizationIndex && organizationIndex < (claimInvocationMatches[0]?.index ?? -1), "organization or claim occurs before both hash checks");
+console.log("V PASS");
+
+const migration = readFileSync("supabase/migrations/20260803025000_lexware_payload_hash_version.sql", "utf8");
+assert.match(migration, /where payload_sha256 is not null/); console.log("W PASS");
+assert.doesNotMatch(migration, /set payload_sha256|digest\s*\(|createHash/); console.log("X PASS");
+assert.match(migration, /payload_sha256 is null\) = \(payload_hash_version is null/); console.log("Y PASS");
+assert.doesNotMatch(migration, /default\s+'lexware-payload/); console.log("Z PASS");
+console.log("PASS A-Z: versioned payload hashing; no database or external operations.");

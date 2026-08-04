@@ -75,6 +75,7 @@ create or replace function public.enqueue_existing_v2_lexware_invoice_job(
   p_idempotency_key text,
   p_payload_snapshot jsonb,
   p_payload_sha256 text,
+  p_payload_hash_version text,
   p_expected_snapshot_at timestamptz,
   p_expected_item_count integer
 )
@@ -83,6 +84,7 @@ returns table (
   job_status text,
   job_creation_state text,
   payload_sha256 text,
+  payload_hash_version text,
   idempotency_key text,
   created_new_job boolean,
   linked_invoice boolean
@@ -106,6 +108,7 @@ begin
   if p_idempotency_key <> 'lexware:local-invoice:' || p_local_invoice_id::text || ':v1' then raise exception 'IDEMPOTENCY_KEY_INVALID'; end if;
   if p_payload_snapshot is null or jsonb_typeof(p_payload_snapshot) <> 'object' then raise exception 'PAYLOAD_SNAPSHOT_INVALID'; end if;
   if p_payload_sha256 !~ '^[a-f0-9]{64}$' then raise exception 'PAYLOAD_SHA256_INVALID'; end if;
+  if p_payload_hash_version is distinct from 'lexware-payload-canonical-v2' then raise exception 'PAYLOAD_HASH_VERSION_INVALID'; end if;
   if p_expected_snapshot_at is null then raise exception 'SNAPSHOT_TIMESTAMP_REQUIRED'; end if;
   if p_expected_item_count is null or p_expected_item_count < 1 then raise exception 'ITEM_COUNT_INVALID'; end if;
 
@@ -200,7 +203,8 @@ begin
        or job_row.idempotency_key <> p_idempotency_key then
       raise exception 'EXISTING_INVOICE_JOB_IDENTITY_CONFLICT';
     end if;
-    if job_row.payload_sha256 <> p_payload_sha256 then raise exception 'EXISTING_INVOICE_JOB_PAYLOAD_CONFLICT'; end if;
+    if job_row.payload_hash_version is distinct from p_payload_hash_version then raise exception 'HASH_VERSION_CONFLICT'; end if;
+    if job_row.payload_sha256 <> p_payload_sha256 then raise exception 'PAYLOAD_HASH_CONFLICT'; end if;
     if invoice_row.lexware_invoice_job_id is not null
        and invoice_row.lexware_invoice_job_id <> job_row.id then raise exception 'INVOICE_JOB_LINK_CONFLICT'; end if;
     if invoice_row.lexware_invoice_id is distinct from job_row.lexware_invoice_id
@@ -217,7 +221,7 @@ begin
       request_id, local_invoice_id, idempotency_key, cutover_version,
       target_organization_id, credential_alias_snapshot, trigger_source,
       payment_method, status, creation_state, attempt_count, max_attempts,
-      next_attempt_at, payload_snapshot, payload_sha256
+      next_attempt_at, payload_snapshot, payload_sha256, payload_hash_version
     ) values (
       invoice_row.request_id, invoice_row.id, p_idempotency_key,
       invoice_row.invoice_cutover_version,
@@ -226,7 +230,7 @@ begin
       'admin_manual_enqueue', invoice_row.selected_payment_method,
       'waiting_for_activation', 'not_attempted', 0,
       settings_row.lexware_invoice_job_max_attempts,
-      clock_timestamp(), p_payload_snapshot, p_payload_sha256
+      clock_timestamp(), p_payload_snapshot, p_payload_sha256, p_payload_hash_version
     ) returning * into job_row;
     created_new := true;
   end if;
@@ -242,14 +246,14 @@ begin
   end if;
 
   return query select job_row.id, job_row.status, job_row.creation_state,
-    job_row.payload_sha256, job_row.idempotency_key, created_new, invoice_was_linked;
+    job_row.payload_sha256, job_row.payload_hash_version, job_row.idempotency_key, created_new, invoice_was_linked;
 end;
 $$;
 
-revoke all on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,timestamptz,integer) from public, anon, authenticated;
-grant execute on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,timestamptz,integer) to service_role;
+revoke all on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,text,timestamptz,integer) from public, anon, authenticated;
+grant execute on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,text,timestamptz,integer) to service_role;
 
-comment on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,timestamptz,integer) is
+comment on function public.enqueue_existing_v2_lexware_invoice_job(uuid,text,jsonb,text,text,timestamptz,integer) is
   'Legt für eine bestehende vollständige V2-Rechnung atomar genau einen wartenden Lexware-Rechnungsjob an und verknüpft ihn. Kein externer Aufruf und kein Mailjob.';
 
 commit;

@@ -1,18 +1,53 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildLexwareProductionFixtureSnapshots } from "../app/lib/lexware/lexwareProductionFixtureDryRun";
-import {
-  buildEligibleLocalInvoice,
+
+import type {
+  EligibleLocalInvoice,
+  EligibleInvoiceBuildDependencies,
+  EnqueueInvoiceJobResult,
+  LexwareInvoiceJobRepositoryDependencies,
+  LocalInvoiceItemSnapshot,
+  LocalInvoiceSnapshot,
+  PersistedLexwareInvoiceJob,
+} from "../app/lib/lexware/lexwareProductionEnqueueCore";
+
+const moduleUrl = (path: string) => new URL(path, import.meta.url).href;
+const enqueueModule = await import(moduleUrl("../app/lib/lexware/lexwareProductionEnqueueCore.ts"));
+const fixtureModule = await import(moduleUrl("../app/lib/lexware/lexwareProductionFixtureCore.ts"));
+const builderModule = await import(moduleUrl("../app/lib/lexware/lexwareInvoicePayloadBuilder.ts"));
+const validatorModule = await import(moduleUrl("../app/lib/lexware/lexwareInvoicePayloadValidator.ts"));
+const jobModule = await import(moduleUrl("../app/lib/lexware/lexwareProductionInvoiceJob.ts"));
+const maintenanceModule = await import(moduleUrl("../lib/checkoutMaintenance.ts"));
+const hashModule = await import(moduleUrl("../app/lib/lexware/lexwarePayloadHash.ts"));
+const {
+  buildEligibleLocalInvoice: buildEligibleLocalInvoiceCore,
   enqueueLexwareProductionInvoiceJob,
   LexwareProductionInvoiceJobRepositoryError,
   validateEnqueueInvoiceJobResult,
-  type EligibleLocalInvoice,
-  type EnqueueInvoiceJobResult,
-  type LexwareInvoiceJobRepositoryDependencies,
-  type PersistedLexwareInvoiceJob,
-} from "../app/lib/lexware/lexwareProductionInvoiceJobRepository";
-import { evaluateLexwareProductionGates } from "../app/lib/lexware/lexwareProductionInvoiceJob";
-import { CHECKOUT_MAINTENANCE_ACTIVE } from "../lib/checkoutMaintenance";
+} = enqueueModule;
+const { buildLexwareProductionFixtureSnapshotsCore: buildLexwareProductionFixtureSnapshots } = fixtureModule;
+const { buildLexwareInvoicePayload } = builderModule;
+const { validateLexwareInvoicePayload } = validatorModule;
+const { evaluateLexwareProductionGates } = jobModule;
+const { CHECKOUT_MAINTENANCE_ACTIVE } = maintenanceModule;
+const { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion } = hashModule;
+type BuildPayloadSha256Input =
+  Parameters<EligibleInvoiceBuildDependencies["buildPayloadSha256"]>[0];
+
+const eligibleInvoiceBuildDependencies: EligibleInvoiceBuildDependencies = {
+    buildPayload: ({ invoice, items, paymentTermDays }) => buildLexwareInvoicePayload({
+      invoice,
+      items,
+      paymentTermDays,
+    }),
+    validatePayload: validateLexwareInvoicePayload,
+    buildPayloadSha256: buildLexwarePayloadSha256,
+    parsePayloadHashVersion: parseLexwarePayloadHashVersion,
+};
+const buildEligibleLocalInvoice = (input: {
+  invoice: LocalInvoiceSnapshot;
+  items: LocalInvoiceItemSnapshot[];
+}) => buildEligibleLocalInvoiceCore(input, eligibleInvoiceBuildDependencies);
 
 const JOB_ID = "22222222-2222-4222-8222-222222222222";
 const snapshots = buildLexwareProductionFixtureSnapshots();
@@ -48,6 +83,7 @@ function makeModel(existing?: Partial<PersistedLexwareInvoiceJob>): Model {
       status: "waiting_for_activation",
       creation_state: "not_attempted",
       payload_sha256: eligible.payloadSha256,
+      payload_hash_version: eligible.payloadHashVersion,
       ...existing,
     } : null,
     invoiceLink: existing ? JOB_ID : null,
@@ -64,7 +100,8 @@ function dependencies(model: Model): LexwareInvoiceJobRepositoryDependencies {
     loadEligibleLocalInvoice: async () => eligible,
     loadExistingInvoiceJob: async () => {
       if (!model.job) return null;
-      if (model.job.payload_sha256 !== eligible.payloadSha256) throw new LexwareProductionInvoiceJobRepositoryError("EXISTING_INVOICE_JOB_PAYLOAD_CONFLICT", "hash");
+      if (model.job.payload_hash_version !== eligible.payloadHashVersion) throw new LexwareProductionInvoiceJobRepositoryError("HASH_VERSION_CONFLICT", "version");
+      if (model.job.payload_sha256 !== eligible.payloadSha256) throw new LexwareProductionInvoiceJobRepositoryError("PAYLOAD_HASH_CONFLICT", "hash");
       return model.job;
     },
     createOrReuseInvoiceJob: async (): Promise<EnqueueInvoiceJobResult> => {
@@ -73,6 +110,7 @@ function dependencies(model: Model): LexwareInvoiceJobRepositoryDependencies {
         jobStatus: model.job.status,
         creationState: model.job.creation_state,
         payloadSha256: model.job.payload_sha256,
+        payloadHashVersion: model.job.payload_hash_version,
         idempotencyKey: model.job.idempotency_key,
         createdNewJob: false,
         linkedInvoice: false,
@@ -87,6 +125,7 @@ function dependencies(model: Model): LexwareInvoiceJobRepositoryDependencies {
         status: "waiting_for_activation",
         creation_state: "not_attempted",
         payload_sha256: eligible.payloadSha256,
+        payload_hash_version: eligible.payloadHashVersion,
       };
       if (model.failAfterJobInsert) {
         Object.assign(model, before);
@@ -100,6 +139,7 @@ function dependencies(model: Model): LexwareInvoiceJobRepositoryDependencies {
         jobStatus: "waiting_for_activation",
         creationState: "not_attempted",
         payloadSha256: eligible.payloadSha256,
+        payloadHashVersion: eligible.payloadHashVersion,
         idempotencyKey: eligible.idempotencyKey,
         createdNewJob: true,
         linkedInvoice: true,
@@ -117,6 +157,7 @@ async function run() {
   const rawResult = {
     invoice_job_id: JOB_ID, job_status: "waiting_for_activation",
     job_creation_state: "not_attempted", payload_sha256: eligible.payloadSha256,
+    payload_hash_version: eligible.payloadHashVersion,
     idempotency_key: eligible.idempotencyKey, created_new_job: true, linked_invoice: true,
   };
   assert.equal(validateEnqueueInvoiceJobResult(rawResult, eligible).invoiceJobId, JOB_ID, "A strict RPC result");
@@ -140,10 +181,21 @@ async function run() {
   const hashModel = makeModel({ payload_sha256: "0".repeat(64) });
   await assert.rejects(() => enqueueLexwareProductionInvoiceJob(eligible.invoice.id, dependencies(hashModel)), /hash/, "G payload conflict");
   assert.equal(hashModel.jobInserts, 0, "G no new job");
+  const versionModel = makeModel({ payload_hash_version: "lexware-payload-json-v1" });
+  await assert.rejects(() => enqueueLexwareProductionInvoiceJob(eligible.invoice.id, dependencies(versionModel)), /version/, "G version conflict");
+  assert.equal(versionModel.jobInserts, 0, "G version conflict no new job");
+  const bothModel = makeModel({ payload_hash_version: "lexware-payload-json-v1", payload_sha256: "0".repeat(64) });
+  await assert.rejects(() => enqueueLexwareProductionInvoiceJob(eligible.invoice.id, dependencies(bothModel)), /version/, "G version takes priority over hash");
+  assert.equal(bothModel.jobInserts, 0, "G combined conflict no new job");
 
   assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_version: "invoice-tax-snapshot-v1" }, items: eligible.items }), /V2-Rechnungen/, "H V1 blocked");
   assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_status: "building" }, items: eligible.items }), /nicht vollständig/, "I incomplete blocked");
-  assert.throws(() => buildEligibleLocalInvoice({ invoice: eligible.invoice, items: eligible.items.map((item, index) => index ? item : { ...item, tax_snapshot_version: "invoice-tax-snapshot-v1" }) }), "J item mismatch");
+  assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_status: null }, items: eligible.items }), /nicht vollständig/, "I status null blocked");
+  assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_status: "partial" }, items: eligible.items }), /nicht vollständig/, "I partial blocked");
+  assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_version: null }, items: eligible.items }), /V2-Rechnungen/, "I version null blocked");
+  assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, tax_snapshot_source: null }, items: eligible.items }), /Snapshotquelle/, "I source null blocked");
+  assert.equal(buildEligibleLocalInvoice({ invoice: eligible.invoice, items: eligible.items }).invoice.tax_snapshot_status, "complete", "I complete V2 accepted");
+  assert.throws(() => buildEligibleLocalInvoice({ invoice: eligible.invoice, items: eligible.items.map((item: LocalInvoiceItemSnapshot, index: number) => index ? item : { ...item, tax_snapshot_version: "invoice-tax-snapshot-v1" }) }), "J item mismatch");
   assert.throws(() => buildEligibleLocalInvoice({ invoice: { ...eligible.invoice, total_amount: Number(eligible.invoice.total_amount) + 0.01 }, items: eligible.items }), "K total mismatch");
 
   const routeSource = readFileSync("app/api/admin/lexware/invoices/[invoiceId]/enqueue/route.ts", "utf8");
@@ -177,7 +229,73 @@ async function run() {
   assert.equal(CHECKOUT_MAINTENANCE_ACTIVE, true, "Q maintenance active");
   assert.equal(resultA.invoiceJobId, JOB_ID, "Q admin preparation still allowed");
 
+  let hashCalls = 0;
+  let receivedVersion: string | null = null;
+  let receivedPayload: unknown;
+  const portPrepared = buildEligibleLocalInvoiceCore({ invoice: eligible.invoice, items: eligible.items }, {
+    ...eligibleInvoiceBuildDependencies,
+    buildPayloadSha256: (input: BuildPayloadSha256Input) => {
+      hashCalls += 1;
+      receivedVersion = input.version;
+      receivedPayload = input.payload;
+      return buildLexwarePayloadSha256(input);
+    },
+  });
+  assert.equal(hashCalls, 1, "HashPort A exactly once");
+  assert.equal(receivedVersion, "lexware-payload-canonical-v2", "HashPort B explicit V2");
+  assert.equal(receivedPayload, portPrepared.built.payload, "HashPort C validated payload identity");
+  let createCallsAfterHashFailure = 0;
+  assert.throws(() => buildEligibleLocalInvoiceCore({ invoice: eligible.invoice, items: eligible.items }, {
+    ...eligibleInvoiceBuildDependencies,
+    buildPayloadSha256: () => { throw new Error("HASH_PORT_FAILED"); },
+  }), /HASH_PORT_FAILED/, "HashPort D failure blocks");
+  assert.equal(createCallsAfterHashFailure, 0, "HashPort E no RPC after hash failure");
+  const enqueueCoreSource = readFileSync("app/lib/lexware/lexwareProductionEnqueueCore.ts", "utf8");
+  const repositorySource = readFileSync("app/lib/lexware/lexwareProductionInvoiceJobRepository.ts", "utf8");
+  assert.ok(repositorySource.indexOf('fail("HASH_VERSION_CONFLICT"') < repositorySource.indexOf('fail("PAYLOAD_HASH_CONFLICT"'), "Hash conflict version priority in repository");
+  assert.doesNotMatch(enqueueCoreSource, /createHash|canonicalJson/, "HashPort F no local hash implementation");
+  assert.ok(repositorySource.includes("buildLexwarePayloadSha256"), "HashPort G central hash import symbol");
+  assert.ok(repositorySource.includes("@/app/lib/lexware/lexwarePayloadHash"), "HashPort G central hash import source");
+  assert.match(repositorySource, /buildPayloadSha256:\s*buildLexwarePayloadSha256/, "HashPort G production dispatcher wiring");
+  assert.ok(repositorySource.includes("parseLexwarePayloadHashVersion"), "HashPort G central parser import symbol");
+  assert.match(repositorySource, /parsePayloadHashVersion:\s*parseLexwarePayloadHashVersion/, "HashPort G production parser wiring");
+  assert.doesNotMatch(repositorySource, /createHash\s*\(/, "HashPort G no local createHash");
+  assert.doesNotMatch(repositorySource, /JSON\.stringify\s*\(\s*payload\s*\)/, "HashPort G no local payload serialization");
+  assert.doesNotMatch(enqueueCoreSource, /createHash|JSON\.stringify/, "HashPort H no local hash implementation");
+
+  let parserCalls = 0;
+  let parserInput: unknown;
+  let hashVersionReceived: string | null = null;
+  const parserPrepared = buildEligibleLocalInvoiceCore({ invoice: eligible.invoice, items: eligible.items }, {
+    ...eligibleInvoiceBuildDependencies,
+    parsePayloadHashVersion: (value: unknown) => {
+      parserCalls += 1;
+      parserInput = value;
+      return parseLexwarePayloadHashVersion(value);
+    },
+    buildPayloadSha256: (input: BuildPayloadSha256Input) => {
+      hashVersionReceived = input.version;
+      return buildLexwarePayloadSha256(input);
+    },
+  });
+  assert.equal(parserCalls, 1, "ParserPort A exactly once");
+  assert.equal(parserInput, "lexware-payload-canonical-v2", "ParserPort B explicit V2");
+  assert.equal(hashVersionReceived, parserPrepared.payloadHashVersion, "ParserPort C parsed result reaches hash port");
+  let hashCallsAfterParserFailure = 0;
+  let enqueueCallsAfterParserFailure = 0;
+  assert.throws(() => buildEligibleLocalInvoiceCore({ invoice: eligible.invoice, items: eligible.items }, {
+    ...eligibleInvoiceBuildDependencies,
+    parsePayloadHashVersion: () => { throw new Error("PARSER_PORT_FAILED"); },
+    buildPayloadSha256: () => { hashCallsAfterParserFailure += 1; return "0".repeat(64); },
+  }), /PARSER_PORT_FAILED/, "ParserPort D parser failure blocks");
+  assert.equal(hashCallsAfterParserFailure, 0, "ParserPort D hash blocked");
+  assert.equal(enqueueCallsAfterParserFailure, 0, "ParserPort E enqueue blocked");
+  assert.doesNotMatch(enqueueCoreSource, /(?:import|require)[^\n]*lexwarePayloadHash/, "ParserPort F no runtime hash-module import");
+  assert.match(repositorySource, /parsePayloadHashVersion:\s*parseLexwarePayloadHashVersion/, "ParserPort G production parser wiring");
+  assert.doesNotMatch(enqueueCoreSource, /value\s*===\s*["']lexware-payload|new Set.*lexware-payload/, "ParserPort H no local parser implementation");
+
   const migration = readFileSync("supabase/migrations/20260803030000_enqueue_existing_v2_lexware_invoice_job.sql", "utf8");
+  assert.ok(migration.indexOf("raise exception 'HASH_VERSION_CONFLICT'") < migration.indexOf("raise exception 'PAYLOAD_HASH_CONFLICT'"), "Hash conflict version priority in SQL");
   assert.match(migration, /invoice_row\.lexware_invoice_job_id as candidate_id/, "C linked invoice lookup");
   assert.match(migration, /where local_invoice_id = invoice_row\.id/, "D local invoice lookup");
   assert.match(migration, /idempotency_key = p_idempotency_key/, "E idempotency lookup");

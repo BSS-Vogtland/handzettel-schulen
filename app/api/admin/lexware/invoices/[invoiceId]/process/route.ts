@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { AdminMutationRequestError, hasExactConfirmation, hasSameRequestOrigin, readLimitedJsonBody } from "@/app/lib/adminMutationRequestGuard";
-import { previewLexwareProductionInvoiceById } from "@/app/lib/lexware/lexwareProductionDryRunService";
+import { processLexwareProductionInvoiceById } from "@/app/lib/lexware/lexwareProductionInvoiceProcessService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const HEADERS = { "Cache-Control": "no-store" };
-const CONFIRMATION = "PREVIEW_SINGLE_LEXWARE_INVOICE_PRODUCTION";
+const CONFIRMATION = "FINALIZE_SINGLE_LEXWARE_INVOICE";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request, { params }: { params: Promise<{ invoiceId: string }> }) {
@@ -24,17 +24,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ inv
   if (!hasExactConfirmation(body, CONFIRMATION)) {
     return NextResponse.json({ ok: false, code: "CONFIRMATION_INVALID" }, { status: 400, headers: HEADERS });
   }
-  try {
-    const result = await previewLexwareProductionInvoiceById(invoiceId);
-    return NextResponse.json(result, { headers: HEADERS });
-  } catch (error) {
-    return NextResponse.json({
-      ok: false,
-      dryRun: true,
-      writeOperationsPerformed: false,
-      lexwareWriteRequestsPerformed: 0,
-      databaseWritesPerformed: 0,
-      message: error instanceof Error ? error.message : "Dry-run fehlgeschlagen.",
-    }, { status: 422, headers: HEADERS });
-  }
+  const result = await processLexwareProductionInvoiceById(invoiceId);
+  return NextResponse.json({
+    ok: result.ok,
+    code: result.code,
+    outcome: result.outcome,
+    postCount: result.postCount,
+    reasons: result.reasons,
+  }, { status: result.status, headers: HEADERS });
 }

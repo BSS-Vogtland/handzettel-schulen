@@ -1,13 +1,11 @@
-import "server-only";
-
-import {
-  type LexwareInvoiceCreatePayload,
-  type LexwareInvoicePayloadBuildResult,
-  type LexwareInvoicePayloadLineItem,
+import type {
+  LexwareInvoiceCreatePayload,
+  LexwareInvoicePayloadBuildResult,
+  LexwareInvoicePayloadLineItem,
 } from "@/app/lib/lexware/lexwareInvoicePayloadBuilder";
 
-import {
-  type SupportedInvoiceTaxRate,
+import type {
+  SupportedInvoiceTaxRate,
 } from "@/lib/invoiceTaxSnapshot";
 
 /*
