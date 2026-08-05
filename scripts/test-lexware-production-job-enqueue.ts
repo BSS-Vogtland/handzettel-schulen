@@ -226,7 +226,7 @@ async function run() {
   assert.equal(resultA.jobStatus, "waiting_for_activation", "P legacy provider enqueue allowed");
   assert.equal(gates.allowed, false, "P production remains blocked");
   assert.ok(gates.failedChecks.includes("providerCutoverConfiguredForLexware"), "P provider gate");
-  assert.equal(CHECKOUT_MAINTENANCE_ACTIVE, true, "Q maintenance active");
+  assert.equal(CHECKOUT_MAINTENANCE_ACTIVE, false, "Q checkout reopened");
   assert.equal(resultA.invoiceJobId, JOB_ID, "Q admin preparation still allowed");
 
   let hashCalls = 0;

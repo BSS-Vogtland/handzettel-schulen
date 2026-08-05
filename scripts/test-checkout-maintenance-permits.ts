@@ -42,6 +42,7 @@ async function decision(
   consumePermit = async () => ({ permitId: PERMIT_ID, consumedAt: NOW }),
 ) {
   return maintenance.resolveCheckoutMaintenanceAccess({
+    maintenanceActive: true,
     adminAuthenticated: true,
     sameOrigin: true,
     maintenanceTestHeader: "true",
@@ -60,7 +61,7 @@ const permitSource = readFileSync("lib/checkoutTestPermits.ts", "utf8");
 const migration = readFileSync("supabase/migrations/20260803040000_checkout_test_permits.sql", "utf8");
 
 const publicMaintenance = maintenance.getCheckoutMaintenanceDecision();
-assert.equal(publicMaintenance.active, true);
+assert.equal(publicMaintenance.active, false);
 assert.equal(publicMaintenance.httpStatus, 503);
 assert.equal(publicMaintenance.code, "CHECKOUT_MAINTENANCE");
 console.log("A PASS");
