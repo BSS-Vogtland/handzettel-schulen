@@ -16,6 +16,10 @@ import {
   clearPreparedCartCheckoutContext,
   readPreparedCartCheckoutContext,
 } from "../_lib/preparedCartCheckout";
+import {
+  CHECKOUT_MAINTENANCE_ACTIVE,
+  CHECKOUT_MAINTENANCE_MESSAGE,
+} from "@/lib/checkoutMaintenance";
 
 type FulfillmentMethod = "pickup" | "shipping";
 type PaymentMethod = "paypal" | "bank_transfer";
@@ -27,18 +31,6 @@ type CheckoutResponse = {
 };
 
 const SHIPPING_AMOUNT = 5.95;
-
-const CHECKOUT_MAINTENANCE_NOTICE = `Wartungshinweis
-
-Wir führen derzeit Wartungsarbeiten an unserem Bestellsystem durch.
-
-Bestellungen können voraussichtlich ab Sonntagabend wieder abgeschlossen werden.
-
-Vielen Dank für Ihr Verständnis.`;
-
-function isCheckoutCompletionDisabled() {
-  return true;
-}
 
 export default function ShopCheckoutPage() {
   const router = useRouter();
@@ -226,8 +218,8 @@ export default function ShopCheckoutPage() {
       return;
     }
 
-    if (isCheckoutCompletionDisabled()) {
-      setFormError(CHECKOUT_MAINTENANCE_NOTICE);
+    if (CHECKOUT_MAINTENANCE_ACTIVE) {
+      setFormError(CHECKOUT_MAINTENANCE_MESSAGE);
       event.currentTarget.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }

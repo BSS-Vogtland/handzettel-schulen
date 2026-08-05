@@ -56,6 +56,8 @@ async function decision(
 
 const shopSource = readFileSync("app/api/shop/checkout/route.ts", "utf8");
 const offerSource = readFileSync("app/api/offer/[token]/checkout/route.ts", "utf8");
+const shopClientSource = readFileSync("app/shop/kasse/ShopKasseClient.tsx", "utf8");
+const offerClientSource = readFileSync("app/angebot/[token]/checkout/page.tsx", "utf8");
 const adminSource = readFileSync("app/api/admin/checkout-test-permits/route.ts", "utf8");
 const permitSource = readFileSync("lib/checkoutTestPermits.ts", "utf8");
 const migration = readFileSync("supabase/migrations/20260803040000_checkout_test_permits.sql", "utf8");
@@ -69,6 +71,14 @@ console.log("A PASS");
 assert.doesNotMatch(shopSource, /checkoutTestPermit|CheckoutTestPermit|resolveCheckoutMaintenanceAccess|maintenance_test_bypass/);
 assert.match(shopSource, /if \(checkoutMaintenance\.active\) \{/);
 console.log("B PASS");
+
+for (const clientSource of [shopClientSource, offerClientSource]) {
+  assert.match(clientSource, /CHECKOUT_MAINTENANCE_ACTIVE/);
+  assert.match(clientSource, /CHECKOUT_MAINTENANCE_MESSAGE/);
+  assert.doesNotMatch(clientSource, /isCheckoutCompletionDisabled|CHECKOUT_MAINTENANCE_NOTICE/);
+  assert.doesNotMatch(clientSource, /Wartungshinweis|Sonntagabend|Vielen Dank für Ihr Verständnis/);
+}
+console.log("B2 PASS");
 
 assert.equal((await decision({ adminAuthenticated: false })).bypassAllowed, false);
 console.log("C PASS");

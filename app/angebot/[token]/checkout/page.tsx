@@ -4,21 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import {
+  CHECKOUT_MAINTENANCE_ACTIVE,
+  CHECKOUT_MAINTENANCE_MESSAGE,
+} from "@/lib/checkoutMaintenance";
 
 type FulfillmentMethod = "pickup" | "shipping";
 type PaymentMethod = "paypal" | "bank_transfer";
-
-const CHECKOUT_MAINTENANCE_NOTICE = `Wartungshinweis
-
-Wir führen derzeit Wartungsarbeiten an unserem Bestellsystem durch.
-
-Bestellungen können voraussichtlich ab Sonntagabend wieder abgeschlossen werden.
-
-Vielen Dank für Ihr Verständnis.`;
-
-function isCheckoutCompletionDisabled() {
-  return true;
-}
 
 type CheckoutResponse = {
   ok?: boolean;
@@ -414,8 +406,8 @@ export default function HandzettelCheckoutPage() {
       return;
     }
 
-    if (isCheckoutCompletionDisabled()) {
-      setFormError(CHECKOUT_MAINTENANCE_NOTICE);
+    if (CHECKOUT_MAINTENANCE_ACTIVE) {
+      setFormError(CHECKOUT_MAINTENANCE_MESSAGE);
       event.currentTarget.scrollIntoView({
         behavior: "smooth",
         block: "start",
