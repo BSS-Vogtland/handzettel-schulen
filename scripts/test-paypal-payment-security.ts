@@ -331,3 +331,24 @@ for (const field of [
   "migration_safe_to_apply", "migration_already_fully_applied",
 ]) assert.match(auditSource, new RegExp(`\\b${field}\\b`));
 console.log("AR PASS");
+
+const claimFixMigration = readFileSync(
+  "supabase/migrations/20260805190000_fix_paypal_payment_claim_invoice_column.sql",
+  "utf8",
+);
+const invoicePaymentPage = readFileSync("app/rechnung/[invoiceToken]/page.tsx", "utf8");
+assert.match(claimFixMigration, /create or replace function public\.claim_verified_paypal_payment/);
+assert.doesNotMatch(claimFixMigration, /payment_provider_status='completed',\s*payment_received_at=/);
+assert.match(claimFixMigration, /payment_provider_status='completed',\s*paid_at=p_now/);
+console.log("AS PASS");
+assert.match(invoicePaymentPage, /export const dynamic = "force-dynamic"/);
+assert.match(invoicePaymentPage, /\.from\("school_request_invoices"\)[\s\S]*?\.eq\("invoice_token", token\)/);
+console.log("AT PASS");
+assert.match(invoicePaymentPage, /invoice\.payment_status === "payment_received"\s*\|\|\s*invoice\.payment_status === "cash_paid"/);
+assert.match(invoicePaymentPage, /\{isPaid \? \([\s\S]*?already paid|\{isPaid \? \([\s\S]*?bereits bezahlt/i);
+assert.match(invoicePaymentPage, /\) : invoice\.selected_payment_method === "paypal" \? \(/);
+console.log("AU PASS");
+assert.match(returnRouteForReload, /payment_status === "payment_received"[\s\S]*?paypal=success/);
+assert.equal(a.state.actions, 1);
+assert.equal(c.state.actions, 1);
+console.log("AV PASS");
