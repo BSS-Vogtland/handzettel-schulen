@@ -17,6 +17,18 @@ export type PayPalRpcClient = {
   ): PromiseLike<{ data: unknown; error: unknown }>;
 };
 
+type VerifiedPayPalFollowUpInput = {
+  supabase: PayPalRpcClient;
+  invoiceId: string;
+  orderId: string;
+  captureId: string;
+  amountCents: bigint;
+  currency: string;
+  source: PayPalFollowUpSource;
+  eventId: string | null;
+  now?: string;
+};
+
 function parseRpcResult(value: unknown, operation: string): RpcResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${operation}_INVALID_RESULT`);
@@ -47,7 +59,6 @@ export async function processVerifiedPayPalPaymentFollowUp(input: {
   now?: string;
 }): Promise<PayPalFollowUpOutcome> {
   const now = input.now ?? new Date().toISOString();
-  const claimedBy = randomUUID();
   const captureRequestId = buildPayPalCaptureRequestId({
     orderId: input.orderId,
     paymentFingerprint: input.paymentFingerprint,
@@ -71,6 +82,21 @@ export async function processVerifiedPayPalPaymentFollowUp(input: {
   if (!['claimed_now', 'already_claimed_same_payment'].includes(paymentClaim.status)) {
     throw new Error("PAYPAL_PAYMENT_CLAIM_UNEXPECTED_STATUS");
   }
+
+  return runVerifiedPayPalFollowUp({ ...input, now });
+}
+
+export async function retryVerifiedPayPalPaymentFollowUp(
+  input: VerifiedPayPalFollowUpInput,
+): Promise<PayPalFollowUpOutcome> {
+  return runVerifiedPayPalFollowUp(input);
+}
+
+async function runVerifiedPayPalFollowUp(
+  input: VerifiedPayPalFollowUpInput,
+): Promise<PayPalFollowUpOutcome> {
+  const now = input.now ?? new Date().toISOString();
+  const claimedBy = randomUUID();
 
   const followUpResponse = await input.supabase.rpc("claim_paypal_payment_follow_up", {
     p_invoice_id: input.invoiceId,

@@ -20,7 +20,7 @@ registerHooks({
   },
 });
 
-const { processVerifiedPayPalPaymentFollowUp } = await import(
+const { processVerifiedPayPalPaymentFollowUp, retryVerifiedPayPalPaymentFollowUp } = await import(
   new URL("../app/lib/paypalPaymentFollowUpService.ts", import.meta.url).href
 );
 const { validatePayPalCompletedPayment, PayPalPaymentValidationError } = await import(
@@ -352,3 +352,65 @@ assert.match(returnRouteForReload, /payment_status === "payment_received"[\s\S]*
 assert.equal(a.state.actions, 1);
 assert.equal(c.state.actions, 1);
 console.log("AV PASS");
+
+const completionFixMigration = readFileSync(
+  "supabase/migrations/20260805210000_fix_paypal_follow_up_request_event_columns.sql",
+  "utf8",
+);
+assert.match(completionFixMigration, /insert into public\.school_request_events \(\s*request_id, event_type, title, description, metadata, created_at\s*\)/);
+assert.doesNotMatch(completionFixMigration, /school_request_events \([\s\S]{0,150}\bmessage\b/);
+assert.match(completionFixMigration, /^begin;[\s\S]*commit;\s*$/);
+console.log("AW PASS");
+
+const retryModel = createRpcModel();
+retryModel.state.paymentClaimed = true;
+retryModel.state.followState = "failed_retryable";
+let retryPaymentClaimCalls = 0;
+const retryRpc = retryModel.rpc.bind(retryModel);
+const retryClient = {
+  async rpc(name: string, args: Record<string, unknown>) {
+    if (name === "claim_verified_paypal_payment") retryPaymentClaimCalls += 1;
+    return retryRpc(name, args);
+  },
+};
+assert.equal(await retryVerifiedPayPalPaymentFollowUp({
+  supabase: retryClient,
+  invoiceId: identity.invoiceId,
+  orderId: identity.orderId,
+  captureId: identity.captureId,
+  amountCents: identity.amountCents,
+  currency: identity.currency,
+  source: "return",
+  eventId: null,
+}), "completed_now");
+assert.equal(retryPaymentClaimCalls, 0);
+assert.equal(retryModel.state.actions, 1);
+assert.equal(retryModel.state.followState, "completed");
+assert.ok(retryModel.state.completedAt);
+console.log("AX PASS");
+
+const wrongClaimModel = createRpcModel();
+wrongClaimModel.state.paymentClaimed = true;
+wrongClaimModel.state.followState = "processing";
+wrongClaimModel.state.claimedBy = "expected-claim";
+const wrongClaimCompletion = await wrongClaimModel.rpc(
+  "complete_paypal_payment_follow_up",
+  {
+    p_invoice_id: identity.invoiceId,
+    p_order_id: identity.orderId,
+    p_capture_id: identity.captureId,
+    p_amount_cents: identity.amountCents.toString(),
+    p_currency: identity.currency,
+    p_claimed_by: "different-claim",
+  },
+);
+assert.deepEqual(wrongClaimCompletion.data, { status: "conflict" });
+assert.equal(wrongClaimModel.state.actions, 0);
+console.log("AY PASS");
+
+assert.doesNotMatch(
+  retryVerifiedPayPalPaymentFollowUp.toString(),
+  /claim_verified_paypal_payment|capturePayPalOrder|createPayPalOrder/,
+);
+assert.doesNotMatch(completionFixMigration, /lexware|mail_job|outbox/i);
+console.log("AZ PASS");
