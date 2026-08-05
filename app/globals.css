@@ -1,11 +1,24 @@
 @import "tailwindcss";
 
+:root {
+  --font-geist-sans: Arial, Helvetica, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 html {
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  font-family: var(--font-geist-sans);
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-geist-mono);
 }
 /* Admin request detail overflow guard */
 [data-admin-request-page] {
