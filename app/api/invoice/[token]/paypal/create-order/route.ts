@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { createPayPalOrder } from "@/app/lib/paypal";
+import {
+  buildPayPalCreateRequestId,
+  buildPayPalPaymentFingerprint,
+  createPayPalOrder,
+} from "@/app/lib/paypal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +25,58 @@ type InvoiceRow = {
   selected_payment_method: string | null;
   total_amount: number | string | null;
   currency: string | null;
+  paypal_order_id: string | null;
+  paypal_payment_fingerprint: string | null;
+  payment_provider_payload: unknown;
 };
+
+type RegisterOrderResult = { status?: string; order_id?: string };
+
+function record(value: unknown): object | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function optionalString(value: object, key: string) {
+  const item = Reflect.get(value, key);
+  return typeof item === "string" ? item : null;
+}
+
+function parseInvoice(value: unknown): InvoiceRow | null {
+  const row = record(value);
+  if (!row) return null;
+  const id = optionalString(row, "id");
+  const requestId = optionalString(row, "request_id");
+  const invoiceToken = optionalString(row, "invoice_token");
+  if (!id || !requestId || !invoiceToken) return null;
+  const totalAmount = Reflect.get(row, "total_amount");
+  return {
+    id,
+    request_id: requestId,
+    invoice_number: optionalString(row, "invoice_number"),
+    invoice_token: invoiceToken,
+    invoice_status: optionalString(row, "invoice_status"),
+    payment_status: optionalString(row, "payment_status"),
+    selected_payment_method: optionalString(row, "selected_payment_method"),
+    total_amount: typeof totalAmount === "number" || typeof totalAmount === "string" ? totalAmount : null,
+    currency: optionalString(row, "currency"),
+    paypal_order_id: optionalString(row, "paypal_order_id"),
+    paypal_payment_fingerprint: optionalString(row, "paypal_payment_fingerprint"),
+    payment_provider_payload: Reflect.get(row, "payment_provider_payload"),
+  };
+}
+
+function parseRequest(value: unknown): RequestRow | null {
+  const row = record(value);
+  if (!row) return null;
+  const id = optionalString(row, "id");
+  return id ? { id, request_number: optionalString(row, "request_number") } : null;
+}
+
+function getStoredApprovalUrl(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const links = (payload as { links?: Array<{ rel?: string; href?: string }> }).links;
+  return links?.find((link) => link.rel === "approve")?.href || null;
+}
 
 type RequestRow = {
   id: string;
@@ -171,6 +226,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           "selected_payment_method",
           "total_amount",
           "currency",
+          "paypal_order_id",
+          "paypal_payment_fingerprint",
+          "payment_provider_payload",
         ].join(", ")
       )
       .eq("invoice_token", invoiceToken)
@@ -186,7 +244,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const invoice = invoiceData as unknown as InvoiceRow;
+    const invoice = parseInvoice(invoiceData);
+    if (!invoice) {
+      return NextResponse.json({ ok: false, message: "Die Rechnung ist unvollständig." }, { status: 409 });
+    }
 
     if (
       invoice.payment_status === "payment_received" ||
@@ -212,6 +273,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: 409 }
       );
     }
+    const currency = String(invoice.currency || "EUR").toUpperCase();
+    const paymentFingerprint = buildPayPalPaymentFingerprint({
+      invoiceToken: invoice.invoice_token,
+      invoiceNumber: invoice.invoice_number || invoice.invoice_token,
+      totalAmount: invoice.total_amount || totalAmount,
+      currency,
+      intent: "CAPTURE",
+    });
+    if (invoice.paypal_order_id) {
+      if (
+        invoice.paypal_payment_fingerprint &&
+        invoice.paypal_payment_fingerprint !== paymentFingerprint
+      ) {
+        return NextResponse.json(
+          { ok: false, code: "PAYMENT_FINGERPRINT_MISMATCH", message: "Die gespeicherte PayPal-Zahlung passt nicht mehr zur Rechnung." },
+          { status: 409 },
+        );
+      }
+      const approvalUrl = getStoredApprovalUrl(invoice.payment_provider_payload);
+      if (!approvalUrl) {
+        return NextResponse.json(
+          { ok: false, code: "PAYPAL_ORDER_ALREADY_EXISTS", message: "Die bestehende PayPal-Zahlung kann nicht erneut geöffnet werden." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ ok: true, reused: true, paypalOrderId: invoice.paypal_order_id, approvalUrl, message: "PayPal-Zahlung wurde bereits gestartet." });
+    }
 
     const { data: requestData } = await supabase
       .from("school_requests")
@@ -219,7 +307,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq("id", invoice.request_id)
       .maybeSingle();
 
-    const requestRow = requestData as unknown as RequestRow | null;
+    const requestRow = parseRequest(requestData);
 
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
@@ -239,24 +327,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }`,
       returnUrl,
       cancelUrl,
+      paymentFingerprint,
     });
 
     const now = new Date().toISOString();
 
-    const { error: updateInvoiceError } = await supabase
-      .from("school_request_invoices")
-      .update({
-        selected_payment_method: "paypal",
-        payment_status: "waiting_for_payment",
-        payment_provider: "paypal",
-        paypal_order_id: order.orderId,
-        paypal_payment_status: "created",
-        payment_provider_reference: order.orderId,
-        payment_provider_status: "created",
-        payment_provider_payload: order.raw,
-        updated_at: now,
-      })
-      .eq("id", invoice.id);
+    const { data: registerData, error: updateInvoiceError } = await supabase.rpc(
+      "register_paypal_order",
+      {
+        p_invoice_id: invoice.id,
+        p_fingerprint: paymentFingerprint,
+        p_create_request_id: buildPayPalCreateRequestId(paymentFingerprint),
+        p_order_id: order.orderId,
+        p_provider_payload: order.raw,
+        p_now: now,
+      },
+    );
 
     if (updateInvoiceError) {
       return NextResponse.json(
@@ -266,6 +352,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
         { status: 500 }
       );
+    }
+    const registration = registerData as RegisterOrderResult | null;
+    if (registration?.status === "fingerprint_mismatch") {
+      return NextResponse.json({ ok: false, code: "PAYMENT_FINGERPRINT_MISMATCH", message: "Die gespeicherte PayPal-Zahlung passt nicht mehr zur Rechnung." }, { status: 409 });
+    }
+    if (registration?.status !== "registered") {
+      if (registration?.status === "existing" && registration.order_id === order.orderId) {
+        return NextResponse.json({ ok: true, reused: true, paypalOrderId: order.orderId, approvalUrl: order.approvalUrl, message: "PayPal-Zahlung wurde bereits gestartet." });
+      }
+      return NextResponse.json({ ok: false, code: "PAYPAL_ORDER_ALREADY_EXISTS", message: "Eine PayPal-Zahlung ist bereits vorhanden." }, { status: 409 });
     }
 
     await supabase

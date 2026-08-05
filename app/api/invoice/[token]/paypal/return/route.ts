@@ -1,292 +1,150 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+
 import { capturePayPalOrder } from "@/app/lib/paypal";
+import { processVerifiedPayPalPaymentFollowUp } from "@/app/lib/paypalPaymentFollowUpService";
+import {
+  classifyPayPalCaptureStatus,
+  decimalToCents,
+  getStoredPayPalOrderIdentity,
+  PayPalPaymentValidationError,
+  validatePayPalCompletedPayment,
+} from "@/app/lib/paypalPaymentValidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type RouteContext = {
-  params: Promise<{
-    token: string;
-  }>;
-};
-
+type RouteContext = { params: Promise<{ token: string }> };
 type InvoiceRow = {
   id: string;
-  request_id: string;
   invoice_token: string;
-  invoice_number: string | null;
   paypal_order_id: string | null;
+  payment_status: string | null;
+  payment_provider_payload: unknown;
   total_amount: number | string | null;
-  currency: string | null;
+  paypal_payment_fingerprint: string | null;
+  paypal_capture_id: string | null;
+  paypal_captured_amount_cents: number | string | null;
+  paypal_captured_currency: string | null;
 };
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error(
-      "Supabase Umgebungsvariablen fehlen. Prüfe NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY."
-    );
-  }
-
+  if (!supabaseUrl || !serviceRoleKey) throw new Error("SUPABASE_CONFIGURATION_MISSING");
   return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
 function getSiteUrl(request: Request) {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    new URL(request.url).origin
-  );
+  return process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || new URL(request.url).origin;
 }
 
-async function insertRequestEvent(params: {
-  supabase: ReturnType<typeof getSupabaseAdmin>;
-  requestId: string;
-  eventType: string;
-  title: string;
-  message: string;
-  metadata?: Record<string, unknown>;
-}) {
-  const { supabase, requestId, eventType, title, message, metadata } = params;
-  const createdAt = new Date().toISOString();
-
-  const payloads = [
-    {
-      request_id: requestId,
-      event_type: eventType,
-      title,
-      message,
-      description: message,
-      metadata: metadata || null,
-      created_at: createdAt,
-    },
-    {
-      request_id: requestId,
-      event_type: eventType,
-      message,
-      metadata: metadata || null,
-      created_at: createdAt,
-    },
-    {
-      request_id: requestId,
-      event_type: eventType,
-      message,
-      created_at: createdAt,
-    },
-    {
-      request_id: requestId,
-      type: eventType,
-      message,
-      created_at: createdAt,
-    },
-  ];
-
-  for (const payload of payloads) {
-    const { error } = await supabase.from("school_request_events").insert(payload);
-
-    if (!error) return;
-  }
-}
-
-async function insertPaymentEvent(params: {
-  supabase: ReturnType<typeof getSupabaseAdmin>;
-  invoice: InvoiceRow;
-  eventType: string;
-  providerStatus: string | null;
-  providerReference?: string | null;
-  providerPayload?: unknown;
-  message: string;
-}) {
-  const {
-    supabase,
-    invoice,
-    eventType,
-    providerStatus,
-    providerReference,
-    providerPayload,
-    message,
-  } = params;
-
-  await supabase.from("school_request_payment_events").insert({
-    invoice_id: invoice.id,
-    request_id: invoice.request_id,
-    event_type: eventType,
-    payment_method: "paypal",
-    payment_provider: "paypal",
-    amount: invoice.total_amount,
-    currency: invoice.currency || "EUR",
-    provider_reference: providerReference || null,
-    provider_status: providerStatus || null,
-    provider_payload: providerPayload || null,
-    message,
-    created_at: new Date().toISOString(),
-  });
+function parseInvoice(value: unknown): InvoiceRow | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const id = Reflect.get(value, "id");
+  const invoiceToken = Reflect.get(value, "invoice_token");
+  if (typeof id !== "string" || typeof invoiceToken !== "string") return null;
+  return {
+    id,
+    invoice_token: invoiceToken,
+    paypal_order_id: typeof Reflect.get(value, "paypal_order_id") === "string" ? Reflect.get(value, "paypal_order_id") : null,
+    payment_status: typeof Reflect.get(value, "payment_status") === "string" ? Reflect.get(value, "payment_status") : null,
+    payment_provider_payload: Reflect.get(value, "payment_provider_payload"),
+    total_amount: typeof Reflect.get(value, "total_amount") === "number" || typeof Reflect.get(value, "total_amount") === "string" ? Reflect.get(value, "total_amount") : null,
+    paypal_payment_fingerprint: typeof Reflect.get(value, "paypal_payment_fingerprint") === "string" ? Reflect.get(value, "paypal_payment_fingerprint") : null,
+    paypal_capture_id: typeof Reflect.get(value, "paypal_capture_id") === "string" ? Reflect.get(value, "paypal_capture_id") : null,
+    paypal_captured_amount_cents: typeof Reflect.get(value, "paypal_captured_amount_cents") === "number" || typeof Reflect.get(value, "paypal_captured_amount_cents") === "string" ? Reflect.get(value, "paypal_captured_amount_cents") : null,
+    paypal_captured_currency: typeof Reflect.get(value, "paypal_captured_currency") === "string" ? Reflect.get(value, "paypal_captured_currency") : null,
+  };
 }
 
 export async function GET(request: Request, context: RouteContext) {
   const { token } = await context.params;
   const invoiceToken = String(token || "").trim();
-
   try {
-    const url = new URL(request.url);
-
-    const paypalOrderIdFromQuery =
-      url.searchParams.get("token") || url.searchParams.get("orderId");
-
-    if (!invoiceToken) {
-      return NextResponse.redirect(
-        `${getSiteUrl(request)}/rechnung/fehler?reason=missing_invoice_token`
-      );
-    }
-
+    if (!invoiceToken) return NextResponse.redirect(`${getSiteUrl(request)}/rechnung/fehler?reason=missing_invoice_token`);
+    const returnOrderId = new URL(request.url).searchParams.get("token");
     const supabase = getSupabaseAdmin();
-
-    const { data: invoiceData, error: invoiceError } = await supabase
+    const { data, error } = await supabase
       .from("school_request_invoices")
-      .select(
-        [
-          "id",
-          "request_id",
-          "invoice_token",
-          "invoice_number",
-          "paypal_order_id",
-          "total_amount",
-          "currency",
-        ].join(", ")
-      )
+      .select("id,invoice_token,paypal_order_id,payment_status,payment_provider_payload,total_amount,paypal_payment_fingerprint,paypal_capture_id,paypal_captured_amount_cents,paypal_captured_currency")
       .eq("invoice_token", invoiceToken)
       .maybeSingle();
+    const invoice = parseInvoice(data);
+    if (error || !invoice) throw new Error("PAYPAL_INVOICE_NOT_FOUND");
 
-    if (invoiceError || !invoiceData) {
-      return NextResponse.redirect(
-        `${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=error`
-      );
+    const expectedOrder = getStoredPayPalOrderIdentity({
+      paypalOrderId: invoice.paypal_order_id,
+      paymentProviderPayload: invoice.payment_provider_payload,
+    });
+    if (returnOrderId && returnOrderId !== expectedOrder.orderId) {
+      throw new PayPalPaymentValidationError("ORDER_MISMATCH", "PayPal-Order gehört nicht zu dieser Rechnung.");
     }
-
-    const invoice = invoiceData as unknown as InvoiceRow;
-    const paypalOrderId = paypalOrderIdFromQuery || invoice.paypal_order_id;
-
-    if (!paypalOrderId) {
-      return NextResponse.redirect(
-        `${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=missing_order`
-      );
+    if (invoice.payment_status === "payment_received") {
+      if (
+        invoice.paypal_capture_id &&
+        invoice.paypal_captured_amount_cents !== null &&
+        invoice.paypal_captured_currency
+      ) {
+        await processVerifiedPayPalPaymentFollowUp({
+          supabase,
+          invoiceId: invoice.id,
+          orderId: expectedOrder.orderId,
+          captureId: invoice.paypal_capture_id,
+          paymentFingerprint: invoice.paypal_payment_fingerprint || "",
+          amountCents: BigInt(invoice.paypal_captured_amount_cents),
+          currency: invoice.paypal_captured_currency,
+          source: "return",
+          eventId: null,
+        });
+      }
+      return NextResponse.redirect(`${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=success`);
     }
 
     const capture = await capturePayPalOrder({
-      orderId: paypalOrderId,
+      orderId: expectedOrder.orderId,
+      paymentFingerprint: invoice.paypal_payment_fingerprint || "",
     });
-
-    const isCompleted =
-      String(capture.status || "").toUpperCase() === "COMPLETED";
-
-    const now = new Date().toISOString();
-
-    if (!isCompleted) {
-      await supabase
-        .from("school_request_invoices")
-        .update({
-          payment_provider_status: capture.status,
-          paypal_payment_status: capture.status,
-          payment_provider_payload: capture.raw,
-          updated_at: now,
-        })
-        .eq("id", invoice.id);
-
-      await insertPaymentEvent({
-        supabase,
-        invoice,
-        eventType: "paypal_capture_not_completed",
-        providerStatus: capture.status,
-        providerReference: capture.captureId || capture.orderId,
-        providerPayload: capture.raw,
-        message:
-          "PayPal-Zahlung wurde zurückgemeldet, aber nicht als abgeschlossen bestätigt.",
-      });
-
-      return NextResponse.redirect(
-        `${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=pending`
-      );
+    const disposition = classifyPayPalCaptureStatus(capture.status);
+    if (disposition === "pending") {
+      return NextResponse.redirect(`${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=pending`);
     }
-
-    const { error: updateInvoiceError } = await supabase
-      .from("school_request_invoices")
-      .update({
-        selected_payment_method: "paypal",
-        payment_status: "payment_received",
-        payment_provider: "paypal",
-        payment_provider_reference: capture.captureId || capture.orderId,
-        payment_provider_status: capture.status,
-        payment_provider_payload: capture.raw,
-        paypal_order_id: capture.orderId,
-        paypal_capture_id: capture.captureId,
-        paypal_payer_email: capture.payerEmail,
-        paypal_payment_status: capture.status,
-        paid_at: now,
-        updated_at: now,
-      })
-      .eq("id", invoice.id);
-
-    if (updateInvoiceError) {
-      throw new Error(updateInvoiceError.message);
+    if (disposition !== "completed") {
+      throw new PayPalPaymentValidationError("INVALID_CAPTURE_STATUS", "PayPal-Capture ist nicht abgeschlossen.");
     }
-
-    const { error: updateRequestError } = await supabase
-      .from("school_requests")
-      .update({
-        selected_payment_method: "paypal",
-        payment_status: "payment_received",
-        payment_received_at: now,
-        latest_invoice_id: invoice.id,
-        updated_at: now,
-      })
-      .eq("id", invoice.request_id);
-
-    if (updateRequestError) {
-      throw new Error(updateRequestError.message);
+    validatePayPalCompletedPayment({
+      expectedOrder,
+      invoiceToken: invoice.invoice_token,
+      invoiceTotalAmount: invoice.total_amount,
+      orderId: capture.orderId,
+      customId: capture.customId,
+      referenceId: capture.referenceId,
+      invoiceId: capture.invoiceId,
+      captureStatus: capture.status,
+      captureAmount: capture.amountValue,
+      captureCurrency: capture.currencyCode,
+    });
+    const amountCents = decimalToCents(capture.amountValue);
+    if (amountCents === null || !capture.captureId || !capture.currencyCode) {
+      throw new PayPalPaymentValidationError("CAPTURE_AMOUNT_MISMATCH", "PayPal-Capture ist unvollständig.");
     }
-
-    await insertPaymentEvent({
+    await processVerifiedPayPalPaymentFollowUp({
       supabase,
-      invoice,
-      eventType: "paypal_payment_completed",
-      providerStatus: capture.status,
-      providerReference: capture.captureId || capture.orderId,
-      providerPayload: capture.raw,
-      message: "PayPal-Zahlung wurde erfolgreich abgeschlossen.",
+      invoiceId: invoice.id,
+      orderId: expectedOrder.orderId,
+      captureId: capture.captureId,
+      paymentFingerprint: invoice.paypal_payment_fingerprint || "",
+      amountCents,
+      currency: capture.currencyCode,
+      source: "return",
+      eventId: null,
     });
-
-    await insertRequestEvent({
-      supabase,
-      requestId: invoice.request_id,
-      eventType: "paypal_payment_completed",
-      title: "PayPal-Zahlung abgeschlossen",
-      message: "Die Rechnung wurde erfolgreich per PayPal bezahlt.",
-      metadata: {
-        invoice_id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        paypal_order_id: capture.orderId,
-        paypal_capture_id: capture.captureId,
-        payer_email: capture.payerEmail,
-        amount_value: capture.amountValue,
-        currency_code: capture.currencyCode,
-      },
-    });
-
-    return NextResponse.redirect(
-      `${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=success`
-    );
+    return NextResponse.redirect(`${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=success`);
   } catch (error) {
-    console.error("PayPal return capture error:", error);
-
-    return NextResponse.redirect(
-      `${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=error`
-    );
+    console.error("PayPal return failed", error instanceof Error ? error.message : "UNKNOWN_ERROR");
+    const code = error instanceof PayPalPaymentValidationError ? error.code : "PAYPAL_CAPTURE_FAILED";
+    return NextResponse.redirect(`${getSiteUrl(request)}/rechnung/${invoiceToken}?paypal=error&code=${encodeURIComponent(code)}`);
   }
 }

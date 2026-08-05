@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { decimalToCents } from "@/app/lib/paypalPaymentValidation";
+
 type PayPalAccessTokenResponse = {
   access_token?: string;
   token_type?: string;
@@ -40,6 +43,9 @@ type PayPalCaptureResponse = {
     };
   };
   purchase_units?: Array<{
+    reference_id?: string;
+    custom_id?: string;
+    invoice_id?: string;
     payments?: {
       captures?: Array<{
         id?: string;
@@ -73,6 +79,9 @@ export type PayPalCaptureResult = {
   payerEmail: string | null;
   amountValue: string | null;
   currencyCode: string | null;
+  customId: string | null;
+  referenceId: string | null;
+  invoiceId: string | null;
   raw: PayPalCaptureResponse;
 };
 
@@ -87,15 +96,13 @@ function getRequiredEnv(name: string) {
 }
 
 function getPayPalEnvironment() {
-  const rawEnv = String(process.env.PAYPAL_ENV || "sandbox")
-    .trim()
-    .toLowerCase();
+  const rawEnv = getRequiredEnv("PAYPAL_ENV").trim().toLowerCase();
 
-  if (rawEnv === "live" || rawEnv === "production" || rawEnv === "prod") {
-    return "live";
+  if (rawEnv !== "sandbox" && rawEnv !== "live") {
+    throw new Error("PAYPAL_ENV muss explizit 'sandbox' oder 'live' sein.");
   }
 
-  return "sandbox";
+  return rawEnv;
 }
 
 function getPayPalBaseUrl() {
@@ -119,19 +126,54 @@ function cleanPayPalInvoiceId(value: string) {
     .slice(0, 127);
 }
 
-function buildUniquePayPalInvoiceId(params: {
-  invoiceNumber: string;
+export function buildPayPalPaymentFingerprint(params: {
   invoiceToken: string;
+  invoiceNumber: string;
+  totalAmount: number | string;
+  currency: string;
+  intent?: "CAPTURE";
 }) {
-  const shortToken = params.invoiceToken.slice(0, 8);
-  const timestamp = Date.now();
-
-  return cleanPayPalInvoiceId(
-    `${params.invoiceNumber}-${shortToken}-${timestamp}`
-  );
+  const cents = decimalToCents(params.totalAmount);
+  const currency = params.currency.trim().toUpperCase();
+  if (cents === null || currency !== "EUR") {
+    throw new Error("Ungültige PayPal-Zahlungsgrundlage.");
+  }
+  return createHash("sha256")
+    .update([
+      "paypal-payment-v1",
+      params.invoiceToken,
+      params.invoiceNumber,
+      cents.toString(),
+      currency,
+      params.intent || "CAPTURE",
+    ].join("|"), "utf8")
+    .digest("hex");
 }
 
-async function getPayPalAccessToken() {
+function buildOperationRequestId(operation: "create" | "capture", fingerprint: string, orderId = "") {
+  const digest = createHash("sha256")
+    .update(`${operation}|${fingerprint}|${orderId}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+  return `hs-${operation}-${digest}`;
+}
+
+export function buildPayPalInvoiceId(params: {
+  invoiceNumber: string;
+  paymentFingerprint: string;
+}) {
+  return cleanPayPalInvoiceId(`${params.invoiceNumber}-${params.paymentFingerprint.slice(0, 20)}`);
+}
+
+export function buildPayPalCreateRequestId(paymentFingerprint: string) {
+  return buildOperationRequestId("create", paymentFingerprint);
+}
+
+export function buildPayPalCaptureRequestId(params: { orderId: string; paymentFingerprint: string }) {
+  return buildOperationRequestId("capture", params.paymentFingerprint, params.orderId);
+}
+
+async function getPayPalAccessToken(fetchImpl: typeof fetch = fetch) {
   const clientId = getRequiredEnv("PAYPAL_CLIENT_ID");
   const clientSecret = getRequiredEnv("PAYPAL_CLIENT_SECRET");
   const baseUrl = getPayPalBaseUrl();
@@ -140,7 +182,7 @@ async function getPayPalAccessToken() {
     "base64"
   );
 
-  const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
+  const response = await fetchImpl(`${baseUrl}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${credentials}`,
@@ -174,23 +216,25 @@ export async function createPayPalOrder(params: {
   description: string;
   returnUrl: string;
   cancelUrl: string;
+  paymentFingerprint: string;
+  fetchImpl?: typeof fetch;
 }): Promise<PayPalOrderResult> {
-  const accessToken = await getPayPalAccessToken();
+  const accessToken = await getPayPalAccessToken(params.fetchImpl);
   const baseUrl = getPayPalBaseUrl();
   const currency = params.currency || "EUR";
 
-  const paypalInvoiceId = buildUniquePayPalInvoiceId({
+  const paypalInvoiceId = buildPayPalInvoiceId({
     invoiceNumber: params.invoiceNumber,
-    invoiceToken: params.invoiceToken,
+    paymentFingerprint: params.paymentFingerprint,
   });
 
-  const response = await fetch(`${baseUrl}/v2/checkout/orders`, {
+  const response = await (params.fetchImpl || fetch)(`${baseUrl}/v2/checkout/orders`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
-      "PayPal-Request-Id": `hs-${params.invoiceToken}-${Date.now()}`,
+      "PayPal-Request-Id": buildPayPalCreateRequestId(params.paymentFingerprint),
     },
     body: JSON.stringify({
       intent: "CAPTURE",
@@ -246,11 +290,13 @@ export async function createPayPalOrder(params: {
 
 export async function capturePayPalOrder(params: {
   orderId: string;
+  paymentFingerprint: string;
+  fetchImpl?: typeof fetch;
 }): Promise<PayPalCaptureResult> {
-  const accessToken = await getPayPalAccessToken();
+  const accessToken = await getPayPalAccessToken(params.fetchImpl);
   const baseUrl = getPayPalBaseUrl();
 
-  const response = await fetch(
+  const response = await (params.fetchImpl || fetch)(
     `${baseUrl}/v2/checkout/orders/${params.orderId}/capture`,
     {
       method: "POST",
@@ -258,6 +304,7 @@ export async function capturePayPalOrder(params: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         Prefer: "return=representation",
+        "PayPal-Request-Id": buildPayPalCaptureRequestId(params),
       },
       cache: "no-store",
     }
@@ -277,7 +324,8 @@ export async function capturePayPalOrder(params: {
     );
   }
 
-  const capture = payload.purchase_units?.[0]?.payments?.captures?.[0] || null;
+  const purchaseUnit = payload.purchase_units?.[0] || null;
+  const capture = purchaseUnit?.payments?.captures?.[0] || null;
 
   return {
     orderId: payload.id || params.orderId,
@@ -286,6 +334,9 @@ export async function capturePayPalOrder(params: {
     payerEmail: payload.payer?.email_address || null,
     amountValue: capture?.amount?.value || null,
     currencyCode: capture?.amount?.currency_code || null,
+    customId: purchaseUnit?.custom_id || null,
+    referenceId: purchaseUnit?.reference_id || null,
+    invoiceId: purchaseUnit?.invoice_id || null,
     raw: payload,
   };
 }
