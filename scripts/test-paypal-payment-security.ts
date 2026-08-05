@@ -216,3 +216,118 @@ console.log("Y PASS");
 assert.match(paypalSource, /getRequiredEnv\("PAYPAL_ENV"\)/);
 assert.doesNotMatch(paypalSource, /PAYPAL_ENV\s*\|\||production|prod/);
 console.log("Z PASS");
+
+const auditSource = readFileSync("scripts/audit-paypal-production-premigration-readonly.sql", "utf8");
+const executableMigration = migration.replace(/^\s*--.*$/gm, "").trim();
+assert.match(executableMigration, /^begin\s*;/i);
+console.log("AA PASS");
+assert.match(executableMigration, /commit\s*;\s*$/i);
+console.log("AB PASS");
+assert.equal((executableMigration.match(/^\s*begin\s*;/gim) ?? []).length, 1);
+assert.equal((executableMigration.match(/^\s*commit\s*;/gim) ?? []).length, 1);
+console.log("AC PASS");
+assert.doesNotMatch(
+  executableMigration,
+  /create\s+(?:unique\s+)?index\s+concurrently|\bvacuum\b|alter\s+type[\s\S]*?add\s+value|^\s*\\|\bexecute\s+(?:format|immediate)|https?:\/\//im,
+);
+console.log("AD PASS");
+
+const expectedAuditObjects = {
+  columns: [
+    "paypal_payment_fingerprint", "paypal_create_request_id", "paypal_capture_request_id",
+    "paypal_webhook_event_id", "paypal_captured_amount_cents", "paypal_captured_currency",
+    "paypal_payment_source", "paypal_follow_up_state", "paypal_follow_up_claimed_at",
+    "paypal_follow_up_claimed_by", "paypal_follow_up_completed_at",
+    "paypal_follow_up_last_error_code", "paypal_follow_up_last_error_message",
+    "paypal_follow_up_attempt_count",
+  ],
+  constraints: ["school_request_invoices_paypal_follow_up_state_check"],
+  indexes: [
+    "school_request_invoices_paypal_order_unique", "school_request_invoices_paypal_capture_unique",
+    "school_request_invoices_paypal_event_unique", "school_request_invoices_paypal_create_request_unique",
+    "school_request_invoices_paypal_capture_request_unique",
+  ],
+  rpcs: [
+    "register_paypal_order", "claim_verified_paypal_payment", "claim_paypal_payment_follow_up",
+    "complete_paypal_payment_follow_up", "fail_paypal_payment_follow_up",
+  ],
+} as const;
+
+type AuditStateInput = {
+  columns: readonly string[];
+  constraints: readonly string[];
+  indexes: readonly string[];
+  rpcs: readonly string[];
+  forbiddenLegacyRpcCount?: number;
+};
+
+function sameObjects(actual: readonly string[], expected: readonly string[]) {
+  return actual.length === expected.length && expected.every((name) => actual.includes(name));
+}
+
+function evaluateAuditState(input: AuditStateInput) {
+  const forbiddenLegacyRpcCount = input.forbiddenLegacyRpcCount ?? 0;
+  const oldStateValid = input.columns.length === 0 && input.constraints.length === 0
+    && input.indexes.length === 0 && input.rpcs.length === 0 && forbiddenLegacyRpcCount === 0;
+  const newStateValid = sameObjects(input.columns, expectedAuditObjects.columns)
+    && sameObjects(input.constraints, expectedAuditObjects.constraints)
+    && sameObjects(input.indexes, expectedAuditObjects.indexes)
+    && sameObjects(input.rpcs, expectedAuditObjects.rpcs)
+    && forbiddenLegacyRpcCount === 0;
+  return {
+    paypalSchemaState: oldStateValid ? "OLD_CLEAN" : newStateValid ? "NEW_COMPLETE" : "PARTIAL_BLOCKED",
+    migrationSafeToApply: oldStateValid,
+    migrationAlreadyFullyApplied: newStateValid,
+  };
+}
+
+const emptyObjects = { columns: [], constraints: [], indexes: [], rpcs: [] } as const;
+const completeObjects = {
+  columns: [...expectedAuditObjects.columns], constraints: [...expectedAuditObjects.constraints],
+  indexes: [...expectedAuditObjects.indexes], rpcs: [...expectedAuditObjects.rpcs],
+};
+assert.equal(evaluateAuditState(emptyObjects).paypalSchemaState, "OLD_CLEAN");
+console.log("AE PASS");
+assert.equal(evaluateAuditState(completeObjects).paypalSchemaState, "NEW_COMPLETE");
+console.log("AF PASS");
+assert.equal(evaluateAuditState({ ...emptyObjects, columns: completeObjects.columns }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AG PASS");
+assert.equal(evaluateAuditState({ ...emptyObjects, rpcs: completeObjects.rpcs }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AH PASS");
+assert.equal(evaluateAuditState({ ...completeObjects, indexes: [] }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AI PASS");
+assert.equal(evaluateAuditState({ ...completeObjects, constraints: [] }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AJ PASS");
+assert.equal(evaluateAuditState({ ...completeObjects, indexes: [...completeObjects.indexes.slice(0, -1), "wrong_index_name"] }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AK PASS");
+assert.equal(evaluateAuditState({ ...completeObjects, forbiddenLegacyRpcCount: 1 }).paypalSchemaState, "PARTIAL_BLOCKED");
+console.log("AL PASS");
+assert.equal(evaluateAuditState(emptyObjects).migrationSafeToApply, true);
+console.log("AM PASS");
+assert.equal(evaluateAuditState(completeObjects).migrationAlreadyFullyApplied, true);
+console.log("AN PASS");
+const blocked = evaluateAuditState({ ...completeObjects, constraints: [] });
+assert.equal(blocked.migrationSafeToApply, false);
+assert.equal(blocked.migrationAlreadyFullyApplied, false);
+console.log("AO PASS");
+
+const executableAudit = auditSource.replace(/^\s*--.*$/gm, "").trim();
+assert.match(executableAudit, /^with\b/i);
+assert.doesNotMatch(executableAudit, /\b(create|alter|drop|truncate|insert|update|delete|merge|grant|revoke|call|do)\b/i);
+console.log("AP PASS");
+assert.doesNotMatch(
+  executableAudit,
+  /\b(select|from|join)\s+(?:public\.)?(?:register_paypal_order|claim_verified_paypal_payment|claim_paypal_payment_follow_up|complete_paypal_payment_follow_up|fail_paypal_payment_follow_up)\s*\(/i,
+);
+console.log("AQ PASS");
+for (const names of Object.values(expectedAuditObjects)) {
+  for (const name of names) assert.match(auditSource, new RegExp(`['\"]${name}['\"]`));
+}
+for (const field of [
+  "expected_column_count", "existing_column_count", "expected_constraint_count",
+  "existing_constraint_count", "expected_index_count", "existing_index_count",
+  "expected_new_rpc_count", "existing_new_rpc_count", "forbidden_legacy_rpc_count",
+  "paypal_schema_state", "old_state_valid", "new_state_valid", "partial_state_detected",
+  "migration_safe_to_apply", "migration_already_fully_applied",
+]) assert.match(auditSource, new RegExp(`\\b${field}\\b`));
+console.log("AR PASS");

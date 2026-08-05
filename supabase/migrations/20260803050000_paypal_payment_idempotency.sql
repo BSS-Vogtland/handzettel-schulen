@@ -1,3 +1,5 @@
+begin;
+
 alter table public.school_request_invoices
   add column if not exists paypal_payment_fingerprint text,
   add column if not exists paypal_create_request_id text,
@@ -241,3 +243,5 @@ grant execute on function public.claim_verified_paypal_payment(uuid,text,text,te
 grant execute on function public.claim_paypal_payment_follow_up(uuid,text,text,bigint,text,text,timestamptz) to service_role;
 grant execute on function public.complete_paypal_payment_follow_up(uuid,text,text,bigint,text,text,text,text,timestamptz) to service_role;
 grant execute on function public.fail_paypal_payment_follow_up(uuid,text,text,text,boolean,timestamptz) to service_role;
+
+commit;
