@@ -149,6 +149,7 @@ assert.equal(
 const routeSource = readFileSync("app/api/admin/paypal/runtime-readiness/route.ts", "utf8");
 const coreSource = readFileSync("app/lib/paypalRuntimeReadinessCore.ts", "utf8");
 const testSource = readFileSync("scripts/test-paypal-runtime-readiness.ts", "utf8");
+const middlewareSource = readFileSync("middleware.ts", "utf8");
 
 assert.deepEqual(findUnsafeCasts("A.ts", "const x = value as any"), [
   { file: "A.ts", line: 1, column: 11, castType: "any" },
@@ -175,6 +176,19 @@ assert.match(routeSource, /requireAdminApiSession/, "Q: route uses central admin
 assert.match(routeSource, /Cache-Control[\s\S]*no-store/, "R: route defines no-store");
 assert.match(routeSource, /if \(unauthorized\) return withNoStore\(unauthorized\)/, "R: 401 uses no-store wrapper");
 assert.match(routeSource, /return withNoStore\([\s\S]*503/, "R: readiness response including 503 uses no-store wrapper");
+assert.match(
+  middlewareSource,
+  /pathname === "\/api\/admin\/paypal\/runtime-readiness"[\s\S]*?headers[.]set\("Cache-Control", "no-store"\)/,
+  "R: middleware-intercepted production 401 uses no-store",
+);
+assert.match(
+  middlewareSource,
+  /createApiUnauthorizedResponse\(pathname\)/,
+  "R: middleware passes the intercepted pathname to the 401 response factory",
+);
+for (const source of [routeSource, middlewareSource]) {
+  assert.doesNotMatch(source, /Cache-Control["']?\s*[:,][^\r\n]*(?:public|s-maxage)/i, "R: no unsafe cache directive");
+}
 assert.doesNotMatch(routeSource, /\bfetch\s*\(/, "S: route makes no external request");
 assert.doesNotMatch(routeSource, /from ["'][^"']*paypal[.]ts["']|createPayPalOrder|capturePayPalOrder|getPayPalAccessToken/, "T: route has no PayPal client");
 assert.doesNotMatch(routeSource, /supabase|[.]from\s*\(|[.]rpc\s*\(|insert\s*\(|update\s*\(|delete\s*\(/i, "U: route has no database access or mutation");

@@ -23,14 +23,20 @@ function createLoginRedirect(request: NextRequest) {
   return NextResponse.redirect(loginUrl);
 }
 
-function createApiUnauthorizedResponse() {
-  return NextResponse.json(
+function createApiUnauthorizedResponse(pathname: string) {
+  const response = NextResponse.json(
     {
       ok: false,
       message: "Admin-Sitzung abgelaufen oder nicht angemeldet.",
     },
     { status: 401 }
   );
+
+  if (pathname === "/api/admin/paypal/runtime-readiness") {
+    response.headers.set("Cache-Control", "no-store");
+  }
+
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
@@ -60,7 +66,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/admin/")) {
-    return createApiUnauthorizedResponse();
+    return createApiUnauthorizedResponse(pathname);
   }
 
   return createLoginRedirect(request);
