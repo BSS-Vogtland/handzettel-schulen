@@ -241,7 +241,7 @@ const dryRunServiceSource = readFileSync("app/lib/lexware/lexwareProductionDryRu
 const dryRunResponseSource = dryRunServiceSource.slice(dryRunServiceSource.lastIndexOf("\n  return {"));
 assert.equal((dryRunSource.match(/previewLexwareProductionInvoiceById\(invoiceId\)/g) ?? []).length, 1);
 assert.doesNotMatch(dryRunSource, /supabaseServer|loadEligibleLocalInvoice|buildLexwarePayloadSha256|validateLexwareProductionOrganization|classifyExistingLexwareIdentityState|classifyLexwareInvoiceTransition|evaluateLexwareProductionDryRunDecision|claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice/);
-for (const field of ["jobOrganizationConfigured", "databaseOrganizationConfigured", "runtimeOrganizationConfigured", "targetOrganizationMatches", "claimWouldSucceed", "wouldPerformExactlyOnePost", "wouldOnlyReadBack", "databaseWritesPerformed: 0", "lexwareWriteRequestsPerformed: 0", "storageOperationsPerformed: 0", "mailOperationsPerformed: 0"]) assert.ok(dryRunServiceSource.includes(field), field);
+for (const field of ["jobOrganizationConfigured", "databaseOrganizationConfigured", "runtimeOrganizationConfigured", "targetOrganizationMatches", "technicalPreviewReady", "activationReadyNow", "activationGates", "activationBlockReasons", "checkoutMaintenanceActive", "claimWouldSucceed", "wouldPerformExactlyOnePost", "wouldOnlyReadBack", "databaseWritesPerformed: 0", "lexwareWriteRequestsPerformed: 0", "storageOperationsPerformed: 0", "mailOperationsPerformed: 0"]) assert.ok(dryRunServiceSource.includes(field), field);
 for (const forbiddenField of ["invoiceJobId", "expectedTotals", "gates:", "payloadValid,"]) assert.doesNotMatch(dryRunResponseSource, new RegExp(forbiddenField));
 console.log("Dry-run A-K PASS");
 
@@ -269,14 +269,36 @@ for (const [label, change] of [
   assert.equal(decision.wouldPerformExactlyOnePost, false, `Dry-run scenario ${label} post`);
 }
 const writeDecision = evaluateLexwareProductionDryRunDecision(validDryRun);
-assert.deepEqual(writeDecision, { claimWouldSucceed: true, wouldOnlyReadBack: false, wouldPerformExactlyOnePost: true, wouldCreateExactlyOneInvoice: true });
+assert.deepEqual(writeDecision, { technicalPreviewReady: true, activationReadyNow: true, claimWouldSucceed: true, wouldOnlyReadBack: false, wouldPerformExactlyOnePost: true, wouldCreateExactlyOneInvoice: true });
+const closedWriteGateDecision = evaluateLexwareProductionDryRunDecision({ ...validDryRun, gatesAllowed: false });
+assert.deepEqual(closedWriteGateDecision, { technicalPreviewReady: true, activationReadyNow: false, claimWouldSucceed: false, wouldOnlyReadBack: false, wouldPerformExactlyOnePost: true, wouldCreateExactlyOneInvoice: true });
+const waitingForActivationDecision = evaluateLexwareProductionDryRunDecision({ ...validDryRun, writeStateAllowed: false, gatesAllowed: false });
+assert.equal(waitingForActivationDecision.wouldPerformExactlyOnePost, true);
+assert.equal(waitingForActivationDecision.activationReadyNow, false);
+assert.equal(waitingForActivationDecision.claimWouldSucceed, false);
 const readBackDecision = evaluateLexwareProductionDryRunDecision({ ...validDryRun, identityClassification: "read_back_only", currentPayloadHashMatches: null, payloadValid: false, writeStateAllowed: false });
-assert.deepEqual(readBackDecision, { claimWouldSucceed: false, wouldOnlyReadBack: true, wouldPerformExactlyOnePost: false, wouldCreateExactlyOneInvoice: false });
+assert.deepEqual(readBackDecision, { technicalPreviewReady: false, activationReadyNow: false, claimWouldSucceed: false, wouldOnlyReadBack: true, wouldPerformExactlyOnePost: false, wouldCreateExactlyOneInvoice: false });
 const succeededDecision = evaluateLexwareProductionDryRunDecision({ ...validDryRun, identityClassification: "already_succeeded", currentPayloadHashMatches: null, payloadValid: false, writeStateAllowed: false });
-assert.deepEqual(succeededDecision, { claimWouldSucceed: false, wouldOnlyReadBack: false, wouldPerformExactlyOnePost: false, wouldCreateExactlyOneInvoice: false });
+assert.deepEqual(succeededDecision, { technicalPreviewReady: false, activationReadyNow: false, claimWouldSucceed: false, wouldOnlyReadBack: false, wouldPerformExactlyOnePost: false, wouldCreateExactlyOneInvoice: false });
 const missingExternalIdClassification = classifyExistingLexwareIdentityState({ status: "pending", creationState: "not_attempted", lexwareInvoiceId: null, lockedAt: null, lockExpiresAt: null, currentTime: "2026-08-04T10:00:00.000Z" });
 assert.equal(missingExternalIdClassification, "write_candidate", "Dry-run scenario L no read-back without external ID");
 for (const token of ["hasSameRequestOrigin", "readLimitedJsonBody(request, 1_024)", "hasExactConfirmation", "PREVIEW_SINGLE_LEXWARE_INVOICE_PRODUCTION", "UUID.test(invoiceId)"]) assert.ok(dryRunSource.includes(token), `Dry-run guard ${token}`);
 assert.doesNotMatch(dryRunSource, /request\.json\(|claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice|\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
 assert.doesNotMatch(dryRunServiceSource, /claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice|\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
+assert.match(dryRunServiceSource, /checkoutMaintenanceActive:\s*CHECKOUT_MAINTENANCE_ACTIVE/);
+assert.match(dryRunServiceSource, /activationReadyNow/);
+assert.match(dryRunServiceSource, /technicalPreviewReady/);
+assert.match(dryRunServiceSource, /gates\.failedChecks\.map\(activationBlockReason\)/);
+for (const activationReason of [
+  "production_write_disabled",
+  "provider_cutover_not_configured_for_lexware",
+  "checkout_maintenance_not_active",
+]) assert.ok(dryRunServiceSource.includes(activationReason));
+assert.match(dryRunServiceSource, /job_state_not_claimable/);
+const readinessRouteSource = readFileSync("app/api/admin/lexware/runtime-readiness/route.ts", "utf8");
+const maintenanceSource = readFileSync("lib/checkoutMaintenance.ts", "utf8");
+assert.match(maintenanceSource, /export const CHECKOUT_MAINTENANCE_ACTIVE = false/);
+assert.match(readinessRouteSource, /value:\s*CHECKOUT_MAINTENANCE_ACTIVE/);
+assert.equal((readinessRouteSource.match(/CHECKOUT_MAINTENANCE_ACTIVE/g) ?? []).length >= 2, true);
+assert.equal((dryRunServiceSource.match(/CHECKOUT_MAINTENANCE_ACTIVE/g) ?? []).length >= 2, true);
 console.log("Dry-run scenarios A-P PASS");

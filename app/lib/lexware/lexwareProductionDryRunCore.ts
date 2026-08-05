@@ -24,16 +24,20 @@ export function evaluateLexwareProductionDryRunDecision(input: LexwareProduction
     && input.targetOrganizationMatches;
   const wouldOnlyReadBack = common
     && input.identityClassification === "read_back_only";
-  const claimWouldSucceed = common
+  const technicalPreviewReady = common
     && (input.identityClassification === "write_candidate"
       || input.identityClassification === "expired_lock_write_candidate")
     && input.currentPayloadHashMatches === true
     && input.payloadValid
-    && input.transitionClassification !== "blocked"
+    && input.transitionClassification !== "blocked";
+  const activationReadyNow = technicalPreviewReady
     && input.writeStateAllowed
     && input.gatesAllowed;
-  const wouldPerformExactlyOnePost = claimWouldSucceed;
+  const claimWouldSucceed = activationReadyNow;
+  const wouldPerformExactlyOnePost = technicalPreviewReady;
   return {
+    technicalPreviewReady,
+    activationReadyNow,
     claimWouldSucceed,
     wouldOnlyReadBack,
     wouldPerformExactlyOnePost,

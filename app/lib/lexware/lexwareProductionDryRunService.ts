@@ -25,6 +25,14 @@ const isJobStatus = (value: unknown): value is LexwareInvoiceJobStatus => value 
 const isCreationState = (value: unknown): value is LexwareInvoiceCreationState => value === "not_attempted"
   || value === "definite_not_created" || value === "definitely_created" || value === "creation_state_unknown";
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const activationBlockReason = (failedCheck: string) => {
+  if (failedCheck === "productionWriteEnabled") return "production_write_disabled";
+  if (failedCheck === "providerCutoverConfiguredForLexware") {
+    return "provider_cutover_not_configured_for_lexware";
+  }
+  if (failedCheck === "checkoutMaintenanceActive") return "checkout_maintenance_not_active";
+  return `activation_gate_failed:${failedCheck}`;
+};
 
 export async function previewLexwareProductionInvoiceById(invoiceId: string) {
   const { data: invoice, error: invoiceError } = await supabaseServer.from("school_request_invoices")
@@ -145,14 +153,21 @@ export async function previewLexwareProductionInvoiceById(invoiceId: string) {
     writeStateAllowed,
     gatesAllowed: gates.allowed,
   });
-  const { claimWouldSucceed, wouldPerformExactlyOnePost, wouldOnlyReadBack, wouldCreateExactlyOneInvoice } = decision;
+  const {
+    technicalPreviewReady,
+    activationReadyNow,
+    claimWouldSucceed,
+    wouldPerformExactlyOnePost,
+    wouldOnlyReadBack,
+    wouldCreateExactlyOneInvoice,
+  } = decision;
   const idempotencyDecision = !job ? "no_persisted_job_state"
     : wouldOnlyReadBack ? "read_back_existing"
-      : activeLock ? "blocked_by_active_lock"
-        : claimWouldSucceed ? "exactly_one_finalize_allowed_if_claim_matches"
-          : "job_state_blocked";
-  const blockers = [
-    ...gates.failedChecks,
+      : activationReadyNow ? "exactly_one_finalize_allowed_if_claim_matches"
+        : technicalPreviewReady ? "activation_gates_closed"
+          : activeLock ? "blocked_by_active_lock"
+            : "job_state_blocked";
+  const technicalBlockers = [
     ...(!invoiceJobLinkMatches ? ["invoice_job_link_mismatch"] : []),
     ...(!requestIdMatches ? ["request_id_mismatch"] : []),
     ...(identityClassification === "block" ? ["job_identity_state_blocked"] : []),
@@ -162,14 +177,28 @@ export async function previewLexwareProductionInvoiceById(invoiceId: string) {
     ...(!targetOrganizationMatches ? ["organization_mismatch"] : []),
     ...(transitionClassification === "blocked" ? ["transition_blocked"] : []),
   ];
+  const activationBlockReasons = [
+    ...(!technicalPreviewReady && !wouldOnlyReadBack ? ["technical_preview_not_ready"] : []),
+    ...gates.failedChecks.map(activationBlockReason),
+    ...(
+      technicalPreviewReady && !writeStateAllowed
+        ? [activeLock ? "active_lock" : "job_state_not_claimable"]
+        : []
+    ),
+  ];
 
   return {
     ok: true,
     dryRun: true,
     writeOperationsPerformed: false,
+    technicalPreviewReady,
+    activationReadyNow,
+    activationGates: gates.checks,
+    activationBlockReasons,
+    checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,
     wouldFinalizeInvoice: wouldPerformExactlyOnePost,
     wouldCreateExactlyOneInvoice,
-    wouldBlockReason: wouldPerformExactlyOnePost || wouldOnlyReadBack ? null : blockers,
+    wouldBlockReason: technicalPreviewReady || wouldOnlyReadBack ? null : technicalBlockers,
     jobStatus: status,
     creationState,
     attemptCount: job?.attempt_count ?? null,
