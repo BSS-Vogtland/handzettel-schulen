@@ -23,6 +23,16 @@ function createLoginRedirect(request: NextRequest) {
   return NextResponse.redirect(loginUrl);
 }
 
+const LEXWARE_NO_STORE_ADMIN_ROUTE =
+  /^\/api\/admin\/lexware\/invoices\/[^/]+\/(?:production-write-permit|activate-production-job|claim-production-job)$/;
+
+function requiresNoStoreApiUnauthorizedResponse(pathname: string) {
+  return (
+    pathname === "/api/admin/paypal/runtime-readiness" ||
+    LEXWARE_NO_STORE_ADMIN_ROUTE.test(pathname)
+  );
+}
+
 function createApiUnauthorizedResponse(pathname: string) {
   const response = NextResponse.json(
     {
@@ -32,7 +42,7 @@ function createApiUnauthorizedResponse(pathname: string) {
     { status: 401 }
   );
 
-  if (pathname === "/api/admin/paypal/runtime-readiness") {
+  if (requiresNoStoreApiUnauthorizedResponse(pathname)) {
     response.headers.set("Cache-Control", "no-store");
   }
 

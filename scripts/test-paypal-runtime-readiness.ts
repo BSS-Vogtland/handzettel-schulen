@@ -178,7 +178,7 @@ assert.match(routeSource, /if \(unauthorized\) return withNoStore\(unauthorized\
 assert.match(routeSource, /return withNoStore\([\s\S]*503/, "R: readiness response including 503 uses no-store wrapper");
 assert.match(
   middlewareSource,
-  /pathname === "\/api\/admin\/paypal\/runtime-readiness"[\s\S]*?headers[.]set\("Cache-Control", "no-store"\)/,
+  /pathname === "\/api\/admin\/paypal\/runtime-readiness"[\s\S]*?requiresNoStoreApiUnauthorizedResponse\(pathname\)[\s\S]*?headers[.]set\("Cache-Control", "no-store"\)/,
   "R: middleware-intercepted production 401 uses no-store",
 );
 assert.match(

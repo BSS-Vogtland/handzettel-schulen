@@ -16,6 +16,40 @@ const processService = readFileSync("app/lib/lexware/lexwareProductionInvoicePro
 const processor = readFileSync("app/lib/lexware/lexwareProductionInvoiceProcessorCore.ts", "utf8");
 const dryRun = readFileSync("app/lib/lexware/lexwareProductionDryRunService.ts", "utf8");
 const maintenance = readFileSync("lib/checkoutMaintenance.ts", "utf8");
+const middleware = readFileSync("middleware.ts", "utf8");
+
+const noStoreMatcher = middleware.match(
+  /const LEXWARE_NO_STORE_ADMIN_ROUTE =\s*(\/\^[^\r\n]+\/[a-z]*);/,
+);
+assert.ok(noStoreMatcher, "middleware defines the object-scoped Lexware no-store matcher");
+const matcherLiteral = noStoreMatcher[1];
+const matcherSeparator = matcherLiteral.lastIndexOf("/");
+const lexwareNoStoreAdminRoute = new RegExp(
+  matcherLiteral.slice(1, matcherSeparator),
+  matcherLiteral.slice(matcherSeparator + 1),
+);
+const invoiceId = "22222222-2222-4222-8222-222222222222";
+for (const action of [
+  "production-write-permit",
+  "activate-production-job",
+  "claim-production-job",
+]) {
+  assert.equal(
+    lexwareNoStoreAdminRoute.test(`/api/admin/lexware/invoices/${invoiceId}/${action}`),
+    true,
+    `${action}: unauthenticated middleware 401 receives no-store`,
+  );
+}
+assert.equal(
+  lexwareNoStoreAdminRoute.test("/api/admin/lexware/runtime-readiness"),
+  false,
+  "unrelated admin routes retain their existing cache contract",
+);
+assert.match(middleware, /NextResponse[.]json\([\s\S]*?\{ status: 401 \}/, "unauthenticated API response remains 401 JSON");
+assert.match(middleware, /requiresNoStoreApiUnauthorizedResponse\(pathname\)[\s\S]*?headers[.]set\("Cache-Control", "no-store"\)/);
+assert.doesNotMatch(middleware, /Cache-Control[^\r\n]*(?:public|s-maxage)/i, "sensitive 401 contract is never public or shared-cacheable");
+assert.match(middleware, /verifyAdminSessionToken\(sessionToken\)[\s\S]*?createApiUnauthorizedResponse\(pathname\)/, "admin authentication remains before the route response");
+assert.match(middleware, /pathname === "\/api\/admin\/paypal\/runtime-readiness"/, "PayPal readiness remains in the no-store contract");
 
 for (const identity of ["invoice_id", "request_id", "job_id"]) assert.match(migration, new RegExp(identity));
 assert.match(migration, /invoice_row\.request_id is distinct from p_request_id/); // A-C
