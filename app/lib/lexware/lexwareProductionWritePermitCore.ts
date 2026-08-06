@@ -1,6 +1,8 @@
 export const LEXWARE_ISSUE_PERMIT_CONFIRMATION = "ISSUE_SINGLE_LEXWARE_PRODUCTION_PERMIT" as const;
 export const LEXWARE_ACTIVATE_JOB_CONFIRMATION = "ACTIVATE_SINGLE_LEXWARE_JOB" as const;
 export const LEXWARE_CLAIM_JOB_CONFIRMATION = "CLAIM_SINGLE_LEXWARE_JOB" as const;
+export const LEXWARE_EXPIRE_PERMIT_CONFIRMATION = "EXPIRE_SINGLE_LEXWARE_PRODUCTION_PERMIT" as const;
+export const LEXWARE_REISSUE_PERMIT_CONFIRMATION = "REISSUE_SINGLE_LEXWARE_PRODUCTION_PERMIT" as const;
 
 export type LexwareProductionWritePermitState =
   | "issued" | "activated" | "claimed" | "consumed"
@@ -58,6 +60,7 @@ export function parseLexwareProductionWritePermit(value: unknown): LexwareProduc
 }
 export function evaluateObjectScopedPermitReadiness(input: {
   permit: LexwareProductionWritePermitSnapshot | null;
+  expiredPermit?: LexwareProductionWritePermitSnapshot | null;
   invoiceId: string;
   requestId: string;
   jobId: string;
@@ -70,6 +73,7 @@ export function evaluateObjectScopedPermitReadiness(input: {
   now: string;
 }) {
   const permitExists = input.permit !== null;
+  const activePermitExists = permitExists;
   const permitNotExpired = Boolean(input.permit && Date.parse(input.permit.expiresAt) > Date.parse(input.now));
   const permitIdentityMatches = Boolean(input.permit
     && input.permit.invoiceId === input.invoiceId
@@ -82,9 +86,24 @@ export function evaluateObjectScopedPermitReadiness(input: {
     && input.permit.targetOrganizationId.toLowerCase() === input.targetOrganizationId.toLowerCase());
   const common = permitExists && permitNotExpired && permitIdentityMatches
     && permitHashMatches && permitOrganizationMatches;
+  const expiredPermitExists = Boolean(input.expiredPermit);
+  const expiredPermitIdentityMatches = Boolean(input.expiredPermit
+    && input.expiredPermit.invoiceId === input.invoiceId
+    && input.expiredPermit.requestId === input.requestId
+    && input.expiredPermit.jobId === input.jobId
+    && input.expiredPermit.payloadHashVersion === input.payloadHashVersion
+    && input.expiredPermit.payloadSha256 === input.payloadSha256
+    && input.expiredPermit.targetOrganizationId.toLowerCase() === input.targetOrganizationId.toLowerCase());
+  const permitReissueReady = !activePermitExists && expiredPermitExists && expiredPermitIdentityMatches
+    && input.technicalPreviewReady && input.jobStatus === "pending" && input.attemptCount === 0;
   return {
     permitExists,
+    activePermitExists,
+    currentPermitState: input.permit?.state ?? input.expiredPermit?.state ?? null,
     permitState: input.permit?.state ?? null,
+    expiredPermitExists,
+    expiredPermitIdentityMatches,
+    permitReissueReady,
     permitNotExpired,
     permitIdentityMatches,
     permitHashMatches,

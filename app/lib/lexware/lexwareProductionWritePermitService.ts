@@ -19,6 +19,46 @@ export async function loadLexwareProductionWritePermit(invoiceId: string) {
   return data ? parseLexwareProductionWritePermit(data) : null;
 }
 
+export async function loadLatestExpiredLexwareProductionWritePermit(invoiceId: string) {
+  const { data, error } = await supabaseServer.from("school_lexware_production_write_permits")
+    .select("id,invoice_id,request_id,job_id,target_organization_id,payload_hash_version,payload_sha256,permit_state,expires_at,claim_id")
+    .eq("invoice_id", invoiceId).eq("permit_state", "expired")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error("LEXWARE_EXPIRED_PERMIT_LOAD_FAILED");
+  return data ? parseLexwareProductionWritePermit(data) : null;
+}
+
+async function loadPermitIdentity(invoiceId: string, state: "activated" | "expired") {
+  const { data, error } = await supabaseServer.from("school_lexware_production_write_permits")
+    .select("id").eq("invoice_id", invoiceId).eq("permit_state", state)
+    .order("created_at", { ascending: false }).limit(1).single();
+  if (error || !data?.id) throw new Error("LEXWARE_PERMIT_IDENTITY_NOT_READY");
+  return data.id as string;
+}
+
+export async function expireLexwareProductionWritePermit(invoiceId: string) {
+  const permitId = await loadPermitIdentity(invoiceId, "activated");
+  const { data, error } = await supabaseServer.rpc("expire_school_lexware_production_write_permit", {
+    p_invoice_id: invoiceId, p_permit_id: permitId,
+  });
+  if (error) fail(error.message || "LEXWARE_PERMIT_EXPIRY_FAILED");
+  const row = first(data) as Record<string, unknown> | null;
+  if (!row || row.permit_state !== "expired" || typeof row.expired_at !== "string") throw new Error("LEXWARE_PERMIT_EXPIRY_RESULT_INVALID");
+  return { permitState: "expired" as const, expiredAt: row.expired_at };
+}
+
+export async function reissueLexwareProductionWritePermit(invoiceId: string) {
+  const expiredPermitId = await loadPermitIdentity(invoiceId, "expired");
+  const { data, error } = await supabaseServer.rpc("reissue_school_lexware_production_write_permit", {
+    p_invoice_id: invoiceId, p_expired_permit_id: expiredPermitId,
+    p_expires_in_minutes: 30, p_created_by_admin_id: "admin_session",
+  });
+  if (error) fail(error.message || "LEXWARE_PERMIT_REISSUE_FAILED");
+  const row = first(data) as Record<string, unknown> | null;
+  if (!row || row.permit_state !== "activated" || typeof row.permit_id !== "string" || typeof row.expires_at !== "string") throw new Error("LEXWARE_PERMIT_REISSUE_RESULT_INVALID");
+  return { permitId: row.permit_id, permitState: "activated" as const, expiresAt: row.expires_at };
+}
+
 export async function issueLexwareProductionWritePermit(invoiceId: string) {
   const { data: invoice, error: invoiceError } = await supabaseServer.from("school_request_invoices")
     .select("id,request_id,lexware_invoice_job_id").eq("id", invoiceId).single();

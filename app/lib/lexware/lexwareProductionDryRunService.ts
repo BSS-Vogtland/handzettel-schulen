@@ -18,7 +18,7 @@ import {
   classifyExistingLexwareIdentityState,
   classifyLexwareInvoiceTransition,
 } from "./lexwareProductionTransitionCore";
-import { loadLexwareProductionWritePermit } from "./lexwareProductionWritePermitService";
+import { loadLatestExpiredLexwareProductionWritePermit, loadLexwareProductionWritePermit } from "./lexwareProductionWritePermitService";
 import { evaluateObjectScopedPermitReadiness } from "./lexwareProductionWritePermitCore";
 
 const isJobStatus = (value: unknown): value is LexwareInvoiceJobStatus => value === "waiting_for_activation"
@@ -164,8 +164,10 @@ export async function previewLexwareProductionInvoiceById(invoiceId: string) {
     wouldCreateExactlyOneInvoice,
   } = decision;
   const permit = await loadLexwareProductionWritePermit(invoiceId);
+  const expiredPermit = await loadLatestExpiredLexwareProductionWritePermit(invoiceId);
   const permitReadiness = evaluateObjectScopedPermitReadiness({
     permit,
+    expiredPermit,
     invoiceId: invoice.id,
     requestId: invoice.request_id ?? "",
     jobId: job?.id ?? "",
