@@ -3,6 +3,7 @@ import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { AdminMutationRequestError, hasSameRequestOrigin, readLimitedJsonBody } from "@/app/lib/adminMutationRequestGuard";
 import { claimLexwareProductionJobWithPermit } from "@/app/lib/lexware/lexwareProductionWritePermitService";
 import { LEXWARE_CLAIM_JOB_CONFIRMATION } from "@/app/lib/lexware/lexwareProductionWritePermitCore";
+import { classifyLexwarePermitClaimError } from "@/app/lib/lexware/lexwarePermitClaimError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,5 +27,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ inv
   try {
     const result = await claimLexwareProductionJobWithPermit(invoiceId, body.permitId);
     return NextResponse.json({ ok: true, permitId: result.permitId, claimId: result.claimId, permitState: result.permitState, jobStatus: result.claim.jobStatus, attemptCount: result.claim.attemptCount, lockAcquired: true, postPerformed: false, lexwareRequestsPerformed: 0, mailOperationsPerformed: 0 }, { headers: HEADERS });
-  } catch { return NextResponse.json({ ok: false, code: "CLAIM_BLOCKED" }, { status: 409, headers: HEADERS }); }
+  } catch (error: unknown) {
+    const claimBlockReason = classifyLexwarePermitClaimError(error);
+    console.warn("[lexware-permit-claim]", {
+      route: "/api/admin/lexware/invoices/[invoiceId]/claim-production-job",
+      claimBlockReason,
+      timestamp: new Date().toISOString(),
+    });
+    return NextResponse.json(
+      { ok: false, code: "CLAIM_BLOCKED", claimBlockReason },
+      { status: 409, headers: HEADERS },
+    );
+  }
 }
