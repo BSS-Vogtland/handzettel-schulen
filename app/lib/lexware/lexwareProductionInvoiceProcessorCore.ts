@@ -143,6 +143,24 @@ export type ProcessorDependencies<TLineItem = unknown> = {
   }): boolean;
   loadLocalInvoice(): Promise<ProductionInvoiceRecord>;
   loadOrCreateJob(): Promise<ProductionInvoiceJob>;
+  loadPreclaimedClaim?(job: ProductionInvoiceJob): Promise<{
+    invoiceJobId: string;
+    claimAcquired: true;
+    readBackOnly: false;
+    previousStatus: "pending";
+    attemptCount: number;
+    localInvoiceId: string;
+    requestId: string;
+    payloadSha256: string;
+    payloadHashVersion: Exclude<ProductionInvoiceJob["payload_hash_version"], null>;
+    targetOrganizationId: string;
+    jobStatus: "processing";
+    creationState: LexwareInvoiceCreationState;
+    lockedAt: string;
+    lockExpiresAt: string;
+    lexwareInvoiceId: null;
+    lexwareInvoiceNumber: null;
+  } | null>;
   loadPersistedPayload(job: ProductionInvoiceJob): Promise<LexwareInvoicePayloadBuildResult<TLineItem>>;
   buildPayload(invoice: ProductionInvoiceRecord): Promise<LexwareInvoicePayloadBuildResult<TLineItem>> | LexwareInvoicePayloadBuildResult<TLineItem>;
   validatePayload(payload: LexwareInvoicePayloadBuildResult<TLineItem>): Promise<LexwareInvoicePayloadValidationResult> | LexwareInvoicePayloadValidationResult;
@@ -201,6 +219,7 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
 ): Promise<ProcessorResult> {
   const invoice = await deps.loadLocalInvoice();
   const job = await deps.loadOrCreateJob();
+  const preclaimedClaim = deps.loadPreclaimedClaim ? await deps.loadPreclaimedClaim(job) : null;
   const verifyExisting = async (id: string, postCount: number, payload: LexwareInvoicePayloadBuildResult<TLineItem>, organizationId: string): Promise<ProcessorResult> => {
     const readBack = await deps.readInvoice(id);
     const differences = deps.compareReadBack(readBack, payload, organizationId);
@@ -217,7 +236,7 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
     return { outcome: "blocked", postCount: 0, externalInvoiceId: job.lexware_invoice_id, reasons: ["invoice_job_identity_mismatch"] };
   }
   const now = deps.currentTime();
-  const identityClassification = deps.classifyIdentity({
+  const identityClassification = preclaimedClaim ? "write_candidate" : deps.classifyIdentity({
     status: job.status, creationState: job.creation_state,
     lexwareInvoiceId: job.lexware_invoice_id,
     lexwareInvoiceNumber: job.lexware_invoice_number,
@@ -229,7 +248,7 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
     return { outcome: job.creation_state === "creation_state_unknown" ? "manual_review" : "blocked", postCount: 0,
       externalInvoiceId: job.lexware_invoice_id, reasons: ["job_identity_state_blocked"] };
   }
-  if ((identityClassification === "write_candidate" || identityClassification === "expired_lock_write_candidate")
+  if (!preclaimedClaim && (identityClassification === "write_candidate" || identityClassification === "expired_lock_write_candidate")
       && !deps.isValidJobCreationStateCombination({ status: job.status, creationState: job.creation_state, lexwareInvoiceId: job.lexware_invoice_id, lexwareInvoiceNumber: job.lexware_invoice_number, completedAt: job.completed_at })) {
     return { outcome: "blocked", postCount: 0, externalInvoiceId: job.lexware_invoice_id, reasons: ["job_semantics_invalid"] };
   }
@@ -277,14 +296,14 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
   }
   const gates = await deps.evaluateGates();
   if (!gates.allowed) return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: gates.failedChecks };
-  const writeClaimEligible = deps.canOfferForAtomicWriteClaim({
+  const writeClaimEligible = preclaimedClaim ? true : deps.canOfferForAtomicWriteClaim({
     identityClassification,
     status: job.status,
     creationState: job.creation_state,
     canAttemptExternalWrite: deps.canAttemptExternalWrite,
   });
   if (!writeClaimEligible) return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: ["job_state_not_write_eligible"] };
-  const claim = await deps.claimForWrite({
+  const claim = preclaimedClaim ?? await deps.claimForWrite({
     localInvoiceId: invoice.id,
     payloadSha256: job.payload_sha256,
     payloadHashVersion,
@@ -297,8 +316,8 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
     && claim.payloadSha256 === job.payload_sha256
     && claim.payloadHashVersion === payloadHashVersion
     && claim.targetOrganizationId === organizationId
-    && claim.attemptCount === job.attempt_count + 1
-    && claim.previousStatus === job.status
+    && claim.attemptCount === (preclaimedClaim ? job.attempt_count : job.attempt_count + 1)
+    && claim.previousStatus === (preclaimedClaim ? "pending" : job.status)
     && claim.jobStatus === "processing"
     && claim.creationState === job.creation_state
     && Number.isFinite(Date.parse(claim.lockedAt))

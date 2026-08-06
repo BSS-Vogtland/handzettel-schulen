@@ -319,7 +319,7 @@ async function run() {
   const productionHashConsumers = `${dryRunSource}\n${dryRunServiceSource}\n${processRouteSource}\n${processServiceSource}\n${processCoreSource}`;
   assert.ok(dryRunServiceSource.includes("buildLexwarePayloadSha256"), "W central payload hash wiring");
   assert.match(dryRunServiceSource, /buildLexwarePayloadSha256\(\{\s*payload:[^}]+version:\s*payloadHashVersion\s*\}\)/, "W explicit dry-run hash version");
-  assert.equal((processRouteSource.match(/processLexwareProductionInvoiceById\(invoiceId\)/g) ?? []).length, 1, "W route delegates once");
+  assert.equal((processRouteSource.match(/processLexwareProductionInvoiceById\(invoiceId,/g) ?? []).length, 1, "W route delegates once");
   assert.doesNotMatch(processRouteSource, /buildLexwarePayloadSha256|createHash\s*\(|JSON\.stringify\s*\(\s*payload\s*\)|claimForWrite\s*\(|createLexwareProductionFinalInvoice|finalize=true/, "W thin process route");
   assert.match(processServiceSource, /buildLexwarePayloadSha256/, "W central process hash wiring");
   assert.match(processServiceSource, /from\s+["']\.\/lexwarePayloadHash["']/, "W central hash module");

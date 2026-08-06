@@ -21,10 +21,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ inv
     const tooLarge = error instanceof AdminMutationRequestError && error.code === "BODY_TOO_LARGE";
     return NextResponse.json({ ok: false, code: tooLarge ? "BODY_TOO_LARGE" : "JSON_INVALID" }, { status: tooLarge ? 413 : 400, headers: HEADERS });
   }
-  if (!hasExactConfirmation(body, CONFIRMATION)) {
+  const permitBody = body && typeof body === "object" && !Array.isArray(body)
+    ? body as Record<string, unknown> : null;
+  const permitMode = Boolean(permitBody && Object.keys(permitBody).sort().join(",") === "claimId,confirmation,permitId"
+    && permitBody.confirmation === CONFIRMATION
+    && typeof permitBody.permitId === "string" && UUID.test(permitBody.permitId)
+    && typeof permitBody.claimId === "string" && UUID.test(permitBody.claimId));
+  if (!hasExactConfirmation(body, CONFIRMATION) && !permitMode) {
     return NextResponse.json({ ok: false, code: "CONFIRMATION_INVALID" }, { status: 400, headers: HEADERS });
   }
-  const result = await processLexwareProductionInvoiceById(invoiceId);
+  const result = await processLexwareProductionInvoiceById(invoiceId, permitMode ? {
+    permitId: permitBody!.permitId as string,
+    claimId: permitBody!.claimId as string,
+  } : undefined);
   return NextResponse.json({
     ok: result.ok,
     code: result.code,

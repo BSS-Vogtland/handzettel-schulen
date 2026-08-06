@@ -18,6 +18,8 @@ import {
   classifyExistingLexwareIdentityState,
   classifyLexwareInvoiceTransition,
 } from "./lexwareProductionTransitionCore";
+import { loadLexwareProductionWritePermit } from "./lexwareProductionWritePermitService";
+import { evaluateObjectScopedPermitReadiness } from "./lexwareProductionWritePermitCore";
 
 const isJobStatus = (value: unknown): value is LexwareInvoiceJobStatus => value === "waiting_for_activation"
   || value === "pending" || value === "processing" || value === "retry" || value === "succeeded"
@@ -155,12 +157,28 @@ export async function previewLexwareProductionInvoiceById(invoiceId: string) {
   });
   const {
     technicalPreviewReady,
-    activationReadyNow,
-    claimWouldSucceed,
+    activationReadyNow: globalActivationReady,
+    claimWouldSucceed: globalClaimWouldSucceed,
     wouldPerformExactlyOnePost,
     wouldOnlyReadBack,
     wouldCreateExactlyOneInvoice,
   } = decision;
+  const permit = await loadLexwareProductionWritePermit(invoiceId);
+  const permitReadiness = evaluateObjectScopedPermitReadiness({
+    permit,
+    invoiceId: invoice.id,
+    requestId: invoice.request_id ?? "",
+    jobId: job?.id ?? "",
+    targetOrganizationId: job?.target_organization_id ?? "",
+    payloadHashVersion: job?.payload_hash_version ?? "",
+    payloadSha256: job?.payload_sha256 ?? "",
+    jobStatus: status ?? "",
+    attemptCount: job?.attempt_count ?? -1,
+    technicalPreviewReady,
+    now: new Date(now).toISOString(),
+  });
+  const activationReadyNow = globalActivationReady || permitReadiness.objectScopedClaimReady;
+  const claimWouldSucceed = globalClaimWouldSucceed || permitReadiness.objectScopedClaimReady;
   const idempotencyDecision = !job ? "no_persisted_job_state"
     : wouldOnlyReadBack ? "read_back_existing"
       : activationReadyNow ? "exactly_one_finalize_allowed_if_claim_matches"
@@ -193,6 +211,8 @@ export async function previewLexwareProductionInvoiceById(invoiceId: string) {
     writeOperationsPerformed: false,
     technicalPreviewReady,
     activationReadyNow,
+    globalActivationReady,
+    ...permitReadiness,
     activationGates: gates.checks,
     activationBlockReasons,
     checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,

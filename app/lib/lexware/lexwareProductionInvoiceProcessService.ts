@@ -25,6 +25,10 @@ import { validateLexwareProductionOrganization } from "./lexwareProductionOrgani
 import { createLexwareProductionFinalInvoice, LEXWARE_PRODUCTION_FINALIZE_CONFIRMATION } from "./lexwareProductionInvoiceWriteClient";
 import { CHECKOUT_MAINTENANCE_ACTIVE } from "@/lib/checkoutMaintenance";
 import { supabaseServer } from "@/lib/supabase/server";
+import {
+  completeLexwareProductionWritePermit,
+  loadLexwareProductionWritePermit,
+} from "./lexwareProductionWritePermitService";
 
 type ProcessServiceResult = {
   ok: boolean;
@@ -74,11 +78,30 @@ function persistedPayload(value: unknown): LexwareInvoicePayloadBuildResult<Lexw
   };
 }
 
-export async function processLexwareProductionInvoiceById(invoiceId: string): Promise<ProcessServiceResult> {
+export async function processLexwareProductionInvoiceById(
+  invoiceId: string,
+  permitContext?: { permitId: string; claimId: string },
+): Promise<ProcessServiceResult> {
   const { data: invoice, error: invoiceError } = await supabaseServer.from("school_request_invoices").select("*").eq("id", invoiceId).single();
   if (invoiceError || !invoice) return { ok: false, status: 404, code: "INVOICE_NOT_FOUND", outcome: null, postCount: 0, reasons: [] };
   const { data: job, error: jobError } = await supabaseServer.from("school_lexware_invoice_jobs").select("*").eq("local_invoice_id", invoiceId).single();
   if (jobError || !job) return { ok: false, status: 409, code: "INVOICE_JOB_REQUIRED", outcome: null, postCount: 0, reasons: [] };
+  const permit = permitContext ? await loadLexwareProductionWritePermit(invoiceId) : null;
+  const objectScopedPermitValid = Boolean(permitContext && permit
+    && permit.id === permitContext.permitId && permit.claimId === permitContext.claimId
+    && permit.state === "claimed" && Date.parse(permit.expiresAt) > Date.now()
+    && permit.invoiceId === invoice.id && permit.requestId === invoice.request_id
+    && permit.jobId === job.id && permit.payloadSha256 === job.payload_sha256
+    && permit.payloadHashVersion === job.payload_hash_version
+    && permit.targetOrganizationId.toLowerCase() === String(job.target_organization_id).toLowerCase()
+    && job.status === "processing" && job.creation_state === "not_attempted" && job.attempt_count === 1
+    && job.lexware_invoice_id === null && job.lexware_invoice_number === null
+    && typeof job.locked_at === "string" && typeof job.lock_expires_at === "string"
+    && Date.parse(job.lock_expires_at) > Date.now()
+    && String(job.locked_by || "").includes(permitContext.claimId));
+  if (permitContext && !objectScopedPermitValid) {
+    return { ok: false, status: 409, code: "OBJECT_SCOPED_PERMIT_INVALID", outcome: "blocked", postCount: 0, reasons: ["object_scoped_permit_invalid"] };
+  }
   type RuntimeSettings = {
     invoice_provider_after: string;
     lexware_production_write_enabled: boolean;
@@ -119,6 +142,24 @@ export async function processLexwareProductionInvoiceById(invoiceId: string): Pr
     isValidJobCreationStateCombination,
     loadLocalInvoice: async () => invoice as ProductionInvoiceRecord,
     loadOrCreateJob: async () => job as ProductionInvoiceJob,
+    loadPreclaimedClaim: objectScopedPermitValid && permit ? async () => ({
+      invoiceJobId: job.id,
+      claimAcquired: true as const,
+      readBackOnly: false as const,
+      previousStatus: "pending" as const,
+      attemptCount: job.attempt_count,
+      localInvoiceId: job.local_invoice_id,
+      requestId: job.request_id,
+      payloadSha256: job.payload_sha256,
+      payloadHashVersion: parseLexwarePayloadHashVersion(job.payload_hash_version),
+      targetOrganizationId: job.target_organization_id,
+      jobStatus: "processing" as const,
+      creationState: job.creation_state,
+      lockedAt: job.locked_at,
+      lockExpiresAt: job.lock_expires_at,
+      lexwareInvoiceId: null,
+      lexwareInvoiceNumber: null,
+    }) : undefined,
     loadPersistedPayload: async () => persistedPayload(job.payload_snapshot),
     buildPayload: async () => {
       const { data: items, error: itemsError } = await supabaseServer.from("school_request_invoice_items").select("*").eq("invoice_id", invoiceId).order("created_at");
@@ -147,6 +188,7 @@ export async function processLexwareProductionInvoiceById(invoiceId: string): Pr
         productionWriteEnabled: settings.lexware_production_write_enabled,
         providerAfterCutover: settings.invoice_provider_after,
         checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,
+        objectScopedProductionPermitValid: objectScopedPermitValid,
       });
     },
     claimForWrite: async (expected) => {
@@ -196,6 +238,7 @@ export async function processLexwareProductionInvoiceById(invoiceId: string): Pr
           productionWriteEnabled: settings.lexware_production_write_enabled,
           providerAfterCutover: settings.invoice_provider_after,
           checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,
+          objectScopedProductionPermitValid: objectScopedPermitValid,
         },
       }, validatedOrganizationId);
     },
@@ -215,6 +258,9 @@ export async function processLexwareProductionInvoiceById(invoiceId: string): Pr
     compareReadBack: (readBack, payload, validatedOrganizationId) => compareLexwareOpenInvoiceReadBack(readBack, payload, validatedOrganizationId),
     currentTime: () => new Date().toISOString(),
   });
+  if (permitContext && (result.outcome === "succeeded" || result.outcome === "manual_review")) {
+    await completeLexwareProductionWritePermit(invoiceId, permitContext.permitId, permitContext.claimId);
+  }
   return {
     ok: result.outcome === "succeeded",
     status: result.outcome === "succeeded" ? 200 : 409,

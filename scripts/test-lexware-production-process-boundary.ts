@@ -232,7 +232,7 @@ assert.match(routeSource, /requireAdminApiSession/);
 assert.match(routeSource, /hasSameRequestOrigin/);
 assert.match(routeSource, /readLimitedJsonBody\(request, 1_024\)/);
 assert.match(routeSource, /FINALIZE_SINGLE_LEXWARE_INVOICE/);
-assert.equal((routeSource.match(/processLexwareProductionInvoiceById\(invoiceId\)/g) ?? []).length, 1);
+assert.equal((routeSource.match(/processLexwareProductionInvoiceById\(invoiceId,/g) ?? []).length, 1);
 assert.doesNotMatch(routeSource, /claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice|buildLexwarePayloadSha256|organizationId/);
 console.log("Route A-I PASS");
 

@@ -52,7 +52,7 @@ assert.doesNotMatch(processSource, new RegExp(String.raw`(?:job\.payload_hash_ve
 assert.doesNotMatch(processSource, new RegExp(String.raw`deps\.hashPayload\([^,]+,\s*${fixedVersion}`));
 assert.doesNotMatch(processSource, new RegExp(String.raw`claimForWrite\(\{[\s\S]*?payloadHashVersion\s*:\s*${fixedVersion}`));
 console.log("U PASS");
-assert.equal((processRouteSource.match(/processLexwareProductionInvoiceById\(invoiceId\)/g) ?? []).length, 1);
+assert.equal((processRouteSource.match(/processLexwareProductionInvoiceById\(invoiceId,/g) ?? []).length, 1);
 assert.doesNotMatch(processRouteSource, /buildLexwarePayloadSha256|createHash|JSON\.stringify\(payload\)|payloadHashMatches\s*:\s*true|claimInvoiceJobForProcessing|createLexwareProductionFinalInvoice|organizationId/);
 assert.match(processServiceSource, /buildLexwarePayloadSha256/);
 assert.match(processServiceSource, /from\s+["']\.\/lexwarePayloadHash["']/);
