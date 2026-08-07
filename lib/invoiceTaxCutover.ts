@@ -16,7 +16,7 @@
  * Ab dem Cutover-Zeitpunkt:
  *
  * - invoice-tax-snapshot-v2
- * - legacy_internal
+ * - konfigurierter Folgeprovider
  *
  * Diese Datei:
  *
@@ -120,7 +120,7 @@ export type InvoiceTaxCutoverResult = {
       "invoice-tax-snapshot-v2";
 
     invoiceProvider:
-      "legacy_internal";
+      InvoiceProvider;
   };
 };
 
@@ -307,7 +307,10 @@ function requireExactConfiguration(
             "legacy_internal",
 
           invoiceProviderAfter:
-            "legacy_internal",
+            [
+              "legacy_internal",
+              "lexware",
+            ],
 
           invoiceCutoverVersion:
             EXPECTED_INVOICE_CUTOVER_VERSION,
@@ -337,10 +340,12 @@ function requireExactConfiguration(
       EXPECTED_INVOICE_TIMEZONE,
 
     invoiceProviderBefore:
-      "legacy_internal" as const,
+      invoiceProviderBefore as
+        "legacy_internal",
 
     invoiceProviderAfter:
-      "legacy_internal" as const,
+      invoiceProviderAfter as
+        InvoiceProvider,
 
     invoiceCutoverVersion:
       EXPECTED_INVOICE_CUTOVER_VERSION,
@@ -396,6 +401,13 @@ export function resolveInvoiceTaxCutover(
       normalizedNow.timestamp,
     );
 
+  const selectedInvoiceProvider =
+    cutoverReached
+      ? configuration
+          .invoiceProviderAfter
+      : configuration
+          .invoiceProviderBefore;
+
   return {
     version:
       INVOICE_TAX_CUTOVER_VERSION,
@@ -425,17 +437,21 @@ export function resolveInvoiceTaxCutover(
         : "invoice-tax-snapshot-v1",
 
     selectedInvoiceProvider:
-      "legacy_internal",
+      selectedInvoiceProvider,
 
     providerCutoverDeferred:
-      true,
+      cutoverReached &&
+      selectedInvoiceProvider !==
+        configuration
+          .invoiceProviderAfter,
 
     beforeCutover: {
       taxSnapshotVersion:
         "invoice-tax-snapshot-v1",
 
       invoiceProvider:
-        "legacy_internal",
+        configuration
+          .invoiceProviderBefore,
     },
 
     afterCutover: {
@@ -443,7 +459,8 @@ export function resolveInvoiceTaxCutover(
         "invoice-tax-snapshot-v2",
 
       invoiceProvider:
-        "legacy_internal",
+        configuration
+          .invoiceProviderAfter,
     },
   };
 }

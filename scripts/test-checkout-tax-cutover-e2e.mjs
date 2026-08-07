@@ -53,7 +53,7 @@ const cutoverConfiguration = {
   invoiceCutoverAt: EXPECTED_INVOICE_CUTOVER_AT,
   timezoneName: EXPECTED_INVOICE_TIMEZONE,
   invoiceProviderBefore: "legacy_internal",
-  invoiceProviderAfter: "legacy_internal",
+  invoiceProviderAfter: "lexware",
   invoiceCutoverVersion: EXPECTED_INVOICE_CUTOVER_VERSION,
 };
 
@@ -70,17 +70,17 @@ const cutoverCases = [
     now: "2026-07-31T22:00:00.000Z",
     reached: true,
     snapshotVersion: "invoice-tax-snapshot-v2",
-    provider: "legacy_internal",
-    internalMailSelected: true,
-    pendingEventSelected: false,
+    provider: "lexware",
+    internalMailSelected: false,
+    pendingEventSelected: true,
   },
   {
     now: "2026-07-31T22:00:00.001Z",
     reached: true,
     snapshotVersion: "invoice-tax-snapshot-v2",
-    provider: "legacy_internal",
-    internalMailSelected: true,
-    pendingEventSelected: false,
+    provider: "lexware",
+    internalMailSelected: false,
+    pendingEventSelected: true,
   },
 ];
 
@@ -97,7 +97,15 @@ const cutoverResults = cutoverCases.map((expected) => {
   assert.equal(decision.cutoverReached, expected.reached);
   assert.equal(decision.selectedTaxSnapshotVersion, expected.snapshotVersion);
   assert.equal(decision.selectedInvoiceProvider, expected.provider);
-  assert.equal(decision.providerCutoverDeferred, true);
+  assert.equal(decision.providerCutoverDeferred, false);
+  assert.equal(
+    decision.beforeCutover.invoiceProvider,
+    cutoverConfiguration.invoiceProviderBefore,
+  );
+  assert.equal(
+    decision.afterCutover.invoiceProvider,
+    cutoverConfiguration.invoiceProviderAfter,
+  );
   assert.equal(internalMailSelected, expected.internalMailSelected);
   assert.equal(pendingEventSelected, expected.pendingEventSelected);
 
@@ -124,12 +132,75 @@ assert.equal(
 );
 assert.equal(
   rolloutCompatibilityDecision.selectedInvoiceProvider,
-  "legacy_internal",
+  "lexware",
 );
 assert.equal(
   rolloutCompatibilityDecision.providerCutoverDeferred,
-  true,
+  false,
 );
+
+const legacyAfterCutoverDecision = resolveInvoiceTaxCutover({
+  ...cutoverConfiguration,
+  invoiceProviderAfter: "legacy_internal",
+  now: "2026-07-31T22:00:00.001Z",
+});
+assert.equal(
+  legacyAfterCutoverDecision.selectedInvoiceProvider,
+  "legacy_internal",
+);
+assert.equal(
+  legacyAfterCutoverDecision.afterCutover.invoiceProvider,
+  "legacy_internal",
+);
+assert.equal(
+  legacyAfterCutoverDecision.providerCutoverDeferred,
+  false,
+);
+
+for (const invalidProviderAfter of ["unsupported", ""]) {
+  assert.throws(
+    () => resolveInvoiceTaxCutover({
+      ...cutoverConfiguration,
+      invoiceProviderAfter: invalidProviderAfter,
+      now: "2026-07-31T22:00:00.000Z",
+    }),
+    (error) => error?.code === "CUTOVER_CONFIGURATION_MISMATCH",
+  );
+}
+
+function selectCheckoutBranch(decision) {
+  const nativeLexwareCheckout =
+    decision.selectedInvoiceProvider === "lexware";
+
+  return {
+    nativeLexwareCheckout,
+    legacyCheckout: !nativeLexwareCheckout,
+    legacyCustomerMail: !nativeLexwareCheckout,
+    legacyAdminMail: !nativeLexwareCheckout,
+    lexwareMail: false,
+  };
+}
+
+const shopNativeBranch = selectCheckoutBranch(
+  rolloutCompatibilityDecision,
+);
+const offerNativeBranch = selectCheckoutBranch(
+  rolloutCompatibilityDecision,
+);
+const legacyBranch = selectCheckoutBranch(
+  legacyAfterCutoverDecision,
+);
+
+assert.equal(shopNativeBranch.nativeLexwareCheckout, true);
+assert.equal(offerNativeBranch.nativeLexwareCheckout, true);
+assert.equal(shopNativeBranch.legacyCustomerMail, false);
+assert.equal(shopNativeBranch.legacyAdminMail, false);
+assert.equal(offerNativeBranch.legacyCustomerMail, false);
+assert.equal(shopNativeBranch.lexwareMail, false);
+assert.equal(offerNativeBranch.lexwareMail, false);
+assert.equal(legacyBranch.nativeLexwareCheckout, false);
+assert.equal(legacyBranch.legacyCheckout, true);
+assert.equal(legacyBranch.legacyCustomerMail, true);
 
 const snapshotAt = "2026-07-31T22:00:00.000Z";
 const lines = [
@@ -450,9 +521,12 @@ const result = {
   checkoutAbortBeforeInvoiceInsertConfirmed:
     invoiceInsertPosition > validationPosition,
   checkoutRoutes: {
-    offerInternalMailSelected: true,
-    shopInternalMailSelected: true,
-    lexwareInvoicePendingSelected: false,
+    offerInternalMailSelected:
+      offerNativeBranch.legacyCustomerMail,
+    shopInternalMailSelected:
+      shopNativeBranch.legacyCustomerMail,
+    lexwareInvoicePendingSelected:
+      shopNativeBranch.nativeLexwareCheckout,
     shopInternalInvoiceRedirectSelected: true,
     lexwareWriteSelected: false,
   },
