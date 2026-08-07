@@ -9,6 +9,7 @@ const repository = readFileSync("app/lib/lexware/lexwareProductionInvoiceJobRepo
 const processService = readFileSync("app/lib/lexware/lexwareProductionInvoiceProcessService.ts", "utf8");
 const gates = readFileSync("app/lib/lexware/lexwareProductionInvoiceJob.ts", "utf8");
 const permitMigration = readFileSync("supabase/migrations/20260806023000_lexware_object_scoped_production_write_permits.sql", "utf8");
+const aclMigration = readFileSync("supabase/migrations/20260807111500_restrict_native_lexware_table_privileges.sql", "utf8");
 
 assert.equal((migration.match(/^begin;$/gim) ?? []).length, 1);
 assert.equal((migration.match(/^commit;$/gim) ?? []).length, 1);
@@ -51,4 +52,26 @@ assert.match(permitMigration, /claim_school_lexware_invoice_job_for_processing/)
 assert.doesNotMatch(permitMigration, /claim_native_lexware_invoice_job_for_processing/);
 
 assert.doesNotMatch(migration + staging + shop + offer, /automaticMailEnabled|lexware_automatic_mail_enabled/);
+
+assert.equal((aclMigration.match(/^begin;$/gim) ?? []).length, 1);
+assert.equal((aclMigration.match(/^commit;$/gim) ?? []).length, 1);
+const aclTables = [...aclMigration.matchAll(/on table public\.(school_[a-z_]+)/gi)].map((match) => match[1]);
+assert.deepEqual([...new Set(aclTables)].sort(), [
+  "school_lexware_invoice_jobs",
+  "school_request_invoice_items",
+  "school_request_invoices",
+]);
+assert.doesNotMatch(aclMigration, /constraint|\b(insert into|update\s+public|delete from|merge into)\b|cascade/i);
+assert.doesNotMatch(aclMigration, /default privileges|owner to|row level security|\bpolicy\b/i);
+assert.match(aclMigration, /revoke all privileges\s+on table public\.school_request_invoices\s+from anon, authenticated;/i);
+assert.match(aclMigration, /revoke delete, truncate, references, trigger, maintain\s+on table public\.school_request_invoices\s+from service_role;/i);
+assert.match(aclMigration, /grant select, insert, update\s+on table public\.school_request_invoices\s+to service_role;/i);
+assert.match(aclMigration, /revoke all privileges\s+on table public\.school_request_invoice_items\s+from anon, authenticated;/i);
+assert.match(aclMigration, /revoke update, delete, truncate, references, trigger, maintain\s+on table public\.school_request_invoice_items\s+from service_role;/i);
+assert.match(aclMigration, /grant select, insert\s+on table public\.school_request_invoice_items\s+to service_role;/i);
+assert.match(aclMigration, /revoke all privileges\s+on table public\.school_lexware_invoice_jobs\s+from public, anon, authenticated;/i);
+assert.match(aclMigration, /revoke delete, truncate, references, trigger, maintain\s+on table public\.school_lexware_invoice_jobs\s+from service_role;/i);
+assert.match(aclMigration, /grant select, insert, update\s+on table public\.school_lexware_invoice_jobs\s+to service_role;/i);
+assert.equal((aclMigration.match(/\bgrant\b/gim) ?? []).length, 3);
+assert.equal((aclMigration.match(/\brevoke\b/gim) ?? []).length, 6);
 console.log("Lexware native checkout staging A-AD PASS");
