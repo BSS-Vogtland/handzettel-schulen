@@ -1246,6 +1246,7 @@ export async function POST(request: NextRequest) {
         discount_amount: discountAmount,
         total_amount: totalAmount,
         currency: "EUR",
+        contains_books: cartItems.some((item) => item.isBook),
         book_shipping_amount: 0,
         book_cover_amount: 0,
         ...createBankTransferSnapshot(),

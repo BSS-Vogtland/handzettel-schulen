@@ -11,6 +11,20 @@ const gates = readFileSync("app/lib/lexware/lexwareProductionInvoiceJob.ts", "ut
 const permitMigration = readFileSync("supabase/migrations/20260806023000_lexware_object_scoped_production_write_permits.sql", "utf8");
 const aclMigration = readFileSync("supabase/migrations/20260807111500_restrict_native_lexware_table_privileges.sql", "utf8");
 
+function containsBooks(items: Array<{ isBook: boolean }>) {
+  return items.some((item) => item.isBook);
+}
+
+function assertNativeInvoiceBookFlag(
+  invoice: Record<string, unknown>,
+) {
+  assert.equal(
+    typeof invoice.contains_books,
+    "boolean",
+    "Native invoice payload requires an explicit contains_books boolean",
+  );
+}
+
 assert.equal((migration.match(/^begin;$/gim) ?? []).length, 1);
 assert.equal((migration.match(/^commit;$/gim) ?? []).length, 1);
 assert.match(migration, /invoice_provider is distinct from 'lexware'/);
@@ -32,6 +46,45 @@ for (const checkout of [shop, offer]) {
   assert.doesNotMatch(checkout, /createLexwareProductionFinalInvoice|claimInvoiceJobForProcessing|lexwareGetJson|lexwarePost|processLexwareProductionInvoiceById/);
   assert.match(checkout, /if \(!nativeLexwareCheckout\) \{[\s\S]*sendCustomerInvoiceMailSafely/);
 }
+assert.match(
+  shop,
+  /contains_books:\s*cartItems\.some\(\(item\) => item\.isBook\)/,
+);
+assert.doesNotMatch(
+  shop,
+  /contains_books:\s*(?:null|undefined)/,
+);
+assert.match(
+  shop,
+  /stageNativeLexwareCheckoutInvoice\(\{[\s\S]*invoice:\s*invoiceValues/,
+);
+assert.match(
+  offer,
+  /contains_books:\s*bookSummary\s*\.containsBooks/,
+);
+assert.equal(containsBooks([{ isBook: false }]), false);
+assert.equal(containsBooks([{ isBook: true }]), true);
+assert.equal(
+  containsBooks([
+    { isBook: false },
+    { isBook: true },
+    { isBook: false },
+  ]),
+  true,
+);
+assert.equal(
+  containsBooks([
+    { isBook: false },
+    { isBook: false },
+  ]),
+  false,
+);
+assert.equal(typeof containsBooks([]), "boolean");
+assert.equal(containsBooks([]), false);
+assertNativeInvoiceBookFlag({ contains_books: false });
+assertNativeInvoiceBookFlag({ contains_books: true });
+assert.throws(() => assertNativeInvoiceBookFlag({}));
+assert.throws(() => assertNativeInvoiceBookFlag({ contains_books: null }));
 assert.match(staging, /buildEligibleLocalInvoice/);
 assert.match(staging, /stage_native_lexware_checkout_invoice/);
 assert.doesNotMatch(staging, /fetch\(|lexware\.io|claim|mail|pdf/i);
