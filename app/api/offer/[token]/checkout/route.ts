@@ -32,6 +32,7 @@ import {
   readCheckoutMaintenanceTestInput,
 } from "@/lib/checkoutTestPermits";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
+import { stageNativeLexwareCheckoutInvoice } from "@/app/lib/lexware/lexwareNativeCheckoutStaging";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1737,14 +1738,9 @@ export async function POST(
         checkoutNowDate,
       );
 
-    const {
-      data: invoiceData,
-      error: invoiceInsertError,
-    } = await supabase
-      .from(
-        "school_request_invoices",
-      )
-      .insert({
+    const invoiceId = crypto.randomUUID();
+    const invoiceValues = {
+        id: invoiceId,
         request_id:
           requestId,
 
@@ -1789,6 +1785,12 @@ export async function POST(
 
         currency:
           "EUR",
+
+        customer_note:
+          customerMessage || null,
+
+        created_at:
+          now,
 
         ...createBankTransferSnapshot(),
 
@@ -1942,17 +1944,19 @@ export async function POST(
           customerMessage
             ? `Kundenhinweis aus Checkout: ${customerMessage}`
             : null,
-      })
-      .select(
-        [
-          "id",
-          "invoice_number",
-          "invoice_token",
-          "invoice_status",
-          "payment_status",
-        ].join(", "),
-      )
-      .single();
+      };
+    const nativeLexwareCheckout = cutoverDecision.selectedInvoiceProvider === "lexware";
+    const legacyInvoiceInsert = nativeLexwareCheckout
+      ? { data: {
+          id: invoiceId,
+          invoice_number: invoiceNumber,
+          invoice_token: "native-staging-pending",
+          invoice_status: "draft",
+          payment_status: "waiting_for_payment",
+        }, error: null }
+      : await supabase.from("school_request_invoices").insert(invoiceValues)
+          .select("id, invoice_number, invoice_token, invoice_status, payment_status").single();
+    const { data: invoiceData, error: invoiceInsertError } = legacyInvoiceInsert;
 
     if (
       invoiceInsertError ||
@@ -1971,7 +1975,7 @@ export async function POST(
       );
     }
 
-    const invoice =
+    let invoice =
       invoiceData as unknown as
         InvoiceRow;
 
@@ -2031,6 +2035,9 @@ export async function POST(
           }
 
           return {
+            id:
+              crypto.randomUUID(),
+
             invoice_id:
               invoice.id,
 
@@ -2137,15 +2144,30 @@ export async function POST(
         },
       );
 
-    const {
-      error: invoiceItemsError,
-    } = await supabase
-      .from(
-        "school_request_invoice_items",
-      )
-      .insert(
-        invoiceItems,
-      );
+    let invoiceItemsError: { message: string } | null = null;
+    if (nativeLexwareCheckout) {
+      try {
+        const staged = await stageNativeLexwareCheckoutInvoice({
+          client: supabase,
+          invoice: invoiceValues,
+          items: invoiceItems,
+        });
+        invoice = {
+          id: staged.invoice_id,
+          invoice_number: staged.invoice_number,
+          invoice_token: staged.invoice_token,
+          invoice_status: staged.invoice_status,
+          payment_status: staged.payment_status,
+        };
+      } catch (error) {
+        invoiceItemsError = {
+          message: error instanceof Error ? error.message : "Native Lexware-Vorbereitung fehlgeschlagen.",
+        };
+      }
+    } else {
+      const result = await supabase.from("school_request_invoice_items").insert(invoiceItems);
+      invoiceItemsError = result.error;
+    }
 
     if (invoiceItemsError) {
       return NextResponse.json(
@@ -2157,6 +2179,13 @@ export async function POST(
         {
           status: 500,
         },
+      );
+    }
+
+    if (!invoice.invoice_token) {
+      return NextResponse.json(
+        { ok: false, message: "Die vorbereitete Rechnung besitzt keinen Rechnungstoken." },
+        { status: 500 },
       );
     }
 
@@ -2424,14 +2453,16 @@ export async function POST(
         now,
     });
 
-    await sendCustomerInvoiceMailSafely({
-      supabase,
-      requestId,
-      invoiceNumber:
-        invoice.invoice_number,
-      createdAt:
-        now,
-    });
+    if (!nativeLexwareCheckout) {
+      await sendCustomerInvoiceMailSafely({
+        supabase,
+        requestId,
+        invoiceNumber:
+          invoice.invoice_number,
+        createdAt:
+          now,
+      });
+    }
 
     return NextResponse.json({
       ok:

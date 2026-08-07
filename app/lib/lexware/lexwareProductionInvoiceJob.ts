@@ -18,6 +18,7 @@ export type LexwareProductionGateInput = {
   providerAfterCutover: string;
   checkoutMaintenanceActive: boolean;
   objectScopedProductionPermitValid?: boolean;
+  nativeProductionJob?: boolean;
 };
 
 export type LexwareProductionGateResult = {
@@ -49,7 +50,8 @@ export function evaluateLexwareProductionGates(input: LexwareProductionGateInput
       normalize(input.configuredProductionOrganizationId) === normalize(input.databaseProductionOrganizationId),
     productionWriteEnabled: input.productionWriteEnabled === true,
     providerCutoverConfiguredForLexware: input.providerAfterCutover === "lexware",
-    checkoutMaintenanceActive: input.checkoutMaintenanceActive === true,
+    checkoutMaintenanceActive:
+      input.nativeProductionJob === true || input.checkoutMaintenanceActive === true,
   };
   const objectScoped = input.objectScopedProductionPermitValid === true;
   const objectScopedOperationalChecks = new Set([

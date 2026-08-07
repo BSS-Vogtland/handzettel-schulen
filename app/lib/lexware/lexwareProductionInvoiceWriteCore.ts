@@ -22,6 +22,7 @@ export type LexwareProductionGateInput = {
   providerAfterCutover: string;
   checkoutMaintenanceActive: boolean;
   objectScopedProductionPermitValid?: boolean;
+  nativeProductionJob?: boolean;
 };
 
 export type LexwareProductionGateResult = {

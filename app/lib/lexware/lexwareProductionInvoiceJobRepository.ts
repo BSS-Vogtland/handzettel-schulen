@@ -186,7 +186,7 @@ export async function claimInvoiceJobForProcessing(input: {
   lockDurationSeconds: number;
 }) {
   const supabaseServer = await getSupabaseServer();
-  const { data, error } = await supabaseServer.rpc("claim_school_lexware_invoice_job_for_processing", {
+  const { data, error } = await supabaseServer.rpc("claim_native_lexware_invoice_job_for_processing", {
     p_local_invoice_id: input.localInvoiceId,
     p_expected_payload_sha256: input.expectedPayloadSha256,
     p_expected_payload_hash_version: input.expectedPayloadHashVersion,

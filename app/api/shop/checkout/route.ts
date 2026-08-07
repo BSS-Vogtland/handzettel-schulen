@@ -20,6 +20,7 @@ import {
 import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
 import { createSellerSnapshot } from "@/app/lib/sellerSettings";
 import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
+import { stageNativeLexwareCheckoutInvoice } from "@/app/lib/lexware/lexwareNativeCheckoutStaging";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1225,9 +1226,9 @@ export async function POST(request: NextRequest) {
       checkoutNowDate
     );
 
-    const { data: invoiceData, error: invoiceInsertError } = await supabase
-      .from("school_request_invoices")
-      .insert({
+    const invoiceId = crypto.randomUUID();
+    const invoiceValues = {
+        id: invoiceId,
         request_id: requestId,
         invoice_number: invoiceNumber,
 
@@ -1245,6 +1246,8 @@ export async function POST(request: NextRequest) {
         discount_amount: discountAmount,
         total_amount: totalAmount,
         currency: "EUR",
+        book_shipping_amount: 0,
+        book_cover_amount: 0,
         ...createBankTransferSnapshot(),
         ...createSellerSnapshot(),
         bank_payment_purpose_snapshot: invoiceNumber,
@@ -1312,6 +1315,8 @@ export async function POST(request: NextRequest) {
         child_name_snapshot: childName,
         school_name_snapshot: schoolName,
         class_name_snapshot: className,
+        customer_note: null,
+        created_at: now,
 
         fulfillment_method_snapshot: fulfillmentMethod,
         pickup_location_label_snapshot:
@@ -1326,9 +1331,19 @@ export async function POST(request: NextRequest) {
               appliedDiscount.discountName
             }, Rabattbetrag: ${formatEuroForEvent(discountAmount)} EUR.`
           : "Automatisch aus Shop-Warenkorb erzeugt.",
-      })
-      .select("id, invoice_number, invoice_token, invoice_status, payment_status")
-      .single();
+      };
+    const nativeLexwareCheckout = cutoverDecision.selectedInvoiceProvider === "lexware";
+    const legacyInvoiceInsert = nativeLexwareCheckout
+      ? { data: {
+          id: invoiceId,
+          invoice_number: invoiceNumber,
+          invoice_token: "native-staging-pending",
+          invoice_status: "draft",
+          payment_status: "waiting_for_payment",
+        }, error: null }
+      : await supabase.from("school_request_invoices").insert(invoiceValues)
+          .select("id, invoice_number, invoice_token, invoice_status, payment_status").single();
+    const { data: invoiceData, error: invoiceInsertError } = legacyInvoiceInsert;
 
     if (invoiceInsertError || !invoiceData) {
       return NextResponse.json(
@@ -1342,7 +1357,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const invoice = invoiceData as InvoiceRow;
+    let invoice = invoiceData as InvoiceRow;
 
     if (!invoice.invoice_token) {
       return NextResponse.json(
@@ -1369,6 +1384,7 @@ export async function POST(request: NextRequest) {
       }
 
       return {
+        id: crypto.randomUUID(),
         invoice_id: invoice.id,
         request_id: requestId,
 
@@ -1406,15 +1422,42 @@ export async function POST(request: NextRequest) {
           itemTaxSnapshot.book_cover_tax_amount_snapshot,
 
         is_book_snapshot: offerItem.is_book_snapshot,
+        book_isbn13_snapshot: null,
+        book_cover_selected: false,
+        book_cover_name_snapshot: null,
+        book_cover_quantity: 0,
+        book_cover_unit_price: 0,
+        book_cover_total_price: 0,
 
         source: offerItem.source,
         notes: offerItem.notes,
       };
     });
 
-    const { error: invoiceItemsInsertError } = await supabase
-      .from("school_request_invoice_items")
-      .insert(invoiceItems);
+    let invoiceItemsInsertError: { message: string } | null = null;
+    if (nativeLexwareCheckout) {
+      try {
+        const staged = await stageNativeLexwareCheckoutInvoice({
+          client: supabase,
+          invoice: invoiceValues,
+          items: invoiceItems,
+        });
+        invoice = {
+          id: staged.invoice_id,
+          invoice_number: staged.invoice_number,
+          invoice_token: staged.invoice_token,
+          invoice_status: staged.invoice_status,
+          payment_status: staged.payment_status,
+        };
+      } catch (error) {
+        invoiceItemsInsertError = {
+          message: error instanceof Error ? error.message : "Native Lexware-Vorbereitung fehlgeschlagen.",
+        };
+      }
+    } else {
+      const result = await supabase.from("school_request_invoice_items").insert(invoiceItems);
+      invoiceItemsInsertError = result.error;
+    }
 
     if (invoiceItemsInsertError) {
       return NextResponse.json(
@@ -1449,6 +1492,10 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    if (!invoice.invoice_token) {
+      return NextResponse.json({ ok: false, message: "Die vorbereitete Rechnung besitzt keinen Zahlungslink-Token." }, { status: 500 });
     }
 
     const cutoverEventMetadata = {
@@ -1507,14 +1554,15 @@ export async function POST(request: NextRequest) {
       createdAt: now,
     });
 
-    await sendCustomerInvoiceMailSafely({
-      supabase,
-      requestId,
-      invoiceNumber: invoice.invoice_number,
-      createdAt: now,
-    });
+    if (!nativeLexwareCheckout) {
+      await sendCustomerInvoiceMailSafely({
+        supabase,
+        requestId,
+        invoiceNumber: invoice.invoice_number,
+        createdAt: now,
+      });
 
-    await sendShopOrderAdminNotificationSafely({
+      await sendShopOrderAdminNotificationSafely({
       supabase,
       requestId,
       requestNumber: createdRequest.request_number,
@@ -1535,7 +1583,8 @@ export async function POST(request: NextRequest) {
       totalAmount,
       customerMessage,
       createdAt: now,
-    });
+      });
+    }
 
     if (preparedCart) {
       const { error: preparedCartUpdateError } = await supabase

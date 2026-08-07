@@ -87,6 +87,10 @@ export async function processLexwareProductionInvoiceById(
   const { data: job, error: jobError } = await supabaseServer.from("school_lexware_invoice_jobs").select("*").eq("local_invoice_id", invoiceId).single();
   if (jobError || !job) return { ok: false, status: 409, code: "INVOICE_JOB_REQUIRED", outcome: null, postCount: 0, reasons: [] };
   const permit = permitContext ? await loadLexwareProductionWritePermit(invoiceId) : null;
+  const nativeProductionJob = invoice.invoice_provider === "lexware"
+    && invoice.tax_snapshot_status === "complete"
+    && invoice.tax_snapshot_version === "invoice-tax-snapshot-v2"
+    && job.trigger_source === "checkout_native_lexware";
   const objectScopedPermitValid = Boolean(permitContext && permit
     && permit.id === permitContext.permitId && permit.claimId === permitContext.claimId
     && permit.state === "claimed" && Date.parse(permit.expiresAt) > Date.now()
@@ -188,6 +192,7 @@ export async function processLexwareProductionInvoiceById(
         productionWriteEnabled: settings.lexware_production_write_enabled,
         providerAfterCutover: settings.invoice_provider_after,
         checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,
+        nativeProductionJob,
         objectScopedProductionPermitValid: objectScopedPermitValid,
       });
     },
@@ -238,6 +243,7 @@ export async function processLexwareProductionInvoiceById(
           productionWriteEnabled: settings.lexware_production_write_enabled,
           providerAfterCutover: settings.invoice_provider_after,
           checkoutMaintenanceActive: CHECKOUT_MAINTENANCE_ACTIVE,
+          nativeProductionJob,
           objectScopedProductionPermitValid: objectScopedPermitValid,
         },
       }, validatedOrganizationId);
