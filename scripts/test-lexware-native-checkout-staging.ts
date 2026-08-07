@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const migration = readFileSync("supabase/migrations/20260807100000_native_lexware_checkout_staging.sql", "utf8");
+const returnTypeFixMigration = readFileSync("supabase/migrations/20260807164644_fix_native_staging_invoice_token_return_type.sql", "utf8");
 const shop = readFileSync("app/api/shop/checkout/route.ts", "utf8");
 const offer = readFileSync("app/api/offer/[token]/checkout/route.ts", "utf8");
 const staging = readFileSync("app/lib/lexware/lexwareNativeCheckoutStaging.ts", "utf8");
@@ -34,6 +35,42 @@ assert.match(migration, /lexware_invoice_job_id is not null[\s\S]*lexware_invoic
 assert.doesNotMatch(migration, /on delete cascade/i);
 
 assert.match(migration, /stage_native_lexware_checkout_invoice/);
+assert.equal((returnTypeFixMigration.match(/^begin;$/gim) ?? []).length, 1);
+assert.equal((returnTypeFixMigration.match(/^commit;$/gim) ?? []).length, 1);
+assert.match(
+  returnTypeFixMigration,
+  /drop function public\.stage_native_lexware_checkout_invoice\(jsonb,jsonb,jsonb,text,text\);/,
+);
+assert.doesNotMatch(returnTypeFixMigration, /cascade/i);
+assert.match(
+  returnTypeFixMigration,
+  /returns table \([\s\S]*invoice_id uuid,[\s\S]*invoice_number text,[\s\S]*invoice_token text,[\s\S]*invoice_status text,[\s\S]*payment_status text,[\s\S]*invoice_job_id uuid,[\s\S]*job_status text,[\s\S]*job_creation_state text[\s\S]*\)/,
+);
+assert.doesNotMatch(returnTypeFixMigration, /invoice_token\s+uuid|invoice_token::uuid|invoice_row\.invoice_token::uuid/);
+assert.match(returnTypeFixMigration, /security definer/);
+assert.match(returnTypeFixMigration, /set search_path = public, pg_temp/);
+assert.match(
+  returnTypeFixMigration,
+  /revoke all on function public\.stage_native_lexware_checkout_invoice\(jsonb,jsonb,jsonb,text,text\)[\s\S]*from public, anon, authenticated;/,
+);
+assert.match(
+  returnTypeFixMigration,
+  /grant execute on function public\.stage_native_lexware_checkout_invoice\(jsonb,jsonb,jsonb,text,text\)[\s\S]*to service_role;/,
+);
+assert.match(staging, /invoice_token: string/);
+assert.match(staging, /typeof row\.invoice_token !== "string"/);
+const hexInvoiceToken = "a".repeat(48);
+assert.equal(hexInvoiceToken.length, 48);
+assert.match(hexInvoiceToken, /^[a-f0-9]{48}$/);
+assert.equal(hexInvoiceToken, String(hexInvoiceToken));
+
+function functionBody(sql: string) {
+  const match = sql.match(/as \$\$([\s\S]*?)\$\$;/);
+  assert.ok(match, "Native staging function body must be present");
+  return match[1].trim();
+}
+
+assert.equal(functionBody(returnTypeFixMigration), functionBody(migration));
 assert.match(migration, /trigger_source[\s\S]*'checkout_native_lexware'/);
 assert.match(migration, /'pending', 'not_attempted', 0/);
 assert.match(migration, /lexware-payload-canonical-v2/);
