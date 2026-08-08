@@ -7,7 +7,10 @@ import { validateLexwareInvoicePayload } from "./lexwareInvoicePayloadValidator"
 import { parseLexwarePayloadLineItem, type LexwareLineItemSignatureInput } from "./lexwareLineItemMultisetCore";
 import { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion } from "./lexwarePayloadHash";
 import { canAttemptExternalWrite, evaluateLexwareProductionGates, isValidJobCreationStateCombination } from "./lexwareProductionInvoiceJob";
-import { claimInvoiceJobForProcessing } from "./lexwareProductionInvoiceJobRepository";
+import {
+  claimInvoiceJobForProcessing,
+  reclaimNativeInvoiceJobForProcessing,
+} from "./lexwareProductionInvoiceJobRepository";
 import {
   compareLexwareOpenInvoiceReadBack,
   processLexwareProductionInvoice,
@@ -197,14 +200,49 @@ export async function processLexwareProductionInvoiceById(
       });
     },
     claimForWrite: async (expected) => {
-      const claim = await claimInvoiceJobForProcessing({
-        localInvoiceId: expected.localInvoiceId,
-        expectedPayloadSha256: expected.payloadSha256,
-        expectedPayloadHashVersion: expected.payloadHashVersion,
-        expectedTargetOrganizationId: expected.targetOrganizationId,
-        lockedBy: `admin-process:${invoiceId}`,
-        lockDurationSeconds: 120,
-      });
+      const expiredNativeProcessingLock = nativeProductionJob
+        && job.status === "processing"
+        && typeof job.locked_at === "string"
+        && typeof job.locked_by === "string"
+        && typeof job.lock_expires_at === "string"
+        && Date.parse(job.lock_expires_at) <= Date.now();
+      const safeNativeReclaimState = expiredNativeProcessingLock
+        && (job.creation_state === "not_attempted" || job.creation_state === "definite_not_created")
+        && job.attempt_count < job.max_attempts
+        && job.external_write_started_at === null
+        && job.external_write_completed_at === null
+        && job.last_error_code === null
+        && job.last_external_http_status === null
+        && job.last_external_retry_after_seconds === null
+        && job.lexware_invoice_id === null
+        && job.lexware_invoice_number === null
+        && invoice.lexware_invoice_id === null
+        && invoice.lexware_invoice_number === null
+        && invoice.lexware_finalized_at === null;
+      if (nativeProductionJob && job.status === "processing" && !safeNativeReclaimState) {
+        throw new Error("NATIVE_STALE_LOCK_RECLAIM_BLOCKED");
+      }
+      const claim = safeNativeReclaimState
+        ? await reclaimNativeInvoiceJobForProcessing({
+          localInvoiceId: expected.localInvoiceId,
+          expectedJobId: job.id,
+          expectedRequestId: job.request_id,
+          expectedPayloadSha256: expected.payloadSha256,
+          expectedPayloadHashVersion: expected.payloadHashVersion,
+          expectedTargetOrganizationId: expected.targetOrganizationId,
+          expectedCredentialAlias: job.credential_alias_snapshot,
+          expectedIdempotencyKey: job.idempotency_key,
+          lockedBy: `native-reclaim:${invoiceId}`,
+          lockDurationSeconds: 120,
+        })
+        : await claimInvoiceJobForProcessing({
+          localInvoiceId: expected.localInvoiceId,
+          expectedPayloadSha256: expected.payloadSha256,
+          expectedPayloadHashVersion: expected.payloadHashVersion,
+          expectedTargetOrganizationId: expected.targetOrganizationId,
+          lockedBy: `admin-process:${invoiceId}`,
+          lockDurationSeconds: 120,
+        });
       return {
         invoiceJobId: claim.invoiceJobId,
         claimAcquired: claim.claimAcquired,

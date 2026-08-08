@@ -199,3 +199,47 @@ export async function claimInvoiceJobForProcessing(input: {
   try { return parseLexwareProductionClaim(row); }
   catch { return fail("INVOICE_JOB_CLAIM_RESULT_INVALID", "Die Claim-RPC lieferte kein gültiges Ergebnis."); }
 }
+
+export async function reclaimNativeInvoiceJobForProcessing(input: {
+  localInvoiceId: string;
+  expectedJobId: string;
+  expectedRequestId: string;
+  expectedPayloadSha256: string;
+  expectedPayloadHashVersion: EligibleLocalInvoice["payloadHashVersion"];
+  expectedTargetOrganizationId: string;
+  expectedCredentialAlias: string;
+  expectedIdempotencyKey: string;
+  lockedBy: string;
+  lockDurationSeconds: number;
+}) {
+  const supabaseServer = await getSupabaseServer();
+  const { data, error } = await supabaseServer.rpc(
+    "reclaim_native_lexware_invoice_job_for_processing",
+    {
+      p_local_invoice_id: input.localInvoiceId,
+      p_expected_job_id: input.expectedJobId,
+      p_expected_request_id: input.expectedRequestId,
+      p_expected_payload_sha256: input.expectedPayloadSha256,
+      p_expected_payload_hash_version: input.expectedPayloadHashVersion,
+      p_expected_target_organization_id: input.expectedTargetOrganizationId,
+      p_expected_credential_alias: input.expectedCredentialAlias,
+      p_expected_idempotency_key: input.expectedIdempotencyKey,
+      p_locked_by: input.lockedBy,
+      p_lock_duration_seconds: input.lockDurationSeconds,
+    },
+  );
+  if (error) {
+    fail(
+      "NATIVE_INVOICE_JOB_RECLAIM_FAILED",
+      error.message || "Der abgelaufene native Lexware-Job konnte nicht sicher erneut beansprucht werden.",
+    );
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  try { return parseLexwareProductionClaim(row); }
+  catch {
+    return fail(
+      "NATIVE_INVOICE_JOB_RECLAIM_RESULT_INVALID",
+      "Die native Reclaim-RPC lieferte kein gültiges Ergebnis.",
+    );
+  }
+}
