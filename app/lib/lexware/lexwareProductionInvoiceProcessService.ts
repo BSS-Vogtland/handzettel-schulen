@@ -9,6 +9,7 @@ import { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion } from "./lex
 import { canAttemptExternalWrite, evaluateLexwareProductionGates, isValidJobCreationStateCombination } from "./lexwareProductionInvoiceJob";
 import {
   claimInvoiceJobForProcessing,
+  markNativeLexwareExternalWriteStarted,
   reclaimNativeInvoiceJobForProcessing,
 } from "./lexwareProductionInvoiceJobRepository";
 import {
@@ -166,6 +167,7 @@ export async function processLexwareProductionInvoiceById(
       lockExpiresAt: job.lock_expires_at,
       lexwareInvoiceId: null,
       lexwareInvoiceNumber: null,
+      lockOwner: job.locked_by ?? undefined,
     }) : undefined,
     loadPersistedPayload: async () => persistedPayload(job.payload_snapshot),
     buildPayload: async () => {
@@ -222,6 +224,9 @@ export async function processLexwareProductionInvoiceById(
       if (nativeProductionJob && job.status === "processing" && !safeNativeReclaimState) {
         throw new Error("NATIVE_STALE_LOCK_RECLAIM_BLOCKED");
       }
+      const lockOwner = safeNativeReclaimState
+        ? `native-reclaim:${invoiceId}`
+        : `admin-process:${invoiceId}`;
       const claim = safeNativeReclaimState
         ? await reclaimNativeInvoiceJobForProcessing({
           localInvoiceId: expected.localInvoiceId,
@@ -232,7 +237,7 @@ export async function processLexwareProductionInvoiceById(
           expectedTargetOrganizationId: expected.targetOrganizationId,
           expectedCredentialAlias: job.credential_alias_snapshot,
           expectedIdempotencyKey: job.idempotency_key,
-          lockedBy: `native-reclaim:${invoiceId}`,
+          lockedBy: lockOwner,
           lockDurationSeconds: 120,
         })
         : await claimInvoiceJobForProcessing({
@@ -240,7 +245,7 @@ export async function processLexwareProductionInvoiceById(
           expectedPayloadSha256: expected.payloadSha256,
           expectedPayloadHashVersion: expected.payloadHashVersion,
           expectedTargetOrganizationId: expected.targetOrganizationId,
-          lockedBy: `admin-process:${invoiceId}`,
+          lockedBy: lockOwner,
           lockDurationSeconds: 120,
         });
       return {
@@ -260,8 +265,25 @@ export async function processLexwareProductionInvoiceById(
         lockExpiresAt: claim.lockExpiresAt,
         lexwareInvoiceId: claim.lexwareInvoiceId,
         lexwareInvoiceNumber: claim.lexwareInvoiceNumber,
+        lockOwner,
       };
     },
+    externalWriteMarkerRequired: nativeProductionJob,
+    markExternalWriteStarted: nativeProductionJob ? async (expected) =>
+      markNativeLexwareExternalWriteStarted({
+        localInvoiceId: expected.localInvoiceId,
+        expectedJobId: expected.invoiceJobId,
+        expectedRequestId: expected.requestId,
+        expectedAttemptCount: expected.attemptCount,
+        expectedLockedBy: expected.lockOwner,
+        expectedLockedAt: expected.lockedAt,
+        expectedLockExpiresAt: expected.lockExpiresAt,
+        expectedPayloadSha256: expected.payloadSha256,
+        expectedPayloadHashVersion: expected.payloadHashVersion,
+        expectedTargetOrganizationId: expected.targetOrganizationId,
+        expectedCredentialAlias: job.credential_alias_snapshot,
+        expectedIdempotencyKey: job.idempotency_key,
+      }) : undefined,
     persistJobTransition: persistTransition,
     createFinalInvoice: async (payload, validatedOrganizationId) => {
       const settings = await loadSettings();

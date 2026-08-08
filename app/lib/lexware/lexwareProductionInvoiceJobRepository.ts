@@ -243,3 +243,73 @@ export async function reclaimNativeInvoiceJobForProcessing(input: {
     );
   }
 }
+
+export async function markNativeLexwareExternalWriteStarted(input: {
+  localInvoiceId: string;
+  expectedJobId: string;
+  expectedRequestId: string;
+  expectedAttemptCount: number;
+  expectedLockedBy: string;
+  expectedLockedAt: string;
+  expectedLockExpiresAt: string;
+  expectedPayloadSha256: string;
+  expectedPayloadHashVersion: EligibleLocalInvoice["payloadHashVersion"];
+  expectedTargetOrganizationId: string;
+  expectedCredentialAlias: string;
+  expectedIdempotencyKey: string;
+}): Promise<{
+  invoiceJobId: string;
+  externalWriteStarted: true;
+  externalWriteStartedAt: string;
+  attemptCount: number;
+  jobStatus: "processing";
+  creationState: "not_attempted" | "definite_not_created";
+}> {
+  const supabaseServer = await getSupabaseServer();
+  const { data, error } = await supabaseServer.rpc(
+    "mark_native_lexware_external_write_started",
+    {
+      p_local_invoice_id: input.localInvoiceId,
+      p_expected_job_id: input.expectedJobId,
+      p_expected_request_id: input.expectedRequestId,
+      p_expected_attempt_count: input.expectedAttemptCount,
+      p_expected_locked_by: input.expectedLockedBy,
+      p_expected_locked_at: input.expectedLockedAt,
+      p_expected_lock_expires_at: input.expectedLockExpiresAt,
+      p_expected_payload_sha256: input.expectedPayloadSha256,
+      p_expected_payload_hash_version: input.expectedPayloadHashVersion,
+      p_expected_target_organization_id: input.expectedTargetOrganizationId,
+      p_expected_credential_alias: input.expectedCredentialAlias,
+      p_expected_idempotency_key: input.expectedIdempotencyKey,
+    },
+  );
+  if (error) {
+    fail(
+      "NATIVE_EXTERNAL_WRITE_MARKER_FAILED",
+      error.message || "Der Beginn des externen Lexware-Schreibversuchs konnte nicht sicher markiert werden.",
+    );
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return fail("NATIVE_EXTERNAL_WRITE_MARKER_RESULT_INVALID", "Die Marker-RPC lieferte kein gültiges Ergebnis.");
+  }
+  const result = row as Record<string, unknown>;
+  const creationState = result.creation_state;
+  if (result.invoice_job_id !== input.expectedJobId
+      || result.external_write_started !== true
+      || typeof result.external_write_started_at !== "string"
+      || !Number.isFinite(Date.parse(result.external_write_started_at))
+      || result.attempt_count !== input.expectedAttemptCount
+      || result.job_status !== "processing"
+      || (creationState !== "not_attempted" && creationState !== "definite_not_created")) {
+    return fail("NATIVE_EXTERNAL_WRITE_MARKER_RESULT_INVALID", "Die Marker-RPC lieferte kein gültiges Ergebnis.");
+  }
+  return {
+    invoiceJobId: result.invoice_job_id,
+    externalWriteStarted: true as const,
+    externalWriteStartedAt: result.external_write_started_at,
+    attemptCount: result.attempt_count,
+    jobStatus: "processing" as const,
+    creationState: creationState === "not_attempted" ? "not_attempted" : "definite_not_created",
+  };
+}

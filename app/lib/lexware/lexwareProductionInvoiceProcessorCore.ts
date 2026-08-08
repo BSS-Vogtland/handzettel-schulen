@@ -77,6 +77,7 @@ export type ProductionInvoiceJob = {
   attempt_count: number;
   lexware_invoice_id: string | null;
   locked_at?: string | null;
+  locked_by?: string | null;
   lock_expires_at: string | null;
   local_invoice_id?: string | null;
   request_id?: string;
@@ -160,6 +161,7 @@ export type ProcessorDependencies<TLineItem = unknown> = {
     lockExpiresAt: string;
     lexwareInvoiceId: null;
     lexwareInvoiceNumber: null;
+    lockOwner?: string;
   } | null>;
   loadPersistedPayload(job: ProductionInvoiceJob): Promise<LexwareInvoicePayloadBuildResult<TLineItem>>;
   buildPayload(invoice: ProductionInvoiceRecord): Promise<LexwareInvoicePayloadBuildResult<TLineItem>> | LexwareInvoicePayloadBuildResult<TLineItem>;
@@ -190,6 +192,28 @@ export type ProcessorDependencies<TLineItem = unknown> = {
     lockExpiresAt: string;
     lexwareInvoiceId: string | null;
     lexwareInvoiceNumber: string | null;
+    lockOwner?: string;
+  }>;
+  externalWriteMarkerRequired?: boolean;
+  markExternalWriteStarted?(input: {
+    invoiceJobId: string;
+    localInvoiceId: string;
+    requestId: string;
+    attemptCount: number;
+    lockOwner: string;
+    lockedAt: string;
+    lockExpiresAt: string;
+    payloadSha256: string;
+    payloadHashVersion: Exclude<ProductionInvoiceJob["payload_hash_version"], null>;
+    targetOrganizationId: string;
+    creationState: LexwareInvoiceCreationState;
+  }): Promise<{
+    invoiceJobId: string;
+    externalWriteStarted: true;
+    externalWriteStartedAt: string;
+    attemptCount: number;
+    jobStatus: "processing";
+    creationState: LexwareInvoiceCreationState;
   }>;
   persistJobTransition(transition: JobTransition): Promise<void>;
   createFinalInvoice(payload: LexwareInvoicePayloadBuildResult<TLineItem>, organizationId: string): Promise<LexwareProductionCreateResult>;
@@ -333,6 +357,37 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
   if (claim.readBackOnly) {
     if (!claim.lexwareInvoiceId) return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: ["claim_read_back_id_missing"] };
     return verifyExisting(claim.lexwareInvoiceId, 0, persistedPayload, organizationId);
+  }
+  if (deps.externalWriteMarkerRequired) {
+    if (!deps.markExternalWriteStarted || !claim.lockOwner) {
+      return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: ["external_write_marker_unavailable"] };
+    }
+    try {
+      const marker = await deps.markExternalWriteStarted({
+        invoiceJobId: claim.invoiceJobId,
+        localInvoiceId: claim.localInvoiceId,
+        requestId: claim.requestId,
+        attemptCount: claim.attemptCount,
+        lockOwner: claim.lockOwner,
+        lockedAt: claim.lockedAt,
+        lockExpiresAt: claim.lockExpiresAt,
+        payloadSha256: claim.payloadSha256,
+        payloadHashVersion: claim.payloadHashVersion,
+        targetOrganizationId: claim.targetOrganizationId,
+        creationState: claim.creationState,
+      });
+      const markerMatches = marker.externalWriteStarted === true
+        && marker.invoiceJobId === claim.invoiceJobId
+        && marker.attemptCount === claim.attemptCount
+        && marker.jobStatus === "processing"
+        && marker.creationState === claim.creationState
+        && Number.isFinite(Date.parse(marker.externalWriteStartedAt));
+      if (!markerMatches) {
+        return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: ["external_write_marker_mismatch"] };
+      }
+    } catch {
+      return { outcome: "blocked", postCount: 0, externalInvoiceId: null, reasons: ["external_write_marker_failed"] };
+    }
   }
   let created: LexwareProductionCreateResult;
   try {
