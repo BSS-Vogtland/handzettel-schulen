@@ -8,13 +8,28 @@ const core=await import(pathToFileURL(resolve(root,"app/lib/lexware/lexwareProdu
 const standardEnvironment={SMTP_HOST:"smtp.example.test",SMTP_PORT:"587",SMTP_USER:"user",SMTP_PASS:"pass",SMTP_FROM:"invoice@example.test"};
 assert.equal(core.resolveLexwareMailSenderAddress({SMTP_FROM:"invoice@example.test"}),"invoice@example.test","A sender only");
 assert.equal(core.resolveLexwareMailSenderAddress({...standardEnvironment,IONOS_SMTP_FROM:"fallback@example.test"}),"invoice@example.test","B standard sender precedence");
+assert.deepEqual(core.resolveLexwareSenderMailbox({SMTP_FROM:"BSS Vogtland <invoice@example.test>"}),{
+  email:"invoice@example.test",displayName:"BSS Vogtland",transportFrom:"BSS Vogtland <invoice@example.test>",
+},"B formatted mailbox");
+assert.deepEqual(core.resolveLexwareSenderMailbox({SMTP_FROM:'"BSS Vogtland" <invoice@example.test>'}),{
+  email:"invoice@example.test",displayName:"BSS Vogtland",transportFrom:'"BSS Vogtland" <invoice@example.test>',
+},"C quoted mailbox");
+assert.equal(/[<>]|BSS/.test(core.resolveLexwareMailSenderAddress({SMTP_FROM:"BSS Vogtland <invoice@example.test>"})),false,
+  "D/E snapshot contains only bare address");
 assert.throws(()=>core.resolveLexwareMailSenderAddress({}),/SMTP_SENDER_CONFIGURATION_INCOMPLETE/,"C missing sender");
+for(const invalidSender of ["invalid","Only a name","Name <invalid>","Name <mail@example.test",">mail@example.test<",
+  "first@example.test, second@example.test","Name <mail @example.test>","Name <mail@example.test>\r\nBcc: other@example.test"]){
+  assert.throws(()=>core.resolveLexwareSenderMailbox({SMTP_FROM:invalidSender}),/SMTP_SENDER_CONFIGURATION_INVALID/,
+    `G/H invalid sender: ${JSON.stringify(invalidSender)}`);
+}
 assert.deepEqual(core.resolveLexwareMailTransportConfiguration(standardEnvironment),{
   host:"smtp.example.test",port:587,user:"user",pass:"pass",from:"invoice@example.test",
 },"D standard SMTP contract");
 assert.deepEqual(core.resolveLexwareMailTransportConfiguration({
   IONOS_SMTP_HOST:"smtp.ionos.test",IONOS_SMTP_PORT:"465",IONOS_SMTP_USER:"user",IONOS_SMTP_PASSWORD:"pass",IONOS_SMTP_FROM:"invoice@example.test",
 }),{host:"smtp.ionos.test",port:465,user:"user",pass:"pass",from:"invoice@example.test"},"E IONOS fallback");
+assert.equal(core.resolveLexwareMailTransportConfiguration({...standardEnvironment,SMTP_FROM:"BSS Vogtland <invoice@example.test>"}).from,
+  "BSS Vogtland <invoice@example.test>","F transport display name retained");
 assert.throws(()=>core.resolveLexwareMailTransportConfiguration({SMTP_FROM:"invoice@example.test"}),/SMTP_CONFIGURATION_INCOMPLETE/,"F missing credentials");
 assert.throws(()=>core.resolveLexwareMailTransportConfiguration({...standardEnvironment,SMTP_PORT:"25"}),/SMTP_CONFIGURATION_INVALID/,"G invalid transport");
 const pdf=new Uint8Array(Buffer.from(`%PDF-${"x".repeat(200)}`));

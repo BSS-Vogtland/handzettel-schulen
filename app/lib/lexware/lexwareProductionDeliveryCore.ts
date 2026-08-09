@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import addressparser from "nodemailer/lib/addressparser/index.js";
 
 export const LEXWARE_PDF_BUCKET = "lexware-invoice-pdfs";
 export const LEXWARE_PDF_MIN_BYTES = 100;
@@ -26,12 +27,30 @@ const firstConfiguredValue = (environment: LexwareMailEnvironment, names: readon
   return null;
 };
 
-export function resolveLexwareMailSenderAddress(environment: LexwareMailEnvironment) {
-  const from = firstConfiguredValue(environment, [
+export function resolveLexwareSenderMailbox(environment: LexwareMailEnvironment) {
+  const transportFrom = firstConfiguredValue(environment, [
     "SMTP_FROM", "EMAIL_FROM", "MAIL_FROM", "IONOS_SMTP_FROM", "ADMIN_MAIL_FROM",
   ]);
-  if (!from) throw new Error("SMTP_SENDER_CONFIGURATION_INCOMPLETE");
-  return from;
+  if (!transportFrom) throw new Error("SMTP_SENDER_CONFIGURATION_INCOMPLETE");
+  if (/[\r\n]/.test(transportFrom)) throw new Error("SMTP_SENDER_CONFIGURATION_INVALID");
+  const openingBracketCount = (transportFrom.match(/</g) ?? []).length;
+  const closingBracketCount = (transportFrom.match(/>/g) ?? []).length;
+  if (openingBracketCount !== closingBracketCount || openingBracketCount > 1
+      || (openingBracketCount === 1 && transportFrom.indexOf("<") > transportFrom.indexOf(">"))) {
+    throw new Error("SMTP_SENDER_CONFIGURATION_INVALID");
+  }
+  const parsed = addressparser(transportFrom);
+  if (parsed.length !== 1 || "group" in parsed[0]) throw new Error("SMTP_SENDER_CONFIGURATION_INVALID");
+  const email = parsed[0].address.trim().toLowerCase();
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
+    throw new Error("SMTP_SENDER_CONFIGURATION_INVALID");
+  }
+  const displayName = parsed[0].name.trim() || null;
+  return { email, displayName, transportFrom };
+}
+
+export function resolveLexwareMailSenderAddress(environment: LexwareMailEnvironment) {
+  return resolveLexwareSenderMailbox(environment).email;
 }
 
 export function resolveLexwareMailTransportConfiguration(
@@ -55,7 +74,7 @@ export function resolveLexwareMailTransportConfiguration(
     port: rawPort,
     user,
     pass,
-    from: resolveLexwareMailSenderAddress(environment),
+    from: resolveLexwareSenderMailbox(environment).transportFrom,
   };
 }
 
