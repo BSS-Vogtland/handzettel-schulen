@@ -8,6 +8,57 @@ export const LEXWARE_MAIL_ENQUEUE_CONFIRMATION = "ENQUEUE_SINGLE_NATIVE_LEXWARE_
 export const LEXWARE_MAIL_ACTIVATE_CONFIRMATION = "ACTIVATE_SINGLE_NATIVE_LEXWARE_INVOICE_MAIL";
 export const LEXWARE_MAIL_PROCESS_CONFIRMATION = "PROCESS_SINGLE_NATIVE_LEXWARE_INVOICE_MAIL";
 
+export type LexwareMailEnvironment = Readonly<Record<string, string | undefined>>;
+
+export type LexwareMailTransportConfiguration = {
+  host: string;
+  port: 465 | 587;
+  user: string;
+  pass: string;
+  from: string;
+};
+
+const firstConfiguredValue = (environment: LexwareMailEnvironment, names: readonly string[]) => {
+  for (const name of names) {
+    const value = environment[name]?.trim();
+    if (value) return value;
+  }
+  return null;
+};
+
+export function resolveLexwareMailSenderAddress(environment: LexwareMailEnvironment) {
+  const from = firstConfiguredValue(environment, [
+    "SMTP_FROM", "EMAIL_FROM", "MAIL_FROM", "IONOS_SMTP_FROM", "ADMIN_MAIL_FROM",
+  ]);
+  if (!from) throw new Error("SMTP_SENDER_CONFIGURATION_INCOMPLETE");
+  return from;
+}
+
+export function resolveLexwareMailTransportConfiguration(
+  environment: LexwareMailEnvironment,
+): LexwareMailTransportConfiguration {
+  const rawPort = Number(firstConfiguredValue(environment, [
+    "SMTP_PORT", "EMAIL_SERVER_PORT", "EMAIL_PORT", "MAIL_PORT", "IONOS_SMTP_PORT",
+  ]) ?? 587);
+  if (rawPort !== 465 && rawPort !== 587) throw new Error("SMTP_CONFIGURATION_INVALID");
+  const user = firstConfiguredValue(environment, [
+    "SMTP_USER", "SMTP_USERNAME", "SMTP_AUTH_USER", "EMAIL_SERVER_USER", "EMAIL_USER", "MAIL_USER", "IONOS_SMTP_USER",
+  ]);
+  const pass = firstConfiguredValue(environment, [
+    "SMTP_PASS", "SMTP_PASSWORD", "SMTP_AUTH_PASS", "EMAIL_SERVER_PASSWORD", "EMAIL_PASSWORD", "MAIL_PASSWORD", "IONOS_SMTP_PASSWORD",
+  ]);
+  if (!user || !pass) throw new Error("SMTP_CONFIGURATION_INCOMPLETE");
+  return {
+    host: firstConfiguredValue(environment, [
+      "SMTP_HOST", "SMTP_SERVER", "EMAIL_SERVER_HOST", "EMAIL_HOST", "MAIL_HOST", "IONOS_SMTP_HOST",
+    ]) ?? "smtp.ionos.de",
+    port: rawPort,
+    user,
+    pass,
+    from: resolveLexwareMailSenderAddress(environment),
+  };
+}
+
 export type StoredPdf = {
   bucket: typeof LEXWARE_PDF_BUCKET;
   path: string;

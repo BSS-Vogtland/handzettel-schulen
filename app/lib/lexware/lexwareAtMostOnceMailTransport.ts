@@ -3,31 +3,18 @@ import "server-only";
 import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import {
+  resolveLexwareMailSenderAddress,
+  resolveLexwareMailTransportConfiguration,
+  type LexwareMailTransportConfiguration,
+} from "./lexwareProductionDeliveryCore";
 
-export type LexwareMailTransportConfiguration = {
-  host: string;
-  port: 465 | 587;
-  user: string;
-  pass: string;
-  from: string;
-};
-
-const required = (name: string) => {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error("SMTP_CONFIGURATION_INCOMPLETE");
-  return value;
-};
+export function readLexwareMailSenderAddress() {
+  return resolveLexwareMailSenderAddress(process.env);
+}
 
 export function readLexwareMailTransportConfiguration(): LexwareMailTransportConfiguration {
-  const rawPort = Number(process.env.IONOS_SMTP_PORT || 587);
-  if (rawPort !== 465 && rawPort !== 587) throw new Error("SMTP_CONFIGURATION_INVALID");
-  return {
-    host: process.env.IONOS_SMTP_HOST?.trim() || "smtp.ionos.de",
-    port: rawPort,
-    user: required("IONOS_SMTP_USER"),
-    pass: required("IONOS_SMTP_PASSWORD"),
-    from: required("IONOS_SMTP_FROM"),
-  };
+  return resolveLexwareMailTransportConfiguration(process.env);
 }
 
 export async function sendLexwareInvoiceMailAtMostOnce(

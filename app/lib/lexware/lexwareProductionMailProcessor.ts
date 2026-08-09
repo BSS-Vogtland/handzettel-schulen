@@ -1,8 +1,8 @@
 import "server-only";
 
 import { supabaseServer } from "@/lib/supabase/server";
-import { readLexwareMailTransportConfiguration, sendLexwareInvoiceMailAtMostOnce } from "./lexwareAtMostOnceMailTransport";
-import { buildDeterministicMailMessageId, sendClaimedMailAtMostOnce, type StoredPdf } from "./lexwareProductionDeliveryCore";
+import { readLexwareMailSenderAddress, readLexwareMailTransportConfiguration, sendLexwareInvoiceMailAtMostOnce } from "./lexwareAtMostOnceMailTransport";
+import { buildDeterministicMailMessageId, sendClaimedMailAtMostOnce, type LexwareMailTransportConfiguration, type StoredPdf } from "./lexwareProductionDeliveryCore";
 import { loadStoredNativeLexwarePdf } from "./lexwareProductionPdfStorage";
 
 type MailJob = { id:string;local_invoice_id:string;invoice_job_id:string;idempotency_key:string;status:string;attempt_count:number;
@@ -27,7 +27,7 @@ export async function enqueueNativeLexwareInvoiceMail(invoiceId: string) {
   if (!data.lexware_invoice_job_id || !data.lexware_invoice_number || !data.billing_email_snapshot || !data.lexware_pdf_sha256) {
     throw new Error("NATIVE_MAIL_ENQUEUE_PRECONDITION_BLOCKED");
   }
-  const configuration = readLexwareMailTransportConfiguration();
+  const fromAddress = readLexwareMailSenderAddress();
   const amount = new Intl.NumberFormat("de-DE", { style:"currency",currency:data.currency || "EUR" }).format(Number(data.total_amount));
   const subject = `Ihre Rechnung ${data.lexware_invoice_number}`;
   const textBody = `Guten Tag${data.billing_name_snapshot ? ` ${data.billing_name_snapshot}` : ""},\n\nim Anhang erhalten Sie Ihre Rechnung ${data.lexware_invoice_number} über ${amount}.\nZahlungsart: ${data.selected_payment_method || "gemäß Bestellung"}.\n\nFreundliche Grüße\nBSS Vogtland / Handzettel-Schulen.de`;
@@ -36,8 +36,8 @@ export async function enqueueNativeLexwareInvoiceMail(invoiceId: string) {
     paymentMethod:data.selected_payment_method || null,attachmentSha256:data.lexware_pdf_sha256 };
   const { data: rpcData, error: rpcError } = await supabaseServer.rpc("enqueue_native_lexware_invoice_mail_job_manual", {
     p_invoice_job_id:data.lexware_invoice_job_id,p_recipient_email:data.billing_email_snapshot,
-    p_recipient_name:data.billing_name_snapshot,p_from_name:"BSS Vogtland / Handzettel-Schulen.de",p_from_email:configuration.from,
-    p_reply_to_email:configuration.from,p_subject:subject,p_text_body:textBody,p_html_body:htmlBody,
+    p_recipient_name:data.billing_name_snapshot,p_from_name:"BSS Vogtland / Handzettel-Schulen.de",p_from_email:fromAddress,
+    p_reply_to_email:fromAddress,p_subject:subject,p_text_body:textBody,p_html_body:htmlBody,
     p_attachment_filename:data.lexware_pdf_filename || `Rechnung_${data.lexware_invoice_number}.pdf`,p_mail_payload_snapshot:payload,
   });
   if (rpcError || !rpcData) throw rpcError ?? new Error("NATIVE_MAIL_ENQUEUE_FAILED");
@@ -73,11 +73,13 @@ export async function processLexwareProductionMailJob(invoiceId: string) {
   if (claimed.pdf_sha256 !== metadata.sha256 || claimed.pdf_size_bytes !== metadata.sizeBytes
       || claimed.lexware_pdf_storage_path !== metadata.path) throw new Error("NATIVE_MAIL_PDF_SNAPSHOT_MISMATCH");
   const messageId = buildDeterministicMailMessageId({ mailJobId:claimed.id,idempotencyKey:claimed.idempotency_key,pdfSha256:metadata.sha256 });
+  let transportConfiguration: LexwareMailTransportConfiguration | null = null;
   return sendClaimedMailAtMostOnce({ pdf:loaded.content,metadata,messageId,
-    validateTransport:()=>{ readLexwareMailTransportConfiguration(); },
+    validateTransport:()=>{ transportConfiguration = readLexwareMailTransportConfiguration(); },
     markSendStarted:async (id)=>{ const { error }=await supabaseServer.rpc("mark_native_lexware_invoice_mail_send_started",{p_invoice_id:invoiceId,p_mail_job_id:claimed.id,p_attempt_count:claimed.attempt_count,p_locked_by:lockedBy,p_message_id:id}); if(error) throw error; },
-    send:async (id)=>sendLexwareInvoiceMailAtMostOnce({to:claimed.recipient_email_snapshot,subject:claimed.subject_snapshot,text:claimed.text_body_snapshot,
-      html:claimed.html_body_snapshot,messageId:id,attachments:[{filename:claimed.attachment_filename_snapshot,content:Buffer.from(loaded.content),contentType:"application/pdf"}]}),
+    send:async (id)=>{ if (!transportConfiguration) throw new Error("SMTP_CONFIGURATION_NOT_VALIDATED");
+      return sendLexwareInvoiceMailAtMostOnce({to:claimed.recipient_email_snapshot,subject:claimed.subject_snapshot,text:claimed.text_body_snapshot,
+        html:claimed.html_body_snapshot,messageId:id,attachments:[{filename:claimed.attachment_filename_snapshot,content:Buffer.from(loaded.content),contentType:"application/pdf"}]},transportConfiguration); },
     complete:async (id)=>{ const { error }=await supabaseServer.rpc("complete_native_lexware_invoice_mail_send",{p_invoice_id:invoiceId,p_mail_job_id:claimed.id,p_attempt_count:claimed.attempt_count,p_locked_by:lockedBy,p_message_id:id}); if(error) throw error; },
     recordDefiniteFailure:async (code)=>{ const { error }=await supabaseServer.rpc("record_native_lexware_invoice_mail_failure",{p_invoice_id:invoiceId,p_mail_job_id:claimed.id,p_attempt_count:claimed.attempt_count,p_locked_by:lockedBy,p_error_code:code,p_ambiguous:false}); if(error) throw error; },
     recordAmbiguous:async (reason)=>{ const { error }=await supabaseServer.rpc("record_native_lexware_invoice_mail_failure",{p_invoice_id:invoiceId,p_mail_job_id:claimed.id,p_attempt_count:claimed.attempt_count,p_locked_by:lockedBy,p_error_code:reason,p_ambiguous:true}); if(error) throw error; },
