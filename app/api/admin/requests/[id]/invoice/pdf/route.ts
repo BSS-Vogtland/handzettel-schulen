@@ -1,5 +1,7 @@
 import { requireAdminApiSession } from "@/app/lib/adminApiAuth";
 import { generateRequestInvoicePdf } from "@/app/lib/requestInvoicePdfService";
+import { loadStoredNativeLexwarePdf } from "@/app/lib/lexware/lexwareProductionPdfStorage";
+import { supabaseServer } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -24,6 +26,27 @@ export async function GET(_request: Request, context: RouteContext) {
       );
     }
 
+    const { data: invoice, error: invoiceError } = await supabaseServer
+      .from("school_request_invoices")
+      .select("id,invoice_provider")
+      .eq("request_id", requestId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (invoiceError || !invoice) throw invoiceError ?? new Error("Rechnung nicht gefunden.");
+
+    if (invoice.invoice_provider === "lexware") {
+      const nativePdf = await loadStoredNativeLexwarePdf(invoice.id);
+      return new NextResponse(nativePdf.content, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${nativePdf.metadata.filename}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const pdf = await generateRequestInvoicePdf({ requestId });
 
     return new NextResponse(new Uint8Array(pdf.buffer), {
@@ -35,15 +58,12 @@ export async function GET(_request: Request, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error("Invoice PDF error:", error);
+    console.error("Invoice PDF error:", error instanceof Error ? error.message : "INVOICE_PDF_FAILED");
 
     return NextResponse.json(
       {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Die Rechnungs-PDF konnte nicht erzeugt werden.",
+        message: "Die Rechnungs-PDF ist nicht verfügbar.",
       },
       { status: 500 }
     );

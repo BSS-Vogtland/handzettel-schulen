@@ -24,7 +24,7 @@ function createLoginRedirect(request: NextRequest) {
 }
 
 const LEXWARE_NO_STORE_ADMIN_ROUTE =
-  /^\/api\/admin\/lexware\/invoices\/[^/]+\/(?:production-write-permit|activate-production-job|claim-production-job|expire-production-permit|reissue-production-permit|recover-external-result|pdf-audit)$/;
+  /^\/api\/admin\/lexware\/invoices\/[^/]+\/(?:production-write-permit|activate-production-job|claim-production-job|expire-production-permit|reissue-production-permit|recover-external-result|pdf-audit|prepare-pdf|enqueue-mail|activate-mail|process-mail)$/;
 
 function requiresNoStoreApiUnauthorizedResponse(pathname: string) {
   return (
