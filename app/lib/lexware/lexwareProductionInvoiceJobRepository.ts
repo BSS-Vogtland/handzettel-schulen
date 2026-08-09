@@ -313,3 +313,57 @@ export async function markNativeLexwareExternalWriteStarted(input: {
     creationState: creationState === "not_attempted" ? "not_attempted" : "definite_not_created",
   };
 }
+
+export async function finalizeNativeLexwareInvoiceAfterReadBack(input: {
+  jobId: string;
+  localInvoiceId: string;
+  expectedRequestId: string;
+  expectedAttemptCount: number;
+  expectedLockedBy: string;
+  expectedLockedAt: string;
+  expectedLockExpiresAt: string;
+  expectedExternalInvoiceId: string;
+  expectedResourceUri: string;
+  expectedProviderCreatedAt: string;
+  expectedExternalWriteCompletedAt: string;
+  expectedPayloadSha256: string;
+  expectedPayloadHashVersion: EligibleLocalInvoice["payloadHashVersion"];
+  expectedTargetOrganizationId: string;
+  expectedCredentialAlias: string;
+  expectedIdempotencyKey: string;
+  readBackInvoiceNumber: string;
+  readBackVoucherStatus: string;
+}): Promise<void> {
+  const supabaseServer = await getSupabaseServer();
+  const { data, error } = await supabaseServer.rpc("finalize_native_lexware_invoice_after_readback", {
+    p_job_id: input.jobId,
+    p_local_invoice_id: input.localInvoiceId,
+    p_expected_request_id: input.expectedRequestId,
+    p_expected_attempt_count: input.expectedAttemptCount,
+    p_expected_locked_by: input.expectedLockedBy,
+    p_expected_locked_at: input.expectedLockedAt,
+    p_expected_lock_expires_at: input.expectedLockExpiresAt,
+    p_expected_external_invoice_id: input.expectedExternalInvoiceId,
+    p_expected_resource_uri: input.expectedResourceUri,
+    p_expected_provider_created_at: input.expectedProviderCreatedAt,
+    p_expected_external_write_completed_at: input.expectedExternalWriteCompletedAt,
+    p_expected_payload_sha256: input.expectedPayloadSha256,
+    p_expected_payload_hash_version: input.expectedPayloadHashVersion,
+    p_expected_target_organization_id: input.expectedTargetOrganizationId,
+    p_expected_credential_alias: input.expectedCredentialAlias,
+    p_expected_idempotency_key: input.expectedIdempotencyKey,
+    p_read_back_invoice_number: input.readBackInvoiceNumber,
+    p_read_back_voucher_status: input.readBackVoucherStatus,
+  });
+  if (error) fail("NATIVE_INVOICE_FINALIZE_FAILED", error.message || "Die native Lexware-Rechnung konnte nicht atomar finalisiert werden.");
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object" || Array.isArray(row)) fail("NATIVE_INVOICE_FINALIZE_RESULT_INVALID", "Die Finalize-RPC lieferte kein gültiges Ergebnis.");
+  const result = row as Record<string, unknown>;
+  if (result.finalization_applied !== true || result.invoice_id !== input.localInvoiceId
+      || result.job_id !== input.jobId || result.job_status !== "succeeded"
+      || result.creation_state !== "definitely_created"
+      || result.external_invoice_id !== input.expectedExternalInvoiceId
+      || result.external_invoice_number !== input.readBackInvoiceNumber) {
+    fail("NATIVE_INVOICE_FINALIZE_RESULT_INVALID", "Die Finalize-RPC lieferte kein gültiges Ergebnis.");
+  }
+}

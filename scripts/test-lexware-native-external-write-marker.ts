@@ -121,7 +121,7 @@ function fixture(options: FixtureOptions = {}) {
     },
     persistExternalResult: async () => undefined,
     readInvoice: async () => ({
-      voucherStatus: "open", voucherNumber: "RE-1", organizationId: ORG,
+      id: EXTERNAL_ID, voucherStatus: "open", voucherNumber: "RE-1", organizationId: ORG,
       lineItems: [], paymentTermLabel: "7 Tage",
       totalPrice: { currency: "EUR", totalNetAmount: 0.84, totalGrossAmount: 1, totalTaxAmount: 0.16 },
       taxAmounts: [],

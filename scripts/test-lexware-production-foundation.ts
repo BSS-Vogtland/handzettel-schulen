@@ -141,7 +141,7 @@ function fixture(overrides: FoundationFixtureOverrides = {}) {
     lexware_invoice_id: null, lexware_invoice_number: null, completed_at: null,
     lock_expires_at: null, local_invoice_id: "invoice", request_id: "", trigger_source: "admin_manual_enqueue",
     target_organization_id: UUID, ...overrides.job };
-  const readBack: LexwareInvoiceReadModel = { voucherStatus: "open", voucherNumber: "RE-1", organizationId: UUID, lineItems: [], paymentTermLabel: "7 Tage", totalPrice: { currency: "EUR", totalNetAmount: 0.84, totalGrossAmount: 1, totalTaxAmount: 0.16 }, taxAmounts: [] };
+  const readBack: LexwareInvoiceReadModel = { id: UUID, voucherStatus: "open", voucherNumber: "RE-1", organizationId: UUID, lineItems: [], paymentTermLabel: "7 Tage", totalPrice: { currency: "EUR", totalNetAmount: 0.84, totalGrossAmount: 1, totalTaxAmount: 0.16 }, taxAmounts: [] };
   const storedPayload: LexwareInvoicePayloadBuildResult<Record<string, unknown>> = { payload: { lineItems: [{}], paymentConditions: { paymentTermLabel: "7 Tage" } }, expected: { totalGrossAmount: 1, totalNetAmount: 0.84, totalTaxAmount: 0.16, taxRates: [] } };
   const currentPayload: LexwareInvoicePayloadBuildResult<Record<string, unknown>> = { payload: { lineItems: [{}], paymentConditions: { paymentTermLabel: "7 Tage" } }, expected: { totalGrossAmount: 1, totalNetAmount: 0.84, totalTaxAmount: 0.16, taxRates: [] } };
   const deps: ProcessorDependencies<Record<string, unknown>> = {

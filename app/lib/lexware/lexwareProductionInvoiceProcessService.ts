@@ -10,6 +10,7 @@ import { buildLexwarePayloadSha256, parseLexwarePayloadHashVersion } from "./lex
 import { canAttemptExternalWrite, evaluateLexwareProductionGates, isValidJobCreationStateCombination } from "./lexwareProductionInvoiceJob";
 import {
   claimInvoiceJobForProcessing,
+  finalizeNativeLexwareInvoiceAfterReadBack,
   markNativeLexwareExternalWriteStarted,
   reclaimNativeInvoiceJobForProcessing,
 } from "./lexwareProductionInvoiceJobRepository";
@@ -272,16 +273,37 @@ export async function processLexwareProductionInvoiceById(
     },
     persistExternalResult: async (created) => {
       const timestamp = new Date().toISOString();
-      const { error } = await supabaseServer.from("school_lexware_invoice_jobs").update({
+      const { data, error } = await supabaseServer.from("school_lexware_invoice_jobs").update({
         lexware_invoice_id: created.id, lexware_resource_uri: created.resourceUri,
         lexware_created_date: created.createdDate, creation_state: "definitely_created",
         external_write_completed_at: timestamp,
-      }).eq("id", job.id);
-      if (error) throw error;
-      const { error: invoiceUpdateError } = await supabaseServer.from("school_request_invoices")
-        .update({ lexware_invoice_id: created.id, lexware_organization_id: await loadOrganizationId() }).eq("id", invoiceId);
-      if (invoiceUpdateError) throw invoiceUpdateError;
+      }).eq("id", job.id).eq("status", "processing").select("id").maybeSingle();
+      if (error || !data) throw error ?? new Error("NATIVE_EXTERNAL_RESULT_JOB_CAS_CONFLICT");
+      return { externalWriteCompletedAt: timestamp };
     },
+    finalizeNativeExternalResult: nativeProductionJob ? async ({ created, externalWriteCompletedAt, readBack, claim }) => {
+      if (!claim.lockOwner || !readBack.voucherNumber) throw new Error("NATIVE_FINALIZE_BINDING_MISSING");
+      await finalizeNativeLexwareInvoiceAfterReadBack({
+        jobId: claim.invoiceJobId,
+        localInvoiceId: claim.localInvoiceId,
+        expectedRequestId: claim.requestId,
+        expectedAttemptCount: claim.attemptCount,
+        expectedLockedBy: claim.lockOwner,
+        expectedLockedAt: claim.lockedAt,
+        expectedLockExpiresAt: claim.lockExpiresAt,
+        expectedExternalInvoiceId: created.id,
+        expectedResourceUri: created.resourceUri,
+        expectedProviderCreatedAt: created.createdDate,
+        expectedExternalWriteCompletedAt: externalWriteCompletedAt,
+        expectedPayloadSha256: claim.payloadSha256,
+        expectedPayloadHashVersion: claim.payloadHashVersion,
+        expectedTargetOrganizationId: claim.targetOrganizationId,
+        expectedCredentialAlias: job.credential_alias_snapshot,
+        expectedIdempotencyKey: job.idempotency_key,
+        readBackInvoiceNumber: readBack.voucherNumber,
+        readBackVoucherStatus: readBack.voucherStatus ?? "",
+      });
+    } : undefined,
     readInvoice: (id) => getLexwareInvoice("production", id),
     compareReadBack: (readBack, payload, validatedOrganizationId) => compareLexwareOpenInvoiceReadBack(readBack, payload, validatedOrganizationId),
     currentTime: () => new Date().toISOString(),

@@ -106,7 +106,7 @@ function fixture(overrides: Overrides = {}) {
     persistJobTransition: async () => { counts.mutations += 1; },
     createFinalInvoice: async () => { counts.clients += 1; events.push("client"); posts += 1; events.push("post"); return { id: OTHER, resourceUri: `https://api.lexware.io/v1/invoices/${OTHER}`, createdDate: "2026-08-04T10:00:01.000Z", updatedDate: null, version: 1, requestCount: 1, finalize: true, creationState: "definitely_created" }; },
     persistExternalResult: async () => undefined,
-    readInvoice: async () => { reads += 1; return { voucherStatus: "open", voucherNumber: "RE-1", organizationId: ORG, lineItems: [], paymentTermLabel: "7 Tage", totalPrice: { currency: "EUR", totalNetAmount: 0.84, totalGrossAmount: 1, totalTaxAmount: 0.16 }, taxAmounts: [] }; },
+    readInvoice: async (id) => { reads += 1; return { id, voucherStatus: "open", voucherNumber: "RE-1", organizationId: ORG, lineItems: [], paymentTermLabel: "7 Tage", totalPrice: { currency: "EUR", totalNetAmount: 0.84, totalGrossAmount: 1, totalTaxAmount: 0.16 }, taxAmounts: [] }; },
     compareReadBack: () => overrides.differences ?? [], currentTime: () => "2026-08-04T10:00:00.000Z",
   };
   return { deps, events, counts, job, get claims() { return claims; }, get posts() { return posts; }, get reads() { return reads; } };

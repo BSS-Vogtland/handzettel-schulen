@@ -15,6 +15,7 @@ export type LexwareProductionGateResult = {
   failedChecks: string[];
 };
 export type LexwareInvoiceReadModel = {
+  id: string;
   voucherStatus: string | null;
   voucherNumber?: string | null;
   organizationId: string;
@@ -50,7 +51,7 @@ export type LexwareInvoicePayloadBuildResult<TLineItem = unknown> = {
   };
 };
 type LexwareInvoicePayloadValidationResult = { valid: boolean };
-type LexwareProductionCreateResult = {
+export type LexwareProductionCreateResult = {
   id: string;
   resourceUri: string;
   createdDate: string;
@@ -217,7 +218,24 @@ export type ProcessorDependencies<TLineItem = unknown> = {
   }>;
   persistJobTransition(transition: JobTransition): Promise<void>;
   createFinalInvoice(payload: LexwareInvoicePayloadBuildResult<TLineItem>, organizationId: string): Promise<LexwareProductionCreateResult>;
-  persistExternalResult(result: LexwareProductionCreateResult): Promise<void>;
+  persistExternalResult(result: LexwareProductionCreateResult): Promise<void | { externalWriteCompletedAt: string }>;
+  finalizeNativeExternalResult?(input: {
+    created: LexwareProductionCreateResult;
+    externalWriteCompletedAt: string;
+    readBack: LexwareInvoiceReadModel;
+    claim: {
+      invoiceJobId: string;
+      localInvoiceId: string;
+      requestId: string;
+      attemptCount: number;
+      lockedAt: string;
+      lockExpiresAt: string;
+      lockOwner?: string;
+      payloadSha256: string;
+      payloadHashVersion: Exclude<ProductionInvoiceJob["payload_hash_version"], null>;
+      targetOrganizationId: string;
+    };
+  }): Promise<void>;
   readInvoice(id: string): Promise<LexwareInvoiceReadModel>;
   compareReadBack(invoice: LexwareInvoiceReadModel, payload: LexwareInvoicePayloadBuildResult<TLineItem>, organizationId: string): string[];
   currentTime(): string;
@@ -244,14 +262,36 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
   const invoice = await deps.loadLocalInvoice();
   const job = await deps.loadOrCreateJob();
   const preclaimedClaim = deps.loadPreclaimedClaim ? await deps.loadPreclaimedClaim(job) : null;
-  const verifyExisting = async (id: string, postCount: number, payload: LexwareInvoicePayloadBuildResult<TLineItem>, organizationId: string): Promise<ProcessorResult> => {
-    const readBack = await deps.readInvoice(id);
+  const verifyExisting = async (
+    id: string,
+    postCount: number,
+    payload: LexwareInvoicePayloadBuildResult<TLineItem>,
+    organizationId: string,
+    nativeFinalization?: Omit<Parameters<NonNullable<ProcessorDependencies<TLineItem>["finalizeNativeExternalResult"]>>[0], "readBack">,
+  ): Promise<ProcessorResult> => {
+    let readBack: LexwareInvoiceReadModel;
+    try {
+      readBack = await deps.readInvoice(id);
+    } catch {
+      await deps.persistJobTransition({ status: "manual_review", creation_state: "definitely_created", last_error_code: "READ_BACK_FAILED" });
+      return { outcome: "manual_review", postCount, externalInvoiceId: id, reasons: ["read_back_failed"] };
+    }
     const differences = deps.compareReadBack(readBack, payload, organizationId);
+    if (readBack.id !== id) differences.push("external_invoice_id_mismatch");
     const voucherNumber = readBack.voucherNumber || null;
     if (!voucherNumber) differences.push("voucher_number_missing");
     if (differences.length) {
       await deps.persistJobTransition({ status: "manual_review", creation_state: "definitely_created", last_error_code: "READ_BACK_MISMATCH" });
       return { outcome: "manual_review", postCount, externalInvoiceId: id, reasons: differences };
+    }
+    if (nativeFinalization && deps.finalizeNativeExternalResult) {
+      try {
+        await deps.finalizeNativeExternalResult({ ...nativeFinalization, readBack });
+      } catch {
+        await deps.persistJobTransition({ status: "manual_review", creation_state: "definitely_created", last_error_code: "LOCAL_FINALIZE_FAILED" }).catch(() => undefined);
+        return { outcome: "manual_review", postCount, externalInvoiceId: id, reasons: ["local_finalize_failed"] };
+      }
+      return { outcome: "succeeded", postCount, externalInvoiceId: id, reasons: [] };
     }
     await deps.persistJobTransition({ status: "succeeded", creation_state: "definitely_created", completed_at: deps.currentTime(), lexware_invoice_number: voucherNumber ?? undefined, lexware_voucher_status: "open" });
     return { outcome: "succeeded", postCount, externalInvoiceId: id, reasons: [] };
@@ -411,12 +451,19 @@ export async function processLexwareProductionInvoiceCore<TLineItem = unknown>(
     });
     return { outcome: state === "definite_not_created" ? "blocked" : "manual_review", postCount: 1, externalInvoiceId: null, reasons: [state] };
   }
+  let persistedExternalResult: void | { externalWriteCompletedAt: string };
   try {
-    await deps.persistExternalResult(created);
-    await deps.persistJobTransition({ status: "processing", creation_state: "definitely_created", lexware_invoice_id: created.id, lexware_resource_uri: created.resourceUri, lexware_created_date: created.createdDate, external_write_completed_at: deps.currentTime() });
+    persistedExternalResult = await deps.persistExternalResult(created);
+    if (!persistedExternalResult) {
+      await deps.persistJobTransition({ status: "processing", creation_state: "definitely_created", lexware_invoice_id: created.id, lexware_resource_uri: created.resourceUri, lexware_created_date: created.createdDate, external_write_completed_at: deps.currentTime() });
+    }
   } catch {
     await deps.persistJobTransition({ status: "manual_review", creation_state: "creation_state_unknown", last_error_code: "EXTERNAL_RESULT_PERSIST_FAILED" }).catch(() => undefined);
     return { outcome: "manual_review", postCount: 1, externalInvoiceId: created.id, reasons: ["external_result_persist_failed"] };
   }
-  return verifyExisting(created.id, 1, payload, organizationId);
+  return verifyExisting(created.id, 1, payload, organizationId, deps.finalizeNativeExternalResult && persistedExternalResult ? {
+    created,
+    externalWriteCompletedAt: persistedExternalResult.externalWriteCompletedAt,
+    claim,
+  } : undefined);
 }
