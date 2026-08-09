@@ -69,11 +69,12 @@ assert.match(adminPdf,/invoice_provider === "lexware"/,"M");assert.match(adminPd
 assert.match(processor,/enqueue_native_lexware_invoice_mail_job_manual/,"O/Q");assert.match(processor,/activate_native_lexware_invoice_mail_job/,"R");assert.match(processor,/claim_native_lexware_invoice_mail_job/,"S/T/U");
 assert.match(processor,/loadStoredNativeLexwarePdf/,"V/AK");assert.doesNotMatch(processor,/createFinalInvoice|finalize_native|requestInvoicePdf/,"AH/AI/AJ");
 assert.match(processor,/AUTOMATIC_MAIL_MUST_REMAIN_DISABLED/,"P/AZ");assert.match(migration,/manual_review/,"AD/AE");assert.match(migration,/attempt_count<max_attempts/,"AG");
-assert.match(processor,/readLexwareMailSenderAddress\(\)/,"manual enqueue sender snapshot only");
+assert.match(processor,/runNativeMailEnqueueStage\("sender_resolve",\s*readLexwareMailSenderAddress\)/,
+  "manual enqueue sender snapshot only");
 assert.doesNotMatch(processor,/enqueueNativeLexwareInvoiceMail[\s\S]*?const configuration = readLexwareMailTransportConfiguration/,
   "manual enqueue does not require SMTP transport credentials");
 assert.match(processor,/transportConfiguration = readLexwareMailTransportConfiguration\(\)/,"transport validated before marker");
 assert.match(processor,/sendLexwareInvoiceMailAtMostOnce\([\s\S]*?,transportConfiguration\)/,"validated transport reused for send");
-for(const route of routes){const source=await readFile(resolve(root,`app/api/admin/lexware/invoices/[invoiceId]/${route}/route.ts`),"utf8");assert.match(source,/requireAdminApiSession/,`AN ${route}`);assert.match(source,/hasSameRequestOrigin/,`AM ${route}`);assert.match(source,/Cache-Control":"no-store/,`AO ${route}`);assert.doesNotMatch(source,/console\.|process\.env/,`AP/AQ ${route}`);assert.match(middleware,new RegExp(route),`AN middleware ${route}`);}
+for(const route of routes){const source=await readFile(resolve(root,`app/api/admin/lexware/invoices/[invoiceId]/${route}/route.ts`),"utf8");assert.match(source,/requireAdminApiSession/,`AN ${route}`);assert.match(source,/hasSameRequestOrigin/,`AM ${route}`);assert.match(source,/Cache-Control"\s*:\s*"no-store/,`AO ${route}`);assert.doesNotMatch(source,/console\.|process\.env/,`AP/AQ ${route}`);assert.match(middleware,new RegExp(route),`AN middleware ${route}`);}
 assert.doesNotMatch(processor,/\.update\(/,"CAS only");assert.doesNotMatch(storage,/getPublicUrl/,"private storage");
 console.log("PASS A-AZ: native Lexware PDF storage and manual at-most-once mail delivery contracts.");
