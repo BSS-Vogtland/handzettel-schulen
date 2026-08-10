@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { readLexwareMailSenderAddress, readLexwareMailTransportConfiguration, sendLexwareInvoiceMailAtMostOnce } from "./lexwareAtMostOnceMailTransport";
 import { buildDeterministicMailMessageId, sendClaimedMailAtMostOnce, type LexwareMailTransportConfiguration, type StoredPdf } from "./lexwareProductionDeliveryCore";
 import { runNativeMailEnqueueStage } from "./lexwareNativeMailEnqueueDiagnostics";
+import { buildNativeLexwareInvoiceMailTemplate } from "./lexwareInvoiceMailTemplate";
 import { loadStoredNativeLexwarePdf } from "./lexwareProductionPdfStorage";
 
 type MailJob = { id:string;local_invoice_id:string;invoice_job_id:string;idempotency_key:string;status:string;attempt_count:number;
@@ -34,17 +35,18 @@ export async function enqueueNativeLexwareInvoiceMail(invoiceId: string) {
     }
   });
   const fromAddress = await runNativeMailEnqueueStage("sender_resolve", readLexwareMailSenderAddress);
-  const amount = new Intl.NumberFormat("de-DE", { style:"currency",currency:data.currency || "EUR" }).format(Number(data.total_amount));
-  const subject = `Ihre Rechnung ${data.lexware_invoice_number}`;
-  const textBody = `Guten Tag${data.billing_name_snapshot ? ` ${data.billing_name_snapshot}` : ""},\n\nim Anhang erhalten Sie Ihre Rechnung ${data.lexware_invoice_number} über ${amount}.\nZahlungsart: ${data.selected_payment_method || "gemäß Bestellung"}.\n\nFreundliche Grüße\nBSS Vogtland / Handzettel-Schulen.de`;
-  const htmlBody = `<p>Guten Tag,</p><p>im Anhang erhalten Sie Ihre Rechnung <strong>${data.lexware_invoice_number}</strong> über ${amount}. Zahlungsart: ${data.selected_payment_method || "gemäß Bestellung"}.</p><p>Freundliche Grüße<br>BSS Vogtland / Handzettel-Schulen.de</p>`;
-  const payload = { schemaVersion:"native-lexware-mail-v1",invoiceNumber:data.lexware_invoice_number,total:amount,
+  const template = buildNativeLexwareInvoiceMailTemplate({
+    invoiceNumber:data.lexware_invoice_number,billingName:data.billing_name_snapshot,totalAmount:data.total_amount,
+    currency:data.currency,paymentMethod:data.selected_payment_method,
+  });
+  const payload = { schemaVersion:"native-lexware-mail-v1",invoiceNumber:data.lexware_invoice_number,
+    total:new Intl.NumberFormat("de-DE", { style:"currency",currency:data.currency || "EUR" }).format(Number(data.total_amount)),
     paymentMethod:data.selected_payment_method || null,attachmentSha256:data.lexware_pdf_sha256 };
   return runNativeMailEnqueueStage("rpc_execution", async () => {
     const { data: rpcData, error: rpcError } = await supabaseServer.rpc("enqueue_native_lexware_invoice_mail_job_manual", {
       p_invoice_job_id:data.lexware_invoice_job_id,p_recipient_email:data.billing_email_snapshot,
       p_recipient_name:data.billing_name_snapshot,p_from_name:"BSS Vogtland / Handzettel-Schulen.de",p_from_email:fromAddress,
-      p_reply_to_email:fromAddress,p_subject:subject,p_text_body:textBody,p_html_body:htmlBody,
+      p_reply_to_email:fromAddress,p_subject:template.subject,p_text_body:template.text,p_html_body:template.html,
       p_attachment_filename:data.lexware_pdf_filename || `Rechnung_${data.lexware_invoice_number}.pdf`,p_mail_payload_snapshot:payload,
     });
     if (rpcError || !rpcData) throw rpcError ?? new Error("NATIVE_MAIL_ENQUEUE_FAILED");
