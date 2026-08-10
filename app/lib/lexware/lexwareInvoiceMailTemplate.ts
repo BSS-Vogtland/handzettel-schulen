@@ -20,6 +20,8 @@ const escapeHtml = (value: string) => value
   .replaceAll('"', "&quot;")
   .replaceAll("'", "&#39;");
 
+const HANDZETTEL_LOGO_URL = "https://www.handzettel-schulen.de/handzettel-logo.png";
+
 function resolvePaymentCopy(paymentMethod: string | null, invoiceNumber: string) {
   switch (paymentMethod) {
     case "bank_transfer":
@@ -39,7 +41,7 @@ function resolvePaymentCopy(paymentMethod: string | null, invoiceNumber: string)
       };
     case "cash_on_pickup":
       return {
-        label: "Zahlung bei Abholung",
+        label: "Barzahlung bei Abholung",
         instruction: "Sie bezahlen den Rechnungsbetrag bei der Abholung.",
       };
     default:
@@ -83,6 +85,7 @@ export function buildNativeLexwareInvoiceMailTemplate(
     "",
     "Bei Fragen antworten Sie einfach auf diese E-Mail.",
     "",
+    "Freundliche Grüße",
     "Ihr Team von Handzettel-Schulen.de",
     "BSS Vogtland",
   ].join("\n");
@@ -96,7 +99,9 @@ export function buildNativeLexwareInvoiceMailTemplate(
     subject: escapeHtml(subject),
   };
   const instructionHtml = safe.instruction
-    ? `<p style="margin:24px 0 0;color:#27364a;font-size:15px;line-height:1.65;">${safe.instruction}</p>`
+    ? input.paymentMethod === "bank_transfer"
+      ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;background:#FFF8EE;border:1px solid #F1D1A8;border-radius:16px;"><tr><td style="padding:18px 20px;color:#8A4A1F;font-size:15px;line-height:1.65;">${safe.instruction}</td></tr></table>`
+      : `<p style="margin:24px 0 0;color:#52616F;font-size:15px;line-height:1.65;">${safe.instruction}</p>`
     : "";
 
   const html = `<!doctype html>
@@ -108,38 +113,42 @@ export function buildNativeLexwareInvoiceMailTemplate(
   <style>
     @media only screen and (max-width: 600px) {
       .mail-shell { width: 100% !important; }
-      .mail-content { padding: 24px 20px !important; }
+      .mail-outer { padding: 12px 10px !important; }
+      .mail-content { padding: 22px 20px !important; }
+      .brand-logo { width: 160px !important; max-width: 100% !important; height: auto !important; }
+      .mail-heading { font-size: 24px !important; }
       .invoice-row td { display: block !important; width: 100% !important; padding: 4px 0 !important; text-align: left !important; }
+      .invoice-row-first td:first-child { padding-top: 18px !important; }
+      .invoice-row-last td:last-child { padding-bottom: 18px !important; }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#f3f6f8;color:#27364a;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f6f8;">
-    <tr><td align="center" style="padding:24px 12px;">
-      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" class="mail-shell" style="width:600px;max-width:100%;background:#ffffff;border:1px solid #dce4e9;border-radius:10px;overflow:hidden;">
-        <tr><td style="height:6px;background:#276c73;font-size:0;line-height:0;">&nbsp;</td></tr>
-        <tr><td class="mail-content" style="padding:32px 36px;">
-          <p style="margin:0 0 8px;color:#276c73;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">Handzettel-Schulen.de</p>
-          <h1 style="margin:0 0 24px;color:#1f2f42;font-size:25px;line-height:1.25;">${safe.subject}</h1>
-          <p style="margin:0 0 14px;font-size:15px;line-height:1.65;">${safe.greeting}</p>
-          <p style="margin:0 0 24px;font-size:15px;line-height:1.65;">Vielen Dank für Ihre Bestellung bei Handzettel-Schulen.de. Ihre Rechnung finden Sie als PDF im Anhang.</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f7fafb;border:1px solid #dce4e9;border-radius:8px;">
-            <tr class="invoice-row">
-              <td style="padding:18px 20px 6px;color:#5a6878;font-size:13px;">Rechnungsnummer</td>
-              <td style="padding:18px 20px 6px;color:#1f2f42;font-size:16px;font-weight:700;text-align:right;">${safe.invoiceNumber}</td>
+<body style="margin:0;padding:0;background:#FBF7F0;color:#102A43;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#FBF7F0;">
+    <tr><td align="center" class="mail-outer" style="padding:28px 12px;">
+      <table role="presentation" width="620" cellspacing="0" cellpadding="0" border="0" class="mail-shell" style="width:620px;max-width:100%;background:#FFFFFF;border:1px solid #E8DED2;border-radius:28px;overflow:hidden;">
+        <tr><td class="mail-content" style="padding:28px;">
+          <img class="brand-logo" src="${HANDZETTEL_LOGO_URL}" width="190" alt="Handzettel-Schulen.de" style="display:block;width:190px;max-width:100%;height:auto;margin:0 0 24px;border:0;">
+          <h1 class="mail-heading" style="margin:0 0 24px;color:#102A43;font-size:28px;font-weight:700;line-height:1.3;">${safe.subject}</h1>
+          <p style="margin:0 0 14px;color:#52616F;font-size:15px;line-height:1.65;">${safe.greeting}</p>
+          <p style="margin:0 0 24px;color:#52616F;font-size:15px;line-height:1.65;">Vielen Dank für Ihre Bestellung bei Handzettel-Schulen.de.<br>Ihre Rechnung finden Sie als PDF im Anhang dieser E-Mail.</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#FBF7F0;border:1px solid #E8DED2;border-radius:16px;">
+            <tr class="invoice-row invoice-row-first">
+              <td style="padding:20px 22px 7px;color:#52616F;font-size:13px;">Rechnungsnummer</td>
+              <td style="padding:20px 22px 7px;color:#102A43;font-size:16px;font-weight:700;text-align:right;">${safe.invoiceNumber}</td>
             </tr>
             <tr class="invoice-row">
-              <td style="padding:8px 20px 6px;color:#5a6878;font-size:13px;">Rechnungsbetrag</td>
-              <td style="padding:8px 20px 6px;color:#1f2f42;font-size:19px;font-weight:700;text-align:right;">${safe.amount}</td>
+              <td style="padding:8px 22px 7px;color:#52616F;font-size:13px;">Rechnungsbetrag</td>
+              <td style="padding:8px 22px 7px;color:#102A43;font-size:20px;font-weight:700;text-align:right;">${safe.amount}</td>
             </tr>
-            <tr class="invoice-row">
-              <td style="padding:8px 20px 18px;color:#5a6878;font-size:13px;">Zahlungsart</td>
-              <td style="padding:8px 20px 18px;color:#276c73;font-size:16px;font-weight:700;text-align:right;">${safe.paymentLabel}</td>
+            <tr class="invoice-row invoice-row-last">
+              <td style="padding:8px 22px 20px;color:#52616F;font-size:13px;">Zahlungsart</td>
+              <td style="padding:8px 22px 20px;color:#B5282D;font-size:16px;font-weight:700;text-align:right;">${safe.paymentLabel}</td>
             </tr>
           </table>
           ${instructionHtml}
-          <p style="margin:24px 0 0;font-size:15px;line-height:1.65;">Bei Fragen antworten Sie einfach auf diese E-Mail.</p>
-          <p style="margin:28px 0 0;color:#1f2f42;font-size:15px;line-height:1.55;"><strong>Ihr Team von Handzettel-Schulen.de</strong><br><span style="color:#7b8794;font-size:13px;">BSS Vogtland</span></p>
+          <p style="margin:24px 0 0;color:#52616F;font-size:15px;line-height:1.65;">Bei Fragen zu Ihrer Bestellung oder Rechnung antworten Sie einfach auf diese E-Mail.</p>
+          <p style="margin:28px 0 0;color:#52616F;font-size:15px;line-height:1.6;">Freundliche Grüße<br><strong style="color:#102A43;">Ihr Team von Handzettel-Schulen.de</strong><br><span style="color:#52616F;font-size:13px;">BSS Vogtland</span></p>
         </td></tr>
       </table>
     </td></tr>

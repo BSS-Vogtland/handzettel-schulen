@@ -35,7 +35,7 @@ for (const paymentMethod of ["paypal", "stripe"] as const) {
 }
 
 const pickup = buildNativeLexwareInvoiceMailTemplate({ ...base, paymentMethod: "cash_on_pickup" });
-assert.equal(pickup.paymentMethodLabel, "Zahlung bei Abholung");
+assert.equal(pickup.paymentMethodLabel, "Barzahlung bei Abholung");
 assert.doesNotMatch(pickup.text + pickup.html, /bitte überweisen/i);
 
 const unknown = buildNativeLexwareInvoiceMailTemplate({ ...base, paymentMethod: "internal_future_value" });
@@ -46,10 +46,29 @@ assert.match(transfer.html, /<meta name="viewport" content="width=device-width,i
 assert.match(transfer.html, /@media only screen and \(max-width: 600px\)/, "mobile breakpoint");
 assert.match(transfer.html, /class="mail-shell"/);
 assert.match(transfer.html, /class="invoice-row"/);
-assert.match(transfer.text, /Ihr Team von Handzettel-Schulen\.de\nBSS Vogtland$/);
+assert.match(transfer.text, /Freundliche Grüße\nIhr Team von Handzettel-Schulen\.de\nBSS Vogtland$/);
 assert.match(transfer.html, /Ihr Team von Handzettel-Schulen\.de/);
 assert.match(transfer.html, /BSS Vogtland/);
 assert.match(transfer.text + transfer.html, /PDF im Anhang/);
+
+assert.match(transfer.html, /https:\/\/www\.handzettel-schulen\.de\/handzettel-logo\.png/, "real public brand logo");
+for (const brandColor of ["#B5282D", "#102A43", "#FBF7F0", "#E8DED2", "#52616F"]) {
+  assert.match(transfer.html, new RegExp(brandColor, "i"), `brand color ${brandColor}`);
+}
+for (const legacyColor of ["#276c73", "#27364a", "#f3f6f8", "#dce4e9", "#1f2f42", "#f7fafb"]) {
+  assert.doesNotMatch(transfer.html, new RegExp(legacyColor, "i"), `legacy petrol color removed: ${legacyColor}`);
+}
+assert.match(transfer.html, /background:#FFF8EE;border:1px solid #F1D1A8/);
+assert.match(transfer.html, /color:#8A4A1F/);
+assert.doesNotMatch(transfer.html, /<svg|<picture|background-image|icon/i, "no illustration or icon treatment");
+assert.doesNotMatch(transfer.html, /newsletter|jetzt kaufen|angebot sichern/i, "no marketing footer or CTA");
+assert.match(transfer.html, /width="620"/);
+assert.match(transfer.html, /border-radius:28px/);
+assert.match(transfer.html, /border-radius:16px/);
+
+const paypal = buildNativeLexwareInvoiceMailTemplate({ ...base, paymentMethod: "paypal" });
+assert.match(paypal.html, /Ihre Zahlung wurde bereits über PayPal abgewickelt\./);
+assert.doesNotMatch(paypal.html, /#FFF8EE|#F1D1A8|#8A4A1F/, "paid method has no transfer warning box");
 
 const escaped = buildNativeLexwareInvoiceMailTemplate({
   ...base,
