@@ -56,6 +56,14 @@ export function isNativeInvoiceCronCandidate(candidate: NativeInvoiceCronCandida
     && typeof candidate.lock_expires_at === "string" && Date.parse(candidate.lock_expires_at) <= now;
 }
 
+export function isNativeInvoiceCronTargetFirst(
+  candidates: NativeInvoiceCronCandidate[],
+  invoiceId: string,
+  now: number,
+): boolean {
+  return candidates.find((candidate) => isNativeInvoiceCronCandidate(candidate, now))?.local_invoice_id === invoiceId;
+}
+
 export async function runNativeInvoiceCronWorker(deps: WorkerDependencies): Promise<NativeInvoiceCronWorkerResult> {
   const candidate = (await deps.loadCandidates()).find((value) => isNativeInvoiceCronCandidate(value, deps.now()));
   if (!candidate) return {
