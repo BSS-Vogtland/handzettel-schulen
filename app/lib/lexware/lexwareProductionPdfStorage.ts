@@ -56,7 +56,10 @@ export async function loadStoredNativeLexwarePdf(invoiceId: string) {
   return { content, metadata, invoice: row };
 }
 
-export async function fetchAndStoreLexwareProductionPdf(invoiceId: string) {
+export async function fetchAndStoreLexwareProductionPdf(
+  invoiceId: string,
+  lifecycle: { onProviderGetStarted?: () => void } = {},
+) {
   const { data: invoiceData, error: invoiceError } = await supabaseServer.from("school_request_invoices")
     .select("id,request_id,invoice_provider,lexware_invoice_job_id,lexware_invoice_id,lexware_invoice_number,lexware_pdf_fetched_at,lexware_pdf_sha256,lexware_pdf_size_bytes,lexware_pdf_content_type,lexware_pdf_filename,lexware_pdf_storage_bucket,lexware_pdf_storage_path,lexware_pdf_stored_at")
     .eq("id", invoiceId).single();
@@ -80,6 +83,7 @@ export async function fetchAndStoreLexwareProductionPdf(invoiceId: string) {
     verifyStoredPdf(content, existing);
     return { outcome: "already_prepared" as const, providerGetCount: 0, metadata: existing };
   }
+  lifecycle.onProviderGetStarted?.();
   const response = await getLexwareInvoicePdf("production", invoice.lexware_invoice_id, { maxBytes: 10 * 1024 * 1024 });
   const verified = validateLexwarePdf(response.content, response.contentType ?? "");
   const path = buildLexwarePdfStoragePath({ organizationId: job.target_organization_id,
