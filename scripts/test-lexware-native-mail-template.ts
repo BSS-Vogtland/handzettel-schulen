@@ -21,7 +21,8 @@ assert.doesNotMatch(transfer.text + transfer.html, /bank_transfer/, "no internal
 assert.match(transfer.text, /Rechnungsnummer: RE0003/);
 assert.match(transfer.text, /Rechnungsbetrag: 0,01\s*€/);
 assert.match(transfer.text, /Zahlungsart: Überweisung/);
-assert.match(transfer.text, /unter Angabe der Rechnungsnummer RE0003/);
+assert.match(transfer.text, /Bitte überweisen Sie 0,01\s*€ unter Angabe der Rechnungsnummer RE0003/);
+assert.match(transfer.text, /Sobald Ihre Zahlung eingegangen ist, bearbeiten wir Ihre Bestellung weiter\./);
 assert.match(transfer.html, /Rechnungsnummer/);
 assert.match(transfer.html, /Rechnungsbetrag/);
 assert.match(transfer.html, /Zahlungsart/);
@@ -65,9 +66,13 @@ assert.doesNotMatch(transfer.html, /newsletter|jetzt kaufen|angebot sichern/i, "
 assert.match(transfer.html, /width="620"/);
 assert.match(transfer.html, /border-radius:28px/);
 assert.match(transfer.html, /border-radius:16px/);
+assert.match(transfer.html, /width="250"/, "larger desktop logo");
+assert.match(transfer.html, /brand-logo \{ width: 200px !important/, "larger mobile logo");
+assert.match(transfer.html, /border-top:4px solid #B5282D/, "restrained red brand accent");
+assert.match(transfer.html, /Zahlungsart<\/td>\s*<td style="[^"]*color:#102A43/, "payment value uses dark blue");
 
 const paypal = buildNativeLexwareInvoiceMailTemplate({ ...base, paymentMethod: "paypal" });
-assert.match(paypal.html, /Ihre Zahlung wurde bereits über PayPal abgewickelt\./);
+assert.match(paypal.text + paypal.html, /Die Zahlung über PayPal ist bereits erfolgt\. Sie müssen nichts weiter veranlassen\./);
 assert.doesNotMatch(paypal.html, /#FFF8EE|#F1D1A8|#8A4A1F/, "paid method has no transfer warning box");
 
 const escaped = buildNativeLexwareInvoiceMailTemplate({
