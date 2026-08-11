@@ -59,6 +59,7 @@ assert.match(service, /processLexwareProductionInvoiceById\(invoiceId\)/, "O exi
 assert.match(adminRoute, /processLexwareProductionInvoiceById/, "O manual admin processor remains intact");
 assert.doesNotMatch(service + route, /getLexwareInvoicePdf|pdf_delivery|enqueue.*mail|mail_job|smtp|sendMail/i, "P-R no PDF, mail job, or SMTP");
 assert.doesNotMatch(service + route, /console\.|recipient|billing|address|email|customer/i, "S no personal logs/data");
-assert.doesNotMatch(vercel, /api\/cron\/lexware\/invoices/, "cron schedule is not activated");
+assert.match(vercel, /"path": "\/api\/cron\/lexware\/invoices"[\s\S]*?"schedule": "\*\/2 \* \* \* \*"/,
+  "invoice Cron runs on the even two-minute phase");
 
 console.log("PASS: native invoice cron worker A-S");

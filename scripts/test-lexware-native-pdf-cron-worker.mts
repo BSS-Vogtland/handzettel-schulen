@@ -142,6 +142,7 @@ assert.match(manualRoute, /fetchAndStoreLexwareProductionPdf\(invoiceId\)/, "U m
 assert.match(invoiceWorker, /processLexwareProductionInvoiceById/, "V invoice worker unchanged");
 assert.doesNotMatch(worker + route, /enqueue.*mail|mail_job|smtp|sendMail/i, "S-T no mail job or SMTP");
 assert.doesNotMatch(worker + route, /console\.|recipient|billing|address|email|customer/i, "W no personal logs/data");
-assert.doesNotMatch(vercel, /api\/cron\/lexware\/pdfs/, "cron schedule remains inactive");
+assert.match(vercel, /"path": "\/api\/cron\/lexware\/pdfs"[\s\S]*?"schedule": "1-59\/2 \* \* \* \*"/,
+  "PDF Cron runs on the odd two-minute phase");
 
 console.log("PASS: native PDF cron worker A-W");

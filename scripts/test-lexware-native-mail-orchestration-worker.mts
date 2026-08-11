@@ -90,6 +90,7 @@ assert.match(manualActivation, /activateNativeLexwareInvoiceMail/, "S manual act
 assert.match(mailProcessor, /processLexwareProductionMailJob/, "mail processor remains separate");
 assert.match(invoiceWorker, /processLexwareProductionInvoiceById/, "T invoice worker unchanged contract");
 assert.match(pdfWorker, /fetchAndStoreLexwareProductionPdf/, "T PDF worker unchanged contract");
-assert.doesNotMatch(vercel, /api\/cron\/lexware\/mail-orchestration/, "cron schedule remains inactive");
+assert.match(vercel, /"path": "\/api\/cron\/lexware\/mail-orchestration"[\s\S]*?"schedule": "\*\/2 \* \* \* \*"/,
+  "mail orchestration Cron runs on the even two-minute phase");
 
 console.log("PASS: native mail orchestration worker A-T");

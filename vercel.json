@@ -24,6 +24,22 @@
                   {
                       "path":  "/api/cron/recommendation-partner-reports?secret=socialpilot_2026_7Fh92KpL_reminder_SECRET_45jZ",
                       "schedule":  "0 7 1 * *"
-                  }
-              ]
+    },
+    {
+      "path": "/api/cron/lexware/invoices",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/lexware/pdfs",
+      "schedule": "1-59/2 * * * *"
+    },
+    {
+      "path": "/api/cron/lexware/mail-orchestration",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/lexware/mail-process",
+      "schedule": "1-59/2 * * * *"
+    }
+  ]
 }

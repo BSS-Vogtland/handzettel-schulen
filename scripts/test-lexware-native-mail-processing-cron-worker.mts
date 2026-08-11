@@ -132,6 +132,7 @@ assert.match(pdfWorker, /runNativePdfCronWorker/, "AA PDF worker unchanged");
 assert.doesNotMatch(worker + route, /console\./, "AB no logs containing personal data");
 assert.doesNotMatch(route, /recipient_email|from_email|message_id|local_invoice_id|billing_|customer|address_snapshot/i,
   "AB sanitized route response has no personal or object identifiers");
-assert.doesNotMatch(vercel, /api\/cron\/lexware\/mail-process/, "cron schedule is not activated");
+assert.match(vercel, /"path": "\/api\/cron\/lexware\/mail-process"[\s\S]*?"schedule": "1-59\/2 \* \* \* \*"/,
+  "mail processor Cron runs on the odd two-minute phase");
 
 console.log("PASS: native mail processing cron worker A-AB");
