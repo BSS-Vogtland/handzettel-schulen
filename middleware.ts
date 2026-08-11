@@ -29,6 +29,7 @@ const LEXWARE_NO_STORE_ADMIN_ROUTE =
 function requiresNoStoreApiUnauthorizedResponse(pathname: string) {
   return (
     pathname === "/api/admin/paypal/runtime-readiness" ||
+    pathname === "/api/admin/lexware/cron/mail-process/trigger-once" ||
     LEXWARE_NO_STORE_ADMIN_ROUTE.test(pathname)
   );
 }
