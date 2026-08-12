@@ -64,6 +64,11 @@ includes("case_status not in ('completed', 'rejected', 'cancelled')", "terminal 
 
 includes("set fulfillment_status = 'unknown' where fulfillment_status = 'not_selected'", "only unknown legacy fulfillment is normalized");
 includes("alter column fulfillment_status set default 'not_started'", "future requests default to not_started");
+includes("'pickup_requested', 'shipping_requested'", "current checkout fulfillment states remain valid");
+includes("add column fulfillment_timeline_contract_version text null", "timeline version is nullable for legacy rows");
+includes("fulfillment_timeline_contract_version is null or fulfillment_timeline_contract_version = 'after-sales-fulfillment-v1'", "timeline version has a closed allowlist");
+includes("fulfillment_timeline_contract_version is distinct from 'after-sales-fulfillment-v1'", "timeline order is enforced only for explicit V1 rows");
+includes("phase a performs no backfill and defines no default", "legacy timeline preservation is documented");
 includes("fulfillment_hold_picking_status_snapshot", "hold freezes picking state");
 includes("fulfillment_status = fulfillment_hold_status_snapshot", "hold freezes fulfillment status");
 includes("picking_status = fulfillment_hold_picking_status_snapshot", "hold freezes picking status");
@@ -78,6 +83,62 @@ excludes(/create\s+(or\s+replace\s+)?function/i, "migration 1 contains no RPCs")
 excludes(/\b(http|net\.http|createfinalinvoice|paypal|smtp)\b/i, "migration has no provider or mail path");
 excludes(/\bgrant\s+(insert|update|delete|all)\b/i, "new tables expose no mutation grants");
 excludes(/\bactive_after_sales_case_id\b/i, "no redundant active case pointer is added");
+excludes(/set\s+fulfillment_timeline_contract_version\s*=/i, "timeline version is never backfilled");
+excludes(/alter\s+column\s+fulfillment_timeline_contract_version\s+set\s+default/i, "timeline version has no default");
+excludes(/set\s+(picked_at|packed_at|shipped_at|delivered_at)\s*=/i, "existing fulfillment timestamps are never rewritten");
+
+type Timeline = {
+  version: null | string;
+  pickedAt: string | null;
+  packedAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+};
+
+function timelineContractAllows(row: Timeline) {
+  if (
+    row.version !== null &&
+    row.version !== "after-sales-fulfillment-v1"
+  ) {
+    return false;
+  }
+
+  if (row.version !== "after-sales-fulfillment-v1") return true;
+
+  const time = (value: string | null) =>
+    value === null ? null : Date.parse(value);
+  const picked = time(row.pickedAt);
+  const packed = time(row.packedAt);
+  const shipped = time(row.shippedAt);
+  const delivered = time(row.deliveredAt);
+
+  return (
+    (picked === null || packed === null || packed >= picked) &&
+    (packed === null || shipped === null || shipped >= packed) &&
+    (shipped === null || delivered === null || delivered >= shipped)
+  );
+}
+
+const legacyPackedBeforePicked = {
+  pickedAt: "2026-07-29T12:36:53.919Z",
+  packedAt: "2026-07-29T12:36:48.721Z",
+  shippedAt: null,
+  deliveredAt: null,
+};
+const legacyShippedBeforePacked = {
+  pickedAt: "2026-07-15T15:41:20.000Z",
+  packedAt: "2026-07-15T15:41:41.648Z",
+  shippedAt: "2026-07-15T15:41:28.640Z",
+  deliveredAt: null,
+};
+
+assert.equal(timelineContractAllows({ version: null, ...legacyPackedBeforePicked }), true, "legacy packed-before-picked remains valid with NULL version");
+assert.equal(timelineContractAllows({ version: null, ...legacyShippedBeforePacked }), true, "legacy shipped-before-packed remains valid with NULL version");
+assert.equal(timelineContractAllows({ version: "after-sales-fulfillment-v1", ...legacyPackedBeforePicked }), false, "V1 blocks packed-before-picked");
+assert.equal(timelineContractAllows({ version: "after-sales-fulfillment-v1", ...legacyShippedBeforePacked }), false, "V1 blocks shipped-before-packed");
+assert.equal(timelineContractAllows({ version: "after-sales-fulfillment-v1", pickedAt: "2026-08-12T08:00:00Z", packedAt: "2026-08-12T08:10:00Z", shippedAt: "2026-08-12T08:20:00Z", deliveredAt: "2026-08-12T09:00:00Z" }), true, "V1 accepts a monotone timeline");
+assert.equal(timelineContractAllows({ version: "after-sales-fulfillment-v1", pickedAt: null, packedAt: null, shippedAt: "2026-08-12T08:20:00Z", deliveredAt: null }), true, "V1 permits missing intermediate timestamps");
+assert.equal(timelineContractAllows({ version: "after-sales-fulfillment-v2", pickedAt: null, packedAt: null, shippedAt: null, deliveredAt: null }), false, "unknown timeline versions are blocked");
 
 const createTableCount = (sql.match(/create table public\.school_request_after_sales_/gi) ?? []).length;
 assert.equal(createTableCount, 3, "exactly three after-sales tables are created");

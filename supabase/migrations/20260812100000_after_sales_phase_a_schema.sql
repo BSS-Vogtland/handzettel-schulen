@@ -540,6 +540,7 @@ create index school_request_after_sales_case_events_type_created_idx
 -- used by the current fulfillment routes. Only unknown historical state is
 -- normalized; real progress such as ready_for_pickup/shipped/picked_up remains.
 alter table public.school_requests
+  add column fulfillment_timeline_contract_version text null,
   add column fulfillment_hold boolean not null default false,
   add column fulfillment_hold_reason text null,
   add column fulfillment_hold_set_at timestamptz null,
@@ -566,6 +567,12 @@ alter table public.school_requests
       'ready_for_pickup', 'pickup_ready', 'shipping_ready', 'shipped',
       'delivered', 'picked_up', 'cancelled'
     )),
+  add constraint school_requests_fulfillment_timeline_version_check
+    check (
+      fulfillment_timeline_contract_version is null
+      or fulfillment_timeline_contract_version =
+        'after-sales-fulfillment-v1'
+    ),
   add constraint school_requests_fulfillment_revision_check
     check (fulfillment_revision >= 0),
   add constraint school_requests_fulfillment_hold_case_fk
@@ -622,9 +629,21 @@ alter table public.school_requests
     ),
   add constraint school_requests_fulfillment_timestamps_order
     check (
-      (picked_at is null or packed_at is null or packed_at >= picked_at)
-      and (packed_at is null or shipped_at is null or shipped_at >= packed_at)
-      and (shipped_at is null or delivered_at is null or delivered_at >= shipped_at)
+      fulfillment_timeline_contract_version is distinct from
+        'after-sales-fulfillment-v1'
+      or (
+        (picked_at is null or packed_at is null or packed_at >= picked_at)
+        and (
+          packed_at is null
+          or shipped_at is null
+          or shipped_at >= packed_at
+        )
+        and (
+          shipped_at is null
+          or delivered_at is null
+          or delivered_at >= shipped_at
+        )
+      )
     );
 
 create index school_requests_fulfillment_hold_case_idx
@@ -640,6 +659,9 @@ create index school_requests_fulfillment_status_updated_idx
 
 comment on column public.school_requests.fulfillment_hold is
   'Fail-closed operational stop owned by exactly one after-sales case.';
+
+comment on column public.school_requests.fulfillment_timeline_contract_version is
+  'NULL preserves unverified legacy timelines. after-sales-fulfillment-v1 may only be set later by an atomic fulfillment contract after validating the existing timeline; Phase A performs no backfill and defines no default.';
 
 comment on column public.school_requests.fulfillment_hold_picking_status_snapshot is
   'Freezes the existing picking_status together with fulfillment_status while an after-sales hold is active.';
