@@ -62,7 +62,7 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
   country: "Deutschland",
 
   phone_primary: "03765 16175",
-  phone_secondary: null,
+  phone_secondary: "0173 315 76 71",
   fax: null,
 
   email_general: "kontakt@bss-vogtland.de",
