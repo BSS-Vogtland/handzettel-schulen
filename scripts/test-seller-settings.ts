@@ -56,10 +56,10 @@ console.log("F PASS");
 assert.equal(current.tradeName, "Handzettel-Schulen.de");
 console.log("G PASS");
 
-assert.equal(current.taxNumber, "223/263/09459");
+assert.equal(current.taxNumber, "223/263/05859");
 console.log("H PASS");
 
-assert.equal(current.vatId, "DE346183832");
+assert.equal(current.vatId, "DE463186382");
 console.log("I PASS");
 
 const activeSources = [
@@ -80,7 +80,12 @@ assert.equal((pdf.match(/resolveSellerDetails\(invoice\)/g) || []).length, 1);
 console.log("K PASS");
 
 const migration = activeSources[5];
-for (const value of Object.values(currentSnapshot)) assert.ok(migration.includes(`'${value}'`));
+for (const [key, value] of Object.entries(currentSnapshot)) {
+  if (key === "seller_tax_number_snapshot" || key === "seller_vat_id_snapshot") continue;
+  assert.ok(migration.includes(`'${value}'`));
+}
+assert.match(migration, /'223\/263\/09459'/);
+assert.match(migration, /'DE346183832'/);
 console.log("L PASS");
 
 assert.doesNotMatch(migration, /update public\.school_request_invoices/i);

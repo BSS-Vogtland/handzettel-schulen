@@ -68,7 +68,7 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
   email_general: "kontakt@bss-vogtland.de",
   email_privacy: "kontakt@bss-vogtland.de",
 
-  vat_id: "DE346183832",
+  vat_id: "DE463186382",
 
   register_court: null,
   register_number: null,
