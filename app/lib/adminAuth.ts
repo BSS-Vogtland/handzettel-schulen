@@ -1,5 +1,11 @@
 export const ADMIN_SESSION_COOKIE = "hs_admin_session";
 
+export type AdminSessionIdentity = { username: string; expiresAt: number };
+export type AdminAuditActor = {
+  actorType: "admin";
+  actorReference: string;
+};
+
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 12;
 
 function getAdminSessionSecret() {
@@ -73,23 +79,56 @@ export async function createAdminSessionToken(username: string) {
   return `${payload}.${signature}`;
 }
 
-export async function verifyAdminSessionToken(token: string | undefined | null) {
-  if (!token) return false;
+export async function getVerifiedAdminSession(
+  token: string | undefined | null
+): Promise<AdminSessionIdentity | null> {
+  if (!token) return null;
 
   const parts = token.split(".");
 
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
 
   const [encodedUsername, expiresAtRaw, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
 
-  if (!encodedUsername || !Number.isFinite(expiresAt)) return false;
-  if (Date.now() > expiresAt) return false;
+  if (!encodedUsername || !Number.isFinite(expiresAt)) return null;
+  if (Date.now() > expiresAt) return null;
 
   const payload = `${encodedUsername}.${expiresAtRaw}`;
   const expectedSignature = await createHmacSignature(payload);
 
-  return safeCompare(signature, expectedSignature);
+  if (!safeCompare(signature, expectedSignature)) return null;
+
+  try {
+    const username = decodeURIComponent(encodedUsername).trim();
+    return username ? { username, expiresAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyAdminSessionToken(token: string | undefined | null) {
+  return (await getVerifiedAdminSession(token)) !== null;
+}
+
+export function getAdminAuditActorForUsername(username: string): AdminAuditActor {
+  const normalizedUsername = username.trim().normalize("NFKC").toLowerCase();
+
+  if (!normalizedUsername) {
+    throw new Error("Admin-Audit-Identität ist nicht verfügbar.");
+  }
+
+  return {
+    actorType: "admin",
+    actorReference: `admin:${normalizedUsername}`,
+  };
+}
+
+export async function getAdminAuditActorFromSessionToken(
+  token: string | undefined | null
+): Promise<AdminAuditActor | null> {
+  const session = await getVerifiedAdminSession(token);
+  return session ? getAdminAuditActorForUsername(session.username) : null;
 }
 
 export function validateAdminCredentials(input: {

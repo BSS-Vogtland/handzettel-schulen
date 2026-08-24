@@ -2,8 +2,15 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   ADMIN_SESSION_COOKIE,
+  getAdminAuditActorFromSessionToken,
   verifyAdminSessionToken,
 } from "@/app/lib/adminAuth";
+
+export async function getAdminAuditActor() {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  return getAdminAuditActorFromSessionToken(sessionToken);
+}
 
 export async function requireAdminApiSession(): Promise<NextResponse | null> {
   const cookieStore = await cookies();
