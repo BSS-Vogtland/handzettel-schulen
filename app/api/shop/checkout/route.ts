@@ -21,6 +21,11 @@ import { createBankTransferSnapshot } from "@/app/lib/paymentSettings";
 import { createSellerSnapshot } from "@/app/lib/sellerSettings";
 import { getCheckoutMaintenanceDecision } from "@/lib/checkoutMaintenance";
 import { stageNativeLexwareCheckoutInvoice } from "@/app/lib/lexware/lexwareNativeCheckoutStaging";
+import {
+  isPayPalPaymentsEnabled,
+  PAYPAL_DISABLED_CODE,
+  PAYPAL_DISABLED_MESSAGE,
+} from "@/app/lib/paypalPaymentsGate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -668,6 +673,17 @@ export async function POST(request: NextRequest) {
       body.paymentMethod === "bank_transfer" ? "bank_transfer" : "paypal";
     const paymentProvider =
       paymentMethod === "paypal" ? "paypal" : "bank_transfer";
+
+    if (paymentMethod === "paypal" && !(await isPayPalPaymentsEnabled())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: PAYPAL_DISABLED_CODE,
+          message: PAYPAL_DISABLED_MESSAGE,
+        },
+        { status: 503 },
+      );
+    }
 
     const billingName = cleanString(body.billingName || customerName);
     const billingEmail = cleanString(body.billingEmail || email).toLowerCase();

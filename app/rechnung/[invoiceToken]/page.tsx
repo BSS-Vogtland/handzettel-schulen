@@ -9,6 +9,10 @@ import {
   Truck,
 } from "lucide-react";
 import CustomerPaymentMethodButton from "@/components/CustomerPaymentMethodButton";
+import {
+  isPayPalPaymentsEnabled,
+  PAYPAL_DISABLED_MESSAGE,
+} from "@/app/lib/paypalPaymentsGate";
 
 export const dynamic = "force-dynamic";
 
@@ -256,6 +260,7 @@ export default async function InvoicePaymentPage({ params }: Params) {
   const token = decodeURIComponent(invoiceToken || "").trim();
 
   const supabase = getSupabaseAdmin();
+  const paypalPaymentsEnabled = await isPayPalPaymentsEnabled(supabase);
 
   const { data: invoiceData, error: invoiceError } = await supabase
     .from("school_request_invoices")
@@ -812,12 +817,19 @@ export default async function InvoicePaymentPage({ params }: Params) {
             </div>
           ) : (
             <div className="mt-6 grid gap-5">
-              <CustomerPaymentMethodButton
-                invoiceToken={invoice.invoice_token}
-                paymentMethod="paypal"
-                label="PayPal"
-                description="Empfohlen und am schnellsten. Du wirst direkt zur PayPal-Zahlung mit dem Gesamtbetrag weitergeleitet."
-              />
+              {paypalPaymentsEnabled ? (
+                <CustomerPaymentMethodButton
+                  invoiceToken={invoice.invoice_token}
+                  paymentMethod="paypal"
+                  label="PayPal"
+                  description="Du wirst direkt zur PayPal-Zahlung mit dem Gesamtbetrag weitergeleitet."
+                />
+              ) : (
+                <div className="rounded-[26px] border border-[#E8DED2] bg-[#F3EFE9] p-5 text-sm font-bold leading-6 text-[#52616F]">
+                  <p className="text-lg font-black text-[#172033]">PayPal</p>
+                  <p className="mt-2">{PAYPAL_DISABLED_MESSAGE}</p>
+                </div>
+              )}
 
               <CustomerPaymentMethodButton
                 invoiceToken={invoice.invoice_token}
@@ -841,8 +853,8 @@ export default async function InvoicePaymentPage({ params }: Params) {
             {invoice.selected_payment_method
               ? "Wichtig: Dein Paket wird nach Zahlungseingang weiter bearbeitet."
               : canUseCashOnPickup
-              ? "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
-              : "Wichtig: Bei PayPal oder Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
+              ? "Wichtig: Bei Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet. Bei Barzahlung zahlst Du direkt bei Abholung im Laden."
+              : "Wichtig: Bei Überweisung wird Dein Paket nach Zahlungseingang weiter bearbeitet."}
           </div>
         </section>
 

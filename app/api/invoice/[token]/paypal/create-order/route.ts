@@ -5,6 +5,11 @@ import {
   buildPayPalPaymentFingerprint,
   createPayPalOrder,
 } from "@/app/lib/paypal";
+import {
+  isPayPalPaymentsEnabled,
+  PAYPAL_DISABLED_CODE,
+  PAYPAL_DISABLED_MESSAGE,
+} from "@/app/lib/paypalPaymentsGate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -299,6 +304,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
       }
       return NextResponse.json({ ok: true, reused: true, paypalOrderId: invoice.paypal_order_id, approvalUrl, message: "PayPal-Zahlung wurde bereits gestartet." });
+    }
+
+    if (!(await isPayPalPaymentsEnabled(supabase))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: PAYPAL_DISABLED_CODE,
+          message: PAYPAL_DISABLED_MESSAGE,
+        },
+        { status: 503 },
+      );
     }
 
     const { data: requestData } = await supabase

@@ -8,6 +8,7 @@ import {
   CHECKOUT_MAINTENANCE_ACTIVE,
   CHECKOUT_MAINTENANCE_MESSAGE,
 } from "@/lib/checkoutMaintenance";
+import { usePayPalPaymentsEnabled } from "@/app/lib/usePaymentRuntimeOptions";
 
 type FulfillmentMethod = "pickup" | "shipping";
 type PaymentMethod = "paypal" | "bank_transfer";
@@ -122,7 +123,12 @@ export default function HandzettelCheckoutPage() {
     useState<FulfillmentMethod>("pickup");
 
   const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("paypal");
+    useState<PaymentMethod>("bank_transfer");
+  const paypalPaymentsEnabled = usePayPalPaymentsEnabled();
+
+  useEffect(() => {
+    if (!paypalPaymentsEnabled) setPaymentMethod("bank_transfer");
+  }, [paypalPaymentsEnabled]);
 
   const [customerMessage, setCustomerMessage] =
     useState("");
@@ -592,9 +598,8 @@ export default function HandzettelCheckoutPage() {
             )}
 
             <div className="mt-5 rounded-2xl bg-[#e7f7ec] p-4 text-sm font-bold leading-6 text-[#246b3a] ring-1 ring-[#bfe7c9]">
-              PayPal ist vorausgewählt. Alternativ
-              kannst Du Überweisung wählen.
-              Barzahlung ist online nicht verfügbar.
+              PayPal ist derzeit vorübergehend nicht verfügbar. Bitte wähle
+              eine andere Zahlungsart. Barzahlung ist online nicht verfügbar.
             </div>
           </div>
         </div>
@@ -910,11 +915,14 @@ export default function HandzettelCheckoutPage() {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <button
                 type="button"
+                disabled={!paypalPaymentsEnabled}
                 onClick={() =>
                   selectPaymentMethod("paypal")
                 }
                 className={
-                  paymentMethod === "paypal"
+                  !paypalPaymentsEnabled
+                    ? "cursor-not-allowed rounded-[2rem] border border-[#eadfce] bg-[#f3efe9] p-5 text-left opacity-70"
+                    : paymentMethod === "paypal"
                     ? "rounded-[2rem] border-2 border-[#2F7D50] bg-[#F0FFF6] p-5 text-left shadow-sm"
                     : "rounded-[2rem] border border-[#eadfce] bg-[#f7f1e8] p-5 text-left transition hover:bg-white"
                 }
@@ -924,9 +932,9 @@ export default function HandzettelCheckoutPage() {
                 </p>
 
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#5b667a]">
-                  Empfohlen. Nach der Bestellung
-                  kannst Du direkt über PayPal
-                  bezahlen.
+                  {paypalPaymentsEnabled
+                    ? "Nach der Bestellung kannst Du direkt über PayPal bezahlen."
+                    : "PayPal ist derzeit vorübergehend nicht verfügbar. Bitte wähle eine andere Zahlungsart."}
                 </p>
               </button>
 

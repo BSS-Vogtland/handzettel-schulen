@@ -33,6 +33,11 @@ import {
 } from "@/lib/checkoutTestPermits";
 import { getRequestBlockingState } from "@/lib/requestWorkflowBlocking";
 import { stageNativeLexwareCheckoutInvoice } from "@/app/lib/lexware/lexwareNativeCheckoutStaging";
+import {
+  isPayPalPaymentsEnabled,
+  PAYPAL_DISABLED_CODE,
+  PAYPAL_DISABLED_MESSAGE,
+} from "@/app/lib/paypalPaymentsGate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -613,6 +618,17 @@ export async function POST(
       paymentMethod === "paypal"
         ? "paypal"
         : "bank_transfer";
+
+    if (paymentMethod === "paypal" && !(await isPayPalPaymentsEnabled())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: PAYPAL_DISABLED_CODE,
+          message: PAYPAL_DISABLED_MESSAGE,
+        },
+        { status: 503 },
+      );
+    }
 
     const customerMessage =
       cleanNullableString(

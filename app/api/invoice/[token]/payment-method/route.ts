@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import {
+  isPayPalPaymentsEnabled,
+  PAYPAL_DISABLED_CODE,
+  PAYPAL_DISABLED_MESSAGE,
+} from "@/app/lib/paypalPaymentsGate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -215,6 +220,20 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const supabase = getSupabaseAdmin();
+
+    if (
+      paymentMethod === "paypal" &&
+      !(await isPayPalPaymentsEnabled(supabase))
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: PAYPAL_DISABLED_CODE,
+          message: PAYPAL_DISABLED_MESSAGE,
+        },
+        { status: 503 },
+      );
+    }
 
     const { data: invoiceData, error: invoiceError } = await supabase
       .from("school_request_invoices")
