@@ -122,6 +122,12 @@ const nextConfig: NextConfig = {
           "https://www.handzettel-schulen.de/shop/produkt/pinsel-6-borstenpinsel",
         permanent: true,
       },
+      {
+        source: "/shop/produkt/kunstmappe-sammelmappe-a2",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/kunstmappe-sammelmappe-a3",
+        permanent: true,
+      },
       // Bereits vorhandene Produkt-Redirects
       {
         source:
