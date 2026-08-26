@@ -91,6 +91,37 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
 
+      // Weitere historische Produkt-URLs aus Google Search Console
+      {
+        source: "/shop/produkt/block-a5-hs-blk-a5-weiss-001",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/block-a5-weiss",
+        permanent: true,
+      },
+      {
+        source: "/shop/produkt/umschlag-transparent-540-x-250-mm",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/buchumschlag-250-250x540-transparent-540-x-250-mm",
+        permanent: true,
+      },
+      {
+        source: "/shop/produkt/buchumschlag-transparent-380-x-190-mm",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/buchumschlag-190-190x380-transparent-380-x-190-mm",
+        permanent: true,
+      },
+      {
+        source: "/shop/produkt/sammelmappe-a4",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/sammelmappe-a4-postmappe",
+        permanent: true,
+      },
+      {
+        source: "/shop/produkt/pinsel-6",
+        destination:
+          "https://www.handzettel-schulen.de/shop/produkt/pinsel-6-borstenpinsel",
+        permanent: true,
+      },
       // Bereits vorhandene Produkt-Redirects
       {
         source:
