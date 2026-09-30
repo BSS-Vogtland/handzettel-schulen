@@ -1,3 +1,4 @@
+import { CURRENT_LEGAL_COMPANY_DETAILS, SELLER_DETAILS } from "@/app/lib/sellerSettings";
 import { createClient } from "@supabase/supabase-js";
 
 export type LegalSettings = {
@@ -48,34 +49,20 @@ export type LegalSettingsUpdateInput = Partial<
 
 export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
   id: "default",
+  ...CURRENT_LEGAL_COMPANY_DETAILS,
 
   site_name: "Handzettel-Schulen.de",
   brand_name: "Handzettel-Schulen.de",
 
-  company_name: "BSS Vogtland",
-  owner_name: "Marius Röthig",
   legal_form: "Einzelunternehmen",
 
-  street: "Heinrich-Heine-Str. 2",
-  postal_code: "08547",
-  city: "Jößnitz",
   country: "Deutschland",
-
-  phone_primary: "03765 16175",
-  phone_secondary: "0173 315 76 71",
-  fax: null,
-
-  email_general: "kontakt@bss-vogtland.de",
-  email_privacy: "kontakt@bss-vogtland.de",
 
   vat_id: "DE463186382",
 
   register_court: null,
   register_number: null,
   supervisory_authority: null,
-
-  responsible_person: "Marius Röthig",
-  privacy_contact: "Marius Röthig",
 
   dispute_resolution_text:
     "Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
@@ -90,24 +77,7 @@ export const FALLBACK_LEGAL_SETTINGS: LegalSettings = {
 };
 
 const LEGAL_SETTINGS_ID = "default";
-const CANONICAL_CONTACT_EMAIL = "kontakt@bss-vogtland.de";
-const LEGACY_CONTACT_EMAILS = new Set([
-  "bueroschwalmundstaffe@web.de",
-]);
-
-function normalizePublicEmail(value: unknown) {
-  const cleaned = cleanNullableText(value);
-
-  if (!cleaned) {
-    return CANONICAL_CONTACT_EMAIL;
-  }
-
-  if (LEGACY_CONTACT_EMAILS.has(cleaned.toLowerCase())) {
-    return CANONICAL_CONTACT_EMAIL;
-  }
-
-  return cleaned;
-}
+const CANONICAL_CONTACT_EMAIL = SELLER_DETAILS.email;
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -146,6 +116,7 @@ function normalizeLegalSettings(row: Partial<LegalSettings> | null): LegalSettin
 
   return {
     id: cleanRequiredText(row.id, FALLBACK_LEGAL_SETTINGS.id),
+    ...CURRENT_LEGAL_COMPANY_DETAILS,
 
     site_name: cleanRequiredText(
       row.site_name,
@@ -156,33 +127,15 @@ function normalizeLegalSettings(row: Partial<LegalSettings> | null): LegalSettin
       FALLBACK_LEGAL_SETTINGS.brand_name
     ),
 
-    company_name: cleanRequiredText(
-      row.company_name,
-      FALLBACK_LEGAL_SETTINGS.company_name
-    ),
-    owner_name: cleanNullableText(row.owner_name),
     legal_form: cleanNullableText(row.legal_form),
 
-    street: cleanNullableText(row.street),
-    postal_code: cleanNullableText(row.postal_code),
-    city: cleanNullableText(row.city),
     country: cleanNullableText(row.country),
-
-    phone_primary: cleanNullableText(row.phone_primary),
-    phone_secondary: cleanNullableText(row.phone_secondary),
-    fax: cleanNullableText(row.fax),
-
-    email_general: normalizePublicEmail(row.email_general),
-    email_privacy: normalizePublicEmail(row.email_privacy),
 
     vat_id: cleanNullableText(row.vat_id),
 
     register_court: cleanNullableText(row.register_court),
     register_number: cleanNullableText(row.register_number),
     supervisory_authority: cleanNullableText(row.supervisory_authority),
-
-    responsible_person: cleanNullableText(row.responsible_person),
-    privacy_contact: cleanNullableText(row.privacy_contact),
 
     dispute_resolution_text: cleanNullableText(row.dispute_resolution_text),
 
@@ -223,6 +176,7 @@ export async function updateLegalSettings(input: LegalSettingsUpdateInput) {
 
   const payload = {
     id: LEGAL_SETTINGS_ID,
+    ...CURRENT_LEGAL_COMPANY_DETAILS,
 
     site_name: cleanRequiredText(input.site_name, FALLBACK_LEGAL_SETTINGS.site_name),
     brand_name: cleanRequiredText(
@@ -230,33 +184,15 @@ export async function updateLegalSettings(input: LegalSettingsUpdateInput) {
       FALLBACK_LEGAL_SETTINGS.brand_name
     ),
 
-    company_name: cleanRequiredText(
-      input.company_name,
-      FALLBACK_LEGAL_SETTINGS.company_name
-    ),
-    owner_name: cleanNullableText(input.owner_name),
     legal_form: cleanNullableText(input.legal_form),
 
-    street: cleanNullableText(input.street),
-    postal_code: cleanNullableText(input.postal_code),
-    city: cleanNullableText(input.city),
     country: cleanNullableText(input.country),
-
-    phone_primary: cleanNullableText(input.phone_primary),
-    phone_secondary: cleanNullableText(input.phone_secondary),
-    fax: cleanNullableText(input.fax),
-
-    email_general: normalizePublicEmail(input.email_general),
-    email_privacy: normalizePublicEmail(input.email_privacy),
 
     vat_id: cleanNullableText(input.vat_id),
 
     register_court: cleanNullableText(input.register_court),
     register_number: cleanNullableText(input.register_number),
     supervisory_authority: cleanNullableText(input.supervisory_authority),
-
-    responsible_person: cleanNullableText(input.responsible_person),
-    privacy_contact: cleanNullableText(input.privacy_contact),
 
     dispute_resolution_text: cleanNullableText(input.dispute_resolution_text),
 
@@ -308,7 +244,6 @@ export function getPrivacyEmail(settings: LegalSettings) {
 export function getGeneralEmail(settings: LegalSettings) {
   return settings.email_general || settings.email_privacy || "";
 }
-
 
 export function getCanonicalContactEmail() {
   return CANONICAL_CONTACT_EMAIL;

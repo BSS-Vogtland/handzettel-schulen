@@ -8,6 +8,7 @@ import {
   Save,
   ShieldCheck,
 } from "lucide-react";
+import { CURRENT_LEGAL_COMPANY_DETAILS } from "@/app/lib/sellerSettings";
 import type { LegalSettings } from "@/lib/legal-settings";
 
 type AdminLegalSettingsFormProps = {
@@ -87,6 +88,7 @@ function Field({
       </span>
 
       <input
+        readOnly={Object.hasOwn(CURRENT_LEGAL_COMPANY_DETAILS, name)}
         type={type}
         value={String(value || "")}
         onChange={(event) => onChange(name, event.target.value)}
@@ -186,6 +188,9 @@ export default function AdminLegalSettingsForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <p className="text-sm text-[#52616F]">
+        Firmenname, Inhaber, Anschrift und Kontaktdaten sind zentral festgelegt und hier schreibgeschützt.
+      </p>
       {feedback ? (
         <div
           className={`rounded-3xl border px-4 py-4 shadow-sm ${

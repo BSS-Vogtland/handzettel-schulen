@@ -338,7 +338,7 @@ export async function POST(request: Request) {
     const displayName = getLegalDisplayName(settings);
     const address = getLegalAddress(settings);
     const contactEmail =
-      getGeneralEmail(settings) || "kontakt@bss-vogtland.de";
+      getGeneralEmail(settings);
     const notificationEmail =
       process.env.WITHDRAWAL_NOTIFICATION_EMAIL?.trim() ||
       contactEmail;

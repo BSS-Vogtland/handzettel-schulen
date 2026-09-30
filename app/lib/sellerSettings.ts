@@ -3,15 +3,32 @@ export const SELLER_DETAILS = {
   tradeName: "Handzettel-Schulen.de",
   ownerName: "Marius Röthig",
   legalForm: "Einzelunternehmen",
-  street: "Heinrich-Heine-Str. 2",
-  postalCode: "08547",
-  city: "Jößnitz",
+  street: "Zwickauer Str. 167",
+  postalCode: "08468",
+  city: "Reichenbach im Vogtland",
   country: "Deutschland",
   taxNumber: "223/263/05859",
   vatId: "DE463186382",
   email: "kontakt@bss-vogtland.de",
-  phone: "03765 16175",
+  phone: "03765 / 16175",
   website: "www.handzettel-schulen.de",
+} as const;
+
+// Binding current company profile. Tax identifiers and historical snapshots
+// deliberately remain outside this public-settings override.
+export const CURRENT_LEGAL_COMPANY_DETAILS = {
+  company_name: SELLER_DETAILS.legalName,
+  owner_name: SELLER_DETAILS.ownerName,
+  street: SELLER_DETAILS.street,
+  postal_code: SELLER_DETAILS.postalCode,
+  city: SELLER_DETAILS.city,
+  phone_primary: SELLER_DETAILS.phone,
+  phone_secondary: null,
+  fax: null,
+  email_general: SELLER_DETAILS.email,
+  email_privacy: SELLER_DETAILS.email,
+  responsible_person: SELLER_DETAILS.ownerName,
+  privacy_contact: SELLER_DETAILS.ownerName,
 } as const;
 
 export type SellerDetails = {
@@ -155,7 +172,7 @@ export function resolveSellerDetails(snapshot?: SellerSnapshotSource | null) {
 export function createSellerSnapshot() {
   const details = validateSellerDetails(SELLER_DETAILS);
   return {
-    seller_snapshot_version: "business-profile-2026-08-v1",
+    seller_snapshot_version: "business-profile-2026-09-30-v1",
     seller_legal_name_snapshot: details.legalName,
     seller_trade_name_snapshot: details.tradeName,
     seller_owner_name_snapshot: details.ownerName,

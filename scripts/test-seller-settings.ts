@@ -16,6 +16,11 @@ const { BANK_TRANSFER_DETAILS, validateBankTransferDetails } = paymentSettings;
 const current = validateSellerDetails(SELLER_DETAILS);
 assert.equal(current.legalName, "BSS Vogtland");
 assert.equal(current.ownerName, "Marius Röthig");
+assert.equal(current.street, "Zwickauer Str. 167");
+assert.equal(current.postalCode, "08468");
+assert.equal(current.city, "Reichenbach im Vogtland");
+assert.equal(current.email, "kontakt@bss-vogtland.de");
+assert.equal(current.phone, "03765 / 16175");
 console.log("A PASS");
 
 const currentSnapshot = createSellerSnapshot();
@@ -38,7 +43,13 @@ const historicalSnapshot = {
   seller_phone_snapshot: "01234 567890",
   seller_website_snapshot: "historisch.example",
 };
-assert.equal(resolveSellerDetails(historicalSnapshot).legalName, "Historische Firma");
+const historicalBefore = structuredClone(historicalSnapshot);
+const resolvedHistorical = resolveSellerDetails(historicalSnapshot);
+assert.equal(resolvedHistorical.legalName, "Historische Firma");
+assert.equal(resolvedHistorical.street, historicalSnapshot.seller_street_snapshot);
+assert.equal(resolvedHistorical.email, historicalSnapshot.seller_email_snapshot);
+assert.equal(resolvedHistorical.taxNumber, historicalSnapshot.seller_tax_number_snapshot);
+assert.deepEqual(historicalSnapshot, historicalBefore);
 console.log("C PASS");
 
 assert.deepEqual(resolveSellerDetails(null), current);
@@ -71,7 +82,7 @@ const activeSources = [
   readFileSync("supabase/migrations/20260803060000_future_invoice_bank_snapshot.sql", "utf8"),
 ];
 for (const source of activeSources) {
-  assert.doesNotMatch(source, /Bürotechnik Schwalm|Heike Leopold|Zwickauer Str\. 167|223\/244\/09843|DE257963936/);
+  assert.doesNotMatch(source, /Bürotechnik Schwalm|Heike Leopold|223\/244\/09843|DE257963936/);
 }
 console.log("J PASS");
 
@@ -81,7 +92,10 @@ console.log("K PASS");
 
 const migration = activeSources[5];
 for (const [key, value] of Object.entries(currentSnapshot)) {
-  if (key === "seller_tax_number_snapshot" || key === "seller_vat_id_snapshot") continue;
+  // This existing migration is a historical DB fallback, not the current app profile.
+  if (["seller_snapshot_version", "seller_street_snapshot", "seller_postal_code_snapshot",
+    "seller_city_snapshot", "seller_phone_snapshot", "seller_tax_number_snapshot",
+    "seller_vat_id_snapshot"].includes(key)) continue;
   assert.ok(migration.includes(`'${value}'`));
 }
 assert.match(migration, /'223\/263\/09459'/);
